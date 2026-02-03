@@ -1,11 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Webpage Test</title>
+    <meta charset="UTF-8">
+    <title>Webpage Test</title>
 </head>
 <body>
-  <h1>Test Test</h1>
-  <p>Hi!!!!!</p>
+    <h1>Test Test</h1>
+    <div id="plot"></div>
+
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script>
+    var trace = {
+    x: [1, 2, 3, 4],
+    y: [10, 15, 13, 17],
+    type: 'scatter'
+    };
+
+    Plotly.newPlot('plot', [trace]);
+    </script>
 </body>
 </html>
