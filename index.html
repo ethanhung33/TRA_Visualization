@@ -37,7 +37,7 @@
                 const deckInstance = new deck.DeckGL({
                     container: 'container',
                     views: [new deck.OrthographicView({id: 'ortho'})],
-                    initialViewState: { target: [0, 0, 0], zoom: 4 },
+                    initialViewState: { target: [0, 0, 0], zoom: 0 },
                     controller: true,
                     pickingRadius: 10,
                     
@@ -79,7 +79,7 @@
                             getColor: [80, 80, 80],
                             getWidth: 1,
                             widthMaxPixels: 2,
-                            widthMinPixels: 0.1
+                            widthMinPixels: 0
                         }),
 
                         new deck.TextLayer({
@@ -90,7 +90,7 @@
                             getText: d => d.text,
                             getSize: 15,
                             sizeMaxPixels: 12,
-                            sizeMinPixels: 0.01,
+                            sizeMinPixels: 0,
                             getColor: [128, 128, 128],
                             characterSet: 'auto',
                             fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
@@ -110,7 +110,7 @@
                             getColor: d => colorPalette[d.train],
                             getWidth: 1.5,
                             widthMaxPixels: 2.5,
-                            widthMinPixels: 0.4
+                            widthMinPixels: 0
                         }),
 
                         new deck.PathLayer({
@@ -123,7 +123,7 @@
                             getColor: [255, 255, 0], // Yellow highlight
                             getWidth: 2.5,
                             widthMaxPixels: 4,
-                            widthMinPixels: 0.6
+                            widthMinPixels: 0
                         }),
 
                         new deck.ScatterplotLayer({
@@ -133,8 +133,8 @@
                             getPosition: d => [d.y, stationDistances[d.x]], 
                             getFillColor: [200, 200, 200],
                             getRadius: 0.0001,
-                            radiusMinPixels: 0.00001,
-                            radiusMaxPixels: 0.001
+                            radiusMaxPixels: 0.001,
+                            radiusMinPixels: 0.00001
                         })
                     ];
 
