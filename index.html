@@ -6,54 +6,57 @@
 
     <style>
       body { margin: 0; padding: 0; }
-      /* 2. Set your plain background color here */
-      #container { 
-        width: 100vw; 
-        height: 100vh; 
-        background-color: #111111; 
-      }
+      #container { width: 100vw; height: 100vh; background-color: #111111; }
     </style>
   </head>
   <body>
     <div id="container"></div>
     <script type="text/javascript">
-      
-      // Sample data: random points around a center
-      const DATA = Array.from({length: 500}, () => ({
-        position: [-122.4 + (Math.random() - 0.5) * 0.2, 37.8 + (Math.random() - 0.5) * 0.2],
-        value: Math.random() * 255
-      }));
+    
+      async function initMap() {
+        const response = await fetch('data/test_data.json'); 
+        const rawData = await response.json();
 
-      new deck.DeckGL({
-        container: 'container',
-        // 3. Remove mapStyle to disable the base map
-        initialViewState: {
-          longitude: -122.4,
-          latitude: 37.8,
-          zoom: 10,
-          pitch: 0,
-          bearing: 0
-        },
-        controller: true,
-        layers: [
-          new deck.ScatterplotLayer({
-            id: 'scatter-layer',
-            data: DATA,
-            pickable: true,
-            opacity: 0.8,
-            stroked: true,
-            filled: true,
-            radiusScale: 6,
-            radiusMinPixels: 3,
-            radiusMaxPixels: 10,
-            lineWidthMinPixels: 1,
-            getPosition: d => d.position,
-            getRadius: d => 100,
-            getFillColor: d => [d.value, 140, 255], // Dynamic colors
-            getLineColor: [255, 255, 255]
-          })
-        ]
-      });
+        // 2. Flatten the nested data so deck.gl can iterate over every point
+        const flattenedData = rawData.flatMap(group => 
+          group.data.map(point => ({
+            ...point,
+            parentType: group.type,
+            parentNumber: group.number
+          }))
+        );
+
+        new deck.DeckGL({
+          container: 'container',
+          initialViewState: {
+            longitude: 0, // Adjust these based on your X/Y scale
+            latitude: 0,
+            zoom: 2,
+            pitch: 0
+          },
+          controller: true,
+          layers: [
+            new deck.ScatterplotLayer({
+              id: 'json-layer',
+              data: flattenedData,
+              pickable: true,
+              opacity: 0.8,
+              // Use the x and y from your nested objects
+              getPosition: d => [d.x, d.y], 
+              // Example: color based on the "type" string in your JSON
+              getFillColor: d => d.parentType === 'A' ? [255, 0, 100] : [0, 200, 255],
+              getRadius: d => 100,
+              radiusMinPixels: 3,
+              radiusMaxPixels: 15
+            })
+          ],
+          // Add a basic tooltip to see your "number" and "type" fields
+          getTooltip: ({object}) => object && `Type: ${object.parentType}\nID: ${object.parentNumber}`
+        });
+      }
+
+      initMap();
+
     </script>
   </body>
 </html>
