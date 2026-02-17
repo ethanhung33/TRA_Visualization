@@ -96,8 +96,9 @@
                             },
                             
                             // Make selected line slightly thicker
-                            getWidth: d => (selectedLine && d === selectedLine) ? 4 : 2,
-                            widthMinPixels: 1.5,
+                            getWidth: d => (selectedLine && d === selectedLine) ? 2.5 : 1.5,
+                            widthMaxPixels: 2.5,
+                            widthMinPixels: 1,
                             updateTriggers: {
                                 getColor: [selectedLine], // Forces redraw when selectedLine changes
                                 getWidth: [selectedLine]
@@ -110,8 +111,9 @@
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             getPosition: d => [d.x, d.y], 
                             getFillColor: [200, 200, 200],
-                            getRadius: 0.1,
-                            radiusMinPixels: 1
+                            getRadius: 0.0001,
+                            radiusMinPixels: 0.00001,
+                            radiusMaxPixels: 0.001
                         })
                     ];
 
