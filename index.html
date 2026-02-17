@@ -24,7 +24,7 @@
                     views: [new deck.OrthographicView({id: 'ortho'})],
                     initialViewState: {
                         target: [0, 0, 0], 
-                        zoom: 10 // 1. INCREASE THIS TO ZOOM IN
+                        zoom: 6 // 1. INCREASE THIS TO ZOOM IN
                     },
                     controller: true,
                     
@@ -56,9 +56,9 @@
                             highlightColor: [255, 255, 255, 100],
                             getPath: d => d.data.map(p => [p.x, p.y]),
                             getColor: d => d.type === 'A' ? [255, 0, 100] : [0, 200, 255],
-                            getWidth: 1,
-                            widthMinPixels: 0.5,
-                            widthMaxPixels: 1.5
+                            getWidth: 2,
+                            widthMinPixels: 1.5,
+                            widthMaxPixels: 2.5
                         }),
 
                         // THE SCATTERPLOT LAYER
@@ -81,7 +81,8 @@
                             // Position the text at the first point of the line
                             getPosition: d => [d.data[0].x, d.data[0].y],
                             getText: d => `Type: ${d.type}, Num: ${d.number}`,
-                            getSize: 3,
+                            getSize: 8,
+                            getFillColor: [80, 80, 80],
                             getColor: [255, 255, 255],
                             getAlignmentBaseline: 'bottom',
                             getTextAnchor: 'start',
