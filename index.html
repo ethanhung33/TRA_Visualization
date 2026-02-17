@@ -2,7 +2,7 @@
 <html lang="zh-TW">
     <head>
     <meta charset="UTF-8">
-        <title>Deck.gl Map with Sidebar</title>
+        <title>Taiwan Railway Operation Diagram</title>
         <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
         <style>
             body { margin: 0; padding: 0; display: flex; background-color: #111; font-family: sans-serif; }
@@ -18,9 +18,9 @@
     <body>
         <div id="container"></div>
         <div id="sidebar">
-            <h2>Line Details</h2>
+            <h2>列車資訊</h2>
             <div id="info-content">
-                <p class="placeholder">Click a line to see details</p>
+                <p class="placeholder">點選列車以顯示資訊</p>
             </div>
         </div>
 
@@ -55,6 +55,17 @@
                             infoBox.innerHTML = `<p class="placeholder">Click a line to see details</p>`;
                         }
                         renderLayers();
+                    }
+                });
+
+                const labelData = [];
+                Object.entries(stationDistances).forEach(([name, yValue]) => {
+                    for (let x = 240; x <= 1680; x += 100) {
+                        labelData.push({
+                            text: name,
+                            position: [x, yValue],
+                            y: yValue
+                        });
                     }
                 });
 
@@ -96,6 +107,28 @@
                             getRadius: 0.0001,
                             radiusMinPixels: 0.00001,
                             radiusMaxPixels: 0.001
+                        }),
+                        
+                        new deck.PathLayer({
+                            id: 'station-layer',
+                            data: Object.entries(hor),
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPath: d => [[-200, d[1]], [2000, d[1]]],
+                            getColor: [80, 80, 80],
+                            getWidth: 1
+                        }),
+
+                        new deck.TextLayer({
+                            id: 'horizontal-labels',
+                            data: labelData,
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPosition: d => d.position,
+                            getText: d => d.text,
+                            getSize: 10,
+                            getColor: [80, 80, 80],
+                            getAlignmentBaseline: 'bottom', // Position ABOVE the point
+                            getTextAnchor: 'middle',        // Center text on the X coordinate
+                            pixelOffset: [0, -5]            // Small 5px gap above the line
                         })
                     ];
 
