@@ -72,6 +72,30 @@
                 function renderLayers() {
                     const layers = [
                         new deck.PathLayer({
+                            id: 'station-layer',
+                            data: Object.entries(stationDistances),
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPath: d => [[-200, d[1]], [2000, d[1]]],
+                            getColor: [80, 80, 80],
+                            getWidth: 1
+                        }),
+
+                        new deck.TextLayer({
+                            id: 'horizontal-labels',
+                            data: labelData,
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPosition: d => d.position,
+                            getText: d => d.text,
+                            getSize: 10,
+                            getColor: [80, 80, 80],
+                            characterSet: 'auto',
+                            fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
+                            getAlignmentBaseline: 'bottom', // Position ABOVE the point
+                            getTextAnchor: 'middle',        // Center text on the X coordinate
+                            pixelOffset: [0, -5]            // Small 5px gap above the line
+                        }),
+
+                        new deck.PathLayer({
                             id: 'main-path-layer',
                             data: rawData,
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
@@ -107,28 +131,6 @@
                             getRadius: 0.0001,
                             radiusMinPixels: 0.00001,
                             radiusMaxPixels: 0.001
-                        }),
-                        
-                        new deck.PathLayer({
-                            id: 'station-layer',
-                            data: Object.entries(stationDistances),
-                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                            getPath: d => [[-200, d[1]], [2000, d[1]]],
-                            getColor: [80, 80, 80],
-                            getWidth: 1
-                        }),
-
-                        new deck.TextLayer({
-                            id: 'horizontal-labels',
-                            data: labelData,
-                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                            getPosition: d => d.position,
-                            getText: d => d.text,
-                            getSize: 10,
-                            getColor: [80, 80, 80],
-                            getAlignmentBaseline: 'bottom', // Position ABOVE the point
-                            getTextAnchor: 'middle',        // Center text on the X coordinate
-                            pixelOffset: [0, -5]            // Small 5px gap above the line
                         })
                     ];
 
