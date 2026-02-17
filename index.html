@@ -86,7 +86,7 @@
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             getPosition: d => d.position,
                             getText: d => d.text,
-                            getSize: 10,
+                            getSize: 20,
                             getColor: [80, 80, 80],
                             characterSet: 'auto',
                             fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
@@ -104,9 +104,7 @@
                             highlightColor: [255, 255, 255, 150],
                             getPath: d => d.data.map(p => [p.y, stationDistances[p.x]]),
                             getColor: d => colorPalette[d.train],
-                            getWidth: 1.5,
-                            widthMaxPixels: 2,
-                            widthMinPixels: 1
+                            getWidth: 1.5
                         }),
 
                         new deck.PathLayer({
@@ -117,9 +115,7 @@
                             pickable: false,
                             getPath: d => d.data.map(p => [p.y, stationDistances[p.x]]),
                             getColor: [255, 255, 0], // Yellow highlight
-                            getWidth: 2.5,
-                            widthMaxPixels: 3,
-                            widthMinPixels: 2
+                            getWidth: 2.5
                         }),
 
                         new deck.ScatterplotLayer({
