@@ -29,11 +29,10 @@
       
         new deck.DeckGL({
           container: 'container',
+          views: [new deck.OrthographicView({id: 'ortho'})],
           initialViewState: {
             target: [0, 0, 0], // The pixel coordinate the camera looks at
-            zoom: 0,               // 0 zoom means 1 unit = 1 pixel
-            pitch: 0,
-            bearing: 0
+            zoom: 0               // 0 zoom means 1 unit = 1 pixel
           },  
           controller: true,
           layers: [
@@ -59,9 +58,9 @@
               opacity: 0.8,
               getPosition: d => [d.x, d.y], 
               getFillColor: d => d.parentType === 'A' ? [255, 0, 100] : [0, 200, 255],
-              getRadius: 100,
-              radiusMinPixels: 3,
-              radiusMaxPixels: 15
+              getRadius: 5,
+              radiusMinPixels: 2,
+              radiusMaxPixels: 8
             })
           ],
           getTooltip: ({object}) => object && `Type: ${object.parentType || object.type}\nID: ${object.parentNumber || object.number}`
