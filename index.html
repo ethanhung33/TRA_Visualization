@@ -1,75 +1,102 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Deck.gl Plain Background</title>
-    <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
+    <head>
+        <title>Deck.gl Plain Background</title>
+        <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
 
-    <style>
-      body { margin: 0; padding: 0; }
-      #container { width: 100vw; height: 100vh; background-color: #111111; }
-    </style>
-  </head>
-  <body>
-    <div id="container"></div>
-    <script type="text/javascript">
-    
+        <style>
+            body { margin: 0; padding: 0; }
+            #container { width: 100vw; height: 100vh; background-color: #111111; }
+        </style>
+    </head>
+    <body>
+        <div id="container"></div>
+        <script type="text/javascript">
 
-      async function initMap() {
-        const response = await fetch('data/test_data.json'); 
-        const rawData = await response.json();
-      
-        // Keep this for the dots/tooltips
-        const flattenedData = rawData.flatMap(group => 
-          group.data.map(point => ({
-            ...point,
-            parentType: group.type,
-            parentNumber: group.number
-          }))
-        );
-      
-        new deck.DeckGL({
-          container: 'container',
-          views: [new deck.OrthographicView({id: 'ortho'})],
-          initialViewState: {
-            target: [0, 0, 0], // The pixel coordinate the camera looks at
-            zoom: 0               // 0 zoom means 1 unit = 1 pixel
-          },  
-          controller: true,
-          layers: [
-            // 1. THE PATH LAYER (Lines connecting the dots)
-            new deck.PathLayer({
-              id: 'path-layer',
-              data: rawData, // Use the un-flattened original list
-              coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-              getPath: d => d.data.map(p => [p.x, p.y]), // Map the nested points to [x, y] arrays
-              getColor: d => d.type === 'A' ? [255, 0, 100] : [0, 200, 255],
-              getWidth: 0.6,
-              widthMinPixels: 0.4,
-              widthMaxPixels: 0.8,
-              capRounded: true,
-              jointRounded: true
-            }),
-      
-            // 2. THE SCATTERPLOT LAYER (The dots on top)
-            new deck.ScatterplotLayer({
-              id: 'json-layer',
-              data: flattenedData,
-              coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-              pickable: true,
-              opacity: 1,
-              getPosition: d => [d.x, d.y], 
-              getFillColor: d => d.parentType === 'A' ? [255, 0, 100] : [0, 200, 255],
-              getRadius: 0.001,
-              radiusMinPixels: 0.00001,
-              radiusMaxPixels: 0.1
-            })
-          ],
-          getTooltip: ({object}) => object && `Type: ${object.parentType || object.type}\nID: ${object.parentNumber || object.number}`
-        });
-      }
-      
-      initMap();
+            let selectedLine = null; // Track the clicked line
 
-    </script>
-  </body>
+            async function initMap() {
+                const response = await fetch('data/test_data.json'); 
+                const rawData = await response.json();
+            
+                const deckInstance = new deck.DeckGL({
+                    container: 'container',
+                    views: [new deck.OrthographicView({id: 'ortho'})],
+                    initialViewState: {
+                        target: [0, 0, 0], 
+                        zoom: 100 // 1. INCREASE THIS TO ZOOM IN
+                    },
+                    controller: true,
+                    
+                    // Function to re-render layers when state changes
+                    onViewStateChange: ({viewState}) => {
+                        deckInstance.setProps({viewState});
+                    },
+
+                    onClick: (info) => {
+                        // 2. LOGIC FOR CLICKING
+                        if (info.object && info.layer.id === 'path-layer') {
+                            selectedLine = info.object;
+                        } else {
+                            selectedLine = null;
+                        }
+                        renderLayers();
+                    }
+                });
+
+                function renderLayers() {
+                    const layers = [
+                        // THE PATH LAYER
+                        new deck.PathLayer({
+                            id: 'path-layer',
+                            data: rawData,
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            pickable: true, // MUST BE TRUE
+                            autoHighlight: true, // Highlights the line on hover
+                            highlightColor: [255, 255, 255, 100],
+                            getPath: d => d.data.map(p => [p.x, p.y]),
+                            getColor: d => d.type === 'A' ? [255, 0, 100] : [0, 200, 255],
+                            getWidth: 1,
+                            widthMinPixels: 0.5,
+                            widthMaxPixels: 1.5
+                        }),
+
+                        // THE SCATTERPLOT LAYER
+                        new deck.ScatterplotLayer({
+                            id: 'json-layer',
+                            data: rawData.flatMap(g => g.data.map(p => ({...p, type: g.type, num: g.number}))),
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPosition: d => [d.x, d.y], 
+                            getFillColor: [200, 200, 200],
+                            getRadius: 0.001,
+                            radiusMinPixels: 0.0001,
+                            radiusMaxPixels: 0.01
+                        }),
+
+                        // 3. THE TEXT LAYER (Shows info next to the clicked line)
+                        new deck.TextLayer({
+                            id: 'text-layer',
+                            data: selectedLine ? [selectedLine] : [], // Only show if a line is selected
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            // Position the text at the first point of the line
+                            getPosition: d => [d.data[0].x, d.data[0].y],
+                            getText: d => `Type: ${d.type}, Num: ${d.number}`,
+                            getSize: 3,
+                            getColor: [255, 255, 255],
+                            getAlignmentBaseline: 'bottom',
+                            getTextAnchor: 'start',
+                            pixelOffset: [10, -10] // Move text slightly away from the point
+                        })
+                    ];
+
+                    deckInstance.setProps({layers});
+                }
+
+                renderLayers(); // Initial call
+            }
+      
+            initMap();
+
+        </script>
+    </body>
 </html>
