@@ -30,39 +30,39 @@
         new deck.DeckGL({
           container: 'container',
           initialViewState: {
-            longitude: 0, 
-            latitude: 0,
-            zoom: 2,
-            pitch: 0
-          },
+            target: [500, 500, 0], // The pixel coordinate the camera looks at
+            zoom: 0,               // 0 zoom means 1 unit = 1 pixel
+            pitch: 0,
+            bearing: 0
+          },  
           controller: true,
           layers: [
             // 1. THE PATH LAYER (Lines connecting the dots)
             new deck.PathLayer({
-              coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
               id: 'path-layer',
               data: rawData, // Use the un-flattened original list
+              coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
               getPath: d => d.data.map(p => [p.x, p.y]), // Map the nested points to [x, y] arrays
               getColor: d => d.type === 'A' ? [255, 0, 100] : [0, 200, 255],
               getWidth: 2,
               widthMinPixels: 1,
               capRounded: true,
               jointRounded: true
-            }),
+            })
       
             // 2. THE SCATTERPLOT LAYER (The dots on top)
-            new deck.ScatterplotLayer({
-              coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-              id: 'json-layer',
-              data: flattenedData,
-              pickable: true,
-              opacity: 0.8,
-              getPosition: d => [d.x, d.y], 
-              getFillColor: d => d.parentType === 'A' ? [255, 0, 100] : [0, 200, 255],
-              getRadius: 100,
-              radiusMinPixels: 3,
-              radiusMaxPixels: 15
-            })
+            // new deck.ScatterplotLayer({
+            //   id: 'json-layer',
+            //   data: flattenedData,
+            //   coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+            //   pickable: true,
+            //   opacity: 0.8,
+            //   getPosition: d => [d.x, d.y], 
+            //   getFillColor: d => d.parentType === 'A' ? [255, 0, 100] : [0, 200, 255],
+            //   getRadius: 100,
+            //   radiusMinPixels: 3,
+            //   radiusMaxPixels: 15
+            // })
           ],
           getTooltip: ({object}) => object && `Type: ${object.parentType || object.type}\nID: ${object.parentNumber || object.number}`
         });
