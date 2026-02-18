@@ -66,8 +66,21 @@
                             position: [x, yValue],
                             y: yValue
                         });
+                        timeData.push(x)
                     }
                 });
+
+                const thickLines = [];
+                const thinLines = [];
+                const bottomLabels = [];
+                for (let x = 240; x <= 1680; x += 10) {
+                    if (x % 60 === 0) {
+                        thickLines.push({ path: [[x, 0], [x, 1000]] });
+                    } else {
+                        thinLines.push({ path: [[x, 0], [x, 1000]] });
+                    }
+                    bottomLabels.push({ text: `${(x/60).toString().padStart(2, '0')}:${(x%60).toString().padStart(2, '0')}`, position: [x, 1000] });
+                }
 
                 function renderLayers() {
                     const layers = [
@@ -97,6 +110,39 @@
                             getAlignmentBaseline: 'bottom', // Position ABOVE the point
                             getTextAnchor: 'middle',        // Center text on the X coordinate
                             pixelOffset: [0, -10]            // Small 5px gap above the line
+                        }),
+
+                        new deck.PathLayer({
+                            id: 'thin-time-lines',
+                            data: thinLines,
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPath: d => d.path,
+                            getColor: [255, 255, 255, 40], // Very faint
+                            getWidth: 1,
+                            widthMinPixels: 0.5
+                        }),
+
+                        new deck.PathLayer({
+                            id: 'thick-time-lines',
+                            data: thickLines,
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPath: d => d.path,
+                            getColor: [255, 255, 255, 80], // Brighter
+                            getWidth: 2,
+                            widthMinPixels: 1
+                        }),
+                        
+                        new deck.TextLayer({
+                            id: 'vertical-labels',
+                            data: bottomLabels,
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPosition: d => d.position,
+                            getText: d => d.text,
+                            getSize: 12,
+                            getColor: [150, 150, 150],
+                            getAlignmentBaseline: 'top', // Position BELOW the point
+                            getTextAnchor: 'middle',
+                            pixelOffset: [0, 10]
                         }),
 
                         new deck.PathLayer({
