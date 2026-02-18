@@ -74,11 +74,11 @@
                 const bottomLabels = [];
                 for (let x = 240; x <= 1680; x += 10) {
                     if (x % 60 === 0) {
-                        thickLines.push({ path: [[x, 0], [x, 1000]] });
+                        thickLines.push({ path: [[x, 0], [x, 10000]] });
                     } else {
-                        thinLines.push({ path: [[x, 0], [x, 1000]] });
+                        thinLines.push({ path: [[x, 0], [x, 10000]] });
                     }
-                    bottomLabels.push({ text: `${(x/60).toString().padStart(2, '0')}:${(x%60).toString().padStart(2, '0')}`, position: [x, 1000] });
+                    bottomLabels.push({ text: `${(Math.floor(x/60)).toString().padStart(2, '0')}:${(x%60).toString().padStart(2, '0')}`, position: [x, 1000] });
                 }
 
                 function renderLayers() {
@@ -116,9 +116,10 @@
                             data: thinLines,
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             getPath: d => d.path,
-                            getColor: [255, 255, 255, 40], // Very faint
-                            getWidth: 1,
-                            widthMinPixels: 0.5
+                            getColor: [50, 50, 50], // Very faint
+                            getWidth: 0.7,
+                            widthMaxPixels: 1.6,
+                            widthMinPixels: 0
                         }),
 
                         new deck.PathLayer({
@@ -126,9 +127,10 @@
                             data: thickLines,
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             getPath: d => d.path,
-                            getColor: [255, 255, 255, 80], // Brighter
-                            getWidth: 2,
-                            widthMinPixels: 1
+                            getColor: [80, 80, 80], // Brighter
+                            getWidth: 1,
+                            widthMinPixels: 2,
+                            widthMinPixels: 0
                         }),
                         
                         new deck.TextLayer({
@@ -138,7 +140,7 @@
                             getPosition: d => d.position,
                             getText: d => d.text,
                             getSize: 12,
-                            getColor: [150, 150, 150],
+                            getColor: [128, 128, 128],
                             getAlignmentBaseline: 'top', // Position BELOW the point
                             getTextAnchor: 'middle',
                             pixelOffset: [0, 10]
