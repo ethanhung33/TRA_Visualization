@@ -264,7 +264,7 @@
                     const layers = [
                         new deck.PathLayer({
                             id: 'station-layer',
-                            data: Object.entries(stationDistances),
+                            data: Object.entries(stationDistances).filter(([name, yValue]) => stationList.has(name)),
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             getPath: d => [[630, d[1]], [5130, d[1]]],
                             getColor: [80, 80, 80],
