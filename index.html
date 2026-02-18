@@ -16,7 +16,12 @@
         </style>
     </head>
     <body>
-        <div id="container"></div>
+        <div id="container">
+            <div id="view-monitor">
+                Zoom: <span id="val-zoom">0</span> | 
+                Center: [<span id="val-x">0</span>, <span id="val-y">0</span>]
+            </div>
+        </div>
         <div id="sidebar">
             <h2>篩選器</h2>
             <div id="pill-container">
@@ -36,12 +41,15 @@
         </div>
 
         <style>
+            #container { position: relative; width: 80vw; height: 100vh; }
+            #view-monitor { position: absolute; bottom: 20px; left: 20px; background: rgba(0, 0, 0, 0.8); color: #00ff00; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; pointer-events: none; z-index: 10; border: 1px solid #444; }
+            #view-monitor span { color: white; }
             #filter label { display: block; padding: 5px 0; cursor: pointer; color: #ccc; }
             #filter input { margin-right: 10px; }
             hr { border: 0; border-top: 1px solid #444; margin: 20px 0; }
             #pill-container { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0; }
             .pill { border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: bold; transition: all 0.2s ease; background-color: #333; color: #888; border: 1px solid #444; }
-            .pill.active { color: white; border-color: transparent; }
+            .pill.active { color: black; border-color: transparent; }
             .pill:hover { transform: translateY(-1px); filter: brightness(1.2); }
         </style>
 
@@ -56,6 +64,9 @@
                 const response = await fetch('data/20260218.json'); 
                 const rawData = await response.json();
                 const infoBox = document.getElementById('info-content');
+                const valZoom = document.getElementById('val-zoom');
+                const valX = document.getElementById('val-x');
+                const valY = document.getElementById('val-y');
 
                 document.querySelectorAll('.type-filter').forEach(checkbox => {
                     checkbox.addEventListener('change', (e) => {
@@ -117,6 +128,9 @@
                     
                     onViewStateChange: ({viewState}) => { 
                         currentZoom = viewState.zoom;
+                        valZoom.innerText = viewState.zoom.toFixed(2);
+                        valX.innerText = Math.round(viewState.target[0]);
+                        valY.innerText = Math.round(viewState.target[1]);
                         deckInstance.setProps({viewState}); 
                         renderLayers(); // Re-render for dynamic font sizes
                     },
@@ -208,7 +222,7 @@
                             getPath: d => d.path,
                             getColor: [80, 80, 80], // Brighter
                             getWidth: 1,
-                            widthMinPixels: 2,
+                            widthMaxPixels: 2,
                             widthMinPixels: 0
                         }),
                         new deck.TextLayer({
