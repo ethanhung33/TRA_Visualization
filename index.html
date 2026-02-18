@@ -152,10 +152,18 @@
                     }
                 });
 
-                const labelData = [];
+                const denseLabelData = [];
+                const sparseLabelData = [];
                 Object.entries(stationDistances).forEach(([name, yValue]) => {
                     for (let x = 240; x <= 1680; x += 120) {
-                        labelData.push({
+                        denseLabelData.push({
+                            text: name,
+                            position: [x, yValue],
+                            y: yValue
+                        });
+                    }
+                    for (let x = 240; x <= 1680; x += 240) {
+                        sparseLabelData.push({
                             text: name,
                             position: [x, yValue],
                             y: yValue
@@ -221,7 +229,7 @@
                         }),
                         new deck.TextLayer({
                             id: 'station-labels',
-                            data: currentZoom > -1.1 ? labelData : [],
+                            data: currentZoom > 0.8 ? denseLabelData : currentZoom > -1.1 ? sparseLabelData : [],
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             getPosition: d => d.position,
                             getText: d => d.text,
