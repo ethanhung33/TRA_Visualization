@@ -199,7 +199,7 @@
                         new deck.PathLayer({
                             id: 'selection-layer',
                             // This array is either empty or contains exactly one item
-                            data: selectedLine && enabledTypes.has(selectedLine.type) ? [selectedLine] : [],
+                            data: selectedLine && enabledTypes.has(selectedLine.train) ? [selectedLine] : [],
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             pickable: false,
                             getPath: d => d.data.map(p => [p.y, stationDistances[p.x]]),
