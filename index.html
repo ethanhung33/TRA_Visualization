@@ -24,11 +24,9 @@
         </div>
         <div id="sidebar">
             <h2>篩選器</h2>
-            <div class="action-bar">
-                <button id="btn-select-all" class="action-pill">全選</button>
-                <button id="btn-deselect-all" class="action-pill">全部不選</button>
-            </div>
             <div id="pill-container">
+                <button id="btn-select-all" class="pill utility">全選</button>
+                <button id="btn-deselect-all" class="pill utility">全部不選</button>
                 <button class="pill active" data-type="普悠瑪" checked> 普悠瑪</button>
                 <button class="pill active" data-type="太魯閣" checked> 太魯閣</button>
                 <button class="pill active" data-type="新自強" checked> 新自強</button>
@@ -55,9 +53,7 @@
             .pill { border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: bold; transition: all 0.2s ease; background-color: #333; color: #888; border: 1px solid #444; }
             .pill.active { color: black; border-color: transparent; }
             .pill:hover { transform: translateY(-1px); filter: brightness(1.2); }
-            .action-bar { display: flex; gap: 10px; margin-bottom: 10px; }
-            .action-pill { background: transparent; border: 1px solid #666; color: #ccc; padding: 4px 12px; border-radius: 15px; font-size: 11px; cursor: pointer; transition: all 0.2s; }
-            .action-pill:hover { background: #444; color: white; border-color: #888; }
+            .pill.utility:hover, .pill.utility:active { background-color: #666; color: white; border-color: transparent; }
         </style>
 
         <script type="text/javascript">
@@ -97,7 +93,8 @@
 
                 // 1. Create a single function to handle the UI looks
                 function syncPillStyles() {
-                    pills.forEach(pill => {
+                    const trainPills = document.querySelectorAll('.pill[data-type]');
+                    trainPills.forEach(pill => {
                         const type = pill.getAttribute('data-type');
                         const color = colorPalette[type];
                         
