@@ -87,6 +87,8 @@
                             selectedLine = info.object;
                             infoBox.innerHTML = `
                                 <p><strong>${selectedLine.train} ${selectedLine.number}</p>
+                                <p>${selectedLine.info.start} → ${selectedLine.info.end}</p>
+                                <p>${selectedLine.info.note}</p>
                             `;
                         } else {
                             // Reset if clicking background
