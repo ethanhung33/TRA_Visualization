@@ -228,7 +228,7 @@
                 const maxDistance = Math.max(...distances);
                 const thickLines = [];
                 const thinLines = [];
-                const sparceLabels = [];
+                const sparseLabels = [];
                 const normalLabels = [];
                 const denseLabels = [];
                 for (let x = 720; x <= 5040; x += 30) {
@@ -246,7 +246,7 @@
                         normalLabels.push({ text: `${(Math.floor(x/180)).toString().padStart(2, '0')}:${(x%180/3).toString().padStart(2, '0')}`, position: [x, y] });
                     }
                     for (let x = 720; x <= 5040; x += 180) {
-                        sparceLabels.push({ text: `${(Math.floor(x/180)).toString().padStart(2, '0')}:${(x%180/3).toString().padStart(2, '0')}`, position: [x, y] });
+                        sparseLabels.push({ text: `${(Math.floor(x/180)).toString().padStart(2, '0')}:${(x%180/3).toString().padStart(2, '0')}`, position: [x, y] });
                     }
                 }
 
