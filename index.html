@@ -52,7 +52,7 @@
                 const rawData = await response.json();
                 const infoBox = document.getElementById('info-content');
 
-                document.querySelectorAll('.type-filter').forEach(checkbox => {
+                document.querySelectorAll('.filter').forEach(checkbox => {
                     checkbox.addEventListener('change', (e) => {
                         const type = e.target.value;
                         if (e.target.checked) enabledTypes.add(type);
