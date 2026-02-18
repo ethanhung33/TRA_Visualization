@@ -171,17 +171,19 @@
                     onClick: (info) => {
                         if (info.object && info.layer.id === 'main-path-layer') {
                             selectedLine = info.object;
+                            const formattedNote = selectedLine.info.note.replace(/。/g, '。<br>');
                             if (selectedLine.info.via === '-') {
                                 infoBox.innerHTML = `
                                     <p><strong>${selectedLine.train} ${selectedLine.number}</strong></p>
                                     <p>${selectedLine.info.start} → ${selectedLine.info.end}</p>
-                                    <p>${selectedLine.info.note}</p>
+                                    <p>${formattedNote}</p>
                                 `;
                             } else {
                                 infoBox.innerHTML = `
                                     <p><strong>${selectedLine.train} ${selectedLine.number}</strong></p>
-                                    <p>${selectedLine.info.start} → ${selectedLine.info.end} 經由${selectedLine.info.via}</p>
-                                    <p>${selectedLine.info.note}</p>
+                                    <p>${selectedLine.info.start} → ${selectedLine.info.end}</p>
+                                    <p>經由${selectedLine.info.via}。</p>
+                                    <p>${formattedNote}</p>
                                 `;
                             }
                         } else {
