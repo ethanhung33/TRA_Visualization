@@ -19,14 +19,14 @@
         <div id="container"></div>
         <div id="sidebar">
             <h2>篩選器</h2>
-            <div id="filter">
-                <label><input type="checkbox" class="type-filter" value="普悠瑪" checked> 普悠瑪</label><br>
-                <label><input type="checkbox" class="type-filter" value="太魯閣" checked> 太魯閣</label><br>
-                <label><input type="checkbox" class="type-filter" value="新自強" checked> 新自強</label><br>
-                <label><input type="checkbox" class="type-filter" value="自強" checked> 自強</label><br>
-                <label><input type="checkbox" class="type-filter" value="莒光" checked> 莒光</label><br>
-                <label><input type="checkbox" class="type-filter" value="區間快" checked> 區間快</label><br>
-                <label><input type="checkbox" class="type-filter" value="區間" checked> 區間</label>
+            <div id="pill-container">
+                <button class="pill active" data-type="普悠瑪" checked> 普悠瑪</button>
+                <button class="pill active" data-type="太魯閣" checked> 太魯閣</button>
+                <button class="pill active" data-type="新自強" checked> 新自強</button>
+                <button class="pill active" data-type="自強" checked> 自強</button>
+                <button class="pill active" data-type="莒光" checked> 莒光</button>
+                <button class="pill active" data-type="區間快" checked> 區間快</button>
+                <button class="pill active" data-type="區間" checked> 區間</button>
             </div>
             <hr>
             <h2>列車資訊</h2>
@@ -39,6 +39,10 @@
             #filter label { display: block; padding: 5px 0; cursor: pointer; color: #ccc; }
             #filter input { margin-right: 10px; }
             hr { border: 0; border-top: 1px solid #444; margin: 20px 0; }
+            #pill-container { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0; }
+            .pill { border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: bold; transition: all 0.2s ease; background-color: #333; color: #888; border: 1px solid #444; }
+            .pill.active { color: white; border-color: transparent; }
+            .pill:hover { transform: translateY(-1px); filter: brightness(1.2); }
         </style>
 
         <script type="text/javascript">
@@ -68,6 +72,41 @@
                         renderLayers();
                     });
                 });
+
+                const pillContainer = document.getElementById('pill-container');
+                const pills = document.querySelectorAll('.pill');
+                pills.forEach(pill => {
+                    const type = pill.getAttribute('data-type');
+                    const color = colorPalette[type];
+                    
+                    // Initial color setup
+                    if (pill.classList.contains('active')) {
+                        pill.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                    }
+
+                    pill.addEventListener('click', () => {
+                        // 1. Toggle the Set
+                        if (enabledTypes.has(type)) {
+                            enabledTypes.delete(type);
+                            pill.classList.remove('active');
+                            pill.style.backgroundColor = '#333'; // "Off" color
+                            pill.style.color = '#888';
+                        } else {
+                            enabledTypes.add(type);
+                            pill.classList.add('active');
+                            pill.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                            pill.style.color = 'white';
+                        }
+
+                        // 2. Clear info box if the deselected type was selected
+                        if (selectedLine && selectedLine.train === type && !enabledTypes.has(type)) {
+                            selectedLine = null;
+                            document.getElementById('info-content').innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
+                        }
+
+                        renderLayers();
+                    });
+                });
                 
                 const deckInstance = new deck.DeckGL({
                     container: 'container',
@@ -86,7 +125,7 @@
                         if (info.object && info.layer.id === 'main-path-layer') {
                             selectedLine = info.object;
                             infoBox.innerHTML = `
-                                <p><strong>${selectedLine.train} ${selectedLine.number}</p>
+                                <p><strong>${selectedLine.train} ${selectedLine.number}</strong></p>
                                 <p>${selectedLine.info.start} → ${selectedLine.info.end}</p>
                                 <p>${selectedLine.info.note}</p>
                             `;
