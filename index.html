@@ -20,13 +20,13 @@
         <div id="sidebar">
             <h2>篩選器</h2>
             <div id="filter">
-                <label><input type="checkbox" id="puyuma" checked> 普悠瑪</label><br>
-                <label><input type="checkbox" id="taroko" checked> 太魯閣</label><br>
-                <label><input type="checkbox" id="newtzechiang" checked> 新自強</label><br>
-                <label><input type="checkbox" id="tzechiang" checked> 自強</label><br>
-                <label><input type="checkbox" id="chukuang" checked> 莒光</label><br>
-                <label><input type="checkbox" id="localfast" checked> 區間快</label><br>
-                <label><input type="checkbox" id="local" checked> 區間</label>
+                <label><input type="checkbox" class="type-filter" id="puyuma" checked> 普悠瑪</label><br>
+                <label><input type="checkbox" class="type-filter" id="taroko" checked> 太魯閣</label><br>
+                <label><input type="checkbox" class="type-filter" id="newtzechiang" checked> 新自強</label><br>
+                <label><input type="checkbox" class="type-filter" id="tzechiang" checked> 自強</label><br>
+                <label><input type="checkbox" class="type-filter" id="chukuang" checked> 莒光</label><br>
+                <label><input type="checkbox" class="type-filter" id="localfast" checked> 區間快</label><br>
+                <label><input type="checkbox" class="type-filter" id="local" checked> 區間</label>
             </div>
             <hr>
             <h2>列車資訊</h2>
@@ -52,7 +52,7 @@
                 const rawData = await response.json();
                 const infoBox = document.getElementById('info-content');
 
-                document.querySelectorAll('.filter').forEach(checkbox => {
+                document.querySelectorAll('.type-filter').forEach(checkbox => {
                     checkbox.addEventListener('change', (e) => {
                         const type = e.target.value;
                         if (e.target.checked) enabledTypes.add(type);
