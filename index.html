@@ -165,10 +165,10 @@
                     const btnClass = showSchedule ? "info-pill active" : "info-pill";
 
                     infoBox.innerHTML = `
-                        <p><strong>${selectedLine.train} ${selectedLine.number}</strong></p>
+                        <p><strong>${selectedLine.train} ${selectedLine.number}</strong>
+                        <button id="btn-toggle-schedule" class="${btnClass}">${btnLabel}</button></p>
                         <p>${selectedLine.info.start} → ${selectedLine.info.end}${viaText}</p>
                         <p>${formattedNote}</p>
-                        <button id="btn-toggle-schedule" class="${btnClass}">${btnLabel}</button>
                     `;
 
                     document.getElementById('btn-toggle-schedule').onclick = () => {
@@ -422,7 +422,7 @@
                                     const mm = (val % 60).toString().padStart(2, '0');
                                     return `${hh}${mm}`;
                                 };
-                                return `${format(d.arr)}-${format(d.dep)} ${d.station}`;
+                                return `<p style="color:Gray">${format(d.arr)} - </p>${format(d.dep)} ${d.station}`;
                             },
                             getSize: 13,
                             getColor: [255, 255, 255],
