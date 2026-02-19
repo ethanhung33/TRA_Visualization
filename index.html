@@ -472,7 +472,7 @@
                             pickable: true,
                             autoHighlight: true,
                             highlightColor: [255, 255, 255, 150],
-                            getPath: d => d.data.map(p => [p.y*3, stationDistances[p.x]]),
+                            getPath: d => d.data.filter(p => stationDistances[p.x] !== undefined).map(p => [p.y*3, stationDistances[p.x]]),
                             getColor: d => colorPalette[d.train],
                             getWidth: 1.5,
                             widthMaxPixels: 2,
@@ -484,7 +484,7 @@
                             data: selectedLine && enabledTypes.has(selectedLine.train) ? [selectedLine] : [],
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             pickable: false,
-                            getPath: d => d.data.map(p => [p.y*3, stationDistances[p.x]]),
+                            getPath: d => d.data.filter(p => stationDistances[p.x] !== undefined).map(p => [p.y*3, stationDistances[p.x]]),
                             getColor: [255, 196, 0], // Yellow highlight
                             getWidth: 3,
                             widthMaxPixels: 3.5,
