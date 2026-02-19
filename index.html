@@ -385,8 +385,10 @@
                     if (showSchedule && selectedLine) {
                         const grouped = {};
                         selectedLine.data.forEach(p => {
-                            if (!grouped[p.x]) grouped[p.x] = [];
-                            grouped[p.x].push(p.y);
+                            if (stationDistances[p.x] !== undefined) {
+                                if (!grouped[p.x]) grouped[p.x] = [];
+                                grouped[p.x].push(p.y);
+                            }
                         });
 
                         scheduleData = Object.entries(grouped).map(([name, times]) => {
@@ -481,10 +483,10 @@
                         new deck.PathLayer({
                             id: 'selection-layer',
                             // This array is either empty or contains exactly one item
-                            data: selectedLine && enabledTypes.has(selectedLine.train) ? [selectedLine] : [],
+                            data: selectedLine && enabledTypes.has(selectedLine.train) ? processedSegments.filter(s => s.number === selectedLine.number) : [],
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             pickable: false,
-                            getPath: d => d.data.filter(p => stationDistances[p.x] !== undefined).map(p => [p.y*3, stationDistances[p.x]]),
+                            getPath: d => d.data.map(p => [p.y*3, stationDistances[p.x]]),
                             getColor: [255, 196, 0], // Yellow highlight
                             getWidth: 3,
                             widthMaxPixels: 3.5,
