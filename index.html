@@ -415,14 +415,14 @@
                             id: 'train-schedule-labels',
                             data: scheduleData, // Use the grouped data
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                            getPosition: d => [d.dep * 3, d.yCoord], // Anchor at arrival time
+                            getPosition: d => [(d.dep+1.5) * 3, d.yCoord], // Anchor at arrival time
                             getText: d => {
                                 const format = (val) => {
                                     const hh = Math.floor(val / 60).toString().padStart(2, '0');
                                     const mm = (val % 60).toString().padStart(2, '0');
                                     return `${hh}${mm}`;
                                 };
-                                return `<p style="color:Gray">${format(d.arr)} - </p>${format(d.dep)} ${d.station}`;
+                                return `${format(d.arr)} - ${format(d.dep)} ${d.station}`;
                             },
                             getSize: 13,
                             getColor: [255, 255, 255],
