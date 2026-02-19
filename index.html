@@ -54,10 +54,13 @@
             .pill.active { color: black; border-color: transparent; }
             .pill:hover { transform: translateY(-1px); filter: brightness(1.2); }
             .pill.utility:hover, .pill.utility:active { background-color: #666; color: white; border-color: transparent; }
+            .info-pill { margin-top: 12px; display: inline-block; background-color: #444; color: #eee; padding: 6px 14px; border-radius: 15px; font-size: 12px; cursor: pointer; border: 1px solid #555; transition: all 0.2s; }
+            .info-pill.active { background-color: #ffc400; color: black; border-color: transparent; }
         </style>
 
         <script type="text/javascript">
             let selectedLine = null;
+            let showSchedule = false;
             let currentZoom = 0;
             let enabledTypes = new Set(['普悠瑪', '太魯閣', '新自強', '自強', '莒光', '區間快', '區間']);
             const colorPalette = {"普悠瑪": [255, 82, 82], "太魯閣": [255, 152, 0], "新自強": [156, 77, 204], "自強": [102, 187, 106], "莒光": [253, 216, 53], "區間快": [66, 125, 245], "區間": [158, 158, 158]};
@@ -153,6 +156,28 @@
                 // 5. Run once on startup to set initial colors
                 syncPillStyles();
                 
+                function updateInfoBox() {
+                    if (!selectedLine) return;
+                    
+                    const formattedNote = (selectedLine.info.note || "").replace(/。/g, '。<br>');
+                    const viaText = selectedLine.info.via !== '-' ? `<br>經由${selectedLine.info.via}。` : '';
+                    const btnLabel = showSchedule ? "隱藏停靠站" : "顯示停靠站";
+                    const btnClass = showSchedule ? "info-pill active" : "info-pill";
+
+                    infoBox.innerHTML = `
+                        <p><strong>${selectedLine.train} ${selectedLine.number}</strong></p>
+                        <p>${selectedLine.info.start} → ${selectedLine.info.end}${viaText}</p>
+                        <p>${formattedNote}</p>
+                        <button id="btn-toggle-schedule" class="${btnClass}">${btnLabel}</button>
+                    `;
+
+                    document.getElementById('btn-toggle-schedule').onclick = () => {
+                        showSchedule = !showSchedule;
+                        updateInfoBox(); // Refresh button text/class
+                        renderLayers();  // Show/Hide the labels on map
+                    };
+                }
+
                 const deckInstance = new deck.DeckGL({
                     container: 'container',
                     views: [new deck.OrthographicView({id: 'ortho'})],
@@ -175,23 +200,12 @@
                     onClick: (info) => {
                         if (info.object && info.layer.id === 'main-path-layer') {
                             selectedLine = info.object;
-                            const formattedNote = selectedLine.info.note.replace(/。/g, '。<br>');
-                            if (selectedLine.info.via === '-') {
-                                infoBox.innerHTML = `
-                                    <p><strong>${selectedLine.train} ${selectedLine.number}</strong></p>
-                                    <p>${selectedLine.info.start} → ${selectedLine.info.end}</p>
-                                    <p>${formattedNote}</p>
-                                `;
-                            } else {
-                                infoBox.innerHTML = `
-                                    <p><strong>${selectedLine.train} ${selectedLine.number}</strong></p>
-                                    <p>${selectedLine.info.start} → ${selectedLine.info.end}<br>經由${selectedLine.info.via}。</p>
-                                    <p>${formattedNote}</p>
-                                `;
-                            }
+                            showSchedule = false; 
+                            updateInfoBox();
                         } else {
                             // Reset if clicking background
                             selectedLine = null;
+                            showSchedule = false;
                             infoBox.innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
                         }
                         renderLayers();
@@ -376,6 +390,27 @@
                             getWidth: 3,
                             widthMaxPixels: 3.5,
                             widthMinPixels: 0
+                        }),
+                        new deck.TextLayer({
+                            id: 'train-schedule-labels',
+                            // Only provide data if a line is selected AND the toggle is ON
+                            data: (showSchedule && selectedLine) ? selectedLine.data : [],
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPosition: d => [d.y * 3, stationDistances[d.x]],
+                            // Format: "14:30 基隆"
+                            getText: d => {
+                                const hh = Math.floor(d.y / 60).toString().padStart(2, '0');
+                                const mm = (d.y % 60).toString().padStart(2, '0');
+                                return `${hh}:${mm} ${d.x}`;
+                            },
+                            getSize: 13,
+                            getColor: [255, 255, 255],
+                            characterSet: 'auto',
+                            getTextAnchor: 'start',
+                            getAlignmentBaseline: 'center',
+                            pixelOffset: [15, 0], // Offset to the right of the path
+                            background: true,
+                            getBackgroundColor: [0, 0, 0, 180] // Dark background for readability
                         }),
 
                         new deck.ScatterplotLayer({
