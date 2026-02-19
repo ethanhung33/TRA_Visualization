@@ -239,41 +239,41 @@
                     }
                 });
 
-                const denseLabelData = [];
-                const normalLabelData = [];
-                const sparseLabelData = [];
-                const thickLines = [];
-                const thinLines = [];
-                const sparseLabels = [];
-                const normalLabels = [];
-                const denseLabels = [];
+                let denseLabelData = [];
+                let normalLabelData = [];
+                let sparseLabelData = [];
+                let thickLines = [];
+                let thinLines = [];
+                let sparseLabels = [];
+                let normalLabels = [];
+                let denseLabels = [];
                 function updateStationGridData() {
-                    denseLabelData.length = 0;
-                    normalLabelData.length = 0;
-                    sparseLabelData.length = 0;
-                    thickLines.length = 0;
-                    thinLines.length = 0;
-                    sparseLabels.length = 0;
-                    normalLabels.length = 0;
-                    denseLabels.length = 0;
+                    const newDenseLabelData = [];
+                    const newNormalLabelData = [];
+                    const newSparseLabelData = [];
+                    const newThickLines = [];
+                    const newThinLines = [];
+                    const newSparseLabels = [];
+                    const newNormalLabels = [];
+                    const newDenseLabels = [];
                     Object.entries(stationDistances).forEach(([name, yValue]) => {
                         if (stationList.has(name)) {
                             for (let x = 720; x <= 5040; x += 360) {
-                                denseLabelData.push({
+                                newDenseLabelData.push({
                                     text: name,
                                     position: [x, yValue],
                                     y: yValue
                                 });
                             }
                             for (let x = 720; x <= 5040; x += 720) {
-                                normalLabelData.push({
+                                newNormalLabelData.push({
                                     text: name,
                                     position: [x, yValue],
                                     y: yValue
                                 });
                             }
                             for (let x = 720; x <= 5040; x += 1440) {
-                                sparseLabelData.push({
+                                newSparseLabelData.push({
                                     text: name,
                                     position: [x, yValue],
                                     y: yValue
@@ -286,22 +286,30 @@
                     const maxDistance = Math.max(...distances);
                     for (let x = 720; x <= 5040; x += 30) {
                         if (x % 180 === 0) {
-                            thickLines.push({ path: [[x, minDistance], [x, maxDistance]] });
+                            newThickLines.push({ path: [[x, minDistance], [x, maxDistance]] });
                         } else {
-                            thinLines.push({ path: [[x, minDistance], [x, maxDistance]] });
+                            newThinLines.push({ path: [[x, minDistance], [x, maxDistance]] });
                         }
                     }
                     for (let y = minDistance; y <= maxDistance; y += 250) {
                         for (let x = 720; x <= 5040; x += 30) {
-                            denseLabels.push({ text: `${(Math.floor(x/180)).toString().padStart(2, '0')}${(x%180/3).toString().padStart(2, '0')}`, position: [x+5, y] });
+                            newDenseLabels.push({ text: `${(Math.floor(x/180)).toString().padStart(2, '0')}${(x%180/3).toString().padStart(2, '0')}`, position: [x+5, y] });
                         }
                         for (let x = 720; x <= 5040; x += 90) {
-                            normalLabels.push({ text: `${(Math.floor(x/180)).toString().padStart(2, '0')}${(x%180/3).toString().padStart(2, '0')}`, position: [x+5, y] });
+                            newNormalLabels.push({ text: `${(Math.floor(x/180)).toString().padStart(2, '0')}${(x%180/3).toString().padStart(2, '0')}`, position: [x+5, y] });
                         }
                         for (let x = 720; x <= 5040; x += 180) {
-                            sparseLabels.push({ text: `${(Math.floor(x/180)).toString().padStart(2, '0')}${(x%180/3).toString().padStart(2, '0')}`, position: [x+5, y] });
+                            newSparseLabels.push({ text: `${(Math.floor(x/180)).toString().padStart(2, '0')}${(x%180/3).toString().padStart(2, '0')}`, position: [x+5, y] });
                         }
                     }
+                    denseLabelData = newDenseLabelData;
+                    normalLabelData = newNormalLabelData;
+                    sparseLabelData = newSparseLabelData;
+                    thickLines = newThickLines;
+                    thinLines = newThinLines;
+                    sparseLabels = newSparseLabels;
+                    normalLabels = newNormalLabels;
+                    denseLabels = newDenseLabels;
                 }
 
                 updateStationGridData();
