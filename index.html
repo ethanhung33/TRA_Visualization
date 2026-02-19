@@ -44,7 +44,7 @@
 
         <style>
             #container { position: relative; width: 80vw; height: 100vh; }
-            #view-monitor { position: absolute; bottom: 20px; left: 20px; background: rgba(0, 0, 0, 0.8); color: #00ff00; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; pointer-events: none; z-index: 10; border: 1px solid #444; }
+            #view-monitor { display: none; position: absolute; bottom: 20px; left: 20px; background: rgba(0, 0, 0, 0.8); color: #00ff00; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; pointer-events: none; z-index: 10; border: 1px solid #444; }
             #view-monitor span { color: white; }
             #filter label { display: block; padding: 5px 0; cursor: pointer; color: #ccc; }
             #filter input { margin-right: 10px; }
@@ -162,9 +162,12 @@
                     
                     onViewStateChange: ({viewState}) => { 
                         currentZoom = viewState.zoom;
-                        valZoom.innerText = viewState.zoom.toFixed(2);
-                        valX.innerText = Math.round(viewState.target[0]);
-                        valY.innerText = Math.round(viewState.target[1]);
+                        const monitor = document.getElementById('view-monitor');
+                        if (monitor.style.display === 'block') {
+                            valZoom.innerText = viewState.zoom.toFixed(2);
+                            valX.innerText = Math.round(viewState.target[0]);
+                            valY.innerText = Math.round(viewState.target[1]);
+                        }
                         deckInstance.setProps({viewState}); 
                         renderLayers(); // Re-render for dynamic font sizes
                     },
@@ -389,6 +392,17 @@
 
                     deckInstance.setProps({layers});
                 }
+
+                document.addEventListener('keydown', (e) => {
+                    if (e.key.toLowerCase() === 'm') {
+                        const monitor = document.getElementById('view-monitor');
+                        if (monitor.style.display === 'block') {
+                            monitor.style.display = 'none';
+                        } else {
+                            monitor.style.display = 'block';
+                        }
+                    }
+                });
 
                 renderLayers();
             }
