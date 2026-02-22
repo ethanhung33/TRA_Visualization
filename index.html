@@ -224,11 +224,12 @@
 
                     if (!selectedLine) {
                         infoBox.innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
+                        clearBtn.style.display = 'none'; // Hide the X button
                         return;
                     };
                     
                     clearBtn.style.display = 'block'; // Show the X button
-                    
+
                     const daysLabel = ["加", "一", "二", "三", "四", "五", "六", "日", "例", "例"];
                     let boxesHtml = '<div class="day-container">';
                     const sequence = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
