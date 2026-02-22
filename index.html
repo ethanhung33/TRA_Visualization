@@ -91,7 +91,8 @@
                 const valX = document.getElementById('val-x');
                 const valY = document.getElementById('val-y');
                 const now = new Date();
-                const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+                let currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+                if (currentTimeMinutes < 240) currentTimeMinutes += 1440;
 
                 document.querySelectorAll('.type-filter').forEach(checkbox => {
                     checkbox.addEventListener('change', (e) => {
@@ -274,7 +275,8 @@
 
                     onClick: (info) => {
                         if (info.object && info.layer.id === 'main-path-layer') {
-                            selectedLine = info.object;
+                            const trainNumber = info.object.number;
+                            selectedLine = rawData.find(t => t.number === trainNumber);
                             showSchedule = true; 
                             updateInfoBox();
                         } else {
@@ -490,8 +492,8 @@
                             pickable: false,
                             getPath: d => d.data.map(p => [p.y*3, stationDistances[p.x]]),
                             getColor: [255, 196, 0], // Yellow highlight
-                            getWidth: 3,
-                            widthMaxPixels: 3.5,
+                            getWidth: 4,
+                            widthMaxPixels: 4.5,
                             widthMinPixels: 0
                         }),
                         new deck.TextLayer({
@@ -526,7 +528,8 @@
                             getPath: d => d.path,
                             getColor: [255, 0, 0, 150], // Red line with some transparency
                             getWidth: 2,
-                            widthMinPixels: 2
+                            widthMaxPixels: 3.5,
+                            widthMinPixels: 0
                         }),
                         
                         new deck.ScatterplotLayer({
