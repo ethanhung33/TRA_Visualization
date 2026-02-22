@@ -41,7 +41,10 @@
                 <button class="pill active" data-type="區間" checked> 區間</button>
             </div>
             <hr>
-            <h2>列車資訊</h2>
+            <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                列車資訊
+                <button id="btn-clear-selection" style="background: none; border: none; color: #888; cursor: pointer; font-size: 24px;">&times;</button>
+            </h2>
             <div id="info-content">
                 <p class="placeholder">點選列車以顯示資訊</p>
             </div>
@@ -235,23 +238,10 @@
                     boxesHtml += '</div>';
 
                     const viaText = selectedLine.info.via !== '-' ? `(${(selectedLine.info.via).replace(/線/g, '')})` : '';
-                    const btnLabel = showSchedule ? "隱藏停靠站" : "顯示停靠站";
-                    const btnClass = showSchedule ? "info-pill active" : "info-pill";
                     let rawNote = selectedLine.info.note || "";
-                    let processedNote = "";
-                    if (selectedLine.info.drive !== "0") {
-                        // Find the index of the first '。'
-                        const firstStopIndex = rawNote.indexOf('。');
-                        if (firstStopIndex !== -1) {
-                            // Slice from the character AFTER the first '。'
-                            processedNote = rawNote.slice(firstStopIndex + 1);
-                        } else {
-                            processedNote = rawNote;
-                        }
-                    } else {
-                        // For '0' (Extra/Added trains), keep the "Specified date" line
-                        processedNote = rawNote;
-                    }
+                    let processedNote = (selectedLine.info.drive !== "0") 
+                        ? (rawNote.includes('。') ? rawNote.slice(rawNote.indexOf('。') + 1) : rawNote)
+                        : rawNote;
                     const formattedNote = processedNote.trim().replace(/。/g, '。<br>');
 
                     infoBox.innerHTML = `
@@ -261,12 +251,6 @@
                         <p>${boxesHtml}</p>
                         <p>${formattedNote}</p>
                     `;
-
-                    document.getElementById('btn-toggle-schedule').onclick = () => {
-                        showSchedule = !showSchedule;
-                        updateInfoBox(); // Refresh button text/class
-                        renderLayers();  // Show/Hide the labels on map
-                    };
                 }
 
                 const deckInstance = new deck.DeckGL({
@@ -562,14 +546,28 @@
                     deckInstance.setProps({layers});
                 }
 
+                // 1. Handle the "X" button for de-selection
+                document.getElementById('btn-clear-selection').onclick = () => {
+                    selectedLine = null;
+                    showSchedule = false;
+                    updateInfoBox();
+                    renderLayers();
+                };
+
+                // 2. Handle 'H' key and 'M' key
                 document.addEventListener('keydown', (e) => {
-                    if (e.key.toLowerCase() === 'm') {
-                        const monitor = document.getElementById('view-monitor');
-                        if (monitor.style.display === 'block') {
-                            monitor.style.display = 'none';
-                        } else {
-                            monitor.style.display = 'block';
+                    const key = e.key.toLowerCase();
+                    
+                    if (key === 'h') {
+                        if (selectedLine) {
+                            showSchedule = !showSchedule;
+                            renderLayers();
                         }
+                    }
+                    
+                    if (key === 'm') {
+                        const monitor = document.getElementById('view-monitor');
+                        monitor.style.display = (monitor.style.display === 'block') ? 'none' : 'block';
                     }
                 });
 
