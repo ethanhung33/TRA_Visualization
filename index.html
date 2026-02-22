@@ -62,6 +62,11 @@
             .info-pill { margin-top: 12px; display: inline-block; background-color: #444; color: #eee; padding: 6px 14px; border-radius: 15px; font-size: 12px; cursor: pointer; border: 1px solid #555; transition: all 0.2s; }
             .info-pill.active { background-color: #ffc400; color: black; border-color: transparent; }
             .line-pill.active { background-color: #0078d4; color: white; }
+            .day-container { display: flex; gap: 4px; margin-top: 5px; }
+            .day-box { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; border-radius: 3px; font-weight: bold; background-color: #444; color: #888; }
+            .day-box.active { background-color: #eee; color: #000; }
+            .day-box.special-rule { position: relative; overflow: hidden; }
+            .day-box.special-rule::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 1px; background: currentColor; transform: rotate(-45deg); transform-origin: top left; }
         </style>
 
         <script type="text/javascript">
@@ -85,6 +90,8 @@
                 const valZoom = document.getElementById('val-zoom');
                 const valX = document.getElementById('val-x');
                 const valY = document.getElementById('val-y');
+                const now = new Date();
+                const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
 
                 document.querySelectorAll('.type-filter').forEach(checkbox => {
                     checkbox.addEventListener('change', (e) => {
@@ -215,6 +222,17 @@
                         return;
                     };
                     
+                    const daysLabel = ["加", "一", "二", "三", "四", "五", "六", "日", "例", "例"];
+                    let boxesHtml = '<div class="day-container">';
+                    const sequence = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+                    sequence.forEach(num => {
+                        const isActive = driveStr.includes(num.toString());
+                        const label = daysLabel[num];
+                        const specialClass = num === 9 ? 'special-rule' : '';
+                        boxesHtml += `<div class="day-box ${isActive ? 'active' : ''} ${specialClass}">${label}</div>`;
+                    });
+                    boxesHtml += '</div>';
+
                     const viaText = selectedLine.info.via !== '-' ? `<br>經由${selectedLine.info.via}。` : '';
                     const btnLabel = showSchedule ? "隱藏停靠站" : "顯示停靠站";
                     const btnClass = showSchedule ? "info-pill active" : "info-pill";
@@ -224,7 +242,7 @@
                         <p><strong>${selectedLine.train} ${selectedLine.number}   </strong>
                         <button id="btn-toggle-schedule" class="${btnClass}">${btnLabel}</button></p>
                         <p>${selectedLine.info.start} → ${selectedLine.info.end}${viaText}</p>
-                        <p>行駛日期：${selectedLine.info.drive}</p>
+                        <p>行駛日：</p>${boxesHtml}
                         <p>${formattedNote}</p>
                     `;
 
@@ -238,7 +256,7 @@
                 const deckInstance = new deck.DeckGL({
                     container: 'container',
                     views: [new deck.OrthographicView({id: 'ortho'})],
-                    initialViewState: { target: [0, 0, 0], zoom: -1 },
+                    initialViewState: { target: [currentTimeMinutes * 3, 285, 0], zoom: 0 },
                     controller: true,
                     pickingRadius: 10,
                     
@@ -494,6 +512,18 @@
                             pixelOffset: [15, 0], 
                             background: true,
                             getBackgroundColor: [0, 0, 0, 180]
+                        }),
+
+                        new deck.PathLayer({
+                            id: 'current-time-line',
+                            data: [{
+                                path: [[currentTimeMinutes * 3, minDistance], [currentTimeMinutes * 3, maxDistance]] // Adjust Y range as needed
+                            }],
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPath: d => d.path,
+                            getColor: [255, 0, 0, 150], // Red line with some transparency
+                            getWidth: 2,
+                            widthMinPixels: 2
                         }),
                         
                         new deck.ScatterplotLayer({
