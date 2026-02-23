@@ -410,7 +410,7 @@
                                 widthMinPixels: 0
                             }),
                             new deck.TextLayer({
-                                id: 'station-labels',
+                                id: `station-labels-${offset}`,
                                 data: currentZoom > 0.8 ? denseLabelData : currentZoom > -0.4 ? normalLabelData : currentZoom > -1.8 ? sparseLabelData : [],
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                                 getPosition: d => d.position,
@@ -427,7 +427,7 @@
                             }),
 
                             new deck.PathLayer({
-                                id: 'thin-time-lines',
+                                id: `thin-time-lines-${offset}`,
                                 data: thinLines,
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                                 getPath: d => d.path,
@@ -447,7 +447,7 @@
                                 widthMinPixels: 0
                             }),
                             new deck.TextLayer({
-                                id: 'vertical-labels',
+                                id: `vertical-labels-${offset}`,
                                 data: currentZoom > 0.8 ? denseLabels : currentZoom > -0.4 ? normalLabels : currentZoom > -1.6 ? sparseLabels : currentZoom > -2.2 ? simpleLabels : [],
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                                 getPosition: d => d.position,
@@ -463,7 +463,7 @@
                             }),
 
                             new deck.PathLayer({
-                                id: 'main-path-layer',
+                                id: `main-path-layer-${offset}`,
                                 data: processedSegments,
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                                 pickable: true,
@@ -476,7 +476,7 @@
                                 widthMinPixels: 0
                             }),
                             new deck.PathLayer({
-                                id: 'selection-layer',
+                                id: `selection-layer-${offset}`,
                                 // This array is either empty or contains exactly one item
                                 data: selectedLine && enabledTypes.has(selectedLine.train) ? processedSegments.filter(s => s.number === selectedLine.number) : [],
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
@@ -488,7 +488,7 @@
                                 widthMinPixels: 0
                             }),
                             new deck.TextLayer({
-                                id: 'train-schedule-labels',
+                                id: `train-schedule-labels-${offset}`,
                                 data: scheduleData, // Use the grouped data
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                                 getPosition: d => [(d.dep+1.5) * 3, d.yCoord], // Anchor at arrival time
@@ -511,7 +511,7 @@
                             }),
 
                             new deck.PathLayer({
-                                id: 'current-time-line',
+                                id: `current-time-line-${offset}`,
                                 data: [{
                                     path: [[currentTimeMinutes * 3, minDistance], [currentTimeMinutes * 3, maxDistance]] // Adjust Y range as needed
                                 }],
@@ -524,7 +524,7 @@
                             }),
                             
                             new deck.ScatterplotLayer({
-                                id: 'json-layer',
+                                id: `json-layer-${offset}`,
                                 data: rawData.flatMap(g => g.data.map(p => ({...p, train: g.train}))),
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                                 getPosition: d => [d.y*3, stationDistances[d.x]], 
