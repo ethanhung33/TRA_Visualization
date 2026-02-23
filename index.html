@@ -296,6 +296,7 @@
                 let sparseLabelData = [];
                 let thickLines = [];
                 let thinLines = [];
+                let simpleLabels = [];
                 let sparseLabels = [];
                 let normalLabels = [];
                 let denseLabels = [];
@@ -311,6 +312,7 @@
                     const newSparseLabels = [];
                     const newNormalLabels = [];
                     const newDenseLabels = [];
+                    const newSimpleLabels = [];
                     Object.entries(stationDistances).forEach(([name, yValue]) => {
                         if (stationList.has(name)) {
                             for (let x = 240; x <= 1680; x += 120) { // Every 2 hours
@@ -338,6 +340,7 @@
                             newDenseLabels.push(label);
                             if (x % 30 === 0) {newNormalLabels.push(label)};
                             if (x % 60 === 0) {newSparseLabels.push(label)};
+                            if (x % 120 === 0) {newSimpleLabels.push(label)};
                         }
                     }
                     denseLabelData = newDenseLabelData;
@@ -345,6 +348,7 @@
                     sparseLabelData = newSparseLabelData;
                     thickLines = newThickLines;
                     thinLines = newThinLines;
+                    simpleLabels = newSimpleLabels;
                     sparseLabels = newSparseLabels;
                     normalLabels = newNormalLabels;
                     denseLabels = newDenseLabels;
@@ -459,7 +463,7 @@
                         }),
                         new deck.TextLayer({
                             id: 'vertical-labels',
-                            data: currentZoom > 0.8 ? denseLabels : currentZoom > -0.4 ? normalLabels : currentZoom > -1.8 ? sparseLabels : [],
+                            data: currentZoom > 0.8 ? denseLabels : currentZoom > -0.4 ? normalLabels : currentZoom > -1.6 ? sparseLabels : currentZoom > -2.2 ? simpleLabels : [],
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             getPosition: d => d.position,
                             getText: d => d.text,
