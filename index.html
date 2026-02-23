@@ -373,13 +373,43 @@
                     const TIME_THRESHOLD = 5000;
                     // 1. Filter and Clean Train Data
                     const processedSegments = rawData
-                        .filter(train => enabledTypes.has(train.train))
-                        .map(train => {
-                            // Only keep points that exist in our station list/distance map
-                            const validPoints = train.data.filter(p => stationDistances[p.x] !== undefined);
-                            return { ...train, data: validPoints };
-                        })
-                        .filter(train => train.data.length > 1); // Only keep paths with at least 2 points
+                    .filter(train => enabledTypes.has(train.train))
+                    .map(train => {
+                        const validPoints = train.data.filter(p => stationDistances[p.x] !== undefined);
+                        
+                        let cumulativeOffset = 0;
+                        const adjustedData = [];
+
+                        for (let i = 0; i < validPoints.length; i++) {
+                            const currentPoint = validPoints[i];
+                            const currentRawDist = stationDistances[currentPoint.x];
+
+                            if (i > 0) {
+                                const prevPoint = validPoints[i - 1];
+                                const prevRawDist = stationDistances[prevPoint.x];
+
+                                // Case 1: Jumping from bottom (near 0) to top (near max)
+                                // We want to pull the rest of the path "down" to stay continuous
+                                if (prevRawDist < 1000 && currentRawDist > 6000) {
+                                    cumulativeOffset -= PERIOD;
+                                } 
+                                // Case 2: Jumping from top (near max) to bottom (near 0)
+                                // We want to push the rest of the path "up" to stay continuous
+                                else if (prevRawDist > 6000 && currentRawDist < 1000) {
+                                    cumulativeOffset += PERIOD;
+                                }
+                            }
+
+                            adjustedData.push({
+                                ...currentPoint,
+                                // Apply the persistent offset to this and all subsequent points
+                                adjustedDist: currentRawDist + cumulativeOffset 
+                            });
+                        }
+
+                        return { ...train, data: adjustedData };
+                    })
+                    .filter(train => train.data.length > 1);
 
                     let scheduleData = [];
                     if (showSchedule && selectedLine) {
@@ -438,7 +468,7 @@
                                 pickable: true,
                                 autoHighlight: true,
                                 highlightColor: [255, 255, 255, 150],
-                                getPath: d => d.data.filter(p => stationDistances[p.x] !== undefined).map(p => [p.y*3, stationDistances[p.x] + offset]),
+                                getPath: d => d.data.map(p => [ p.y * 3, p.adjustedDist + offset ]),
                                 getColor: d => colorPalette[d.train],
                                 getWidth: 1.5,
                                 widthMaxPixels: 2,
@@ -450,7 +480,7 @@
                                 data: selectedLine && enabledTypes.has(selectedLine.train) ? processedSegments.filter(s => s.number === selectedLine.number) : [],
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                                 pickable: false,
-                                getPath: d => d.data.map(p => [p.y*3, stationDistances[p.x] + offset]),
+                                getPath: d => d.data.map(p => [ p.y * 3, p.adjustedDist + offset ]),
                                 getColor: [255, 196, 0], // Yellow highlight
                                 getWidth: 4,
                                 widthMaxPixels: 4.5,
