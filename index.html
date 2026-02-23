@@ -284,7 +284,10 @@
                             valX.innerText = Math.round(viewState.target[0]);
                             valY.innerText = Math.round(viewState.target[1]);
                         }
-                        deckInstance.setProps({viewState}); 
+                        const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 3.25);
+                        const nextViewState = {...viewState, zoom: clampedZoom};
+                        currentViewState = nextViewState;
+                        deckInstance.setProps({viewState: nextViewState}); 
                         renderLayers(); // Re-render for dynamic font sizes
                     },
 
