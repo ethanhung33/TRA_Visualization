@@ -267,7 +267,7 @@
                 const deckInstance = new deck.DeckGL({
                     container: 'container',
                     views: [new deck.OrthographicView({id: 'ortho'})],
-                    initialViewState: { target: [currentTimeMinutes * 3, initialY, 0], zoom: 0 },
+                    initialViewState: { target: [currentTimeMinutes * 3, initialY, 0], zoom: 0, minZoom: -3.75, maxZoom: 3.25 },
                     controller: true,
                     pickingRadius: 10,
                     
@@ -347,13 +347,18 @@
                             newThinLines.push({ path });
                         }
                     }
+                    for (let y = minDistance-PERIOD; y <= maxDistance+PERIOD; y += 800) {
+                        for (let x = 240; x <= 1680; x += 60) {
+                            const label = { text: `${(Math.floor(x/60)).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
+                            newSparseLabels.push(label);
+                            if (x % 120 === 0) {newSimpleLabels.push(label)};
+                        }
+                    }
                     for (let y = minDistance-PERIOD; y <= maxDistance+PERIOD; y += 400) {
                         for (let x = 240; x <= 1680; x += 10) {
                             const label = { text: `${(Math.floor(x/60)).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
                             newDenseLabels.push(label);
                             if (x % 30 === 0) {newNormalLabels.push(label)};
-                            if (x % 60 === 0) {newSparseLabels.push(label)};
-                            if (x % 120 === 0) {newSimpleLabels.push(label)};
                         }
                     }
                     denseLabelData = newDenseLabelData;
@@ -439,7 +444,7 @@
                                 id: `station-layer-${offset}`,
                                 data: Object.entries(stationDistances).filter(([name, yValue]) => stationList.has(name)),
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                getPath: d => [[630, d[1] + offset], [5130, d[1] + offset]],
+                                getPath: d => [[630, d[1] + offset], [5130, d[1] + offset], 0],
                                 getColor: [80, 80, 80],
                                 getWidth: 1,
                                 widthMaxPixels: 2,
@@ -449,7 +454,7 @@
                                 id: `station-labels-${offset}`,
                                 data: currentZoom > 0.8 ? denseLabelData : currentZoom > -0.4 ? normalLabelData : currentZoom > -1.8 ? sparseLabelData : [],
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                getPosition: d => [d.position[0], d.position[1] + offset],
+                                getPosition: d => [d.position[0], d.position[1] + offset, 0],
                                 getText: d => d.text,
                                 getSize: 12,
                                 sizeMaxPixels: 12,
@@ -469,7 +474,7 @@
                                 pickable: true,
                                 autoHighlight: true,
                                 highlightColor: [255, 255, 255, 150],
-                                getPath: d => d.data.map(p => [ p.y * 3, p.adjustedDist + offset ]),
+                                getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset, 10]),
                                 getColor: d => colorPalette[d.train],
                                 getWidth: 1.5,
                                 widthMaxPixels: 2,
@@ -481,7 +486,7 @@
                                 data: selectedLine && enabledTypes.has(selectedLine.train) ? processedSegments.filter(s => s.number === selectedLine.number) : [],
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                                 pickable: false,
-                                getPath: d => d.data.map(p => [ p.y * 3, p.adjustedDist + offset ]),
+                                getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset, 15]),
                                 getColor: [255, 196, 0], // Yellow highlight
                                 getWidth: 4,
                                 widthMaxPixels: 4.5,
@@ -491,7 +496,7 @@
                                 id: `train-schedule-labels-${offset}`,
                                 data: scheduleData, // Use the grouped data
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                getPosition: d => [(d.dep+1.5) * 3, d.yCoord + offset], // Anchor at arrival time
+                                getPosition: d => [(d.dep+1.5) * 3, d.yCoord + offset, 0], // Anchor at arrival time
                                 getText: d => {
                                     const format = (val) => {
                                         const hh = Math.floor(val / 60).toString().padStart(2, '0');
@@ -535,7 +540,7 @@
                         }),
                         new deck.TextLayer({
                             id: 'vertical-labels',
-                            data: currentZoom > 0.8 ? denseLabels : currentZoom > -0.4 ? normalLabels : currentZoom > -1.6 ? sparseLabels : currentZoom > -2.2 ? simpleLabels : [],
+                            data: currentZoom > 0.8 ? denseLabels : currentZoom > -0.4 ? normalLabels : currentZoom > -1.6 ? sparseLabels : currentZoom > -2 ? simpleLabels : [],
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             getPosition: d => d.position,
                             getText: d => d.text,
