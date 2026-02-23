@@ -89,7 +89,7 @@
             const seaStationList = new Set(['八堵', '七堵', '百福', '五堵', '汐止', '汐科', '南港', '松山', '臺北', '萬華', '板橋', '浮洲', '樹林', '南樹林', '山佳', '鶯歌', '鳳鳴', '桃園', '內壢', '中壢', '埔心', '楊梅', '富岡', '新富', '北湖', '湖口', '新豐', '竹北', '北新竹', '新竹', '三姓橋', '香山', '崎頂', '竹南', "談文", "大山", "後龍", "龍港", "白沙屯", "新埔", "通霄", "苑裡", "日南", "大甲", "臺中港", "清水", "沙鹿", "龍井", "大肚", "追分", '彰化', '花壇', '大村', '員林', '永靖', '社頭', '田中', '二水', '林內', '石榴', '斗六', '斗南', '石龜', '大林', '民雄', '嘉北', '嘉義', '水上', '南靖', '後壁', '新營', '柳營', '林鳳營', '隆田', '拔林', '善化', '南科', '新市', '永康', '大橋', '臺南', '保安', '仁德', '中洲', '大湖', '路竹', '岡山', '橋頭', '楠梓', '新左營', '左營', '內惟', '美術館', '鼓山', '三塊厝', '高雄', '民族', '科工館', '正義', '鳳山', '後庄', '九曲堂', '六塊厝', '屏東', '歸來', '麟洛', '西勢', '竹田', '潮州', '崁頂', '南州', '鎮安', '林邊', '佳冬', '東海', '枋寮', '加祿', '內獅', '枋山', '大武', '瀧溪', '金崙', '太麻里', '知本', '康樂', '臺東', '山里', '鹿野', '瑞源', '瑞和', '關山', '海端', '池上', '富里', '東竹', '東里', '玉里', '三民', '瑞穗', '富源', '大富', '光復', '萬榮', '鳳林', '南平', '林榮新光', '豐田', '壽豐', '平和', '志學', '吉安', '花蓮', '北埔', '景美', '新城', '崇德', '和仁', '和平', '漢本', '武塔', '南澳', '東澳', '永樂', '蘇澳新', '冬山', '羅東', '中里', '二結', '宜蘭', '四城', '礁溪', '頂埔', '頭城', '外澳', '龜山', '大溪', '大里', '石城', '福隆', '貢寮', '雙溪', '牡丹', '三貂嶺', '猴硐', '瑞芳', '四腳亭', '暖暖']);
             let stationList = mountStationList;
             let stationDistances = mountStationDistances;
-            const PERIOD = 8759;
+            let PERIOD = 8759;
             const initialY = 246;
 
             async function initMap() {
@@ -195,6 +195,7 @@
                         const lineType = pill.getAttribute('data-line');
                         stationList = (lineType === 'mountain') ? mountStationList : seaStationList;
                         stationDistances = (lineType === 'mountain') ? mountStationDistances : seaStationDistances;
+                        PERIOD = (lineType === 'mountain') ? 8759 : 8806;
                         
                         // 3. Update the Highlighted Selection
                         if (selectedLine) {
@@ -547,20 +548,6 @@
                             getTextAnchor: 'start',
                             pixelOffset: [5, 5]
                         }),
-
-
-                        new deck.PathLayer({
-                            id: 'current-time-line',
-                            data: [{
-                                path: [[currentTimeMinutes * 3, minDistance], [currentTimeMinutes * 3, maxDistance]] // Adjust Y range as needed
-                            }],
-                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                            getPath: d => d.path,
-                            getColor: [255, 0, 0, 150], // Red line with some transparency
-                            getWidth: 2,
-                            widthMaxPixels: 3.5,
-                            widthMinPixels: 0
-                        }), 
                         
                         new deck.ScatterplotLayer({
                             id: 'json-layer',
@@ -572,9 +559,24 @@
                             radiusMaxPixels: 0.001,
                             radiusMinPixels: 0.00001
                         })
-                    ]
+                    ];
 
-                    deckInstance.setProps({ layers: [...baseLayers, ...offsetLayers] });
+                    const currentTimeLayers = [
+                        new deck.PathLayer({
+                            id: 'current-time-line',
+                            data: [{
+                                path: [[currentTimeMinutes * 3, minDistance-PERIOD], [currentTimeMinutes * 3, maxDistance+PERIOD]] // Adjust Y range as needed
+                            }],
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPath: d => d.path,
+                            getColor: [255, 0, 0, 150], // Red line with some transparency
+                            getWidth: 2,
+                            widthMaxPixels: 3.5,
+                            widthMinPixels: 0
+                        })
+                    ];
+
+                    deckInstance.setProps({ layers: [...baseLayers, ...offsetLayers, ...currentTimeLayers] });
                 };
 
                 // 1. Handle the "X" button for de-selection
