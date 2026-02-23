@@ -447,7 +447,7 @@
                                 id: `station-layer-${offset}`,
                                 data: Object.entries(stationDistances).filter(([name, yValue]) => stationList.has(name)),
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                getPath: d => [[630, d[1] + offset, 0], [5130, d[1] + offset, 0]],
+                                getPath: d => [[630, d[1] + offset], [5130, d[1] + offset]],
                                 getColor: [80, 80, 80],
                                 getWidth: 1,
                                 widthMaxPixels: 2,
@@ -457,7 +457,7 @@
                                 id: `station-labels-${offset}`,
                                 data: currentZoom > 0.8 ? denseLabelData : currentZoom > -0.4 ? normalLabelData : currentZoom > -1.8 ? sparseLabelData : [],
                                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                getPosition: d => [d.position[0], d.position[1] + offset, 0],
+                                getPosition: d => [d.position[0], d.position[1] + offset],
                                 getText: d => d.text,
                                 getSize: 12,
                                 sizeMaxPixels: 12,
@@ -470,31 +470,6 @@
                                 pixelOffset: [0, -10]
                             }),
 
-                            new deck.PathLayer({
-                                id: `main-path-layer-${offset}`,
-                                data: processedSegments,
-                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                pickable: true,
-                                autoHighlight: true,
-                                highlightColor: [255, 255, 255, 150],
-                                getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset, 10]),
-                                getColor: d => colorPalette[d.train],
-                                getWidth: 1.5,
-                                widthMaxPixels: 2,
-                                widthMinPixels: 0
-                            }),
-                            new deck.PathLayer({
-                                id: `selection-layer-${offset}`,
-                                // This array is either empty or contains exactly one item
-                                data: selectedLine && enabledTypes.has(selectedLine.train) ? processedSegments.filter(s => s.number === selectedLine.number) : [],
-                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                pickable: false,
-                                getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset, 20]),
-                                getColor: [255, 196, 0], // Yellow highlight
-                                getWidth: 4,
-                                widthMaxPixels: 4.5,
-                                widthMinPixels: 0
-                            }),
                             new deck.TextLayer({
                                 id: `train-schedule-labels-${offset}`,
                                 data: scheduleData, // Use the grouped data
@@ -516,6 +491,36 @@
                                 pixelOffset: [15, 0], 
                                 background: true,
                                 getBackgroundColor: [0, 0, 0, 180]
+                            })
+                        ];
+                    });
+
+                    const mainPlotLayers = yOffsets.flatMap(offset => {
+                        return [
+                            new deck.PathLayer({
+                                id: `main-path-layer-${offset}`,
+                                data: processedSegments,
+                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                                pickable: true,
+                                autoHighlight: true,
+                                highlightColor: [255, 255, 255, 150],
+                                getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
+                                getColor: d => colorPalette[d.train],
+                                getWidth: 1.5,
+                                widthMaxPixels: 2,
+                                widthMinPixels: 0
+                            }),
+                            new deck.PathLayer({
+                                id: `selection-layer-${offset}`,
+                                // This array is either empty or contains exactly one item
+                                data: selectedLine && enabledTypes.has(selectedLine.train) ? processedSegments.filter(s => s.number === selectedLine.number) : [],
+                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                                pickable: false,
+                                getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
+                                getColor: [255, 196, 0], // Yellow highlight
+                                getWidth: 4,
+                                widthMaxPixels: 4.5,
+                                widthMinPixels: 0
                             })
                         ];
                     });
@@ -584,7 +589,7 @@
                         })
                     ];
 
-                    deckInstance.setProps({ layers: [...baseLayers, ...offsetLayers, ...currentTimeLayers] });
+                    deckInstance.setProps({ layers: [...baseLayers, ...offsetLayers, ...mainPlotLayers, ...currentTimeLayers] });
                 };
 
                 // 1. Handle the "X" button for de-selection
