@@ -115,12 +115,7 @@
 
             async function loadData(dateStr) {
                 const fileName = dateStr.replace(/-/g, '');
-                try {
-                    const response = await fetch(`data/${fileName}.json`);
-                } catch (err) {
-                    console.error(err);
-                    alert(`無法載入資料: data/${fileName}.json`);
-                }
+                let response = await fetch(`data/${fileName}.json`);
                 if (!response.ok) throw new Error("File not found");
                 rawData = await response.json();
                 renderLayers();
