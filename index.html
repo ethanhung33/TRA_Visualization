@@ -112,13 +112,17 @@
             const dateInput = document.getElementById('date-selector');
             const today = new Date();
             dateInput.value = today.toISOString().split('T')[0];
-
+            
             async function loadData(dateStr) {
                 const fileName = dateStr.replace(/-/g, '');
-                let response = await fetch(`data/${fileName}.json`);
-                if (!response.ok) throw new Error("File not found");
-                rawData = await response.json();
-                renderLayers();
+                try {
+                    const response = await fetch(`data/${fileName}.json`);
+                    if (!response.ok) throw new Error("File not found");
+                    rawData = await response.json();
+                    renderLayers();
+                } catch (error) {
+                    console.error("Data loading failed:", error);
+                }
             }
             
             dateInput.addEventListener('change', (e) => {
@@ -166,35 +170,29 @@
             loadData(dateInput.value);
 
             async function initMap() {
+                // --- DOM Elements ---
                 const infoBox = document.getElementById('info-content');
                 const valZoom = document.getElementById('val-zoom');
                 const valX = document.getElementById('val-x');
                 const valY = document.getElementById('val-y');
+                const monitor = document.getElementById('view-monitor');
+                const pillContainer = document.getElementById('pill-container');
+
+                // --- Time Calculation ---
                 const now = new Date();
                 let currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
-                if (currentTimeMinutes < 240) currentTimeMinutes += 1440;
+                if (currentTimeMinutes < 240) currentTimeMinutes += 1440; // Adjust for early morning roll-over
 
-                document.querySelectorAll('.type-filter').forEach(checkbox => {
-                    checkbox.addEventListener('change', (e) => {
-                        const type = e.target.value;
-                        if (e.target.checked) enabledTypes.add(type);
-                        else enabledTypes.delete(type);
+                // --- State Management Helpers ---
+                const resetSelection = () => {
+                    selectedLine = null;
+                    showSchedule = false;
+                    infoBox.innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
+                };
 
-                        // If we hide the currently selected line, clear the info box
-                        if (selectedLine && selectedLine.type === type && !e.target.checked) {
-                            selectedLine = null;
-                            infoBox.innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
-                        }
-                        
-                        renderLayers();
-                    });
-                });
-
-                const pillContainer = document.getElementById('pill-container');
-                const allTypes = Object.keys(colorPalette);
-                const pills = document.querySelectorAll('.pill');
-
-                // 1. Create a single function to handle the UI looks
+                /**
+                * Synchronizes the visual state of the category pills with the enabledTypes Set.
+                */
                 function syncPillStyles() {
                     const trainPills = document.querySelectorAll('.pill[data-type]');
                     trainPills.forEach(pill => {
@@ -213,248 +211,242 @@
                     });
                 }
 
-                // 2. Individual Pill Clicks
+                // --- Event Listeners: Filters ---
+                document.querySelectorAll('.type-filter').forEach(checkbox => {
+                    checkbox.addEventListener('change', (e) => {
+                        const type = e.target.value;
+                        if (e.target.checked) {
+                            enabledTypes.add(type);
+                        } else {
+                            enabledTypes.delete(type);
+                            // Clear info box if the hidden type was currently selected
+                            if (selectedLine && selectedLine.type === type) {
+                                resetSelection();
+                            }
+                        }
+                        renderLayers();
+                    });
+                });
+
+                // --- Event Listeners: Pills ---
+                const allTypes = Object.keys(colorPalette);
+                const pills = document.querySelectorAll('.pill');
+
                 pills.forEach(pill => {
                     pill.addEventListener('click', () => {
                         const type = pill.getAttribute('data-type');
-                        
-                        // Toggle the data
                         if (enabledTypes.has(type)) {
                             enabledTypes.delete(type);
-                            // Clear info box if the hidden train was selected
                             if (selectedLine && selectedLine.train === type) {
-                                selectedLine = null;
-                                document.getElementById('info-content').innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
+                                resetSelection();
                             }
                         } else {
                             enabledTypes.add(type);
                         }
-
-                        syncPillStyles(); // Update the buttons
-                        renderLayers();   // Update the map
+                        syncPillStyles();
+                        renderLayers();
                     });
                 });
 
-                // 3. Select All
                 document.getElementById('btn-select-all').addEventListener('click', () => {
                     allTypes.forEach(type => enabledTypes.add(type));
                     syncPillStyles();
                     renderLayers();
                 });
 
-                // 4. Deselect All
                 document.getElementById('btn-deselect-all').addEventListener('click', () => {
                     enabledTypes.clear();
-                    selectedLine = null;
-                    document.getElementById('info-content').innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
+                    resetSelection();
                     syncPillStyles();
                     renderLayers();
                 });
 
-                // 5. Run once on startup to set initial colors
-                syncPillStyles();
-                
+                // --- Event Listeners: Line Switcher (Mountain/Sea) ---
                 const linePills = document.querySelectorAll('.line-pill');
-
                 linePills.forEach(pill => {
                     pill.addEventListener('click', () => {
-                        // 1. UI Update for Buttons
+                        // UI Toggle
                         linePills.forEach(p => p.classList.remove('active'));
                         pill.classList.add('active');
 
-                        // 2. Logic Update: Switch references
+                        // Logic Switch
                         const lineType = pill.getAttribute('data-line');
-                        stationList = (lineType === 'mountain') ? mountStationList : seaStationList;
-                        stationDistances = (lineType === 'mountain') ? mountStationDistances : seaStationDistances;
-                        PERIOD = (lineType === 'mountain') ? 8759 : 8806;
-                        
-                        // 3. Update the Highlighted Selection
+                        if (lineType === 'mountain') {
+                            stationList = mountStationList;
+                            stationDistances = mountStationDistances;
+                            PERIOD = 8759;
+                        } else {
+                            stationList = seaStationList;
+                            stationDistances = seaStationDistances;
+                            PERIOD = 8806;
+                        }
+
+                        // Selection Migration Logic
                         if (selectedLine) {
-                            // Find if this train (by number) exists in the rawData 
-                            // and has valid stops for the NEW route
                             const trainNumber = selectedLine.number;
-                            
-                            // We search for a segment of this train that matches our new stationList
-                            const updatedMatch = rawData.find(t => 
-                                t.number === trainNumber && 
+                            const updatedMatch = rawData.find(t =>
+                                t.number === trainNumber &&
                                 t.data.some(p => stationList.has(p.x))
                             );
 
                             if (updatedMatch) {
-                                // Update selectedLine to the version compatible with the new route
                                 selectedLine = updatedMatch;
                             } else {
-                                // If the train doesn't run on this line, clear selection
-                                selectedLine = null;
-                                showSchedule = false;
-                                document.getElementById('info-content').innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
+                                resetSelection();
                             }
                         }
 
-                        // 4. Re-calculate derived data and refresh UI
                         updateStationGridData();
                         updateInfoBox();
                         renderLayers();
                     });
                 });
 
+                // --- Deck.GL Implementation ---
                 const deckInstance = new deck.DeckGL({
                     container: 'container',
-                    views: [new deck.OrthographicView({id: 'ortho'})],
-                    initialViewState: { target: [currentTimeMinutes * 3, initialY, 0], zoom: 0, minZoom: -3.75, maxZoom: 3.25 },
+                    views: [new deck.OrthographicView({ id: 'ortho' })],
+                    initialViewState: { 
+                        target: [currentTimeMinutes * 3, initialY, 0], 
+                        zoom: 0, 
+                        minZoom: -3.75, 
+                        maxZoom: 3.25 
+                    },
                     controller: true,
                     pickingRadius: 10,
-                    
-                    onViewStateChange: ({viewState}) => { 
-                        if (viewState.target[1] > PERIOD) {
-                            viewState.target[1] -= PERIOD;
-                        } else if (viewState.target[1] < 0) {
-                            viewState.target[1] += PERIOD;
-                        }
-                        currentZoom = viewState.zoom;
-                        const monitor = document.getElementById('view-monitor');
+
+                    onViewStateChange: ({ viewState }) => {
+                        // Seamless Vertical Looping
+                        if (viewState.target[1] > PERIOD) viewState.target[1] -= PERIOD;
+                        else if (viewState.target[1] < 0) viewState.target[1] += PERIOD;
+
+                        // Zoom Clamping
+                        const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 3.25);
+                        
+                        // Performance Monitor Update
                         if (monitor.style.display === 'block') {
-                            valZoom.innerText = viewState.zoom.toFixed(2);
+                            valZoom.innerText = clampedZoom.toFixed(2);
                             valX.innerText = Math.round(viewState.target[0]);
                             valY.innerText = Math.round(viewState.target[1]);
                         }
-                        const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 3.25);
-                        const nextViewState = {...viewState, zoom: clampedZoom};
+
+                        const nextViewState = { ...viewState, zoom: clampedZoom };
                         currentViewState = nextViewState;
-                        deckInstance.setProps({viewState: nextViewState});
                         currentZoom = clampedZoom;
-                        renderLayers(); // Re-render for dynamic font sizes
+                        
+                        deckInstance.setProps({ viewState: nextViewState });
+                        renderLayers(); // Re-render for dynamic label LOD
                     },
 
                     onClick: (info) => {
                         if (info.object && info.layer.id.includes('main-path-layer')) {
-                            const trainNumber = info.object.number;
-                            selectedLine = rawData.find(t => t.number === trainNumber);
-                            showSchedule = true; 
-                            updateInfoBox();
+                            selectedLine = rawData.find(t => t.number === info.object.number);
+                            showSchedule = true;
                         } else {
-                            // Reset if clicking background
-                            selectedLine = null;
-                            showSchedule = false;
-                            updateInfoBox();
+                            resetSelection();
                         }
+                        updateInfoBox();
                         renderLayers();
                     }
                 });
 
-                let denseLabelData = [];
-                let normalLabelData = [];
-                let sparseLabelData = [];
-                let thickLines = [];
-                let thinLines = [];
-                let simpleLabels = [];
-                let sparseLabels = [];
-                let normalLabels = [];
-                let denseLabels = [];
-                let distances = Array.from(stationList).map(name => stationDistances[name]);
-                let minDistance = Math.min(...distances);
-                let maxDistance = Math.max(...distances);
+                // --- Grid and Label Pre-processing ---
+                let denseLabelData = [], normalLabelData = [], sparseLabelData = [];
+                let thickLines = [], thinLines = [];
+                let simpleLabels = [], sparseLabels = [], normalLabels = [], denseLabels = [];
+
                 function updateStationGridData() {
-                    const newDenseLabelData = [];
-                    const newNormalLabelData = [];
-                    const newSparseLabelData = [];
-                    const newThickLines = [];
-                    const newThinLines = [];
-                    const newSparseLabels = [];
-                    const newNormalLabels = [];
-                    const newDenseLabels = [];
-                    const newSimpleLabels = [];
+                    const tempDenseLabels = [], tempNormalLabels = [], tempSparseLabels = [];
+                    const tempThickLines = [], tempThinLines = [];
+                    const vSparse = [], vNormal = [], vDense = [], vSimple = [];
+
+                    // Horizontal Station Guides
                     Object.entries(stationDistances).forEach(([name, yValue]) => {
                         if (stationList.has(name)) {
-                            for (let x = 240; x <= 1680; x += 120) { // Every 2 hours
+                            for (let x = 240; x <= 1680; x += 120) {
                                 const entry = { text: name, position: [x * 3, yValue], y: yValue };
-                                if (x % 480 === 0) newSparseLabelData.push(entry);
-                                if (x % 240 === 0) newNormalLabelData.push(entry);
-                                newDenseLabelData.push(entry);
+                                if (x % 480 === 0) tempSparseLabels.push(entry);
+                                if (x % 240 === 0) tempNormalLabels.push(entry);
+                                tempDenseLabels.push(entry);
                             }
                         }
                     });
-                    let distances = Array.from(stationList).map(name => stationDistances[name]);
-                    let minDistance = Math.min(...distances);
-                    let maxDistance = Math.max(...distances);
+
+                    // Vertical Time Lines
+                    const distances = Array.from(stationList).map(name => stationDistances[name]);
+                    const minDist = Math.min(...distances);
+                    const maxDist = Math.max(...distances);
+
                     for (let x = 240; x <= 1680; x += 10) {
-                        const path = [[x*3, minDistance-PERIOD], [x*3, maxDistance+PERIOD]];
-                        if (x % 60 === 0) {
-                            newThickLines.push({ path });
-                        } else {
-                            newThinLines.push({ path });
-                        }
+                        const path = [[x * 3, minDist - PERIOD], [x * 3, maxDist + PERIOD]];
+                        if (x % 60 === 0) tempThickLines.push({ path });
+                        else tempThinLines.push({ path });
                     }
-                    for (let y = minDistance-PERIOD; y <= maxDistance+PERIOD; y += 800) {
+
+                    // Vertical Time Labels (HHMM format)
+                    const generateTimeLabel = (x, y) => ({
+                        text: `${Math.floor(x / 60).toString().padStart(2, '0')}${(x % 60).toString().padStart(2, '0')}`,
+                        position: [(x * 3) + 5, y]
+                    });
+
+                    for (let y = minDist - PERIOD; y <= maxDist + PERIOD; y += 800) {
                         for (let x = 240; x <= 1680; x += 60) {
-                            const label = { text: `${(Math.floor(x/60)).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
-                            newSparseLabels.push(label);
-                            if (x % 120 === 0) {newSimpleLabels.push(label)};
+                            const lbl = generateTimeLabel(x, y);
+                            vSparse.push(lbl);
+                            if (x % 120 === 0) vSimple.push(lbl);
                         }
                     }
-                    for (let y = minDistance-PERIOD; y <= maxDistance+PERIOD; y += 400) {
+                    for (let y = minDist - PERIOD; y <= maxDist + PERIOD; y += 400) {
                         for (let x = 240; x <= 1680; x += 10) {
-                            const label = { text: `${(Math.floor(x/60)).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
-                            newDenseLabels.push(label);
-                            if (x % 30 === 0) {newNormalLabels.push(label)};
+                            const lbl = generateTimeLabel(x, y);
+                            vDense.push(lbl);
+                            if (x % 30 === 0) vNormal.push(lbl);
                         }
                     }
-                    denseLabelData = newDenseLabelData;
-                    normalLabelData = newNormalLabelData;
-                    sparseLabelData = newSparseLabelData;
-                    thickLines = newThickLines;
-                    thinLines = newThinLines;
-                    simpleLabels = newSimpleLabels;
-                    sparseLabels = newSparseLabels;
-                    normalLabels = newNormalLabels;
-                    denseLabels = newDenseLabels;
+
+                    denseLabelData = tempDenseLabels;
+                    normalLabelData = tempNormalLabels;
+                    sparseLabelData = tempSparseLabels;
+                    thickLines = tempThickLines;
+                    thinLines = tempThinLines;
+                    sparseLabels = vSparse;
+                    simpleLabels = vSimple;
+                    normalLabels = vNormal;
+                    denseLabels = vDense;
                 }
 
-                updateStationGridData();
-
+                // --- Core Rendering Function ---
                 function renderLayers() {
                     const yOffsets = [-PERIOD, 0, PERIOD];
-                    const TIME_THRESHOLD = 5000;
-                    // 1. Filter and Clean Train Data
+                    const distances = Array.from(stationList).map(name => stationDistances[name]);
+                    const minDist = Math.min(...distances);
+                    const maxDist = Math.max(...distances);
+
+                    // 1. Process Train Path Data (Continuous logic)
                     const processedSegments = rawData
-                    .filter(train => enabledTypes.has(train.train))
-                    .map(train => {
-                        const validPoints = train.data.filter(p => stationDistances[p.x] !== undefined);
-                        
-                        let cumulativeOffset = 0;
-                        const adjustedData = [];
+                        .filter(train => enabledTypes.has(train.train))
+                        .map(train => {
+                            const validPoints = train.data.filter(p => stationDistances[p.x] !== undefined);
+                            let cumulativeOffset = 0;
+                            const adjustedData = [];
 
-                        for (let i = 0; i < validPoints.length; i++) {
-                            const currentPoint = validPoints[i];
-                            const currentRawDist = stationDistances[currentPoint.x];
+                            for (let i = 0; i < validPoints.length; i++) {
+                                const currentPoint = validPoints[i];
+                                const currentRawDist = stationDistances[currentPoint.x];
 
-                            if (i > 0) {
-                                const prevPoint = validPoints[i - 1];
-                                const prevRawDist = stationDistances[prevPoint.x];
-
-                                // Case 1: Jumping from bottom (near 0) to top (near max)
-                                // We want to pull the rest of the path "down" to stay continuous
-                                if (prevRawDist < 1000 && currentRawDist > 6000) {
-                                    cumulativeOffset -= PERIOD;
-                                } 
-                                // Case 2: Jumping from top (near max) to bottom (near 0)
-                                // We want to push the rest of the path "up" to stay continuous
-                                else if (prevRawDist > 6000 && currentRawDist < 1000) {
-                                    cumulativeOffset += PERIOD;
+                                if (i > 0) {
+                                    const prevRawDist = stationDistances[validPoints[i - 1].x];
+                                    // Cross-over logic for wraparound
+                                    if (prevRawDist < 1000 && currentRawDist > 6000) cumulativeOffset -= PERIOD;
+                                    else if (prevRawDist > 6000 && currentRawDist < 1000) cumulativeOffset += PERIOD;
                                 }
+                                adjustedData.push({ ...currentPoint, adjustedDist: currentRawDist + cumulativeOffset });
                             }
+                            return { ...train, data: adjustedData };
+                        })
+                        .filter(train => train.data.length > 1);
 
-                            adjustedData.push({
-                                ...currentPoint,
-                                // Apply the persistent offset to this and all subsequent points
-                                adjustedDist: currentRawDist + cumulativeOffset 
-                            });
-                        }
-
-                        return { ...train, data: adjustedData };
-                    })
-                    .filter(train => train.data.length > 1);
-
+                    // 2. Prepare Selection Schedule
                     let scheduleData = [];
                     if (showSchedule && selectedLine) {
                         const grouped = {};
@@ -466,104 +458,83 @@
                         });
 
                         scheduleData = Object.entries(grouped).map(([name, times]) => {
-                            const sortedTimes = times.sort((a, b) => a - b);
+                            const sorted = times.sort((a, b) => a - b);
                             return {
                                 station: name,
-                                arr: Math.ceil(sortedTimes[0]),
-                                dep: Math.floor(sortedTimes[1] || sortedTimes[0]), // Handle single-point stops
+                                arr: Math.ceil(sorted[0]),
+                                dep: Math.floor(sorted[1] || sorted[0]),
                                 yCoord: stationDistances[name]
                             };
                         });
                     }
-                    
-                    const offsetLayers = yOffsets.flatMap(offset => {
-                        return [
-                            new deck.PathLayer({
-                                id: `station-layer-${offset}`,
-                                data: Object.entries(stationDistances).filter(([name, yValue]) => stationList.has(name)),
-                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                getPath: d => [[630, d[1] + offset], [5130, d[1] + offset]],
-                                getColor: [80, 80, 80],
-                                getWidth: 1,
-                                widthMaxPixels: 2,
-                                widthMinPixels: 0
-                            }),
-                            new deck.TextLayer({
-                                id: `station-labels-${offset}`,
-                                data: currentZoom > 0.8 ? denseLabelData : currentZoom > -0.4 ? normalLabelData : currentZoom > -1.8 ? sparseLabelData : [],
-                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                getPosition: d => [d.position[0], d.position[1] + offset],
-                                getText: d => d.text,
-                                getSize: 12,
-                                sizeMaxPixels: 12,
-                                sizeMinPixels: 0,
-                                getColor: [180, 180, 180],
-                                characterSet: 'auto',
-                                fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
-                                getAlignmentBaseline: 'bottom', // Position ABOVE the point
-                                getTextAnchor: 'middle',        // Center text on the X coordinate
-                                pixelOffset: [0, -10]
-                            })
-                        ];
-                    });
 
-                    const mainPlotLayers = yOffsets.flatMap(offset => {
-                        return [
-                            new deck.PathLayer({
-                                id: `main-path-layer-${offset}`,
-                                data: processedSegments,
-                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                pickable: true,
-                                autoHighlight: true,
-                                highlightColor: [255, 255, 255, 150],
-                                getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
-                                getColor: d => colorPalette[d.train],
-                                getWidth: 1.5,
-                                widthMaxPixels: 2,
-                                widthMinPixels: 0
-                            })
-                        ];
-                    });
+                    // 3. Assemble Deck.gl Layers
+                    const offsetLayers = yOffsets.flatMap(offset => [
+                        new deck.PathLayer({
+                            id: `station-layer-${offset}`,
+                            data: Object.entries(stationDistances).filter(([name]) => stationList.has(name)),
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPath: d => [[630, d[1] + offset], [5130, d[1] + offset]],
+                            getColor: [80, 80, 80],
+                            getWidth: 1,
+                            widthMaxPixels: 2
+                        }),
+                        new deck.TextLayer({
+                            id: `station-labels-${offset}`,
+                            data: currentZoom > 0.8 ? denseLabelData : currentZoom > -0.4 ? normalLabelData : currentZoom > -1.8 ? sparseLabelData : [],
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPosition: d => [d.position[0], d.position[1] + offset],
+                            getText: d => d.text,
+                            getSize: 12,
+                            sizeMaxPixels: 12,
+                            getColor: [180, 180, 180],
+                            getAlignmentBaseline: 'bottom',
+                            getTextAnchor: 'middle',
+                            pixelOffset: [0, -10]
+                        })
+                    ]);
 
-                    const selectionLayers = yOffsets.flatMap(offset => {
-                        return [
-                            new deck.PathLayer({
-                                id: `selection-layer-${offset}`,
-                                // This array is either empty or contains exactly one item
-                                data: selectedLine && enabledTypes.has(selectedLine.train) ? processedSegments.filter(s => s.number === selectedLine.number) : [],
-                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                pickable: false,
-                                getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
-                                getColor: [255, 196, 0], // Yellow highlight
-                                getWidth: 4,
-                                widthMaxPixels: 4.5,
-                                widthMinPixels: 0
-                            }),
+                    const mainPlotLayers = yOffsets.map(offset => new deck.PathLayer({
+                        id: `main-path-layer-${offset}`,
+                        data: processedSegments,
+                        coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                        pickable: true,
+                        autoHighlight: true,
+                        highlightColor: [255, 255, 255, 150],
+                        getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
+                        getColor: d => colorPalette[d.train],
+                        getWidth: 1.5,
+                        widthMaxPixels: 2
+                    }));
 
-                            new deck.TextLayer({
-                                id: `train-schedule-labels-${offset}`,
-                                data: scheduleData, // Use the grouped data
-                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                getPosition: d => [(d.dep+1.5) * 3, d.yCoord + offset, 0], // Anchor at arrival time
-                                getText: d => {
-                                    const format = (val) => {
-                                        const hh = Math.floor(val / 60).toString().padStart(2, '0');
-                                        const mm = (val % 60).toString().padStart(2, '0');
-                                        return `${hh}${mm}`;
-                                    };
-                                    return `${format(d.arr)} - ${format(d.dep)} ${d.station}`;
-                                },
-                                getSize: 13,
-                                getColor: [255, 255, 255],
-                                characterSet: 'auto',
-                                getTextAnchor: 'start',
-                                getAlignmentBaseline: 'center',
-                                pixelOffset: [15, 0], 
-                                background: true,
-                                getBackgroundColor: [0, 0, 0, 180]
-                            })
-                        ];
-                    });
+                    const selectionLayers = yOffsets.flatMap(offset => [
+                        new deck.PathLayer({
+                            id: `selection-layer-${offset}`,
+                            data: selectedLine && enabledTypes.has(selectedLine.train) ? processedSegments.filter(s => s.number === selectedLine.number) : [],
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
+                            getColor: [255, 196, 0],
+                            getWidth: 4,
+                            widthMaxPixels: 4.5
+                        }),
+                        new deck.TextLayer({
+                            id: `train-schedule-labels-${offset}`,
+                            data: scheduleData,
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPosition: d => [(d.dep + 1.5) * 3, d.yCoord + offset],
+                            getText: d => {
+                                const fmt = (v) => `${Math.floor(v / 60).toString().padStart(2, '0')}${(v % 60).toString().padStart(2, '0')}`;
+                                return `${fmt(d.arr)} - ${fmt(d.dep)} ${d.station}`;
+                            },
+                            getSize: 13,
+                            getColor: [255, 255, 255],
+                            getTextAnchor: 'start',
+                            getAlignmentBaseline: 'center',
+                            pixelOffset: [15, 0],
+                            background: true,
+                            getBackgroundColor: [0, 0, 0, 180]
+                        })
+                    ]);
 
                     const baseLayers = [
                         new deck.PathLayer({
@@ -571,20 +542,18 @@
                             data: thinLines,
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             getPath: d => d.path,
-                            getColor: [50, 50, 50], // Very faint
+                            getColor: [50, 50, 50],
                             getWidth: 0.7,
-                            widthMaxPixels: 1.6,
-                            widthMinPixels: 0
+                            widthMaxPixels: 1.6
                         }),
                         new deck.PathLayer({
                             id: 'thick-time-lines',
                             data: thickLines,
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             getPath: d => d.path,
-                            getColor: [80, 80, 80], // Brighter
+                            getColor: [80, 80, 80],
                             getWidth: 1,
-                            widthMaxPixels: 2,
-                            widthMinPixels: 0
+                            widthMaxPixels: 2
                         }),
                         new deck.TextLayer({
                             id: 'vertical-labels',
@@ -594,72 +563,64 @@
                             getText: d => d.text,
                             getSize: 12,
                             sizeMaxPixels: 12,
-                            sizeMinPixels: 0,
                             getColor: [180, 180, 180],
-                            characterSet: 'auto',
-                            getAlignmentBaseline: 'top', // Position BELOW the point
+                            getAlignmentBaseline: 'top',
                             getTextAnchor: 'start',
                             pixelOffset: [5, 5]
                         }),
-                        
                         new deck.ScatterplotLayer({
                             id: 'json-layer',
-                            data: rawData.flatMap(g => g.data.map(p => ({...p, train: g.train}))),
+                            data: rawData.flatMap(g => g.data.map(p => ({ ...p, train: g.train }))),
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                            getPosition: d => [d.y*3, stationDistances[d.x]], 
+                            getPosition: d => [d.y * 3, stationDistances[d.x]],
                             getFillColor: [200, 200, 200],
                             getRadius: 0.0001,
-                            radiusMaxPixels: 0.001,
-                            radiusMinPixels: 0.00001
+                            radiusMaxPixels: 0.001
                         })
                     ];
 
                     const currentTimeLayers = [
                         new deck.PathLayer({
                             id: 'current-time-line',
-                            data: [{
-                                path: [[currentTimeMinutes * 3, minDistance-PERIOD], [currentTimeMinutes * 3, maxDistance+PERIOD]] // Adjust Y range as needed
-                            }],
+                            data: [{ path: [[currentTimeMinutes * 3, minDist - PERIOD], [currentTimeMinutes * 3, maxDist + PERIOD]] }],
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             getPath: d => d.path,
-                            getColor: [255, 0, 0, 150], // Red line with some transparency
+                            getColor: [255, 0, 0, 150],
                             getWidth: 2,
-                            widthMaxPixels: 3.5,
-                            widthMinPixels: 0
+                            widthMaxPixels: 3.5
                         })
                     ];
 
-                    deckInstance.setProps({ layers: [...baseLayers, ...offsetLayers, ...mainPlotLayers, ...selectionLayers, ...currentTimeLayers] });
-                };
+                    deckInstance.setProps({ 
+                        layers: [...baseLayers, ...offsetLayers, ...mainPlotLayers, ...selectionLayers, ...currentTimeLayers] 
+                    });
+                }
 
-                // 1. Handle the "X" button for de-selection
+                // --- Footer Controls ---
                 document.getElementById('btn-clear-selection').onclick = () => {
-                    selectedLine = null;
-                    showSchedule = false;
+                    resetSelection();
                     updateInfoBox();
                     renderLayers();
                 };
 
-                // 2. Handle 'H' key and 'M' key
                 document.addEventListener('keydown', (e) => {
                     const key = e.key.toLowerCase();
-                    
-                    if (key === 'h') {
-                        if (selectedLine) {
-                            showSchedule = !showSchedule;
-                            renderLayers();
-                        }
+                    if (key === 'h' && selectedLine) {
+                        showSchedule = !showSchedule;
+                        renderLayers();
                     }
-                    
                     if (key === 'm') {
-                        const monitor = document.getElementById('view-monitor');
                         monitor.style.display = (monitor.style.display === 'block') ? 'none' : 'block';
                     }
                 });
 
+                // --- Initial Startup ---
+                updateStationGridData();
+                syncPillStyles();
                 renderLayers();
             }
-            
+
+            // Start Application
             initMap();
         </script>
     </body>
