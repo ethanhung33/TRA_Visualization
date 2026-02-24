@@ -118,12 +118,12 @@
                 try {
                     const response = await fetch(`data/${fileName}.json`);
                     if (!response.ok) throw new Error("File not found");
-                    rawData = await response.json();
                     renderLayers();
                 } catch (err) {
                     console.error(err);
                     alert(`無法載入資料: data/${fileName}.json`);
                 }
+                rawData = await response.json();
             }
             
             dateInput.addEventListener('change', (e) => {
