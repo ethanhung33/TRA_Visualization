@@ -168,6 +168,8 @@
                 `;
             }
 
+            loadData(dateInput.value);
+            
             async function initMap() {
                 const infoBox = document.getElementById('info-content');
                 const rawData = await response.json();
@@ -345,8 +347,6 @@
                         renderLayers();
                     }
                 });
-
-                loadData(dateInput.value);
 
                 let denseLabelData = [];
                 let normalLabelData = [];
