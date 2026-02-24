@@ -495,6 +495,29 @@
                                 getAlignmentBaseline: 'bottom', // Position ABOVE the point
                                 getTextAnchor: 'middle',        // Center text on the X coordinate
                                 pixelOffset: [0, -10]
+                            }),
+
+                            new deck.TextLayer({
+                                id: `train-schedule-labels-${offset}`,
+                                data: scheduleData, // Use the grouped data
+                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                                getPosition: d => [(d.dep+1.5) * 3, d.yCoord + offset, 0], // Anchor at arrival time
+                                getText: d => {
+                                    const format = (val) => {
+                                        const hh = Math.floor(val / 60).toString().padStart(2, '0');
+                                        const mm = (val % 60).toString().padStart(2, '0');
+                                        return `${hh}${mm}`;
+                                    };
+                                    return `${format(d.arr)} - ${format(d.dep)} ${d.station}`;
+                                },
+                                getSize: 13,
+                                getColor: [255, 255, 255],
+                                characterSet: 'auto',
+                                getTextAnchor: 'start',
+                                getAlignmentBaseline: 'center',
+                                pixelOffset: [15, 0], 
+                                background: true,
+                                getBackgroundColor: [0, 0, 0, 180]
                             })
                         ];
                     });
@@ -525,29 +548,6 @@
                                 getWidth: 4,
                                 widthMaxPixels: 4.5,
                                 widthMinPixels: 0
-                            }),
-
-                            new deck.TextLayer({
-                                id: `train-schedule-labels-${offset}`,
-                                data: scheduleData, // Use the grouped data
-                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                getPosition: d => [(d.dep+1.5) * 3, d.yCoord + offset, 0], // Anchor at arrival time
-                                getText: d => {
-                                    const format = (val) => {
-                                        const hh = Math.floor(val / 60).toString().padStart(2, '0');
-                                        const mm = (val % 60).toString().padStart(2, '0');
-                                        return `${hh}${mm}`;
-                                    };
-                                    return `${format(d.arr)} - ${format(d.dep)} ${d.station}`;
-                                },
-                                getSize: 13,
-                                getColor: [255, 255, 255],
-                                characterSet: 'auto',
-                                getTextAnchor: 'start',
-                                getAlignmentBaseline: 'center',
-                                pixelOffset: [15, 0], 
-                                background: true,
-                                getBackgroundColor: [0, 0, 0, 180]
                             })
                         ];
                     });
