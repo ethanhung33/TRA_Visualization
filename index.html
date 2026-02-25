@@ -49,10 +49,10 @@
             }
             
             #info-content .day-box { 
-                width: 20px !important;
-                min-width: 20px !important;
-                height: 20px !important;
-                min-height: 20px !important;
+                width: 18px !important;
+                min-width: 18px !important;
+                height: 18px !important;
+                min-height: 18px !important;
                 
                 display: flex !important;
                 align-items: center;
@@ -60,9 +60,9 @@
                 
                 padding: 0 !important;
                 border-right: none !important;
-                flex: 0 0 20px !important;
+                flex: 0 0 18px !important;
                 
-                font-size: 11px;
+                font-size: 9px;
                 border-radius: 4px;
                 font-weight: bold;
                 background-color: #444;
@@ -248,14 +248,18 @@
                     
                     DOM.btnClearSelection.style.display = 'block';
 
-                    const daysLabel = ["加", "一", "二", "三", "四", "五", "六", "日", "例", "例"];
-                    const sequence = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+                    const daysLabel = ["加", "一", "二", "三", "四", "五", "六", "日", "例"];
+                    const sequence = [0, 1, 2, 3, 4, 5, 6, 7, 8];
                     
                     let boxesHtml = '<div class="day-container">';
                     sequence.forEach(num => {
                         const isActive = state.selectedLine.info.drive.includes(num.toString());
+                        if (state.selectedLine.info.drive.includes("9") && num.toString() === "8") {
+                            boxesHtml += `<div class="day-box ${isActive ? 'active' : ''} 'special-rule'">${daysLabel[num]}</div>`;
+                        } else {
+                            boxesHtml += `<div class="day-box ${isActive ? 'active' : ''} ">${daysLabel[num]}</div>`;
+                        }
                         const specialClass = num === 9 ? 'special-rule' : '';
-                        boxesHtml += `<div class="day-box ${isActive ? 'active' : ''} ${specialClass}">${daysLabel[num]}</div>`;
                     });
                     boxesHtml += '</div>';
 
