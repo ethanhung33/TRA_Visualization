@@ -239,17 +239,20 @@
 
                     // Map Time Labels
                     for (let y = gridData.minDistance - state.period; y <= gridData.maxDistance + state.period; y += 400) {
-                        const isSparseRow = (y % 800 === 0);
                         for (let x = 240; x <= 1680; x += 10) {
                             const label = { text: `${Math.floor(x/60).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
                             gridData.denseLabels.push(label);
                             if (x % 30 === 0) gridData.normalLabels.push(label);
-                            if (isSparseRow) {
-                                if (x % 60 === 0) gridData.sparseLabels.push(label);
-                                if (x % 120 === 0) gridData.simpleLabels.push(label);
-                            }
                         }
                     }
+                    for (let y = gridData.minDistance - state.period; y <= gridData.maxDistance + state.period; y += 800) {
+                        for (let x = 240; x <= 1680; x += 60) {
+                            const label = { text: `${Math.floor(x/60).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
+                            gridData.sparseLabels.push(label);
+                            if (x % 120 === 0) gridData.simpleLabels.push(label);
+                        }
+                    }
+
                 }
 
                 DOM.typeFilters.forEach(checkbox => {
