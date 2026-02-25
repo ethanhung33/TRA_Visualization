@@ -35,21 +35,23 @@
             #info-content { display: flex; flex-direction: row; align-items: center; gap: 10px; flex-grow: 1; overflow: hidden; }
             #info-content div , #info-content p { 
                 margin: 0; display: flex; flex-direction: row; align-items: center; white-space: nowrap;
-                padding: 0 15px; border-right: 1px solid #333; height: 1.2em; 
+                padding: 0 15px; border-right: 1px solid #333;
             }
             #info-content p:last-child { border-right: none; }
 
             .day-container {
+                height: auto;
                 align-items: center; 
                 gap: 3px; 
                 flex-shrink: 0;
                 vertical-align: middle;
+                display: inline-flex;
             }
 
             .day-box { 
                 /* Use min/max to lock the square shape */
-                width: 16px;
-                height: 8px;
+                width: 8px;
+                height: 16px;
                 align-items: center; 
                 justify-content: center; 
                 
