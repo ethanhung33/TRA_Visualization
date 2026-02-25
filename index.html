@@ -11,6 +11,8 @@
             #bottompanel {
                 width: 100%; height: 10vh; background-color: #111; color: white; 
                 padding: 0 15px; box-sizing: border-box; border-top: 1px solid #444;
+                display: flex; flex-direction: row; align-items: center; 
+                justify-content: flex-start; gap: 20px; overflow: hidden;
             }
             #sidebar { 
                 width: 25vw; height: 100vh; background-color: #222; color: white; 
@@ -30,8 +32,16 @@
             .pill.utility:hover { background-color: #666; color: white; }
             .line-pill.active { background-color: #0078d4; color: white; }
 
+            #info-content { display: flex; flex-direction: row; align-items: center; gap: 10px; flex-grow: 1; overflow: hidden; }
+            #info-content div , #info-content p { 
+                margin: 0; display: flex; flex-direction: row; align-items: center; white-space: nowrap;
+                padding: 0 15px; border-right: 1px solid #333; height: 1.2em; 
+            }
+            #info-content p:last-child { border-right: none; }
 
             .day-container {
+                display: inline-flex; 
+                flex-direction: row;
                 align-items: center; 
                 gap: 3px; 
                 flex-shrink: 0;
@@ -41,12 +51,12 @@
 
             .day-box { 
                 /* Use min/max to lock the square shape */
-                width: 24px;
-                height: 24px;
-                min-width: 24px;
-                min-height: 24px;
-                max-width: 24px;
-                max-height: 24px;
+                width: 22px;
+                height: 22px;
+                min-width: 22px;
+                min-height: 22px;
+                max-width: 22px;
+                max-height: 22px;
                 font-size: 10px; 
                 border-radius: 4px; 
                 font-weight: bold; 
@@ -54,8 +64,10 @@
                 color: #888;
                 flex-shrink: 0; /* Anti-stretch insurance */
                 box-sizing: border-box;
+                
             }
 
+            /* Fix the diagonal line for a square box */
             .day-box.special-rule::after { 
                 content: ""; position: absolute; top: 0; left: 0; width: 100%; 
                 height: 100%; 
@@ -65,6 +77,11 @@
             
             .day-box.active { background-color: #eee; color: #000; }
             .day-box.special-rule { position: relative; overflow: hidden; }
+            .day-box.special-rule::after { 
+                content: ""; position: absolute; top: 0; left: 0; width: 100%; 
+                height: 1px; background: currentColor; transform: rotate(-45deg); 
+                transform-origin: top left; 
+            }
             #btn-clear-selection { 
                 background: none; border: none; color: #888; 
                 cursor: pointer; font-size: 28px; line-height: 1; padding: 0;
