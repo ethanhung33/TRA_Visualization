@@ -232,7 +232,7 @@
                         ? (rawNote.includes('。') ? rawNote.slice(rawNote.indexOf('。') + 1) : rawNote)
                         : rawNote;
 
-                    DOM.infoBox.innerHTML = `<strong>${state.selectedLine.train} ${state.selectedLine.number} </strong> ${viaText} ${state.selectedLine.info.start} → ${state.selectedLine.info.end} ${boxesHtml} ${formattedNote}`;
+                    DOM.infoBox.innerHTML = `<strong>${state.selectedLine.train} ${state.selectedLine.number} </strong> ${viaText} ${state.selectedLine.info.start} → ${state.selectedLine.info.end} ${boxesHtml} ${processedNote.trim()}`;
                 }
 
                 function updateStationGridData() {
