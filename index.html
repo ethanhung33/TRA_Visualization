@@ -32,7 +32,7 @@
             .pill.utility:hover { background-color: #666; color: white; }
             .line-pill.active { background-color: #0078d4; color: white; }
 
-            #info-content { display: flex; flex-direction: row; align-items: center; gap: 10px; flex-grow: 1; overflow: hidden; }
+            #info-content { align-items: center; gap: 10px; flex-grow: 1; overflow: hidden; }
             #info-content div , #info-content p { 
                 margin: 0; display: flex; flex-direction: row; align-items: center; white-space: nowrap;
                 padding: 0 15px; border-right: 1px solid #333; height: 1.2em; 
@@ -49,12 +49,12 @@
 
             .day-box { 
                 /* Use min/max to lock the square shape */
-                width: 22px;
-                height: 22px;
-                min-width: 22px;
-                min-height: 22px;
-                max-width: 22px;
-                max-height: 22px;
+                width: 16px;
+                height: 16px;
+                min-width: 16px;
+                min-height: 16px;
+                max-width: 16px;
+                max-height: 16px;
                 align-items: center; 
                 justify-content: center; 
                 
@@ -63,7 +63,7 @@
                 font-weight: bold; 
                 background-color: #444; 
                 color: #888;
-                flex-shrink: 0; /* Anti-stretch insurance */
+                flex-shrink: 0;
                 box-sizing: border-box;
                 
             }
