@@ -72,65 +72,98 @@
         </style>
 
         <script type="text/javascript">
-            let selectedLine = null;
-            let showSchedule = false;
-            let currentZoom = 0;
-            let enabledTypes = new Set(['普悠瑪', '太魯閣', '新自強', '自強', '莒光', '區間快', '區間']);
+            // INITIALIZE
+            // Datasets
             const colorPalette = {"普悠瑪": [255, 82, 82], "太魯閣": [255, 152, 0], "新自強": [156, 77, 204], "自強": [102, 187, 106], "莒光": [253, 216, 53], "區間快": [66, 125, 245], "區間": [158, 158, 158]};
-            // const allStationDistances = {"基隆": 0, "三坑": 15, "八堵": 39, "七堵": 62, "百福": 89, "五堵": 119, "汐止": 133, "汐科": 146, "南港": 193, "松山": 221, "臺北": 285, "萬華": 313, "板橋": 357, "浮洲": 381, "樹林": 411, "南樹林": 431, "山佳": 450, "鶯歌": 494, "鳳鳴": 544, "桃園": 576, "內壢": 635, "中壢": 675, "埔心": 733, "楊梅": 773, "富岡": 841, "新富": 858, "北湖": 873, "湖口": 898, "新豐": 960, "竹北": 1008, "北新竹": 1052, "千甲": 1030, "新莊": 1000, "竹中": 987, "六家": 956, "上員": 960, "榮華": 916, "竹東": 900, "橫山": 865, "九讚頭": 845, "合興": 823, "富貴": 809, "內灣": 787, "新竹": 1066, "三姓橋": 1114, "香山": 1146, "崎頂": 1208, "竹南": 1253, "談文": 1298, "大山": 1366, "後龍": 1403, "龍港": 1439, "白沙屯": 1520, "新埔": 1551, "通霄": 1609, "苑裡": 1670, "日南": 1747, "大甲": 1794, "臺中港": 1846, "清水": 1906, "沙鹿": 1938, "龍井": 1984, "大肚": 2034, "追分": 2084, "造橋": 1307, "豐富": 1366, "苗栗": 1406, "南勢": 1472, "銅鑼": 1514, "三義": 1588, "泰安": 1697, "后里": 1723, "豐原": 1790, "栗林": 1816, "潭子": 1841, "頭家厝": 1860, "松竹": 1877, "太原": 1895, "精武": 1912, "臺中": 1931, "五權": 1953, "大慶": 1974, "烏日": 2005, "新烏日": 2014, "成功": 2038, "彰化": 2109, "花壇": 2175, "大村": 2221, "員林": 2256, "永靖": 2291, "社頭": 2328, "田中": 2371, "二水": 2429, "源泉": 2459, "濁水": 2537, "龍泉": 2586, "集集": 2629, "水里": 2703, "車埕": 2725, "林內": 2510, "石榴": 2558, "斗六": 2606, "斗南": 2682, "石龜": 2721, "大林": 2767, "民雄": 2825, "嘉北": 2892, "嘉義": 2918, "水上": 2984, "南靖": 3010, "後壁": 3070, "新營": 3147, "柳營": 3180, "林鳳營": 3219, "隆田": 3274, "拔林": 3296, "善化": 3342, "南科": 3371, "新市": 3418, "永康": 3468, "大橋": 3505, "臺南": 3532, "保安": 3608, "仁德": 3622, "中洲": 3647, "長榮大學": 3673, "沙崙": 3704, "大湖": 3676, "路竹": 3706, "岡山": 3784, "橋頭": 3820, "楠梓": 3862, "新左營": 3913, "左營": 3933, "內惟": 3944, "美術館": 3961, "鼓山": 3973, "三塊厝": 3990, "高雄": 3999, "民族": 4012, "科工館": 4023, "正義": 4041, "鳳山": 4054, "後庄": 4093, "九曲堂": 4135, "六塊厝": 4185, "屏東": 4208, "歸來": 4234, "麟洛": 4257, "西勢": 4281, "竹田": 4318, "潮州": 4358, "崁頂": 4407, "南州": 4431, "鎮安": 4469, "林邊": 4500, "佳冬": 4539, "東海": 4570, "枋寮": 4611, "加祿": 4664, "內獅": 4699, "枋山": 4747, "大武": 5049, "瀧溪": 5166, "金崙": 5250, "太麻里": 5359, "知本": 5476, "康樂": 5547, "臺東": 5592, "山里": 5674, "鹿野": 5735, "瑞源": 5790, "瑞和": 5817, "關山": 5892, "海端": 5957, "池上": 6014, "富里": 6082, "東竹": 6143, "東里": 6203, "玉里": 6271, "三民": 6379, "瑞穗": 6473, "富源": 6564, "大富": 6596, "光復": 6671, "萬榮": 6727, "鳳林": 6776, "南平": 6818, "林榮新光": 6840, "豐田": 6902, "壽豐": 6930, "平和": 6948, "志學": 6978, "吉安": 7066, "花蓮": 7101, "北埔": 7147, "景美": 7212, "新城": 7265, "崇德": 7318, "和仁": 7418, "和平": 7497, "漢本": 7541, "武塔": 7670, "南澳": 7707, "東澳": 7787, "永樂": 7844, "蘇澳": 7863, "蘇澳新": 7896, "冬山": 7947, "羅東": 7997, "中里": 8015, "二結": 8027, "宜蘭": 8085, "四城": 8122, "礁溪": 8169, "頂埔": 8210, "頭城": 8232, "外澳": 8269, "龜山": 8304, "大溪": 8350, "大里": 8397, "石城": 8424, "福隆": 8478, "貢寮": 8516, "雙溪": 8569, "牡丹": 8603, "三貂嶺": 8638, "大華": 8602, "十分": 8574, "望古": 8557, "嶺腳": 8536, "平溪": 8526, "菁桐": 8509, "猴硐": 8663, "瑞芳": 8709, "海科館": 8752, "八斗子": 8756, "四腳亭": 8759, "暖暖": 8782};
-            // const mountStationDistances = {'基隆': 0, '三坑': 15, '八堵': 39, '七堵': 62, '百福': 89, '五堵': 119, '汐止': 133, '汐科': 146, '南港': 193, '松山': 221, '臺北': 285, '萬華': 313, '板橋': 357, '浮洲': 381, '樹林': 411, '南樹林': 431, '山佳': 450, '鶯歌': 494, '鳳鳴': 544, '桃園': 576, '內壢': 635, '中壢': 675, '埔心': 733, '楊梅': 773, '富岡': 841, '新富': 858, '北湖': 873, '湖口': 898, '新豐': 960, '竹北': 1008, '北新竹': 1052, '新竹': 1066, '三姓橋': 1114, '香山': 1146, '崎頂': 1208, '竹南': 1253, '造橋': 1307, '豐富': 1366, '苗栗': 1406, '南勢': 1472, '銅鑼': 1514, '三義': 1588, '泰安': 1697, '后里': 1723, '豐原': 1790, '栗林': 1816, '潭子': 1841, '頭家厝': 1860, '松竹': 1877, '太原': 1895, '精武': 1912, '臺中': 1931, '五權': 1953, '大慶': 1974, '烏日': 2005, '新烏日': 2014, '成功': 2038, '彰化': 2109, '花壇': 2175, '大村': 2221, '員林': 2256, '永靖': 2291, '社頭': 2328, '田中': 2371, '二水': 2429, '林內': 2510, '石榴': 2558, '斗六': 2606, '斗南': 2682, '石龜': 2721, '大林': 2767, '民雄': 2825, '嘉北': 2892, '嘉義': 2918, '水上': 2984, '南靖': 3010, '後壁': 3070, '新營': 3147, '柳營': 3180, '林鳳營': 3219, '隆田': 3274, '拔林': 3296, '善化': 3342, '南科': 3371, '新市': 3418, '永康': 3468, '大橋': 3505, '臺南': 3532, '保安': 3608, '仁德': 3622, '中洲': 3647, '大湖': 3676, '路竹': 3706, '岡山': 3784, '橋頭': 3820, '楠梓': 3862, '新左營': 3913, '左營': 3933, '內惟': 3944, '美術館': 3961, '鼓山': 3973, '三塊厝': 3990, '高雄': 3999, '民族': 4012, '科工館': 4023, '正義': 4041, '鳳山': 4054, '後庄': 4093, '九曲堂': 4135, '六塊厝': 4185, '屏東': 4208, '歸來': 4234, '麟洛': 4257, '西勢': 4281, '竹田': 4318, '潮州': 4358, '崁頂': 4407, '南州': 4431, '鎮安': 4469, '林邊': 4500, '佳冬': 4539, '東海': 4570, '枋寮': 4611, '加祿': 4664, '內獅': 4699, '枋山': 4747, '大武': 5049, '瀧溪': 5166, '金崙': 5250, '太麻里': 5359, '知本': 5476, '康樂': 5547, '臺東': 5592, '山里': 5674, '鹿野': 5735, '瑞源': 5790, '瑞和': 5817, '關山': 5892, '海端': 5957, '池上': 6014, '富里': 6082, '東竹': 6143, '東里': 6203, '玉里': 6271, '三民': 6379, '瑞穗': 6473, '富源': 6564, '大富': 6596, '光復': 6671, '萬榮': 6727, '鳳林': 6776, '南平': 6818, '林榮新光': 6840, '豐田': 6902, '壽豐': 6930, '平和': 6948, '志學': 6978, '吉安': 7066, '花蓮': 7101, '北埔': 7147, '景美': 7212, '新城': 7265, '崇德': 7318, '和仁': 7418, '和平': 7497, '漢本': 7541, '武塔': 7670, '南澳': 7707, '東澳': 7787, '永樂': 7844, '蘇澳新': 7896, '冬山': 7947, '羅東': 7997, '中里': 8015, '二結': 8027, '宜蘭': 8085, '四城': 8122, '礁溪': 8169, '頂埔': 8210, '頭城': 8232, '外澳': 8269, '龜山': 8304, '大溪': 8350, '大里': 8397, '石城': 8424, '福隆': 8478, '貢寮': 8516, '雙溪': 8569, '牡丹': 8603, '三貂嶺': 8638, '猴硐': 8663, '瑞芳': 8709, '四腳亭': 8759, '暖暖': 8782};
-            // const seaStationDistances = {'基隆': 0, '三坑': 15, '八堵': 39, '七堵': 62, '百福': 89, '五堵': 119, '汐止': 133, '汐科': 146, '南港': 193, '松山': 221, '臺北': 285, '萬華': 313, '板橋': 357, '浮洲': 381, '樹林': 411, '南樹林': 431, '山佳': 450, '鶯歌': 494, '鳳鳴': 544, '桃園': 576, '內壢': 635, '中壢': 675, '埔心': 733, '楊梅': 773, '富岡': 841, '新富': 858, '北湖': 873, '湖口': 898, '新豐': 960, '竹北': 1008, '北新竹': 1052, '新竹': 1066, '三姓橋': 1114, '香山': 1146, '崎頂': 1208, '竹南': 1253, '談文': 1298, '大山': 1366, '後龍': 1403, '龍港': 1439, '白沙屯': 1520, '新埔': 1551, '通霄': 1609, '苑裡': 1670, '日南': 1747, '大甲': 1794, '臺中港': 1846, '清水': 1906, '沙鹿': 1938, '龍井': 1984, '大肚': 2034, '追分': 2084, '彰化': 2156, '花壇': 2222, '大村': 2268, '員林': 2303, '永靖': 2338, '社頭': 2375, '田中': 2418, '二水': 2476, '林內': 2557, '石榴': 2605, '斗六': 2653, '斗南': 2729, '石龜': 2768, '大林': 2814, '民雄': 2872, '嘉北': 2939, '嘉義': 2965, '水上': 3031, '南靖': 3057, '後壁': 3117, '新營': 3194, '柳營': 3227, '林鳳營': 3266, '隆田': 3321, '拔林': 3343, '善化': 3389, '南科': 3418, '新市': 3465, '永康': 3515, '大橋': 3552, '臺南': 3579, '保安': 3655, '仁德': 3669, '中洲': 3694, '大湖': 3723, '路竹': 3753, '岡山': 3831, '橋頭': 3867, '楠梓': 3909, '新左營': 3960, '左營': 3980, '內惟': 3991, '美術館': 4008, '鼓山': 4020, '三塊厝': 4037, '高雄': 4046, '民族': 4059, '科工館': 4070, '正義': 4088, '鳳山': 4101, '後庄': 4140, '九曲堂': 4182, '六塊厝': 4232, '屏東': 4255, '歸來': 4281, '麟洛': 4304, '西勢': 4328, '竹田': 4365, '潮州': 4405, '崁頂': 4454, '南州': 4478, '鎮安': 4516, '林邊': 4547, '佳冬': 4586, '東海': 4617, '枋寮': 4658, '加祿': 4711, '內獅': 4746, '枋山': 4794, '大武': 5096, '瀧溪': 5213, '金崙': 5297, '太麻里': 5406, '知本': 5523, '康樂': 5594, '臺東': 5639, '山里': 5721, '鹿野': 5782, '瑞源': 5837, '瑞和': 5864, '關山': 5939, '海端': 6004, '池上': 6061, '富里': 6129, '東竹': 6190, '東里': 6250, '玉里': 6318, '三民': 6426, '瑞穗': 6520, '富源': 6611, '大富': 6643, '光復': 6718, '萬榮': 6774, '鳳林': 6823, '南平': 6865, '林榮新光': 6887, '豐田': 6949, '壽豐': 6977, '平和': 6995, '志學': 7025, '吉安': 7113, '花蓮': 7148, '北埔': 7194, '景美': 7259, '新城': 7312, '崇德': 7365, '和仁': 7465, '和平': 7544, '漢本': 7588, '武塔': 7717, '南澳': 7754, '東澳': 7834, '永樂': 7891, '蘇澳新': 7943, '冬山': 7994, '羅東': 8044, '中里': 8062, '二結': 8074, '宜蘭': 8132, '四城': 8169, '礁溪': 8216, '頂埔': 8257, '頭城': 8279, '外澳': 8316, '龜山': 8351, '大溪': 8397, '大里': 8444, '石城': 8471, '福隆': 8525, '貢寮': 8563, '雙溪': 8616, '牡丹': 8650, '三貂嶺': 8685, '猴硐': 8710, '瑞芳': 8756, '四腳亭': 8806, '暖暖': 8829};
-            // const mountStationList = new Set(['基隆', '三坑', '八堵', '七堵', '百福', '五堵', '汐止', '汐科', '南港', '松山', '臺北', '萬華', '板橋', '浮洲', '樹林', '南樹林', '山佳', '鶯歌', '鳳鳴', '桃園', '內壢', '中壢', '埔心', '楊梅', '富岡', '新富', '北湖', '湖口', '新豐', '竹北', '北新竹', '新竹', '三姓橋', '香山', '崎頂', '竹南', '造橋', '豐富', '苗栗', '南勢', '銅鑼', '三義', '泰安', '后里', '豐原', '栗林', '潭子', '頭家厝', '松竹', '太原', '精武', '臺中', '五權', '大慶', '烏日', '新烏日', '成功', '彰化', '花壇', '大村', '員林', '永靖', '社頭', '田中', '二水', '林內', '石榴', '斗六', '斗南', '石龜', '大林', '民雄', '嘉北', '嘉義', '水上', '南靖', '後壁', '新營', '柳營', '林鳳營', '隆田', '拔林', '善化', '南科', '新市', '永康', '大橋', '臺南', '保安', '仁德', '中洲', '大湖', '路竹', '岡山', '橋頭', '楠梓', '新左營', '左營', '內惟', '美術館', '鼓山', '三塊厝', '高雄', '民族', '科工館', '正義', '鳳山', '後庄', '九曲堂', '六塊厝', '屏東', '歸來', '麟洛', '西勢', '竹田', '潮州', '崁頂', '南州', '鎮安', '林邊', '佳冬', '東海', '枋寮', '加祿', '內獅', '枋山', '大武', '瀧溪', '金崙', '太麻里', '知本', '康樂', '臺東', '山里', '鹿野', '瑞源', '瑞和', '關山', '海端', '池上', '富里', '東竹', '東里', '玉里', '三民', '瑞穗', '富源', '大富', '光復', '萬榮', '鳳林', '南平', '林榮新光', '豐田', '壽豐', '平和', '志學', '吉安', '花蓮', '北埔', '景美', '新城', '崇德', '和仁', '和平', '漢本', '武塔', '南澳', '東澳', '永樂', '蘇澳新', '冬山', '羅東', '中里', '二結', '宜蘭', '四城', '礁溪', '頂埔', '頭城', '外澳', '龜山', '大溪', '大里', '石城', '福隆', '貢寮', '雙溪', '牡丹', '三貂嶺', '猴硐', '瑞芳', '四腳亭', '暖暖']);
-            // const seaStationList = new Set(['基隆', '三坑', '八堵', '七堵', '百福', '五堵', '汐止', '汐科', '南港', '松山', '臺北', '萬華', '板橋', '浮洲', '樹林', '南樹林', '山佳', '鶯歌', '鳳鳴', '桃園', '內壢', '中壢', '埔心', '楊梅', '富岡', '新富', '北湖', '湖口', '新豐', '竹北', '北新竹', '新竹', '三姓橋', '香山', '崎頂', '竹南', "談文", "大山", "後龍", "龍港", "白沙屯", "新埔", "通霄", "苑裡", "日南", "大甲", "臺中港", "清水", "沙鹿", "龍井", "大肚", "追分", '彰化', '花壇', '大村', '員林', '永靖', '社頭', '田中', '二水', '林內', '石榴', '斗六', '斗南', '石龜', '大林', '民雄', '嘉北', '嘉義', '水上', '南靖', '後壁', '新營', '柳營', '林鳳營', '隆田', '拔林', '善化', '南科', '新市', '永康', '大橋', '臺南', '保安', '仁德', '中洲', '大湖', '路竹', '岡山', '橋頭', '楠梓', '新左營', '左營', '內惟', '美術館', '鼓山', '三塊厝', '高雄', '民族', '科工館', '正義', '鳳山', '後庄', '九曲堂', '六塊厝', '屏東', '歸來', '麟洛', '西勢', '竹田', '潮州', '崁頂', '南州', '鎮安', '林邊', '佳冬', '東海', '枋寮', '加祿', '內獅', '枋山', '大武', '瀧溪', '金崙', '太麻里', '知本', '康樂', '臺東', '山里', '鹿野', '瑞源', '瑞和', '關山', '海端', '池上', '富里', '東竹', '東里', '玉里', '三民', '瑞穗', '富源', '大富', '光復', '萬榮', '鳳林', '南平', '林榮新光', '豐田', '壽豐', '平和', '志學', '吉安', '花蓮', '北埔', '景美', '新城', '崇德', '和仁', '和平', '漢本', '武塔', '南澳', '東澳', '永樂', '蘇澳新', '冬山', '羅東', '中里', '二結', '宜蘭', '四城', '礁溪', '頂埔', '頭城', '外澳', '龜山', '大溪', '大里', '石城', '福隆', '貢寮', '雙溪', '牡丹', '三貂嶺', '猴硐', '瑞芳', '四腳亭', '暖暖']);
             const allStationDistances = {'八堵': 0, '七堵': 23, '百福': 50, '五堵': 80, '汐止': 94, '汐科': 107, '南港': 154, '松山': 182, '臺北': 246, '萬華': 274, '板橋': 318, '浮洲': 342, '樹林': 372, '南樹林': 392, '山佳': 411, '鶯歌': 455, '鳳鳴': 505, '桃園': 537, '內壢': 596, '中壢': 636, '埔心': 694, '楊梅': 734, '富岡': 802, '新富': 819, '北湖': 834, '湖口': 859, '新豐': 921, '竹北': 969, '北新竹': 1013, '千甲': 991, '新莊': 961, '竹中': 948, '六家': 917, '上員': 921, '榮華': 877, '竹東': 861, '橫山': 826, '九讚頭': 806, '合興': 784, '富貴': 770, '內灣': 748, '新竹': 1027, '三姓橋': 1075, '香山': 1107, '崎頂': 1169, '竹南': 1214, '談文': 1259, '大山': 1327, '後龍': 1364, '龍港': 1400, '白沙屯': 1481, '新埔': 1512, '通霄': 1570, '苑裡': 1631, '日南': 1708, '大甲': 1755, '臺中港': 1807, '清水': 1867, '沙鹿': 1899, '龍井': 1945, '大肚': 1995, '追分': 2045, '造橋': 1268, '豐富': 1327, '苗栗': 1367, '南勢': 1433, '銅鑼': 1475, '三義': 1549, '泰安': 1658, '后里': 1684, '豐原': 1751, '栗林': 1777, '潭子': 1802, '頭家厝': 1821, '松竹': 1838, '太原': 1856, '精武': 1873, '臺中': 1892, '五權': 1914, '大慶': 1935, '烏日': 1966, '新烏日': 1975, '成功': 1999, '彰化': 2070, '花壇': 2136, '大村': 2182, '員林': 2217, '永靖': 2252, '社頭': 2289, '田中': 2332, '二水': 2390, '源泉': 2420, '濁水': 2498, '龍泉': 2547, '集集': 2590, '水里': 2664, '車埕': 2686, '林內': 2471, '石榴': 2519, '斗六': 2567, '斗南': 2643, '石龜': 2682, '大林': 2728, '民雄': 2786, '嘉北': 2853, '嘉義': 2879, '水上': 2945, '南靖': 2971, '後壁': 3031, '新營': 3108, '柳營': 3141, '林鳳營': 3180, '隆田': 3235, '拔林': 3257, '善化': 3303, '南科': 3332, '新市': 3379, '永康': 3429, '大橋': 3466, '臺南': 3493, '保安': 3569, '仁德': 3583, '中洲': 3608, '長榮大學': 3634, '沙崙': 3665, '大湖': 3637, '路竹': 3667, '岡山': 3745, '橋頭': 3781, '楠梓': 3823, '新左營': 3874, '左營': 3894, '內惟': 3905, '美術館': 3922, '鼓山': 3934, '三塊厝': 3951, '高雄': 3960, '民族': 3973, '科工館': 3984, '正義': 4002, '鳳山': 4015, '後庄': 4054, '九曲堂': 4096, '六塊厝': 4146, '屏東': 4169, '歸來': 4195, '麟洛': 4218, '西勢': 4242, '竹田': 4279, '潮州': 4319, '崁頂': 4368, '南州': 4392, '鎮安': 4430, '林邊': 4461, '佳冬': 4500, '東海': 4531, '枋寮': 4572, '加祿': 4625, '內獅': 4660, '枋山': 4708, '大武': 5010, '瀧溪': 5127, '金崙': 5211, '太麻里': 5320, '知本': 5437, '康樂': 5508, '臺東': 5553, '山里': 5635, '鹿野': 5696, '瑞源': 5751, '瑞和': 5778, '關山': 5853, '海端': 5918, '池上': 5975, '富里': 6043, '東竹': 6104, '東里': 6164, '玉里': 6232, '三民': 6340, '瑞穗': 6434, '富源': 6525, '大富': 6557, '光復': 6632, '萬榮': 6688, '鳳林': 6737, '南平': 6779, '林榮新光': 6801, '豐田': 6863, '壽豐': 6891, '平和': 6909, '志學': 6939, '吉安': 7027, '花蓮': 7062, '北埔': 7108, '景美': 7173, '新城': 7226, '崇德': 7279, '和仁': 7379, '和平': 7458, '漢本': 7502, '武塔': 7631, '南澳': 7668, '東澳': 7748, '永樂': 7805, '蘇澳': 7824, '蘇澳新': 7857, '冬山': 7908, '羅東': 7958, '中里': 7976, '二結': 7988, '宜蘭': 8046, '四城': 8083, '礁溪': 8130, '頂埔': 8171, '頭城': 8193, '外澳': 8230, '龜山': 8265, '大溪': 8311, '大里': 8358, '石城': 8385, '福隆': 8439, '貢寮': 8477, '雙溪': 8530, '牡丹': 8564, '三貂嶺': 8599, '大華': 8563, '十分': 8535, '望古': 8518, '嶺腳': 8497, '平溪': 8487, '菁桐': 8470, '猴硐': 8624, '瑞芳': 8670, '海科館': 8713, '八斗子': 8717, '四腳亭': 8720, '暖暖': 8743};
             const mountStationDistances = {'八堵': 0, '七堵': 23, '百福': 50, '五堵': 80, '汐止': 94, '汐科': 107, '南港': 154, '松山': 182, '臺北': 246, '萬華': 274, '板橋': 318, '浮洲': 342, '樹林': 372, '南樹林': 392, '山佳': 411, '鶯歌': 455, '鳳鳴': 505, '桃園': 537, '內壢': 596, '中壢': 636, '埔心': 694, '楊梅': 734, '富岡': 802, '新富': 819, '北湖': 834, '湖口': 859, '新豐': 921, '竹北': 969, '北新竹': 1013, '新竹': 1027, '三姓橋': 1075, '香山': 1107, '崎頂': 1169, '竹南': 1214, '造橋': 1268, '豐富': 1327, '苗栗': 1367, '南勢': 1433, '銅鑼': 1475, '三義': 1549, '泰安': 1658, '后里': 1684, '豐原': 1751, '栗林': 1777, '潭子': 1802, '頭家厝': 1821, '松竹': 1838, '太原': 1856, '精武': 1873, '臺中': 1892, '五權': 1914, '大慶': 1935, '烏日': 1966, '新烏日': 1975, '成功': 1999, '彰化': 2070, '花壇': 2136, '大村': 2182, '員林': 2217, '永靖': 2252, '社頭': 2289, '田中': 2332, '二水': 2390, '林內': 2471, '石榴': 2519, '斗六': 2567, '斗南': 2643, '石龜': 2682, '大林': 2728, '民雄': 2786, '嘉北': 2853, '嘉義': 2879, '水上': 2945, '南靖': 2971, '後壁': 3031, '新營': 3108, '柳營': 3141, '林鳳營': 3180, '隆田': 3235, '拔林': 3257, '善化': 3303, '南科': 3332, '新市': 3379, '永康': 3429, '大橋': 3466, '臺南': 3493, '保安': 3569, '仁德': 3583, '中洲': 3608, '大湖': 3637, '路竹': 3667, '岡山': 3745, '橋頭': 3781, '楠梓': 3823, '新左營': 3874, '左營': 3894, '內惟': 3905, '美術館': 3922, '鼓山': 3934, '三塊厝': 3951, '高雄': 3960, '民族': 3973, '科工館': 3984, '正義': 4002, '鳳山': 4015, '後庄': 4054, '九曲堂': 4096, '六塊厝': 4146, '屏東': 4169, '歸來': 4195, '麟洛': 4218, '西勢': 4242, '竹田': 4279, '潮州': 4319, '崁頂': 4368, '南州': 4392, '鎮安': 4430, '林邊': 4461, '佳冬': 4500, '東海': 4531, '枋寮': 4572, '加祿': 4625, '內獅': 4660, '枋山': 4708, '大武': 5010, '瀧溪': 5127, '金崙': 5211, '太麻里': 5320, '知本': 5437, '康樂': 5508, '臺東': 5553, '山里': 5635, '鹿野': 5696, '瑞源': 5751, '瑞和': 5778, '關山': 5853, '海端': 5918, '池上': 5975, '富里': 6043, '東竹': 6104, '東里': 6164, '玉里': 6232, '三民': 6340, '瑞穗': 6434, '富源': 6525, '大富': 6557, '光復': 6632, '萬榮': 6688, '鳳林': 6737, '南平': 6779, '林榮新光': 6801, '豐田': 6863, '壽豐': 6891, '平和': 6909, '志學': 6939, '吉安': 7027, '花蓮': 7062, '北埔': 7108, '景美': 7173, '新城': 7226, '崇德': 7279, '和仁': 7379, '和平': 7458, '漢本': 7502, '武塔': 7631, '南澳': 7668, '東澳': 7748, '永樂': 7805, '蘇澳新': 7857, '冬山': 7908, '羅東': 7958, '中里': 7976, '二結': 7988, '宜蘭': 8046, '四城': 8083, '礁溪': 8130, '頂埔': 8171, '頭城': 8193, '外澳': 8230, '龜山': 8265, '大溪': 8311, '大里': 8358, '石城': 8385, '福隆': 8439, '貢寮': 8477, '雙溪': 8530, '牡丹': 8564, '三貂嶺': 8599, '猴硐': 8624, '瑞芳': 8670, '四腳亭': 8720, '暖暖': 8743};
             const seaStationDistances = {'八堵': 0, '七堵': 23, '百福': 50, '五堵': 80, '汐止': 94, '汐科': 107, '南港': 154, '松山': 182, '臺北': 246, '萬華': 274, '板橋': 318, '浮洲': 342, '樹林': 372, '南樹林': 392, '山佳': 411, '鶯歌': 455, '鳳鳴': 505, '桃園': 537, '內壢': 596, '中壢': 636, '埔心': 694, '楊梅': 734, '富岡': 802, '新富': 819, '北湖': 834, '湖口': 859, '新豐': 921, '竹北': 969, '北新竹': 1013, '新竹': 1027, '三姓橋': 1075, '香山': 1107, '崎頂': 1169, '竹南': 1214, '談文': 1259, '大山': 1327, '後龍': 1364, '龍港': 1400, '白沙屯': 1481, '新埔': 1512, '通霄': 1570, '苑裡': 1631, '日南': 1708, '大甲': 1755, '臺中港': 1807, '清水': 1867, '沙鹿': 1899, '龍井': 1945, '大肚': 1995, '追分': 2045, '彰化': 2117, '花壇': 2183, '大村': 2229, '員林': 2264, '永靖': 2299, '社頭': 2336, '田中': 2379, '二水': 2437, '林內': 2518, '石榴': 2566, '斗六': 2614, '斗南': 2690, '石龜': 2729, '大林': 2775, '民雄': 2833, '嘉北': 2900, '嘉義': 2926, '水上': 2992, '南靖': 3018, '後壁': 3078, '新營': 3155, '柳營': 3188, '林鳳營': 3227, '隆田': 3282, '拔林': 3304, '善化': 3350, '南科': 3379, '新市': 3426, '永康': 3476, '大橋': 3513, '臺南': 3540, '保安': 3616, '仁德': 3630, '中洲': 3655, '大湖': 3684, '路竹': 3714, '岡山': 3792, '橋頭': 3828, '楠梓': 3870, '新左營': 3921, '左營': 3941, '內惟': 3952, '美術館': 3969, '鼓山': 3981, '三塊厝': 3998, '高雄': 4007, '民族': 4020, '科工館': 4031, '正義': 4049, '鳳山': 4062, '後庄': 4101, '九曲堂': 4143, '六塊厝': 4193, '屏東': 4216, '歸來': 4242, '麟洛': 4265, '西勢': 4289, '竹田': 4326, '潮州': 4366, '崁頂': 4415, '南州': 4439, '鎮安': 4477, '林邊': 4508, '佳冬': 4547, '東海': 4578, '枋寮': 4619, '加祿': 4672, '內獅': 4707, '枋山': 4755, '大武': 5057, '瀧溪': 5174, '金崙': 5258, '太麻里': 5367, '知本': 5484, '康樂': 5555, '臺東': 5600, '山里': 5682, '鹿野': 5743, '瑞源': 5798, '瑞和': 5825, '關山': 5900, '海端': 5965, '池上': 6022, '富里': 6090, '東竹': 6151, '東里': 6211, '玉里': 6279, '三民': 6387, '瑞穗': 6481, '富源': 6572, '大富': 6604, '光復': 6679, '萬榮': 6735, '鳳林': 6784, '南平': 6826, '林榮新光': 6848, '豐田': 6910, '壽豐': 6938, '平和': 6956, '志學': 6986, '吉安': 7074, '花蓮': 7109, '北埔': 7155, '景美': 7220, '新城': 7273, '崇德': 7326, '和仁': 7426, '和平': 7505, '漢本': 7549, '武塔': 7678, '南澳': 7715, '東澳': 7795, '永樂': 7852, '蘇澳新': 7904, '冬山': 7955, '羅東': 8005, '中里': 8023, '二結': 8035, '宜蘭': 8093, '四城': 8130, '礁溪': 8177, '頂埔': 8218, '頭城': 8240, '外澳': 8277, '龜山': 8312, '大溪': 8358, '大里': 8405, '石城': 8432, '福隆': 8486, '貢寮': 8524, '雙溪': 8577, '牡丹': 8611, '三貂嶺': 8646, '猴硐': 8671, '瑞芳': 8717, '四腳亭': 8767, '暖暖': 8790};
             const mountStationList = new Set(['八堵', '七堵', '百福', '五堵', '汐止', '汐科', '南港', '松山', '臺北', '萬華', '板橋', '浮洲', '樹林', '南樹林', '山佳', '鶯歌', '鳳鳴', '桃園', '內壢', '中壢', '埔心', '楊梅', '富岡', '新富', '北湖', '湖口', '新豐', '竹北', '北新竹', '新竹', '三姓橋', '香山', '崎頂', '竹南', '造橋', '豐富', '苗栗', '南勢', '銅鑼', '三義', '泰安', '后里', '豐原', '栗林', '潭子', '頭家厝', '松竹', '太原', '精武', '臺中', '五權', '大慶', '烏日', '新烏日', '成功', '彰化', '花壇', '大村', '員林', '永靖', '社頭', '田中', '二水', '林內', '石榴', '斗六', '斗南', '石龜', '大林', '民雄', '嘉北', '嘉義', '水上', '南靖', '後壁', '新營', '柳營', '林鳳營', '隆田', '拔林', '善化', '南科', '新市', '永康', '大橋', '臺南', '保安', '仁德', '中洲', '大湖', '路竹', '岡山', '橋頭', '楠梓', '新左營', '左營', '內惟', '美術館', '鼓山', '三塊厝', '高雄', '民族', '科工館', '正義', '鳳山', '後庄', '九曲堂', '六塊厝', '屏東', '歸來', '麟洛', '西勢', '竹田', '潮州', '崁頂', '南州', '鎮安', '林邊', '佳冬', '東海', '枋寮', '加祿', '內獅', '枋山', '大武', '瀧溪', '金崙', '太麻里', '知本', '康樂', '臺東', '山里', '鹿野', '瑞源', '瑞和', '關山', '海端', '池上', '富里', '東竹', '東里', '玉里', '三民', '瑞穗', '富源', '大富', '光復', '萬榮', '鳳林', '南平', '林榮新光', '豐田', '壽豐', '平和', '志學', '吉安', '花蓮', '北埔', '景美', '新城', '崇德', '和仁', '和平', '漢本', '武塔', '南澳', '東澳', '永樂', '蘇澳新', '冬山', '羅東', '中里', '二結', '宜蘭', '四城', '礁溪', '頂埔', '頭城', '外澳', '龜山', '大溪', '大里', '石城', '福隆', '貢寮', '雙溪', '牡丹', '三貂嶺', '猴硐', '瑞芳', '四腳亭', '暖暖']);
             const seaStationList = new Set(['八堵', '七堵', '百福', '五堵', '汐止', '汐科', '南港', '松山', '臺北', '萬華', '板橋', '浮洲', '樹林', '南樹林', '山佳', '鶯歌', '鳳鳴', '桃園', '內壢', '中壢', '埔心', '楊梅', '富岡', '新富', '北湖', '湖口', '新豐', '竹北', '北新竹', '新竹', '三姓橋', '香山', '崎頂', '竹南', "談文", "大山", "後龍", "龍港", "白沙屯", "新埔", "通霄", "苑裡", "日南", "大甲", "臺中港", "清水", "沙鹿", "龍井", "大肚", "追分", '彰化', '花壇', '大村', '員林', '永靖', '社頭', '田中', '二水', '林內', '石榴', '斗六', '斗南', '石龜', '大林', '民雄', '嘉北', '嘉義', '水上', '南靖', '後壁', '新營', '柳營', '林鳳營', '隆田', '拔林', '善化', '南科', '新市', '永康', '大橋', '臺南', '保安', '仁德', '中洲', '大湖', '路竹', '岡山', '橋頭', '楠梓', '新左營', '左營', '內惟', '美術館', '鼓山', '三塊厝', '高雄', '民族', '科工館', '正義', '鳳山', '後庄', '九曲堂', '六塊厝', '屏東', '歸來', '麟洛', '西勢', '竹田', '潮州', '崁頂', '南州', '鎮安', '林邊', '佳冬', '東海', '枋寮', '加祿', '內獅', '枋山', '大武', '瀧溪', '金崙', '太麻里', '知本', '康樂', '臺東', '山里', '鹿野', '瑞源', '瑞和', '關山', '海端', '池上', '富里', '東竹', '東里', '玉里', '三民', '瑞穗', '富源', '大富', '光復', '萬榮', '鳳林', '南平', '林榮新光', '豐田', '壽豐', '平和', '志學', '吉安', '花蓮', '北埔', '景美', '新城', '崇德', '和仁', '和平', '漢本', '武塔', '南澳', '東澳', '永樂', '蘇澳新', '冬山', '羅東', '中里', '二結', '宜蘭', '四城', '礁溪', '頂埔', '頭城', '外澳', '龜山', '大溪', '大里', '石城', '福隆', '貢寮', '雙溪', '牡丹', '三貂嶺', '猴硐', '瑞芳', '四腳亭', '暖暖']);
-            let stationList = mountStationList;
-            let stationDistances = mountStationDistances;
-            let PERIOD = 8759;
-            const initialY = 246;
-
+            // Variables
+            let state = {
+                selectedLine: null, showSchedule: false, currentZoom: 0, 
+                enabledTypes: new Set(['普悠瑪', '太魯閣', '新自強', '自強', '莒光', '區間快', '區間']),
+                stationList: mountStationList, stationDistances: mountStationDistances,
+                period: 8759, initialY: 246, currentTimeMinutes: 0
+            };
+            let gridData = {
+                denseLabels: [], normalLabels: [], sparseLabels: [],
+                thickLines: [], thinLines: [],
+                simpleLabels: [], denseLabelData: [], normalLabelData: [], sparseLabelData: [],
+                minDistance: 0, maxDistance: 0
+            };
+            // Main initialization
             async function initMap() {
-                const response = await fetch('data/20260219.json'); 
+                const response = await fetch('data/20260219.json');
                 const rawData = await response.json();
-                const infoBox = document.getElementById('info-content');
-                const valZoom = document.getElementById('val-zoom');
-                const valX = document.getElementById('val-x');
-                const valY = document.getElementById('val-y');
                 const now = new Date();
                 let currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
                 if (currentTimeMinutes < 240) currentTimeMinutes += 1440;
 
-                document.querySelectorAll('.type-filter').forEach(checkbox => {
-                    checkbox.addEventListener('change', (e) => {
-                        const type = e.target.value;
-                        if (e.target.checked) enabledTypes.add(type);
-                        else enabledTypes.delete(type);
+                const DOM = {
+                    infoBox: document.getElementById('info-content'),
+                    valZoom: document.getElementById('val-zoom'),
+                    valX: document.getElementById('val-x'),
+                    valY: document.getElementById('val-y'),
+                    pillContainer: document.getElementById('pill-container'),
+                    pills: document.querySelectorAll('.pill'),
+                    trainPills: document.querySelectorAll('.pill[data-type]'),
+                    typeFilters: document.querySelectorAll('.type-filter'),
+                    linePills: document.querySelectorAll('.line-pill'),
+                    btnSelectAll: document.getElementById('btn-select-all'),
+                    btnDeselectAll: document.getElementById('btn-deselect-all'),
+                    btnClearSelection: document.getElementById('btn-clear-selection'),
+                    viewMonitor: document.getElementById('view-monitor')
+                };
 
-                        // If we hide the currently selected line, clear the info box
-                        if (selectedLine && selectedLine.type === type && !e.target.checked) {
-                            selectedLine = null;
-                            infoBox.innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
-                        }
+                const deckInstance = new deck.DeckGL({
+                    container: 'container',
+                    views: [new deck.OrthographicView({id: 'ortho'})],
+                    initialViewState: { 
+                        target: [state.currentTimeMinutes * 3, state.initialY, 0], 
+                        zoom: 0, minZoom: -3.75, maxZoom: 3.25 
+                    },
+                    controller: true,
+                    pickingRadius: 10,
+                    
+                    onViewStateChange: ({viewState}) => { 
+                        if (viewState.target[1] > state.period) viewState.target[1] -= state.period;
+                        else if (viewState.target[1] < 0) viewState.target[1] += state.period;
+                        state.currentZoom = viewState.zoom;
                         
+                        if (DOM.viewMonitor.style.display === 'block') {
+                            DOM.valZoom.innerText = viewState.zoom.toFixed(2);
+                            DOM.valX.innerText = Math.round(viewState.target[0]);
+                            DOM.valY.innerText = Math.round(viewState.target[1]);
+                        }
+
+                        const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 3.25);
+                        const nextViewState = {...viewState, zoom: clampedZoom};
+                        deckInstance.setProps({viewState: nextViewState});
                         renderLayers();
-                    });
+                    },
+
+                    onClick: (info) => {
+                        if (info.object && info.layer.id.includes('main-path-layer')) {
+                            const trainNumber = info.object.number;
+                            state.selectedLine = rawData.find(t => t.number === trainNumber);
+                            state.showSchedule = true; 
+                        } else {
+                            state.selectedLine = null;
+                            state.showSchedule = false;
+                        }
+                        updateInfoBox();
+                        renderLayers();
+                    }
                 });
 
-                const pillContainer = document.getElementById('pill-container');
-                const allTypes = Object.keys(colorPalette);
-                const pills = document.querySelectorAll('.pill');
-
-                // 1. Create a single function to handle the UI looks
                 function syncPillStyles() {
-                    const trainPills = document.querySelectorAll('.pill[data-type]');
-                    trainPills.forEach(pill => {
+                    DOM.trainPills.forEach(pill => {
                         const type = pill.getAttribute('data-type');
                         const color = colorPalette[type];
                         
-                        if (enabledTypes.has(type)) {
+                        if (state.enabledTypes.has(type)) {
                             pill.classList.add('active');
                             pill.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
                             pill.style.color = 'black';
@@ -142,289 +175,212 @@
                     });
                 }
 
-                // 2. Individual Pill Clicks
-                pills.forEach(pill => {
-                    pill.addEventListener('click', () => {
-                        const type = pill.getAttribute('data-type');
-                        
-                        // Toggle the data
-                        if (enabledTypes.has(type)) {
-                            enabledTypes.delete(type);
-                            // Clear info box if the hidden train was selected
-                            if (selectedLine && selectedLine.train === type) {
-                                selectedLine = null;
-                                document.getElementById('info-content').innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
-                            }
-                        } else {
-                            enabledTypes.add(type);
-                        }
+                function updateInfoBox() {
+                    if (!state.selectedLine) {
+                        DOM.infoBox.innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
+                        DOM.btnClearSelection.style.display = 'none';
+                        return;
+                    }
+                    
+                    DOM.btnClearSelection.style.display = 'block';
 
-                        syncPillStyles(); // Update the buttons
-                        renderLayers();   // Update the map
+                    const daysLabel = ["加", "一", "二", "三", "四", "五", "六", "日", "例", "例"];
+                    const sequence = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+                    
+                    let boxesHtml = '<div class="day-container">';
+                    sequence.forEach(num => {
+                        const isActive = state.selectedLine.info.drive.includes(num.toString());
+                        const specialClass = num === 9 ? 'special-rule' : '';
+                        boxesHtml += `<div class="day-box ${isActive ? 'active' : ''} ${specialClass}">${daysLabel[num]}</div>`;
+                    });
+                    boxesHtml += '</div>';
+
+                    // Format Route Notes
+                    const viaText = state.selectedLine.info.via !== '-' ? `(${(state.selectedLine.info.via).replace(/線/g, '')})` : '';
+                    let rawNote = state.selectedLine.info.note || "";
+                    let processedNote = (state.selectedLine.info.drive !== "0") 
+                        ? (rawNote.includes('。') ? rawNote.slice(rawNote.indexOf('。') + 1) : rawNote)
+                        : rawNote;
+                    const formattedNote = processedNote.trim().replace(/。/g, '。<br>');
+
+                    DOM.infoBox.innerHTML = `
+                        <p><strong>${state.selectedLine.train} ${state.selectedLine.number} </strong> ${viaText}</p>
+                        <p>${state.selectedLine.info.start} → ${state.selectedLine.info.end}</p>
+                        <p>${boxesHtml}</p>
+                        <p>${formattedNote}</p>
+                    `;
+                }
+
+                function updateStationGridData() {
+                    // Reset grid
+                    Object.keys(gridData).forEach(key => Array.isArray(gridData[key]) ? gridData[key] = [] : null);
+                    
+                    // Map Labels
+                    Object.entries(state.stationDistances).forEach(([name, yValue]) => {
+                        if (state.stationList.has(name)) {
+                            for (let x = 240; x <= 1680; x += 120) {
+                                const entry = { text: name, position: [x * 3, yValue], y: yValue };
+                                if (x % 480 === 0) gridData.sparseLabelData.push(entry);
+                                if (x % 240 === 0) gridData.normalLabelData.push(entry);
+                                gridData.denseLabelData.push(entry);
+                            }
+                        }
+                    });
+
+                    const distances = Array.from(state.stationList).map(name => state.stationDistances[name]);
+                    gridData.minDistance = Math.min(...distances);
+                    gridData.maxDistance = Math.max(...distances);
+                    
+                    // Map Lines
+                    for (let x = 240; x <= 1680; x += 10) {
+                        const path = [[x * 3, gridData.minDistance - state.period], [x * 3, gridData.maxDistance + state.period]];
+                        (x % 60 === 0) ? gridData.thickLines.push({ path }) : gridData.thinLines.push({ path });
+                    }
+
+                    // Map Time Labels
+                    for (let y = gridData.minDistance - state.period; y <= gridData.maxDistance + state.period; y += 400) {
+                        const isSparseRow = (y % 800 === 0);
+                        for (let x = 240; x <= 1680; x += 10) {
+                            const label = { text: `${Math.floor(x/60).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
+                            gridData.denseLabels.push(label);
+                            if (x % 30 === 0) gridData.normalLabels.push(label);
+                            if (isSparseRow) {
+                                if (x % 60 === 0) gridData.sparseLabels.push(label);
+                                if (x % 120 === 0) gridData.simpleLabels.push(label);
+                            }
+                        }
+                    }
+                }
+
+                DOM.typeFilters.forEach(checkbox => {
+                    checkbox.addEventListener('change', (e) => {
+                        const type = e.target.value;
+                        e.target.checked ? state.enabledTypes.add(type) : state.enabledTypes.delete(type);
+
+                        if (state.selectedLine && state.selectedLine.type === type && !e.target.checked) {
+                            state.selectedLine = null;
+                            updateInfoBox();
+                        }
+                        renderLayers();
                     });
                 });
 
-                // 3. Select All
-                document.getElementById('btn-select-all').addEventListener('click', () => {
-                    allTypes.forEach(type => enabledTypes.add(type));
-                    syncPillStyles();
-                    renderLayers();
-                });
-
-                // 4. Deselect All
-                document.getElementById('btn-deselect-all').addEventListener('click', () => {
-                    enabledTypes.clear();
-                    selectedLine = null;
-                    document.getElementById('info-content').innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
-                    syncPillStyles();
-                    renderLayers();
-                });
-
-                // 5. Run once on startup to set initial colors
-                syncPillStyles();
-                
-                const linePills = document.querySelectorAll('.line-pill');
-
-                linePills.forEach(pill => {
+                DOM.pills.forEach(pill => {
                     pill.addEventListener('click', () => {
-                        // 1. UI Update for Buttons
-                        linePills.forEach(p => p.classList.remove('active'));
+                        const type = pill.getAttribute('data-type');
+                        if (state.enabledTypes.has(type)) {
+                            state.enabledTypes.delete(type);
+                            if (state.selectedLine && state.selectedLine.train === type) {
+                                state.selectedLine = null;
+                                updateInfoBox();
+                            }
+                        } else {
+                            state.enabledTypes.add(type);
+                        }
+                        syncPillStyles();
+                        renderLayers();
+                    });
+                });
+
+                DOM.btnSelectAll.addEventListener('click', () => {
+                    Object.keys(colorPalette).forEach(type => state.enabledTypes.add(type));
+                    syncPillStyles();
+                    renderLayers();
+                });
+
+                DOM.btnDeselectAll.addEventListener('click', () => {
+                    state.enabledTypes.clear();
+                    state.selectedLine = null;
+                    updateInfoBox();
+                    syncPillStyles();
+                    renderLayers();
+                });
+
+                DOM.linePills.forEach(pill => {
+                    pill.addEventListener('click', () => {
+                        DOM.linePills.forEach(p => p.classList.remove('active'));
                         pill.classList.add('active');
 
-                        // 2. Logic Update: Switch references
                         const lineType = pill.getAttribute('data-line');
-                        stationList = (lineType === 'mountain') ? mountStationList : seaStationList;
-                        stationDistances = (lineType === 'mountain') ? mountStationDistances : seaStationDistances;
-                        PERIOD = (lineType === 'mountain') ? 8759 : 8806;
+                        const isMountain = lineType === 'mountain';
                         
-                        // 3. Update the Highlighted Selection
-                        if (selectedLine) {
-                            // Find if this train (by number) exists in the rawData 
-                            // and has valid stops for the NEW route
-                            const trainNumber = selectedLine.number;
-                            
-                            // We search for a segment of this train that matches our new stationList
+                        state.stationList = isMountain ? mountStationList : seaStationList;
+                        state.stationDistances = isMountain ? mountStationDistances : seaStationDistances;
+                        state.period = isMountain ? 8759 : 8806;
+                        
+                        // Cross-check selected line
+                        if (state.selectedLine) {
                             const updatedMatch = rawData.find(t => 
-                                t.number === trainNumber && 
-                                t.data.some(p => stationList.has(p.x))
+                                t.number === state.selectedLine.number && 
+                                t.data.some(p => state.stationList.has(p.x))
                             );
 
                             if (updatedMatch) {
-                                // Update selectedLine to the version compatible with the new route
-                                selectedLine = updatedMatch;
+                                state.selectedLine = updatedMatch;
                             } else {
-                                // If the train doesn't run on this line, clear selection
-                                selectedLine = null;
-                                showSchedule = false;
-                                document.getElementById('info-content').innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
+                                state.selectedLine = null;
+                                state.showSchedule = false;
+                                updateInfoBox();
                             }
                         }
 
-                        // 4. Re-calculate derived data and refresh UI
                         updateStationGridData();
                         updateInfoBox();
                         renderLayers();
                     });
                 });
 
-                function updateInfoBox() {
-                    const clearBtn = document.getElementById('btn-clear-selection');
+                DOM.btnClearSelection.onclick = () => {
+                    state.selectedLine = null;
+                    state.showSchedule = false;
+                    updateInfoBox();
+                    renderLayers();
+                };
 
-                    if (!selectedLine) {
-                        infoBox.innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
-                        clearBtn.style.display = 'none'; // Hide the X button
-                        return;
-                    };
-                    
-                    clearBtn.style.display = 'block'; // Show the X button
-
-                    const daysLabel = ["加", "一", "二", "三", "四", "五", "六", "日", "例", "例"];
-                    let boxesHtml = '<div class="day-container">';
-                    const sequence = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-                    sequence.forEach(num => {
-                        const isActive = selectedLine.info.drive.includes(num.toString());
-                        const label = daysLabel[num];
-                        const specialClass = num === 9 ? 'special-rule' : '';
-                        boxesHtml += `<div class="day-box ${isActive ? 'active' : ''} ${specialClass}">${label}</div>`;
-                    });
-                    boxesHtml += '</div>';
-
-                    const viaText = selectedLine.info.via !== '-' ? `(${(selectedLine.info.via).replace(/線/g, '')})` : '';
-                    let rawNote = selectedLine.info.note || "";
-                    let processedNote = (selectedLine.info.drive !== "0") 
-                        ? (rawNote.includes('。') ? rawNote.slice(rawNote.indexOf('。') + 1) : rawNote)
-                        : rawNote;
-                    const formattedNote = processedNote.trim().replace(/。/g, '。<br>');
-
-                    infoBox.innerHTML = `
-                        <p><strong>${selectedLine.train} ${selectedLine.number} </strong> ${viaText}</p>
-                        <p>${selectedLine.info.start} → ${selectedLine.info.end}</p>
-                        <p>${boxesHtml}</p>
-                        <p>${formattedNote}</p>
-                    `;
-                }
-
-                const deckInstance = new deck.DeckGL({
-                    container: 'container',
-                    views: [new deck.OrthographicView({id: 'ortho'})],
-                    initialViewState: { target: [currentTimeMinutes * 3, initialY, 0], zoom: 0, minZoom: -3.75, maxZoom: 3.25 },
-                    controller: true,
-                    pickingRadius: 10,
-                    
-                    onViewStateChange: ({viewState}) => { 
-                        if (viewState.target[1] > PERIOD) {
-                            viewState.target[1] -= PERIOD;
-                        } else if (viewState.target[1] < 0) {
-                            viewState.target[1] += PERIOD;
-                        }
-                        currentZoom = viewState.zoom;
-                        const monitor = document.getElementById('view-monitor');
-                        if (monitor.style.display === 'block') {
-                            valZoom.innerText = viewState.zoom.toFixed(2);
-                            valX.innerText = Math.round(viewState.target[0]);
-                            valY.innerText = Math.round(viewState.target[1]);
-                        }
-                        const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 3.25);
-                        const nextViewState = {...viewState, zoom: clampedZoom};
-                        currentViewState = nextViewState;
-                        deckInstance.setProps({viewState: nextViewState});
-                        renderLayers(); // Re-render for dynamic font sizes
-                    },
-
-                    onClick: (info) => {
-                        if (info.object && info.layer.id.includes('main-path-layer')) {
-                            const trainNumber = info.object.number;
-                            selectedLine = rawData.find(t => t.number === trainNumber);
-                            showSchedule = true; 
-                            updateInfoBox();
-                        } else {
-                            // Reset if clicking background
-                            selectedLine = null;
-                            showSchedule = false;
-                            updateInfoBox();
-                        }
+                document.addEventListener('keydown', (e) => {
+                    const key = e.key.toLowerCase();
+                    if (key === 'h' && state.selectedLine) {
+                        state.showSchedule = !state.showSchedule;
                         renderLayers();
+                    }
+                    if (key === 'm') {
+                        DOM.viewMonitor.style.display = (DOM.viewMonitor.style.display === 'block') ? 'none' : 'block';
                     }
                 });
 
-                let denseLabelData = [];
-                let normalLabelData = [];
-                let sparseLabelData = [];
-                let thickLines = [];
-                let thinLines = [];
-                let simpleLabels = [];
-                let sparseLabels = [];
-                let normalLabels = [];
-                let denseLabels = [];
-                let distances = Array.from(stationList).map(name => stationDistances[name]);
-                let minDistance = Math.min(...distances);
-                let maxDistance = Math.max(...distances);
-                function updateStationGridData() {
-                    const newDenseLabelData = [];
-                    const newNormalLabelData = [];
-                    const newSparseLabelData = [];
-                    const newThickLines = [];
-                    const newThinLines = [];
-                    const newSparseLabels = [];
-                    const newNormalLabels = [];
-                    const newDenseLabels = [];
-                    const newSimpleLabels = [];
-                    Object.entries(stationDistances).forEach(([name, yValue]) => {
-                        if (stationList.has(name)) {
-                            for (let x = 240; x <= 1680; x += 120) { // Every 2 hours
-                                const entry = { text: name, position: [x * 3, yValue], y: yValue };
-                                if (x % 480 === 0) newSparseLabelData.push(entry);
-                                if (x % 240 === 0) newNormalLabelData.push(entry);
-                                newDenseLabelData.push(entry);
-                            }
-                        }
-                    });
-                    let distances = Array.from(stationList).map(name => stationDistances[name]);
-                    let minDistance = Math.min(...distances);
-                    let maxDistance = Math.max(...distances);
-                    for (let x = 240; x <= 1680; x += 10) {
-                        const path = [[x*3, minDistance-PERIOD], [x*3, maxDistance+PERIOD]];
-                        if (x % 60 === 0) {
-                            newThickLines.push({ path });
-                        } else {
-                            newThinLines.push({ path });
-                        }
-                    }
-                    for (let y = minDistance-PERIOD; y <= maxDistance+PERIOD; y += 800) {
-                        for (let x = 240; x <= 1680; x += 60) {
-                            const label = { text: `${(Math.floor(x/60)).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
-                            newSparseLabels.push(label);
-                            if (x % 120 === 0) {newSimpleLabels.push(label)};
-                        }
-                    }
-                    for (let y = minDistance-PERIOD; y <= maxDistance+PERIOD; y += 400) {
-                        for (let x = 240; x <= 1680; x += 10) {
-                            const label = { text: `${(Math.floor(x/60)).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
-                            newDenseLabels.push(label);
-                            if (x % 30 === 0) {newNormalLabels.push(label)};
-                        }
-                    }
-                    denseLabelData = newDenseLabelData;
-                    normalLabelData = newNormalLabelData;
-                    sparseLabelData = newSparseLabelData;
-                    thickLines = newThickLines;
-                    thinLines = newThinLines;
-                    simpleLabels = newSimpleLabels;
-                    sparseLabels = newSparseLabels;
-                    normalLabels = newNormalLabels;
-                    denseLabels = newDenseLabels;
-                }
-
-                updateStationGridData();
-
                 function renderLayers() {
-                    const yOffsets = [-PERIOD, 0, PERIOD];
-                    const TIME_THRESHOLD = 5000;
-                    // 1. Filter and Clean Train Data
+                    const yOffsets = [-state.period, 0, state.period];
+                    
+                    // Clean train paths to avoid jumpiness
                     const processedSegments = rawData
-                    .filter(train => enabledTypes.has(train.train))
-                    .map(train => {
-                        const validPoints = train.data.filter(p => stationDistances[p.x] !== undefined);
-                        
-                        let cumulativeOffset = 0;
-                        const adjustedData = [];
+                        .filter(train => state.enabledTypes.has(train.train))
+                        .map(train => {
+                            const validPoints = train.data.filter(p => state.stationDistances[p.x] !== undefined);
+                            let cumulativeOffset = 0;
+                            const adjustedData = [];
 
-                        for (let i = 0; i < validPoints.length; i++) {
-                            const currentPoint = validPoints[i];
-                            const currentRawDist = stationDistances[currentPoint.x];
+                            for (let i = 0; i < validPoints.length; i++) {
+                                const currentPoint = validPoints[i];
+                                const currentRawDist = state.stationDistances[currentPoint.x];
 
-                            if (i > 0) {
-                                const prevPoint = validPoints[i - 1];
-                                const prevRawDist = stationDistances[prevPoint.x];
-
-                                // Case 1: Jumping from bottom (near 0) to top (near max)
-                                // We want to pull the rest of the path "down" to stay continuous
-                                if (prevRawDist < 1000 && currentRawDist > 6000) {
-                                    cumulativeOffset -= PERIOD;
-                                } 
-                                // Case 2: Jumping from top (near max) to bottom (near 0)
-                                // We want to push the rest of the path "up" to stay continuous
-                                else if (prevRawDist > 6000 && currentRawDist < 1000) {
-                                    cumulativeOffset += PERIOD;
+                                if (i > 0) {
+                                    const prevRawDist = state.stationDistances[validPoints[i - 1].x];
+                                    if (prevRawDist < 1000 && currentRawDist > 6000) cumulativeOffset -= state.period;
+                                    else if (prevRawDist > 6000 && currentRawDist < 1000) cumulativeOffset += state.period;
                                 }
+
+                                adjustedData.push({ ...currentPoint, adjustedDist: currentRawDist + cumulativeOffset });
                             }
+                            return { ...train, data: adjustedData };
+                        })
+                        .filter(train => train.data.length > 1);
 
-                            adjustedData.push({
-                                ...currentPoint,
-                                // Apply the persistent offset to this and all subsequent points
-                                adjustedDist: currentRawDist + cumulativeOffset 
-                            });
-                        }
-
-                        return { ...train, data: adjustedData };
-                    })
-                    .filter(train => train.data.length > 1);
-
+                    // Prepare active schedule data
                     let scheduleData = [];
-                    if (showSchedule && selectedLine) {
+                    if (state.showSchedule && state.selectedLine) {
                         const grouped = {};
-                        selectedLine.data.forEach(p => {
-                            if (stationDistances[p.x] !== undefined) {
+                        state.selectedLine.data.forEach(p => {
+                            if (state.stationDistances[p.x] !== undefined) {
                                 if (!grouped[p.x]) grouped[p.x] = [];
                                 grouped[p.x].push(p.y);
                             }
@@ -435,193 +391,114 @@
                             return {
                                 station: name,
                                 arr: Math.ceil(sortedTimes[0]),
-                                dep: Math.floor(sortedTimes[1] || sortedTimes[0]), // Handle single-point stops
-                                yCoord: stationDistances[name]
+                                dep: Math.floor(sortedTimes[1] || sortedTimes[0]),
+                                yCoord: state.stationDistances[name]
                             };
                         });
                     }
-                    
-                    const offsetLayers = yOffsets.flatMap(offset => {
-                        return [
-                            new deck.PathLayer({
-                                id: `station-layer-${offset}`,
-                                data: Object.entries(stationDistances).filter(([name, yValue]) => stationList.has(name)),
-                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                getPath: d => [[630, d[1] + offset], [5130, d[1] + offset]],
-                                getColor: [80, 80, 80],
-                                getWidth: 1,
-                                widthMaxPixels: 2,
-                                widthMinPixels: 0
-                            }),
-                            new deck.TextLayer({
-                                id: `station-labels-${offset}`,
-                                data: currentZoom > 0.8 ? denseLabelData : currentZoom > -0.4 ? normalLabelData : currentZoom > -1.8 ? sparseLabelData : [],
-                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                getPosition: d => [d.position[0], d.position[1] + offset],
-                                getText: d => d.text,
-                                getSize: 12,
-                                sizeMaxPixels: 12,
-                                sizeMinPixels: 0,
-                                getColor: [180, 180, 180],
-                                characterSet: 'auto',
-                                fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
-                                getAlignmentBaseline: 'bottom', // Position ABOVE the point
-                                getTextAnchor: 'middle',        // Center text on the X coordinate
-                                pixelOffset: [0, -10]
-                            })
-                        ];
-                    });
 
-                    const mainPlotLayers = yOffsets.flatMap(offset => {
-                        return [
-                            new deck.PathLayer({
-                                id: `main-path-layer-${offset}`,
-                                data: processedSegments,
-                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                pickable: true,
-                                autoHighlight: true,
-                                highlightColor: [255, 255, 255, 150],
-                                getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
-                                getColor: d => colorPalette[d.train],
-                                getWidth: 1.5,
-                                widthMaxPixels: 2,
-                                widthMinPixels: 0
-                            })
-                        ];
-                    });
+                    // Generate deck.gl layers
+                    const offsetLayers = yOffsets.flatMap(offset => [
+                        new deck.PathLayer({
+                            id: `station-layer-${offset}`,
+                            data: Object.entries(state.stationDistances).filter(([name]) => state.stationList.has(name)),
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPath: d => [[630, d[1] + offset], [5130, d[1] + offset]],
+                            getColor: [80, 80, 80],
+                            getWidth: 1, widthMaxPixels: 2, widthMinPixels: 0
+                        }),
+                        new deck.TextLayer({
+                            id: `station-labels-${offset}`,
+                            data: state.currentZoom > 0.8 ? gridData.denseLabelData : state.currentZoom > -0.4 ? gridData.normalLabelData : state.currentZoom > -1.8 ? gridData.sparseLabelData : [],
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPosition: d => [d.position[0], d.position[1] + offset],
+                            getText: d => d.text,
+                            getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0,
+                            getColor: [180, 180, 180],
+                            characterSet: 'auto',
+                            fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
+                            getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
+                        })
+                    ]);
 
-                    const selectionLayers = yOffsets.flatMap(offset => {
-                        return [
-                            new deck.PathLayer({
-                                id: `selection-layer-${offset}`,
-                                // This array is either empty or contains exactly one item
-                                data: selectedLine && enabledTypes.has(selectedLine.train) ? processedSegments.filter(s => s.number === selectedLine.number) : [],
-                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                pickable: false,
-                                getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
-                                getColor: [255, 196, 0], // Yellow highlight
-                                getWidth: 4,
-                                widthMaxPixels: 4.5,
-                                widthMinPixels: 0
-                            }),
+                    const mainPlotLayers = yOffsets.flatMap(offset => [
+                        new deck.PathLayer({
+                            id: `main-path-layer-${offset}`,
+                            data: processedSegments,
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 150],
+                            getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
+                            getColor: d => colorPalette[d.train],
+                            getWidth: 1.5, widthMaxPixels: 2, widthMinPixels: 0
+                        })
+                    ]);
 
-                            new deck.TextLayer({
-                                id: `train-schedule-labels-${offset}`,
-                                data: scheduleData, // Use the grouped data
-                                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                                getPosition: d => [(d.dep+1.5) * 3, d.yCoord + offset, 0], // Anchor at arrival time
-                                getText: d => {
-                                    const format = (val) => {
-                                        const hh = Math.floor(val / 60).toString().padStart(2, '0');
-                                        const mm = (val % 60).toString().padStart(2, '0');
-                                        return `${hh}${mm}`;
-                                    };
-                                    return `${format(d.arr)} - ${format(d.dep)} ${d.station}`;
-                                },
-                                getSize: 13,
-                                getColor: [255, 255, 255],
-                                characterSet: 'auto',
-                                getTextAnchor: 'start',
-                                getAlignmentBaseline: 'center',
-                                pixelOffset: [15, 0], 
-                                background: true,
-                                getBackgroundColor: [0, 0, 0, 180]
-                            })
-                        ];
-                    });
+                    const selectionLayers = yOffsets.flatMap(offset => [
+                        new deck.PathLayer({
+                            id: `selection-layer-${offset}`,
+                            data: state.selectedLine && state.enabledTypes.has(state.selectedLine.train) ? processedSegments.filter(s => s.number === state.selectedLine.number) : [],
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            pickable: false,
+                            getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
+                            getColor: [255, 196, 0],
+                            getWidth: 4, widthMaxPixels: 4.5, widthMinPixels: 0
+                        }),
+                        new deck.TextLayer({
+                            id: `train-schedule-labels-${offset}`,
+                            data: scheduleData,
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPosition: d => [(d.dep+1.5) * 3, d.yCoord + offset, 0],
+                            getText: d => {
+                                const format = (val) => `${Math.floor(val/60).toString().padStart(2,'0')}${(val%60).toString().padStart(2,'0')}`;
+                                return `${format(d.arr)} - ${format(d.dep)} ${d.station}`;
+                            },
+                            getSize: 13, getColor: [255, 255, 255], characterSet: 'auto',
+                            getTextAnchor: 'start', getAlignmentBaseline: 'center', pixelOffset: [15, 0], 
+                            background: true, getBackgroundColor: [0, 0, 0, 180]
+                        })
+                    ]);
 
                     const baseLayers = [
                         new deck.PathLayer({
-                            id: 'thin-time-lines',
-                            data: thinLines,
-                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                            getPath: d => d.path,
-                            getColor: [50, 50, 50], // Very faint
-                            getWidth: 0.7,
-                            widthMaxPixels: 1.6,
-                            widthMinPixels: 0
+                            id: 'thin-time-lines', data: gridData.thinLines, coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPath: d => d.path, getColor: [50, 50, 50], getWidth: 0.7, widthMaxPixels: 1.6, widthMinPixels: 0
                         }),
                         new deck.PathLayer({
-                            id: 'thick-time-lines',
-                            data: thickLines,
-                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                            getPath: d => d.path,
-                            getColor: [80, 80, 80], // Brighter
-                            getWidth: 1,
-                            widthMaxPixels: 2,
-                            widthMinPixels: 0
+                            id: 'thick-time-lines', data: gridData.thickLines, coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                            getPath: d => d.path, getColor: [80, 80, 80], getWidth: 1, widthMaxPixels: 2, widthMinPixels: 0
                         }),
                         new deck.TextLayer({
                             id: 'vertical-labels',
-                            data: currentZoom > 0.8 ? denseLabels : currentZoom > -0.4 ? normalLabels : currentZoom > -1.6 ? sparseLabels : currentZoom > -2 ? simpleLabels : [],
+                            data: state.currentZoom > 0.8 ? gridData.denseLabels : state.currentZoom > -0.4 ? gridData.normalLabels : state.currentZoom > -1.6 ? gridData.sparseLabels : state.currentZoom > -2 ? gridData.simpleLabels : [],
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                            getPosition: d => d.position,
-                            getText: d => d.text,
-                            getSize: 12,
-                            sizeMaxPixels: 12,
-                            sizeMinPixels: 0,
-                            getColor: [180, 180, 180],
-                            characterSet: 'auto',
-                            getAlignmentBaseline: 'top', // Position BELOW the point
-                            getTextAnchor: 'start',
-                            pixelOffset: [5, 5]
+                            getPosition: d => d.position, getText: d => d.text,
+                            getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0,
+                            getColor: [180, 180, 180], characterSet: 'auto',
+                            getAlignmentBaseline: 'top', getTextAnchor: 'start', pixelOffset: [5, 5]
                         }),
-                        
                         new deck.ScatterplotLayer({
                             id: 'json-layer',
                             data: rawData.flatMap(g => g.data.map(p => ({...p, train: g.train}))),
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                            getPosition: d => [d.y*3, stationDistances[d.x]], 
-                            getFillColor: [200, 200, 200],
-                            getRadius: 0.0001,
-                            radiusMaxPixels: 0.001,
-                            radiusMinPixels: 0.00001
+                            getPosition: d => [d.y*3, state.stationDistances[d.x]], 
+                            getFillColor: [200, 200, 200], getRadius: 0.0001, radiusMaxPixels: 0.001, radiusMinPixels: 0.00001
                         })
                     ];
 
                     const currentTimeLayers = [
                         new deck.PathLayer({
                             id: 'current-time-line',
-                            data: [{
-                                path: [[currentTimeMinutes * 3, minDistance-PERIOD], [currentTimeMinutes * 3, maxDistance+PERIOD]] // Adjust Y range as needed
-                            }],
+                            data: [{ path: [[state.currentTimeMinutes * 3, gridData.minDistance - state.period], [state.currentTimeMinutes * 3, gridData.maxDistance + state.period]] }],
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                            getPath: d => d.path,
-                            getColor: [255, 0, 0, 150], // Red line with some transparency
-                            getWidth: 2,
-                            widthMaxPixels: 3.5,
-                            widthMinPixels: 0
+                            getPath: d => d.path, getColor: [255, 0, 0, 150], getWidth: 2, widthMaxPixels: 3.5, widthMinPixels: 0
                         })
                     ];
 
                     deckInstance.setProps({ layers: [...baseLayers, ...offsetLayers, ...mainPlotLayers, ...selectionLayers, ...currentTimeLayers] });
-                };
+                }
 
-                // 1. Handle the "X" button for de-selection
-                document.getElementById('btn-clear-selection').onclick = () => {
-                    selectedLine = null;
-                    showSchedule = false;
-                    updateInfoBox();
-                    renderLayers();
-                };
-
-                // 2. Handle 'H' key and 'M' key
-                document.addEventListener('keydown', (e) => {
-                    const key = e.key.toLowerCase();
-                    
-                    if (key === 'h') {
-                        if (selectedLine) {
-                            showSchedule = !showSchedule;
-                            renderLayers();
-                        }
-                    }
-                    
-                    if (key === 'm') {
-                        const monitor = document.getElementById('view-monitor');
-                        monitor.style.display = (monitor.style.display === 'block') ? 'none' : 'block';
-                    }
-                });
-
+                syncPillStyles();
+                updateStationGridData();
                 renderLayers();
             }
             
