@@ -234,10 +234,10 @@
                     const formattedNote = processedNote.trim().replace(/。/g, '。<br>');
 
                     DOM.infoBox.innerHTML = `
-                        <p><strong>${state.selectedLine.train} ${state.selectedLine.number} </strong> ${viaText}</p>
-                        <p>${state.selectedLine.info.start} → ${state.selectedLine.info.end}</p>
-                        <p>${boxesHtml}</p>
-                        <p>${formattedNote}</p>
+                        <div><strong>${state.selectedLine.train} ${state.selectedLine.number} </strong> ${viaText}</div>
+                        <div>${state.selectedLine.info.start} → ${state.selectedLine.info.end}</div>
+                        <div>${boxesHtml}</div>
+                        <div>${formattedNote}</div>
                     `;
                 }
 
