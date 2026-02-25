@@ -48,24 +48,28 @@
                 border-right: none; /* Remove that vertical separator line */
             }
             
-            .day-box { 
-                flex: 0 0 8px !important; 
-                height: 8px !important;
-                width: 8px !important;
+            #info-content .day-box { 
+                width: 20px !important;
+                min-width: 20px !important;
+                height: 20px !important;
+                min-height: 20px !important;
                 
-                display: flex; 
-                align-items: center; 
-                justify-content: center; 
+                display: flex !important;
+                align-items: center;
+                justify-content: center;
                 
-                font-size: 4px; 
-                border-radius: 4px; 
-                font-weight: bold; 
-                background-color: #444; 
+                padding: 0 !important;
+                border-right: none !important;
+                flex: 0 0 20px !important;
+                
+                font-size: 11px;
+                border-radius: 4px;
+                font-weight: bold;
+                background-color: #444;
                 color: #888;
-                box-sizing: border-box;
-                position: relative;
-            }
-            
+                line-height: 1;
+            }            
+
             /* Fix the diagonal line for a square box */
             .day-box.special-rule::after { 
                 content: ""; position: absolute; top: 0; left: 0; width: 100%; 
