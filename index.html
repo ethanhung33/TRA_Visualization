@@ -98,8 +98,8 @@
                 const response = await fetch('data/20260219.json');
                 const rawData = await response.json();
                 const now = new Date();
-                let currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
-                if (currentTimeMinutes < 240) currentTimeMinutes += 1440;
+                state.currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+                if (state.currentTimeMinutes < 240) state.currentTimeMinutes += 1440;
 
                 const DOM = {
                     infoBox: document.getElementById('info-content'),
