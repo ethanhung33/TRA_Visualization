@@ -197,6 +197,12 @@
             const today = new Date();
             dateSelector.value = today.toISOString().split('T')[0];
 
+            function getSelectedDateFilename() {
+                const rawDate = dateSelector.value; // "2026-02-26"
+                const formattedDate = rawDate.replace(/-/g, ''); // "20260226"
+                return `data/${formattedDate}.json`;
+            }
+
             async function loadData() {
                 const filename = getSelectedDateFilename();
                 try {
@@ -238,12 +244,6 @@
 
                 const response = await fetch('data/20260219.json');
                 let rawData = await response.json();
-
-                function getSelectedDateFilename() {
-                    const rawDate = dateSelector.value; // "2026-02-26"
-                    const formattedDate = rawDate.replace(/-/g, ''); // "20260226"
-                    return `data/${formattedDate}.json`;
-                }
 
                 state.currentTimeMinutes = today.getHours() * 60 + today.getMinutes();
                 if (state.currentTimeMinutes < 240) state.currentTimeMinutes += 1440;
