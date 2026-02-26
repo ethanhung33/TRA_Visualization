@@ -203,27 +203,6 @@
                 return `data/${formattedDate}.json`;
             }
 
-            async function loadData() {
-                const filename = getSelectedDateFilename();
-                try {
-                    const response = await fetch(filename);
-                    if (!response.ok) throw new Error('File not found');
-                    
-                    // Update the central data variable
-                    rawData = await response.json();
-                    
-                    // If a train was selected, try to find it in the new data
-                    if (state.selectedLine) {
-                        state.selectedLine = rawData.find(t => t.number === state.selectedLine.number) || null;
-                    }
-
-                    updateInfoBox();
-                    renderLayers(); // Redraw with the NEW rawData
-                } catch (err) {
-                    console.error("Error loading date file:", err);
-                }
-            }
-
             // Main initialization
             async function initMap() {
                 const DOM = {
@@ -244,6 +223,27 @@
 
                 const response = await fetch('data/20260219.json');
                 let rawData = await response.json();
+
+                async function loadData() {
+                    const filename = getSelectedDateFilename();
+                    try {
+                        const response = await fetch(filename);
+                        if (!response.ok) throw new Error('File not found');
+                        
+                        // Update the central data variable
+                        rawData = await response.json();
+                        
+                        // If a train was selected, try to find it in the new data
+                        if (state.selectedLine) {
+                            state.selectedLine = rawData.find(t => t.number === state.selectedLine.number) || null;
+                        }
+
+                        updateInfoBox();
+                        renderLayers(); // Redraw with the NEW rawData
+                    } catch (err) {
+                        console.error("Error loading date file:", err);
+                    }
+                }
 
                 state.currentTimeMinutes = today.getHours() * 60 + today.getMinutes();
                 if (state.currentTimeMinutes < 240) state.currentTimeMinutes += 1440;
