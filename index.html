@@ -103,38 +103,36 @@
                 min-width: 18px !important;
                 height: 18px !important;
                 min-height: 18px !important;
-                
                 display: flex !important;
                 align-items: center;
                 justify-content: center;
-                
                 padding: 0 !important;
                 border-right: none !important;
                 flex: 0 0 18px !important;
-                
                 font-size: 9px;
                 border-radius: 4px;
                 font-weight: bold;
                 background-color: #444;
                 color: #888;
                 line-height: 1;
-            }            
+            }
+            #info-content .day-box.special-rule { position: relative; color: #cc0000; }
+            #info-content .day-box.special-rule::before,
+            #info-content .day-box.special-rule::after {
+                content: "";
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 80%; /* length of the cross lines */
+                height: 2px; /* thickness of the cross lines */
+                background-color: #ff0000; /* Bright red */
+                z-index: 1;
+            }
 
-            /* Fix the diagonal line for a square box */
-            .day-box.special-rule::after { 
-                content: ""; position: absolute; top: 0; left: 0; width: 100%; 
-                height: 100%; 
-                background: linear-gradient(to top right, transparent 48%, currentColor 48%, currentColor 52%, transparent 52%);
-                pointer-events: none;
-            }
-            
+            #info-content .day-box.special-rule::before { transform: translate(-50%, -50%) rotate(45deg); }
+            #info-content .day-box.special-rule::after { transform: translate(-50%, -50%) rotate(-45deg); }
             .day-box.active { background-color: #eee !important; color: #000 !important; }
-            .day-box.special-rule { position: relative; overflow: hidden; }
-            .day-box.special-rule::after { 
-                content: ""; position: absolute; top: 0; left: 0; width: 100%; 
-                height: 1px; background: currentColor; transform: rotate(-45deg); 
-                transform-origin: top left; 
-            }
+            
             #btn-clear-selection { 
                 background: none; border: none; color: #888; 
                 cursor: pointer; font-size: 28px; line-height: 1; padding: 0;
@@ -340,13 +338,17 @@
                     
                     let boxesHtml = '<div class="day-container">';
                     sequence.forEach(num => {
-                        const isActive = state.selectedLine.info.drive.includes(num.toString());
-                        if (state.selectedLine.info.drive.includes("9") && num.toString() === "8") {
-                            boxesHtml += `<div class="day-box ${isActive ? 'active' : ''} 'special-rule'">${daysLabel[num]}</div>`;
+                        const driveStr = state.selectedLine.info.drive;
+                        const isActive = driveStr.includes(num.toString());
+                        if (num === 8) {
+                            const isExcluded = driveStr.includes("9");
+                            const activeClass = isActive ? 'active' : '';
+                            const specialClass = isExcluded ? 'special-rule' : '';
+                            
+                            boxesHtml += `<div class="day-box ${activeClass} ${specialClass}">${daysLabel[num]}</div>`;
                         } else {
-                            boxesHtml += `<div class="day-box ${isActive ? 'active' : ''} ">${daysLabel[num]}</div>`;
+                            boxesHtml += `<div class="day-box ${isActive ? 'active' : ''}">${daysLabel[num]}</div>`;
                         }
-                        const specialClass = num === 9 ? 'special-rule' : '';
                     });
                     boxesHtml += '</div>';
 
@@ -655,7 +657,7 @@
                             id: 'current-time-line',
                             data: [{ path: [[state.currentTimeMinutes * 3, gridData.minDistance - state.period], [state.currentTimeMinutes * 3, gridData.maxDistance + state.period]] }],
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                            getPath: d => d.path, getColor: [255, 0, 0, 150], getWidth: 2, widthMaxPixels: 3.5, widthMinPixels: 0
+                            getPath: d => d.path, getColor: [255, 0, 225, 255], getWidth: 3, widthMaxPixels: 4, widthMinPixels: 0
                         })
                     ];
 
