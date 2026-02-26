@@ -164,15 +164,18 @@
             .day-box.active { background-color: #eee !important; color: #000 !important; }
 
             .service-container {
-                display: inline-flex;
+                display: inline-flex !important;
                 gap: 4px;
                 margin-left: 10px;
                 vertical-align: middle;
+                height: 24px !important;
             }
 
             .service-box {
-                width: 18px !important;
-                height: 18px !important;
+                width: 20px !important;
+                min-width: 20px !important;
+                height: 20px !important;
+                min-height: 20px !important;
                 background-color: #333; /* Dark background like day-boxes */
                 border: 1px solid #444;
                 border-radius: 4px;
@@ -442,7 +445,7 @@
                         if (processedNote.includes(name)) {
                             iconsHtml += `
                                 <div class="service-box" title="${name}">
-                                    <img src="${url}" alt="${name}">
+                                    <img src="${url}" alt="${name}" referrerpolicy="no-referrer">
                                 </div>`;
                         }
                     });
