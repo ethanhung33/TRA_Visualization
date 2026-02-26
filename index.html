@@ -217,7 +217,7 @@
                 DOM.dateSelector.value = today.toISOString().split('T')[0];
                 function getSelectedDateFilename() {
                     const rawDate = DOM.dateSelector.value; // "2026-02-26"
-                    const formattedDate = rawDate.replace(/-/g, ''); // "20260226"
+                    const formattedDate = rawsDate.replace(/-/g, ''); // "20260226"
                     return `data/${formattedDate}.json`;
                 }
                 async function loadData() {
@@ -229,7 +229,7 @@
                         
                         // Update your state and redraw
                         state.allData = rawData; 
-                        updateStationGridData(); // Or whatever function starts your rendering
+                        initMap(); // Or whatever function starts your rendering
                     } catch (err) {
                         console.error("Error loading date file:", err);
                         // Optional: show an alert if data for that date doesn't exist
