@@ -98,6 +98,36 @@
                 border-right: none !important; /* Remove that vertical separator line */
             }
             
+            .day-container[title]:hover::after {
+                content: attr(title);
+                position: absolute;
+                bottom: 125%; /* Position above the boxes */
+                left: 50%;
+                transform: translateX(-50%);
+                background-color: #333;
+                color: #fff;
+                padding: 5px 10px;
+                border-radius: 4px;
+                font-size: 0.85em;
+                white-space: nowrap;
+                z-index: 1001;
+                border: 1px solid #555;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            }
+
+            /* Small arrow below the tooltip */
+            .day-container[title]:hover::before {
+                content: "";
+                position: absolute;
+                bottom: 110%;
+                left: 50%;
+                transform: translateX(-50%);
+                border-width: 5px;
+                border-style: solid;
+                border-color: #333 transparent transparent transparent;
+                z-index: 1001;
+            }
+
             #info-content .day-box { 
                 width: 18px !important;
                 min-width: 18px !important;
@@ -336,8 +366,20 @@
 
                     const daysLabel = ["加", "一", "二", "三", "四", "五", "六", "日", "例"];
                     const sequence = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+                    const viaText = state.selectedLine.info.via !== '-' ? `(${(state.selectedLine.info.via).replace(/線/g, '')})` : '';
+                    let viaColor = "#888"; // Default gray
+                    if (viaText.includes("山")) viaColor = "#4CAF50";       // Green
+                    else if (viaText.includes("海")) viaColor = "#2196F3";  // Blue
+                    else if (viaText.includes("成追")) viaColor = "#FF5722";
+                    let rawNote = state.selectedLine.info.note || "";
+                    let specialNote = (state.selectedLine.info.drive === "0") 
+                        ? (rawNote.includes('。') ? rawNote.slice(0, rawNote.indexOf('。')) : "") : "";
+                    let processedNote = (state.selectedLine.info.drive !== "0") 
+                        ? (rawNote.includes('。') ? rawNote.slice(rawNote.indexOf('。') + 1) : rawNote)
+                        : rawNote;
                     
-                    let boxesHtml = '<div class="day-container">';
+                    const tooltipAttr = specialNote ? `title="${specialNote.trim()}"` : '';
+                    let boxesHtml = `<div class="day-container" ${tooltipAttr}>`;
                     sequence.forEach(num => {
                         const driveStr = state.selectedLine.info.drive;
                         const isActive = driveStr.includes(num.toString());
@@ -352,25 +394,11 @@
                         }
                     });
                     boxesHtml += '</div>';
-
-                    // Format Route Notes
-                    const viaText = state.selectedLine.info.via !== '-' ? `(${(state.selectedLine.info.via).replace(/線/g, '')})` : '';
-                    let viaColor = "#888"; // Default gray
-                    if (viaText.includes("山")) viaColor = "#4CAF50";       // Green
-                    else if (viaText.includes("海")) viaColor = "#2196F3";  // Blue
-                    else if (viaText.includes("成追")) viaColor = "#FF5722";
-                    let rawNote = state.selectedLine.info.note || "";
-                    let specialNote = (state.selectedLine.info.drive === "0") 
-                        ? (rawNote.includes('。') ? rawNote.slice(0, rawNote.indexOf('。')) : "") : "";
-                    let processedNote = (state.selectedLine.info.drive !== "0") 
-                        ? (rawNote.includes('。') ? rawNote.slice(rawNote.indexOf('。') + 1) : rawNote)
-                        : rawNote;
                     DOM.infoBox.innerHTML = `
                         <span class="info-segment train-id"><strong>${state.selectedLine.train} ${state.selectedLine.number}</strong></span>
                         <span class="info-segment via-label" style="color: ${viaColor}">${viaText}</span>
                         <span class="info-segment route-display">${state.selectedLine.info.start} → ${state.selectedLine.info.end}</span>
                         ${boxesHtml}
-                        <span>${specialNote}</span>
                     `;
                     // <span style="color: #888; font-size: 0.9em;">${processedNote.trim()}</span>
                 }
