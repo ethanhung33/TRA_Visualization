@@ -165,10 +165,11 @@
 
             .service-container {
                 display: inline-flex !important;
+                height: 24px !important;
+                align-items: center;
                 gap: 4px;
                 margin-left: 10px;
                 vertical-align: middle;
-                height: 24px !important;
             }
 
             .service-box {
@@ -176,21 +177,16 @@
                 min-width: 20px !important;
                 height: 20px !important;
                 min-height: 20px !important;
-                background-color: #333; /* Dark background like day-boxes */
-                border: 1px solid #444;
-                border-radius: 4px;
-                display: flex;
+                display: flex !important;
                 align-items: center;
                 justify-content: center;
+                padding: 0 !important;
+                flex: 0 0 18px !important;
+                font-size: 9px;
+                border-radius: 4px;
+                background-color: #333; /* Dark background like day-boxes */
+                border: 1px solid #444;
                 overflow: hidden;
-            }
-
-            .service-box img {
-                width: 16px !important;  /* Slightly smaller than box for padding */
-                height: 16px !important;
-                object-fit: contain;
-                /* Optional: If the icons are too bright, uncomment the line below */
-                /* filter: brightness(0.8); */
             }
 
             /* Tooltip style inherited from your day-container logic */
