@@ -13,7 +13,7 @@
             body { 
                 margin: 0; padding: 0; display: flex; background-color: var(--bg-color);
                 font-family: sans-serif; height: 100vh; width: 100vw; overflow: hidden;
-                transition: background-color 0.3s ease, color 0.3s ease; cursor: grab;
+                transition: background-color 0.3s ease, color 0.3s ease; cursor: auto;
             }
             body.light-theme {
                 --bg-color: #fff; --sidebar-bg: #bbb; --text-color: #222;
@@ -80,14 +80,12 @@
                 display: inline-flex !important; height: 24px !important; align-items: center;
                 gap: 4px; padding: 0 10px; border-right: none !important; 
             }
-            
             .day-container[title]:hover::after {
                 content: attr(title); position: absolute; bottom: 125%; left: 50%;
                 transform: translateX(-50%); background-color: #333; color: #fff;
                 padding: 5px 10px; border-radius: 4px; font-size: 0.85em; white-space: nowrap;
                 z-index: 1001; border: 1px solid #555; box-shadow: 0 2px 5px rgba(0,0,0,0.5);
             }
-
             .day-container[title]:hover::before {
                 content: ""; position: absolute; bottom: 110%; left: 50%; 
                 transform: translateX(-50%); border-width: 5px; border-style: solid;
@@ -115,7 +113,6 @@
                 display: inline-flex !important; height: 24px !important;
                 align-items: center; gap: 4px; margin-left: 10px; vertical-align: middle;
             }
-
             .service-box {
                 width: 20px !important; min-width: 20px !important; height: 20px !important;
                 min-height: 20px !important; display: flex !important; align-items: center;
@@ -242,6 +239,7 @@
             if (localStorage.getItem('theme') === 'light') {
                 body.classList.add('light-theme');
                 themeIcon.textContent = '🌙';
+                updateMapTheme(isLight);
             }
 
             themeToggle.addEventListener('click', () => {
