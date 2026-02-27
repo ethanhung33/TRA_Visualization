@@ -24,11 +24,11 @@
             .toggle-btn {
                 position: fixed; right: 25vw; top: 20px; z-index: 2100; background: #333;
                 color: white; border: 1px solid #444; border-radius: 4px 0 0 4px; 
-                padding: 10px 8px; cursor: pointer; transition: right 0.3s ease-in-out;
+                padding: 10px 8px; cursor: pointer; transition: all 0.3s ease-in-out;
             }
             #sidebar.collapsed { transform: translateX(100%); }
-            #sidebar.collapsed ~ #sidebar-toggle { right: 0; }
-            #sidebar.collapsed ~ #sidebar-toggle .icon { display: inline-block; transform: rotate(180deg); }
+            #sidebar.collapsed + .toggle-btn, .collapsed ~ #sidebar-toggle { right: 0; }
+            #sidebar.collapsed .icon, #sidebar.collapsed + #sidebar-toggle .icon { display: inline-block; transform: rotate(180deg); }
 
             @media (max-width: 768px) {
                 #sidebar {
@@ -292,12 +292,15 @@
 
             const sidebar = document.getElementById('sidebar');
             const toggleBtn = document.getElementById('sidebar-toggle');
+            const toggleIcon = toggleBtn.querySelector('.icon');
 
             toggleBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('collapsed');
+                const isCollapsed = sidebar.classList.toggle('collapsed');
+                toggleIcon.style.transform = isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
+                toggleBtn.style.right = isCollapsed ? '0px' : '25vw';
                 setTimeout(() => {
                     window.dispatchEvent(new Event('resize'));
-                }, 305);
+                }, 350);
             });
 
             // Main initialization
