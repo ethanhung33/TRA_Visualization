@@ -20,6 +20,31 @@
             }
             .placeholder { color: #666; font-style: italic; }
             #sidebar h2 { border-bottom: 1px solid #444; padding-bottom: 8px; }
+            .toggle-btn {
+                position: fixed;
+                left: 300px;
+                top: 20px;
+                z-index: 2100;
+                background: #333;
+                color: white;
+                border: 1px solid #444;
+                border-radius: 0 4px 4px 0;
+                padding: 10px 6px;
+                cursor: pointer;
+                transition: left 0.3s ease-in-out;
+            }
+            #sidebar.collapsed {
+                transform: translateX(-100%);
+            }
+
+            .collapsed + #sidebar-toggle {
+                left: 0;
+            }
+
+            .collapsed + #sidebar-toggle .icon {
+                display: inline-block;
+                transform: rotate(180deg); /* Flip the arrow */
+            }
 
             @media (max-width: 768px) {
                 #sidebar {
@@ -225,13 +250,16 @@
                 </div>
             </div>
             <div id="bottompanel">
-                <h2 style="display: flex; justify-content: space-between; align-items: center;"> 列車資訊   </h2>
+                <h2 style="display: flex; justify-content: space-between; align-items: center; width: 85;"> 列車資訊   </h2>
                 <div id="info-content">
                     <p class="placeholder">點選列車以顯示資訊</p>
                 </div>
                 <button id="btn-clear-selection" style="display: none; background: none; border: none; color: #888; cursor: pointer; font-size: 24px; line-height: 1;">&times;</button>
             </div>
         </div>
+        <button id="sidebar-toggle" class="toggle-btn">
+            <span class="icon">❮</span>
+        </button>
         <div id="sidebar">
             <h2>日期</h2>
             <div>
@@ -315,6 +343,19 @@
                 "跨日列車": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-crossday.png"
             };
 
+            const sidebar = document.getElementById('sidebar');
+            const toggleBtn = document.getElementById('sidebar-toggle');
+
+            toggleBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+                
+                // Update the icon or text if you aren't using CSS transforms
+                // Optional: Tell the map to resize after the sidebar finishes sliding
+                // setTimeout(() => {
+                //     window.dispatchEvent(new Event('resize'));
+                // }, 300); 
+            });
+
             // Main initialization
             async function initMap() {
                 const DOM = {
@@ -340,18 +381,13 @@
                     const filename = getSelectedDateFilename();
                     try {
                         const response = await fetch(filename);
-                        // if (!response.ok) throw new Error('File not found');
-                        
-                        // Update the central data variable
                         rawData = await response.json();
-                        
-                        // If a train was selected, try to find it in the new data
                         if (state.selectedLine) {
                             state.selectedLine = rawData.find(t => t.number === state.selectedLine.number) || null;
                         }
 
                         updateInfoBox();
-                        renderLayers(); // Redraw with the NEW rawData
+                        renderLayers();
                     } catch (err) {
                         // console.error("Error loading date file:", err);
                         alert("可選擇日期範圍: 2026/02/19 ~ 2026/03/01");
