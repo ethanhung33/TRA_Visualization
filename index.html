@@ -13,7 +13,8 @@
             body { 
                 margin: 0; padding: 0; display: flex; background-color: var(--bg-color);
                 font-family: sans-serif; height: 100vh; width: 100vw; overflow: hidden;
-                cursor: auto; transition: background-color 0.3s ease, color 0.3s ease;
+                transition: background-color 0.3s ease, color 0.3s ease;
+                cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewport='0 0 24 24' style='fill:black;stroke:white;stroke-width:1;'><path d='M7 2l12 11.2-5.8.8 3.3 7.3-2.2 1-3.2-7.4L7 19z'/></svg>"), auto;
             }
             body.light-theme {
                 --bg-color: #fff; --sidebar-bg: #bbb; --text-color: #222;
@@ -37,7 +38,7 @@
             .placeholder { color: #888; font-style: italic; }
             #sidebar h2 { border-bottom: 1px solid var(--panel-bg); padding-bottom: 8px; }
             .toggle-btn {
-                position: fixed; right: 25vw; top: 20px; z-index: 2100; background: var(--text-color);
+                position: fixed; right: 25vw; top: 20px; z-index: 2100; background: var(--sidebar-bg);
                 color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px 0 0 4px; 
                 padding: 10px 8px; cursor: pointer; transition: all 0.3s ease-in-out;
             }
@@ -46,11 +47,12 @@
             #sidebar.collapsed .icon, #sidebar.collapsed + #sidebar-toggle .icon { display: inline-block; transform: rotate(180deg); }
 
             #pill-container, #line-pill-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 25px; }
-            .pill { 
+            .pill, .rev-pill { 
                 border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 20px; 
                 cursor: pointer; font-size: 13px; font-weight: bold; transition: all 0.2s ease; 
-                background-color: var(--panel-bg); color: var(--subtext-color); 
             }
+            .pill { background-color: var(--panel-bg); color: var(--subtext-color); }
+            .rev-pill { background-color: var(--subtext-color); color: var(--panel-bg); }
             .pill:hover { transform: translateY(-1px); filter: brightness(1.2); }
             .pill.active { color: var(--panel-bg); border-color: transparent; }
             .pill.utility:hover { background-color: var(--panel-bg); color: var(--text-color); }
@@ -61,7 +63,7 @@
                 color: var(--text-color); border-radius: 8px; font-size: 16px; margin-bottom: 20px;
                 outline: none; cursor: pointer; 
             }
-            .date-input::-webkit-calendar-picker-indicator { filter: invert(1); color: var(--text-color)}
+            .date-input::-webkit-calendar-picker-indicator { cursor: pointer; filter: invert(var(--icon-invert)); }
 
             #info-content { display: flex; flex-direction: row; align-items: center; gap: 10px; flex-grow: 1; overflow: hidden; }
             #info-content div , #info-content p { margin: 0; display: flex; flex-direction: row; align-items: center; white-space: nowrap; padding: 0 15px; }
