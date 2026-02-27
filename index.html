@@ -13,8 +13,7 @@
             body { 
                 margin: 0; padding: 0; display: flex; background-color: var(--bg-color);
                 font-family: sans-serif; height: 100vh; width: 100vw; overflow: hidden;
-                transition: background-color 0.3s ease, color 0.3s ease;
-                cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewport='0 0 24 24' style='fill:black;stroke:white;stroke-width:1;'><path d='M7 2l12 11.2-5.8.8 3.3 7.3-2.2 1-3.2-7.4L7 19z'/></svg>"), auto;
+                transition: background-color 0.3s ease, color 0.3s ease; cursor: auto;
             }
             body.light-theme {
                 --bg-color: #fff; --sidebar-bg: #bbb; --text-color: #222;
@@ -159,7 +158,7 @@
             <span class="icon">❯</span>
         </button>
         <div id="sidebar">
-            <button id="theme-toggle" class="pill utility">
+            <button id="theme-toggle" class="rev-pill utility">
                 <span id="theme-icon">☀️</span>
             </button>
             <h2>日期</h2>
