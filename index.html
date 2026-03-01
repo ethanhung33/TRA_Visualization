@@ -586,7 +586,7 @@
                                         const currentCalcDist = allStationDistances[p.x];
                                         if (currentCalcDist !== undefined)  {
                                             if (currentCalcDist > 1250 && prevRawDist < 1200) {
-                                                currentSegment.push({ ...p, x: prevPoint.y + (p.y - prevPoint.y) * (1214 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 1214 + cumulativeOffset});
+                                                currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (1214 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 1214 + cumulativeOffset});
                                             }
                                         }
                                     }
