@@ -595,7 +595,7 @@
                                     }
                                 }
                                 if (i > 0 && currentRawDist !== undefined) {
-                                    const prevPoint = currentSegment[currentSegment.length - 1];
+                                    const prevPoint = train.data[i - 1];
                                     const prevRawDist = state.stationDistances[prevPoint.x];
                                     if (prevRawDist === undefined) {
                                         const prevCalcDist = allStationDistances[prevPoint.x];
