@@ -588,6 +588,24 @@
                                             if (currentCalcDist > 1250 && prevRawDist < 1200) {
                                                 currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (1214 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 1214 + cumulativeOffset});
                                             }
+                                            if (currentCalcDist < 2050 && prevRawDist > 2100) {
+                                                currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (2070 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 2070 + cumulativeOffset});
+                                            }
+                                        }
+                                    }
+                                }
+                                if (i > 0 && currentRawDist !== undefined) {
+                                    const prevPoint = currentSegment[currentSegment.length - 1];
+                                    const prevRawDist = state.stationDistances[prevPoint.x];
+                                    if (prevRawDist === undefined) {
+                                        const prevCalcDist = allStationDistances[prevPoint.x];
+                                        if (prevCalcDist !== undefined)  {
+                                            if (prevCalcDist > 1250 && currentRawDist < 1200) {
+                                                currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (1214 - prevRawDist) / (currentRawDist - prevCalcDist), adjustedDist: 1214 + cumulativeOffset});
+                                            }
+                                            if (prevCalcDist < 2050 && currentRawDist > 2100) {
+                                                currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (2070 - prevRawDist) / (currentRawDist - prevCalcDist), adjustedDist: 2070 + cumulativeOffset});
+                                            }
                                         }
                                     }
                                 }
