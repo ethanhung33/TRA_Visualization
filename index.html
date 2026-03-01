@@ -516,13 +516,12 @@
                     renderLayers();
                 });
 
-                let lineType = pill.getAttribute('data-line');
-                let isMountain = lineType === 'mountain';
+                let isMountain = true;
                 DOM.linePills.forEach(pill => {
                     pill.addEventListener('click', () => {
                         DOM.linePills.forEach(p => p.classList.remove('active'));
                         pill.classList.add('active');
-                        lineType = pill.getAttribute('data-line');
+                        const lineType = pill.getAttribute('data-line');
                         isMountain = lineType === 'mountain';
                         state.stationList = isMountain ? mountStationList : seaStationList;
                         state.stationDistances = isMountain ? mountStationDistances : seaStationDistances;
