@@ -344,6 +344,12 @@
                             const trainNumber = info.object.number;
                             state.selectedLine = rawData.find(t => t.number === trainNumber);
                             state.showSchedule = true; 
+                            state.focusedStation = null;
+                        } else if (info.object && info.layer.id.includes('station-layer')) {
+                            const stationName = info.object.name;
+                            state.focusedStation = (state.focusedStation === stationName) ? null : stationName;
+                            state.selectedLine = null;
+                            state.showSchedule = false;
                         } else {
                             state.selectedLine = null;
                             state.showSchedule = false;
