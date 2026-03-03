@@ -671,9 +671,8 @@
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true,
                             getPosition: d => [d.position[0], d.position[1] + offset],
                             getText: d => d.text,
-                            getSize: d => d.text === state.focusedStation ? 16 : 12, sizeMaxPixels: 16, sizeMinPixels: 0,
-                            getColor: d => d[0] === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [80, 80, 80] : [180, 180, 180]),
-                            getFontWeight: d => d.text === state.focusedStation ? 700 : 400,
+                            getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0,
+                            getColor: d => d.text === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [80, 80, 80] : [180, 180, 180]),
                             characterSet: 'auto',
                             fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
                             getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
