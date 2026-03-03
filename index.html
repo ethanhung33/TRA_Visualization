@@ -672,7 +672,7 @@
                             getPosition: d => [d.position[0], d.position[1] + offset],
                             getText: d => d.text,
                             getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0,
-                            getColor: d => d.text === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [80, 80, 80] : [180, 180, 180]),
+                            getColor: isLight ? [80, 80, 80] : [180, 180, 180],
                             characterSet: 'auto',
                             fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
                             getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
@@ -713,6 +713,19 @@
                             getSize: 13, getColor: isLight ? [0, 0, 0] : [255, 255, 255], characterSet: 'auto',
                             getTextAnchor: 'start', getAlignmentBaseline: 'center', pixelOffset: [15, 0], 
                             background: true, getBackgroundColor: isLight ? [255, 255, 255, 180] : [0, 0, 0, 180]
+                        }),
+                        new deck.TextLayer({
+                            id: `station-labels-highlight-${offset}`,
+                            data: [{ name: state.focusedStation, y: state.stationDistances[state.focusedStation] }],
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true,
+                            getPosition: d => [state.currentTimeMinutes * 3 + 180, d.y + offset],
+                            getText: d => d.name,
+                            getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0,
+                            getColor: isLight ? [189, 146, 8] : [232, 252, 13],
+                            characterSet: 'auto',
+                            fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
+                            getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10],
+                            background: true, getBackgroundColor: isLight ? [235, 235, 235, 180] : [20, 20, 20, 180],
                         })
                     ]);
 
