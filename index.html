@@ -707,10 +707,10 @@
                             const segments = [];
                             let currentSegment = [];
                             let cumulativeOffset = 0;
+                            console.log(train.number);
                             for (let i = 0; i < train.data.length; i++) {
                                 const p = train.data[i];
-                                console.log(p.number);
-                                if (p.number === 452) console.log(p.data);
+                                if (train.number === 452) console.log(p);
                                 if (p.y >= 1560) console.log(p.y);
                                 if (p.y < 1560) continue;
                                 const currentRawDist = state.stationDistances[p.x];
