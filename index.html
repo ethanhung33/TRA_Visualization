@@ -275,8 +275,11 @@
             const today = new Date();
             if (today.getHours() < 2) { today.setDate(today.getDate() - 1); }
             dateSelector.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            today.setDate(today.getDate() - 1);
+            const yesterday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
             function getSelectedDateFilename() { return `data/${dateSelector.value.replace(/-/g, '')}.json`; }
+            function getYesterdayFilename() { return `data/${yesterday.replace(/-/g, '')}.json`; }
 
             // const serviceIcons = { "腳踏車設施": "🚲", "自由座": "💺", "騰雲座艙": "✨", "哺乳室": "🍼", "輪椅座": "♿", "訂便當服務": "🍱", "桌型座": "🪑", "跨日列車": "🌙" };
             const serviceIcons = {
@@ -334,6 +337,7 @@
 
                 async function loadData() {
                     const filename = getSelectedDateFilename();
+                    const yfilename = getYesterdayFilename();
                     try {
                         const response = await fetch(filename);
                         rawData = await response.json();
@@ -342,6 +346,15 @@
                         renderLayers();
                     } catch (err) {
                         alert("可選擇日期範圍: 2026/02/19 ~ 2026/03/24");
+                        // console.error("Error loading date file:", err);
+                    }
+                    try {
+                        const yresponse = await fetch(yfilename);
+                        yrawData = await response.json();
+                        // if (state.selectedLine) { state.selectedLine = yrawData.find(t => t.number === state.selectedLine.number) || null; }
+                        updateInfoBox();
+                        renderLayers();
+                    } catch (err) {
                         // console.error("Error loading date file:", err);
                     }
                 }
@@ -609,7 +622,7 @@
                 function renderLayers() {
                     const yOffsets = [-state.period, 0, state.period];
                     
-                    const processedSegments = rawData
+                    const todaySegments = rawData
                         .filter(train => {
                             const isEnabled = state.enabledTypes.has(train.train);
                             const passesStation = state.focusedStation ? train.data.some(p => p.x === state.focusedStation) : true;
@@ -680,6 +693,81 @@
                             return segments;
                         })
                         .filter(train => train.data.length > 1);
+
+                    const yesterdaySegments = yrawData
+                        .filter(train => {
+                            const isEnabled = state.enabledTypes.has(train.train);
+                            const passesStation = state.focusedStation ? train.data.some(p => p.x === state.focusedStation) : true;
+                            return isEnabled && passesStation;
+                        })
+                        .flatMap(train => {
+                            const segments = [];
+                            let currentSegment = [];
+                            let cumulativeOffset = 0;
+                            for (let i = 0; i < train.data.length; i++) {
+                                const p = train.data[i];
+                                if (p.y < 1560) continue;
+                                const currentRawDist = state.stationDistances[p.x];
+                                if (currentSegment.length > 0) {
+                                    const prevPoint = currentSegment[currentSegment.length - 1];
+                                    const prevRawDist = state.stationDistances[prevPoint.x];
+
+                                    if (prevRawDist < 1000 && currentRawDist > 6000) cumulativeOffset -= state.period;
+                                    else if (prevRawDist > 6000 && currentRawDist < 1000) cumulativeOffset += state.period;
+
+                                    if (currentRawDist === undefined) {
+                                        const currentCalcDist = allStationDistances[p.x];
+                                        if (currentCalcDist !== undefined)  {
+                                            if (currentCalcDist > 1250 && prevRawDist < 1200) {
+                                                currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (1214 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 1214 + cumulativeOffset});
+                                            }
+                                            if (currentCalcDist < 2050 && prevRawDist > 2100 && train.info.via == "海線" && isMountain) {
+                                                currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (2070 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 2070 + cumulativeOffset});
+                                            }
+                                            if (currentCalcDist < 2100 && prevRawDist > 2150 && train.info.via == "山線" && !isMountain) {
+                                                currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (2117 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 2117 + cumulativeOffset});
+                                            }
+                                        }
+                                    }
+                                }
+                                if (i > 0 && currentRawDist !== undefined) {
+                                    const prevPoint = train.data[i - 1];
+                                    const prevRawDist = state.stationDistances[prevPoint.x];
+                                    if (prevRawDist === undefined) {
+                                        const prevCalcDist = allStationDistances[prevPoint.x];
+                                        if (prevCalcDist !== undefined)  {
+                                            if (prevCalcDist > 1250 && currentRawDist < 1200) {
+                                                currentSegment.push({ ...p, y: p.y + (prevPoint.y - p.y) * (1214 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 1214 + cumulativeOffset});
+                                            }
+                                            if (prevCalcDist < 2050 && currentRawDist > 2100 && train.info.via == "海線" && isMountain) {
+                                                currentSegment.push({ ...p, y: p.y + (prevPoint.y - p.y) * (2070 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 2070 + cumulativeOffset});
+                                            }
+                                            if (prevCalcDist < 2100 && currentRawDist > 2150 && train.info.via == "山線" && !isMountain) {
+                                                currentSegment.push({ ...p, y: p.y + (prevPoint.y - p.y) * (2117 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 2117 + cumulativeOffset});
+                                            }
+                                        }
+                                    }
+                                }
+                                if (currentRawDist === undefined) {
+                                    if (currentSegment.length > 1) {
+                                        segments.push({ ...train, data: currentSegment });
+                                    }
+                                    currentSegment = [];
+                                    continue;
+                                }
+
+                                currentSegment.push({ ...p, adjustedDist: currentRawDist + cumulativeOffset });
+                            }
+
+                            if (currentSegment.length > 1) {
+                                segments.push({ ...train, data: currentSegment });
+                            }
+
+                            return segments;
+                        })
+                        .filter(train => train.data.length > 1);
+
+                    const processedSegments = [...todaySegments, ...yesterdaySegments];
 
                     let scheduleData = [];
                     if (state.showSchedule && state.selectedLine) {
