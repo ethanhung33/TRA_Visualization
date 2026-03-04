@@ -283,11 +283,14 @@
                 "腳踏車設施": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-bicy.png",
                 "自由座": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-freeSeat.jpg",
                 "騰雲座艙": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-business.svg",
+                "親子車廂": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-parenting.png",
                 "哺乳室": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-nursingroom.png",
                 "輪椅座": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-wheelchair.png",
                 "訂便當服務": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-lunchbox.png",
                 "桌型座": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-table.png",
-                "跨日列車": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-crossday.png"
+                "跨日列車": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-crossday.png",
+                "柴聯自強號": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSTU91Mzicmwr3X3LcQXYonCPIy67aaXAndGQ&s",
+                "花東民眾優先購票": "https://cdn-icons-png.flaticon.com/512/1456/1456687.png"
             };
 
             const sidebar = document.getElementById('sidebar');
@@ -442,7 +445,7 @@
                     boxesHtml += '</div>';
                     let iconsHtml = '<div class="service-container">';
                     Object.entries(serviceIcons).forEach(([name, url]) => {
-                        if (state.selectedLine.info.img.includes(name)) {
+                        if (state.selectedLine.info.img.includes(name) || state.selectedLine.info.note.includes(name)) {
                             iconsHtml += `
                                 <div class="service-box" title="${name}">
                                     <img src="${url}" alt="${name}">
