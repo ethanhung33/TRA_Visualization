@@ -711,7 +711,7 @@
                             data: Object.entries(state.stationDistances).filter(([name]) => state.stationList.has(name)),
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             pickable: true, autoHighlight: true, highlightColor: [220, 220, 220, 150],
-                            getPath: d => [[630, d[1] + offset], [5130, d[1] + offset]],
+                            getPath: d => [[270, d[1] + offset], [4770, d[1] + offset]],
                             getColor: d => d[0] === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [180, 180, 180] : [80, 80, 80]),
                             getWidth: d => d[0] === state.focusedStation ? 3 : 1, widthMaxPixels: 2, widthMinPixels: 0
                         }),
