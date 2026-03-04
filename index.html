@@ -209,7 +209,7 @@
                     <p>2. 本站資訊僅供參考，不保證資料之即時性、完整性或準確性，實際運行狀況請以 國營臺灣鐵路股份有限公司 公告為準。</p>
                     <p>3. 地圖資料與列車位置僅大致計算，可能與實際狀況存在誤差。</p>
                     <p>4. 歡迎任何非商業性使用與分享，惟請標示來源。</p>
-                    <p class="last-update">版本： test | 最後更新： 2026/03/02</p>
+                    <p class="last-update">版本： test | 最後更新： 2026/03/04</p>
                 </div>
             </div>
         </div>
@@ -242,6 +242,7 @@
             };
             const dateSelector = document.getElementById('date-selector');
             const today = new Date();
+            if (today.getHours() < 2) { today.setDate(today.getDate() - 1); }
             dateSelector.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
             function getSelectedDateFilename() { return `data/${dateSelector.value.replace(/-/g, '')}.json`; }
