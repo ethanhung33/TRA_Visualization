@@ -235,8 +235,9 @@
                 period: 8759, initialY: 246, currentTimeMinutes: 0
             };
             let gridData = {
-                denseLabels: [], normalLabels: [], sparseLabels: [], thickLines: [], thinLines: [],
-                simpleLabels: [], denseLabelData: [], normalLabelData: [], sparseLabelData: [],
+                denseLabels: [], normalLabels: [], sparseLabels: [], simpleLabels: [],
+                thickLines: [], thinLines: [],
+                denseLabelData: [], normalLabelData: [], sparseLabelData: [], mainLabelData: [],
                 minDistance: 0, maxDistance: 0
             };
             const dateSelector = document.getElementById('date-selector');
@@ -433,7 +434,10 @@
                         if (state.stationList.has(name)) {
                             for (let x = 240; x <= 1680; x += 120) {
                                 const entry = { text: name, position: [x * 3, yValue], y: yValue };
-                                if (x % 480 === 0 && mainStationList.has(name)) gridData.sparseLabelData.push(entry);
+                                if (x % 480 === 0) {
+                                    if (mainStationList.has(name)) gridData.mainLabelData.push(entry);
+                                    gridData.sparseLabelData.push(entry);
+                                }
                                 if (x % 240 === 0) gridData.normalLabelData.push(entry);
                                 gridData.denseLabelData.push(entry);
                             }
@@ -664,15 +668,18 @@
                             id: `station-layer-${offset}`,
                             data: Object.entries(state.stationDistances).filter(([name]) => state.stationList.has(name)),
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
-                            pickable: true,
+                            pickable: true, autoHighlight: true, highlightColor: [220, 220, 220, 150],
                             getPath: d => [[630, d[1] + offset], [5130, d[1] + offset]],
                             getColor: d => d[0] === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [180, 180, 180] : [80, 80, 80]),
                             getWidth: d => d[0] === state.focusedStation ? 3 : 1, widthMaxPixels: 2, widthMinPixels: 0
                         }),
                         new deck.TextLayer({
                             id: `station-labels-${offset}`,
-                            data: activeLabelData,
-                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true,
+                            data: state.currentZoom >  0.8 ? gridData.denseLabelData : 
+                                  state.currentZoom > -0.4 ? gridData.normalLabelData : 
+                                  state.currentZoom > -1.8 ? gridData.mainLabelData : [],
+                            coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, 
+                            pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 150],
                             getPosition: d => [d.position[0], d.position[1] + offset],
                             getText: d => d.text,
                             getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0,
