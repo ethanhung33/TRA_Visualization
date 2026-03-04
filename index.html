@@ -334,7 +334,7 @@
 
                 const response = await fetch(`data/${dateSelector.value.replace(/-/g, '')}.json`);
                 let rawData = await response.json();
-                const yresponse = await fetch(`data/${yesterday.value.replace(/-/g, '')}.json`);
+                const yresponse = await fetch(`data/${yesterday.replace(/-/g, '')}.json`);
                 let yrawData = await yresponse.json();
 
                 async function loadData() {
