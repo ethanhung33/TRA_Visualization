@@ -708,7 +708,7 @@
                             let cumulativeOffset = 0;
                             for (let i = 0; i < train.data.length; i++) {
                                 const p = train.data[i];
-                                console.log(p.y);
+                                if (p.y >= 1560) console.log(p);
                                 if (p.y < 1560) continue;
                                 const currentRawDist = state.stationDistances[p.x];
                                 if (currentSegment.length > 0) {
