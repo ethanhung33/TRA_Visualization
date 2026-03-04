@@ -638,7 +638,6 @@
                             for (let i = 0; i < train.data.length; i++) {
                                 const p = train.data[i];
                                 if (p.y >= 1560) console.log(p.y);
-                                if (p.y < 1560) continue;
                                 const currentRawDist = state.stationDistances[p.x];
                                 if (currentSegment.length > 0) {
                                     const prevPoint = currentSegment[currentSegment.length - 1];
