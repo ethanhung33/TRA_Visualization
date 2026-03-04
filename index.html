@@ -334,6 +334,8 @@
 
                 const response = await fetch(`data/${dateSelector.value.replace(/-/g, '')}.json`);
                 let rawData = await response.json();
+                const yresponse = await fetch(`data/${yesterday.value.replace(/-/g, '')}.json`);
+                let yrawData = await yresponse.json();
 
                 async function loadData() {
                     const filename = getSelectedDateFilename();
@@ -350,7 +352,7 @@
                     }
                     try {
                         const yresponse = await fetch(yfilename);
-                        yrawData = await response.json();
+                        yrawData = await yresponse.json();
                         // if (state.selectedLine) { state.selectedLine = yrawData.find(t => t.number === state.selectedLine.number) || null; }
                         updateInfoBox();
                         renderLayers();
