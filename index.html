@@ -721,12 +721,12 @@
                             for (let i = 0; i < train.data.length; i++) {
                                 const p = train.data[i];
                                 if (p.y < 1560) { continue; }
-                                else { let tmpy = p.y - 1440; }
+                                let tmpy = p.y - 1440;
                                 const currentRawDist = state.stationDistances[p.x];
                                 if (currentSegment.length > 0) {
                                     const prevPoint = currentSegment[currentSegment.length - 1];
                                     const prevRawDist = state.stationDistances[prevPoint.x];
-                                    if (prevPoint.y >= 1560) { let tmpprey = prevPoint.y; }
+                                    let tmpprey = (prevPoint.y >= 1560) ? prevPoint.y - 1440 : prevPoint.y;
 
                                     if (prevRawDist < 1000 && currentRawDist > 6000) cumulativeOffset -= state.period;
                                     else if (prevRawDist > 6000 && currentRawDist < 1000) cumulativeOffset += state.period;
