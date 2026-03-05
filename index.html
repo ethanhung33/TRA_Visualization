@@ -280,7 +280,12 @@
             const yesterday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
             function getSelectedDateFilename() { return `data/${dateSelector.value.replace(/-/g, '')}.json`; }
-            function getYesterdayFilename() { return `data/${yesterday.replace(/-/g, '')}.json`; }
+            function getYesterdayFilename() { 
+                const selectedDate = new Date(dateSelector.value + 'T00:00:00');
+                selectedDate.setDate(selectedDate.getDate() - 1);
+                const yesterday = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+                return `data/${yesterday.replace(/-/g, '')}.json`;
+            }
 
             // const serviceIcons = { "腳踏車設施": "🚲", "自由座": "💺", "騰雲座艙": "✨", "哺乳室": "🍼", "輪椅座": "♿", "訂便當服務": "🍱", "桌型座": "🪑", "跨日列車": "🌙" };
             const serviceIcons = {
@@ -339,7 +344,6 @@
                 let yrawData = await yresponse.json();
 
                 async function loadData() {
-                    today = new Date();
                     const filename = getSelectedDateFilename();
                     const yfilename = getYesterdayFilename();
                     try {
