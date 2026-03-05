@@ -721,11 +721,12 @@
                             for (let i = 0; i < train.data.length; i++) {
                                 const p = train.data[i];
                                 if (p.y < 1560) { continue; }
-                                else { p.y -= 1440; }
+                                else { let tmpy = p.y - 1440; }
                                 const currentRawDist = state.stationDistances[p.x];
                                 if (currentSegment.length > 0) {
                                     const prevPoint = currentSegment[currentSegment.length - 1];
                                     const prevRawDist = state.stationDistances[prevPoint.x];
+                                    if (prevPoint.y >= 1560) { let tmpprey = prevPoint.y; }
 
                                     if (prevRawDist < 1000 && currentRawDist > 6000) cumulativeOffset -= state.period;
                                     else if (prevRawDist > 6000 && currentRawDist < 1000) cumulativeOffset += state.period;
@@ -734,13 +735,13 @@
                                         const currentCalcDist = allStationDistances[p.x];
                                         if (currentCalcDist !== undefined)  {
                                             if (currentCalcDist > 1250 && prevRawDist < 1200) {
-                                                currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (1214 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 1214 + cumulativeOffset});
+                                                currentSegment.push({ ...p, y: tmpprey + (tmpy - tmpprey) * (1214 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 1214 + cumulativeOffset});
                                             }
                                             if (currentCalcDist < 2050 && prevRawDist > 2100 && train.info.via == "海線" && isMountain) {
-                                                currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (2070 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 2070 + cumulativeOffset});
+                                                currentSegment.push({ ...p, y: tmpprey + (tmpy - tmpprey) * (2070 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 2070 + cumulativeOffset});
                                             }
                                             if (currentCalcDist < 2100 && prevRawDist > 2150 && train.info.via == "山線" && !isMountain) {
-                                                currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (2117 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 2117 + cumulativeOffset});
+                                                currentSegment.push({ ...p, y: tmpprey + (tmpy - tmpprey) * (2117 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 2117 + cumulativeOffset});
                                             }
                                         }
                                     }
@@ -752,13 +753,13 @@
                                         const prevCalcDist = allStationDistances[prevPoint.x];
                                         if (prevCalcDist !== undefined)  {
                                             if (prevCalcDist > 1250 && currentRawDist < 1200) {
-                                                currentSegment.push({ ...p, y: p.y + (prevPoint.y - p.y) * (1214 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 1214 + cumulativeOffset});
+                                                currentSegment.push({ ...p, y: tmpy + (tmpprey - tmpy) * (1214 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 1214 + cumulativeOffset});
                                             }
                                             if (prevCalcDist < 2050 && currentRawDist > 2100 && train.info.via == "海線" && isMountain) {
-                                                currentSegment.push({ ...p, y: p.y + (prevPoint.y - p.y) * (2070 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 2070 + cumulativeOffset});
+                                                currentSegment.push({ ...p, y: tmpy + (tmpprey - tmpy) * (2070 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 2070 + cumulativeOffset});
                                             }
                                             if (prevCalcDist < 2100 && currentRawDist > 2150 && train.info.via == "山線" && !isMountain) {
-                                                currentSegment.push({ ...p, y: p.y + (prevPoint.y - p.y) * (2117 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 2117 + cumulativeOffset});
+                                                currentSegment.push({ ...p, y: tmpy + (tmpprey - tmpy) * (2117 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 2117 + cumulativeOffset});
                                             }
                                         }
                                     }
@@ -771,7 +772,7 @@
                                     continue;
                                 }
 
-                                currentSegment.push({ ...p, adjustedDist: currentRawDist + cumulativeOffset });
+                                currentSegment.push({ ...p, y: tmpy, adjustedDist: currentRawDist + cumulativeOffset });
                             }
 
                             if (currentSegment.length > 1) {
