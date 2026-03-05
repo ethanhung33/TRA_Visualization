@@ -273,7 +273,7 @@
                 minDistance: 0, maxDistance: 0
             };
             const dateSelector = document.getElementById('date-selector');
-            const today = new Date();
+            let today = new Date();
             if (today.getHours() < 2) { today.setDate(today.getDate() - 1); }
             dateSelector.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
             today.setDate(today.getDate() - 1);
@@ -339,6 +339,7 @@
                 let yrawData = await yresponse.json();
 
                 async function loadData() {
+                    today = new Date();
                     const filename = getSelectedDateFilename();
                     const yfilename = getYesterdayFilename();
                     try {
