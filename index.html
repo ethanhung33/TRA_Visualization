@@ -524,7 +524,7 @@
                                 return stop ? { 
                                     number: train.number, 
                                     type: train.train, 
-                                    dest: train.info.end, 
+                                    dest: train.info.end.slice(6), 
                                     time: stop.y // This is the minutes from 00:00
                                 } : null;
                             })
@@ -540,11 +540,7 @@
                             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                         };
                         let trainsHtml = nextTrains.length > 0 
-                            ? nextTrains.map(t => `
-                                    <span style="color: var(--monitor-color); margin-right: 5px;">${t.type}${t.number}</span>
-                                    <span style="font-weight: bold; margin-right: 5px;">${formatTime(t.time)}</span>
-                                    往 <span style="margin-left: 3px;">${t.dest}</span>
-                            `).join('')
+                            ? nextTrains.map(t => `  <span>${t.type} ${t.number} ${formatTime(t.time)} 往 ${t.dest}</span>`).join('  |')
                             : `<span class="placeholder" style="padding-left: 10px;">今日無後續車次</span>`;
 
                         DOM.stationBox.innerHTML = `
