@@ -111,17 +111,6 @@
             }
             .service-box img { width: 18px; height: 18px; object-fit: contain; /* filter: brightness(0.8); */ }
             .service-box[title]:hover { background-color: transparent; }
-
-            #bottom-tabs { display: flex; gap: 2px; position: absolute; top: -32px; left: 15px; }
-            .tab-btn {
-                background-color: var(--panel-bg); color: var(--subtext-color); 
-                border: 1px solid var(--border-color); border-bottom: none; font-size: 14px;
-                padding: 6px 15px; border-radius: 8px 8px 0 0; cursor: pointer; transition: all 0.2s ease;
-            }
-            .tab-btn.active {
-                background-color: var(--panel-bg); color: var(--text-color);
-                font-weight: bold; height: 32px; margin-top: -2px;
-            }
             .hidden { display: none !important; }
 
             #btn-clear-selection { 
@@ -168,24 +157,20 @@
                 </div>
             </div>
             <div id="bottompanel">
-                <div id="bottom-tabs">
-                    <button id="tab-train" class="tab-btn active" onclick="switchBottomTab('train')">列車資訊</button>
-                    <button id="tab-station" class="tab-btn" onclick="switchBottomTab('station')">車站資訊</button>
-                </div>
-                <div id="view-train" class="tab-view" style="display: flex; align-items: center; width: 100%; gap: 20px;">
+                <div id="view-train" class="tab-view hidden" style="display: flex; align-items: center; width: 100%; gap: 20px;">
                     <h2 style="margin: 0; white-space: nowrap;">列車資訊</h2>
-                    <div id="info-content">
-                        <p class="placeholder">點選列車以顯示資訊</p>
-                    </div>
+                    <div id="info-content"></div>
                 </div>
-
                 <div id="view-station" class="tab-view hidden" style="display: flex; align-items: center; width: 100%; gap: 20px;">
                     <h2 style="margin: 0; white-space: nowrap;">車站資訊</h2>
+                    <div id="station-info-content"></div>
+                </div>
+                <div id="view-null" class="tab-view" style="display: flex; align-items: center; width: 100%; gap: 20px;">
+                    <h2 style="margin: 0; white-space: nowrap;">資訊</h2>
                     <div id="station-info-content">
-                        <p class="placeholder">點選車站以顯示資訊</p>
+                        <p class="placeholder">點選列車或車站以顯示資訊</p>
                     </div>
                 </div>
-
                 <button id="btn-clear-selection" style="display: none; background: none; color: #888; cursor: pointer; font-size: 24px; line-height: 1;">&times;</button>
             </div>
         </div>
@@ -345,21 +330,34 @@
                 isLight = true;
             }
 
-            function switchBottomTab(tabName) {
-                document.getElementById('tab-train').classList.toggle('active', tabName === 'train');
-                document.getElementById('tab-station').classList.toggle('active', tabName === 'station');
-
+            function updateBottomPanel() {
                 const trainView = document.getElementById('view-train');
                 const stationView = document.getElementById('view-station');
-                if (tabName === 'train') {
+                const nullView = document.getElementById('view-null');
+                const clearBtn = document.getElementById('btn-clear-selection');
+
+                // Hide everything first
+                [trainView, stationView, nullView].forEach(v => v.classList.add('hidden'));
+                clearBtn.style.display = 'none';
+
+                if (state.selectedLine) {
+                    // Priority 1: Train selected
                     trainView.classList.remove('hidden');
-                    stationView.classList.add('hidden');
-                } else {
-                    trainView.classList.add('hidden');
+                    clearBtn.style.display = 'block';
+                    updateTrainInfo(); // Function to populate train details
+                } 
+                else if (state.focusedStation) {
+                    // Priority 2: Station selected
                     stationView.classList.remove('hidden');
+                    clearBtn.style.display = 'block';
+                    updateStationInfo(); // Function to populate station details
+                } 
+                else {
+                    // Priority 3: Nothing selected
+                    nullView.classList.remove('hidden');
                 }
             }
-
+            
             // Main initialization
             async function initMap() {
                 const DOM = {
@@ -442,18 +440,17 @@
                             state.selectedLine = rawData.find(t => t.number === trainNumber) || yrawData.find(t => t.number === trainNumber);
                             state.showSchedule = true; 
                             state.focusedStation = null;
-                            switchBottomTab('train');
                         } else if (info.object && (info.layer.id.includes('station-layer') || info.layer.id.includes('station-labels'))) {
                             const stationName = Array.isArray(info.object) ? info.object[0] : info.object.text;
                             state.focusedStation = (state.focusedStation === stationName) ? null : stationName;
                             state.selectedLine = null;
                             state.showSchedule = false;
-                            switchBottomTab('station');
                         } else {
                             state.selectedLine = null;
                             state.showSchedule = false;
                             state.focusedStation = null;
                         }
+                        updateBottomPanel()
                         updateInfoBox();
                         renderLayers();
                     }
@@ -477,7 +474,7 @@
 
                 function updateInfoBox() {
                     if (!state.selectedLine) {
-                        DOM.infoBox.innerHTML = `<p class="placeholder">點選列車以顯示資訊</p>`;
+                        DOM.infoBox.innerHTML = `<p class="placeholder">點選列車或車站以顯示資訊</p>`;
                         DOM.btnClearSelection.style.display = 'none';
                         return;
                     }
@@ -649,6 +646,7 @@
                     state.selectedLine = null;
                     state.showSchedule = false;
                     updateInfoBox();
+                    updateBottomPanel();
                     renderLayers();
                 };
 
@@ -670,6 +668,7 @@
                         const questionModal = document.getElementById('question-modal');
                         if (questionModal) questionModal.style.display = 'none';
                         updateInfoBox();
+                        updateBottomPanel();
                         renderLayers();
                     }
                 });
