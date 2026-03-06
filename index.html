@@ -653,7 +653,7 @@
                                         if (prevPoint.y >= 1560) continue;
                                         const prevDist = state.stationDistances[prevPoint.x];
                                         const currentDist = state.stationDistances[p.x];
-                                        currentSegment.push({ ...p, y: 1560, adjustedDist: prevDist + (currentDist - prevDist) * (1560 - prevPoint.y) / (p.y - prevPoint.y)});
+                                        currentSegment.push({ ...p, y: 1560, adjustedDist: prevDist + (currentDist - prevDist) * (1560 - prevPoint.y) / (p.y - prevPoint.y) + cumulativeOffset});
                                     }
                                     continue;
                                 }
