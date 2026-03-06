@@ -647,7 +647,16 @@
                             let cumulativeOffset = 0;
                             for (let i = 0; i < train.data.length; i++) {
                                 const p = train.data[i];
-                                if (p.y >= 1560) continue;
+                                if (p.y >= 1560) {
+                                    if (currentSegment.length > 0) {
+                                        const prevPoint = currentSegment[currentSegment.length - 1];
+                                        if (prevPoint.y >= 1560) continue;
+                                        const prevDist = state.stationDistances[prevPoint.x];
+                                        const currentDist = state.stationDistances[p.x];
+                                        currentSegment.push({ ...p, y: 1560, adjustedDist: prevDist + (currentDist - prevDist) * (1560 - prevPoint.y) / (p.y - prevPoint.y)});
+                                    }
+                                    continue;
+                                }
                                 const currentRawDist = state.stationDistances[p.x];
                                 if (currentSegment.length > 0) {
                                     const prevPoint = currentSegment[currentSegment.length - 1];
