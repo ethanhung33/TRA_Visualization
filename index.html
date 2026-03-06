@@ -788,10 +788,15 @@
                     let scheduleData = [];
                     if (state.showSchedule && state.selectedLine) {
                         const grouped = {};
+                        const selectedNum = state.selectedLine.number;
+                        const isTodayTrain = todaySegments.some(t => t.number === selectedNum);
+                        const isYesterdayTrain = yesterdaySegments.some(t => t.number === selectedNum);
                         state.selectedLine.data.forEach(p => {
-                            if (state.stationDistances[p.x] !== undefined && p.y < 1560) {
-                                if (!grouped[p.x]) grouped[p.x] = [];
-                                grouped[p.x].push(p.y);
+                            if (state.stationDistances[p.x] !== undefined) {
+                                if ((isTodayTrain && p.y < 1560) || (isYesterdayTrain && p.y >= 1560)) {
+                                    if (!grouped[p.x]) grouped[p.x] = [];
+                                    grouped[p.x].push(isYesterdayTrain ? p.y - 1440 : p.y);
+                                }
                             }
                         });
 
