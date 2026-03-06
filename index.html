@@ -379,6 +379,7 @@
                 let rawData = await response.json();
                 const yresponse = await fetch(`data/${yesterday.replace(/-/g, '')}.json`);
                 let yrawData = await yresponse.json();
+                let processedSegments = [];
 
                 async function loadData() {
                     const filename = getSelectedDateFilename();
@@ -878,7 +879,7 @@
                         })
                         .filter(train => train.data.length > 1);
 
-                    const processedSegments = [...todaySegments, ...yesterdaySegments];
+                    processedSegments = [...todaySegments, ...yesterdaySegments];
 
                     let scheduleData = [];
                     if (state.showSchedule && state.selectedLine) {
