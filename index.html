@@ -546,7 +546,7 @@
                             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                         };
                         let trainsHtml = nextTrains.length > 0 
-                            ? nextTrains.map(t => `<div><span style="color: ${htmlcolorPalette[t.type]}";>${t.type}</span><span> ${t.number} ${formatTime(t.time)} 往 ${t.dest}</span></div>`).join('')
+                            ? nextTrains.map(t => `<span style="color: ${htmlcolorPalette[t.type]}";>${t.type} ${t.number}</span><span> ${formatTime(t.time)} 往 ${t.dest}</span>`).join('      ')
                             : `<span class="placeholder" style="padding-left: 10px;">今日無後續車次</span>`;
 
                         DOM.stationBox.innerHTML = `
