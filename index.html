@@ -523,7 +523,7 @@
                         });
                         iconsHtml += '</div>';
                         DOM.infoBox.innerHTML = `
-                            <span class="info-segment train-id"><strong>${state.selectedLine.train} ${state.selectedLine.number}</strong></span>
+                            <span class="info-segment train-id" style="color: ${htmlcolorPalette[t.type]}"><strong>${state.selectedLine.train} ${state.selectedLine.number}</strong></span>
                             <span class="info-segment via-label" style="color: ${viaColor}">${viaText}</span>
                             <span class="info-segment route-display">${state.selectedLine.info.start} → ${state.selectedLine.info.end}</span>
                             ${boxesHtml}
@@ -552,7 +552,7 @@
                             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                         };
                         let trainsHtml = nextTrains.length > 0 
-                            ? nextTrains.map(t => `<span style="color: ${htmlcolorPalette[t.type]}";>${t.type} ${t.number}</span><span> ${formatTime(t.time)} 往 ${t.dest}</span>`).join('      ')
+                            ? nextTrains.map(t => `<span style="color: ${htmlcolorPalette[t.type]};">${t.type} ${t.number}</span><span> ${formatTime(t.time)} 往 ${t.dest}</span>`).join('      ')
                             : `<span class="placeholder" style="padding-left: 10px;">今日無後續車次</span>`;
 
                         DOM.stationBox.innerHTML = `
