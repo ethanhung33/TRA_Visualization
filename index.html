@@ -8,7 +8,12 @@
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic&display=swap" rel="stylesheet">
         <style>
-            @import url("https://font.emtech.cc/css/LXGWHeartSerifMN");
+            /* @import url("https://font.emtech.cc/css/LXGWHeartSerifMN"); */
+            @font-face {
+                font-family: 'GlowSansTCCom';
+                src: url('fonts/GlowSansTC-Compressed-Regular.otf') format('opentype');
+                font-weight: normal; font-style: normal;
+            }
             :root {
                 --bg-color: #000; --sidebar-bg: #444; --text-color: #ddd;
                 --border-color: #555; --panel-bg: #222; --subtext-color: #bbb;
@@ -16,7 +21,7 @@
             }
             body { 
                 margin: 0; padding: 0; display: flex; background-color: var(--bg-color);
-                font-family: "LXGWHeartSerifMN", sans-serif; height: 100vh; width: 100vw; overflow: hidden;
+                font-family: "GlowSansTCCom", sans-serif; height: 100vh; width: 100vw; overflow: hidden;
                 transition: all 0.3s ease; cursor: auto;
             }
             body.light-theme {
