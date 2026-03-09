@@ -557,13 +557,8 @@
                             const m = Math.floor(totalMin % 60);
                             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                         };
-                        if (nextTrains.length > 0) {
-                            const cwtext = cwTrains.map(t => `<span style="color: ${htmlcolorPalette[t.type]};">${t.type} ${t.number}</span><span> ${formatTime(t.time)} 往 ${t.dest}</span>`).join(' >> ');
-                            const ccwtext = ccwTrains.map(t => `<span style="color: ${htmlcolorPalette[t.type]};">${t.type} ${t.number}</span><span> ${formatTime(t.time)} 往 ${t.dest}</span>`).join(' >> ');
-                        } else {
-                            const cwtext = "";
-                            const ccwtext = "";
-                        }
+                        const cwtext = nextTrains.length > 0 ? cwTrains.map(t => `<span style="color: ${htmlcolorPalette[t.type]};">${t.type} ${t.number}</span><span> ${formatTime(t.time)} 往 ${t.dest}</span>`).join(' >> ') : "";
+                        const ccwtext = nextTrains.length > 0 ? ccwTrains.map(t => `<span style="color: ${htmlcolorPalette[t.type]};">${t.type} ${t.number}</span><span> ${formatTime(t.time)} 往 ${t.dest}</span>`).join(' >> ') : "";
                         let trainsHtml = nextTrains.length == 0 ? `<span class="placeholder" style="padding-left: 10px;">今日無後續車次</span>`
                             : cwtext != "" && ccwtext == "" ? `<span>順行 >> ${cwtext}</span><div>逆行無後續車次</div>`
                             : cwtext == "" && ccwtext != "" ? `<span>順行無後續車次</span><div>逆行 >> ${ccwtext}</div>`
