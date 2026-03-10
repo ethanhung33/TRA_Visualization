@@ -189,7 +189,7 @@
                         <p class="placeholder">點選列車或車站以顯示資訊</p>
                     </div>
                 </div>
-                <button id="btn-clear-selection" style="display: none; background: none; color: var(--panel-bg); cursor: pointer; font-size: 24px; line-height: 1;">&times;</button>
+                <button id="btn-clear-selection" style="display: none; background: none; color: var(--panel-bg); cursor: pointer; font-size: 24px; line-height: 1;"></button>
             </div>
         </div>
         <button id="sidebar-toggle" class="toggle-btn">
@@ -241,7 +241,7 @@
                     <p>2. 本站資訊僅供參考，不保證資料之即時性、完整性或準確性，實際運行狀況請以 國營臺灣鐵路股份有限公司 公告為準。</p>
                     <p>3. 地圖資料與列車位置僅大致計算，並未考量部分路段速率不等的情形，可能與實際狀況存在誤差。</p>
                     <p>4. 歡迎任何非商業性使用與分享，惟請標示來源。</p>
-                    <p class="last-update">版本： test | 最後更新： 2026/03/08</p>
+                    <p class="last-update">版本： test | 最後更新： 2026/03/10</p>
                 </div>
             </div>
         </div>
@@ -270,6 +270,7 @@
                     <p>2. 滑鼠指標停留在行駛日期上，可顯示加班列車的行駛日期。</p>
                     <p>3. 滑鼠指標停留在乘客服務上，可顯示各圖示所對應的資訊。</p>
                     <p>點擊車站（橫線）會篩選有停靠該車站的列車，並在下方顯示車站資訊。點擊空白處或按下 Esc 鍵可取消篩選。</p>
+                    <p>1. 車站資訊包含現在時間起今日所有停靠該車站的列車，依離站時間排序。</p>
                 </div>
             </div>
         </div>
@@ -540,7 +541,7 @@
                         const allAvailableTrains = [...todaySegments, ...yesterdaySegments];
                         const nextTrains = allAvailableTrains
                         .map(train => {
-                            const stop = train.data.find(p => p.x === state.focusedStation);
+                            const stop = train.data.findlast(p => p.x === state.focusedStation);
                             const stopDistances = train.data.map(p => allStationDistances[p.x]).filter(d => d !== undefined);
                                 return stop ? { 
                                     number: train.number, 
