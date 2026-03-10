@@ -42,7 +42,7 @@
             #bottompanel::-webkit-scrollbar { height: 6px; }
             #bottompanel::-webkit-scrollbar-thumb { background: #555; border-radius: 10px; }
             #bottompanel::-webkit-scrollbar-track { background: transparent; }
-            .panel-train-info { display: inline-block; width: 260px; white-space: nowrap; }
+            .panel-train-info { display: inline-block; width: 168px; white-space: nowrap; }
             /* .scrollable { overflow: scroll !important; } */
             #sidebar { 
                 width: 25vw; height: 100vh; background-color: var(--sidebar-bg); color: var(--text-color);
@@ -564,9 +564,9 @@
                         const cwtext = nextTrains.length > 0 ? cwTrains.map(t => `<span class="panel-train-info"><span style="color: ${htmlcolorPalette[t.type]};">${t.type} ${t.number}</span><span> ${formatTime(t.time)} 往 ${t.dest}</span></span>`).join(' <b style="opacity: 0.5;">>></b> ') : "";
                         const ccwtext = nextTrains.length > 0 ? ccwTrains.map(t => `<span class="panel-train-info"><span style="color: ${htmlcolorPalette[t.type]};">${t.type} ${t.number}</span><span> ${formatTime(t.time)} 往 ${t.dest}</span></span>`).join(' <b style="opacity: 0.5;">>></b> ') : "";
                         let trainsHtml = nextTrains.length == 0 ? `<span class="placeholder" style="padding-left: 10px;">今日無後續車次</span>`
-                            : cwtext != "" && ccwtext == "" ? `<span>順行 >> ${cwtext}<br>逆行無後續車次</span>`
-                            : cwtext == "" && ccwtext != "" ? `<span>順行無後續車次<br>逆行 >> ${ccwtext}</span>`
-                            : `<span>順行 >> ${cwtext}<br>逆行 >> ${ccwtext}</span>`;
+                            : cwtext != "" && ccwtext == "" ? `<span>順行 <b style="opacity: 0.5;">>></b> ${cwtext}<br>逆行無後續車次</span>`
+                            : cwtext == "" && ccwtext != "" ? `<span>順行無後續車次<br>逆行 <b style="opacity: 0.5;">>></b> ${ccwtext}</span>`
+                            : `<span>順行 <b style="opacity: 0.5;">>></b> ${cwtext}<br>逆行 <b style="opacity: 0.5;">>></b> ${ccwtext}</span>`;
 
                         DOM.stationBox.innerHTML = `
                             <div style="display: flex; align-items: stretch; gap: 15px;">
