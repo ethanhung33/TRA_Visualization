@@ -536,9 +536,8 @@
                         const nextTrains = allAvailableTrains
                             .map(train => {
                                 const stop = train.data.find(p => p.x === state.focusedStation);
-                                const firstPoint = train.data[0];
-                                const secondPoint = train.data[2];
                                 const isclockwise = (allStationDistances[train.info.start.slice(6)] > allStationDistances[train.info.end.slice(6)]);
+                                console.log(`${train.train} ${train.number} : ${train.info.start.slice(6)} ${allStationDistances[train.info.start.slice(6)]} -> ${train.info.end.slice(6)} ${allStationDistances[train.info.end.slice(6)]}`);
                                 return stop ? { 
                                     number: train.number, 
                                     type: train.train, 
