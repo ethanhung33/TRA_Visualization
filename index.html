@@ -569,12 +569,14 @@
                             : `<span class="panel-train-info">順行 >> ${cwtext}<br>逆行 >> ${ccwtext}</span>`;
 
                         DOM.stationBox.innerHTML = `
-                            <span class="info-segment" style="display: flex; align-items: center; position: sticky; left: -15px; z-index: 20; font-size: 1.3em; white-space: nowrap; background: var(--panel-bg); border-right: 1px solid var(--border-color); padding-left: 20px; padding-right: 20px; height: 15vh; transition: all 0.3s ease-in-out; ">
-                                <strong>${state.focusedStation}站</strong>
-                            </span>
-                            <span style="display: flex; flex-direction: row; gap: 15px; align-items: center; line-height: 1.4; font-size: 0.95em; padding-right: 30vw">
-                                ${trainsHtml}
-                            </span>
+                            <div style="display: flex; align-items: stretch; gap: 15px;">
+                                <div class="info-segment" style="position: sticky; left: -15px; display: flex; align-items: center; z-index: 20; font-size: 1.3em; white-space: nowrap; background: var(--panel-bg); border-right: 1px solid var(--border-color); padding-left: 20px; padding-right: 20px; height: 15vh; transition: all 0.3s ease-in-out; ">
+                                    <strong>${state.focusedStation}站</strong>
+                                </div>
+                                <div style="display: flex; flex-direction: row; gap: 15px; align-items: center; line-height: 1.4; font-size: 0.95em; padding-right: 30vw">
+                                    ${trainsHtml}
+                                </div>
+                            </div>
                         `;
                     } else {
                         DOM.stationBox.innerHTML = '';
@@ -627,7 +629,7 @@
                 panel.addEventListener('wheel', (event) => {
                     if (event.deltaY !== 0) {
                         event.preventDefault();
-                        panel.scrollLeft += event.deltaY * 4;
+                        panel.scrollLeft += event.deltaY * 3;
                     }
                 }, { passive: false });
 
