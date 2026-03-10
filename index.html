@@ -35,8 +35,13 @@
                 width: 100%; height: 15vh; background-color: var(--panel-bg); color: var(--text-color);
                 padding: 0 15px; box-sizing: border-box; border-top: 1px solid var(--border-color);
                 display: flex; flex-direction: row; align-items: center; transition: all 0.3s ease-in-out;
-                justify-content: flex-start; gap: 20px; overflow: scroll hidden; font-size: 1.3em;
+                justify-content: flex-start; gap: 20px; overflow: auto hidden; white-space: nowrap;
+                scroll-behavior: smooth; font-size: 1.3em; -webkit-overflow-scrolling: touch;
             }
+            #bottompanel > * { flex: 0 0 auto; }
+            #bottompanel::-webkit-scrollbar { height: 6px; }
+            #bottompanel::-webkit-scrollbar-thumb { background: #555; border-radius: 10px; }
+            #bottompanel::-webkit-scrollbar-track { background: transparent; }
             /* .scrollable { overflow: scroll !important; } */
             #sidebar { 
                 width: 25vw; height: 100vh; background-color: var(--sidebar-bg); color: var(--text-color);
@@ -563,10 +568,10 @@
 
                         DOM.stationBox.innerHTML = `
                             <div style="display: flex; align-items: center; gap: 15px;">
-                                <div class="info-segment" style="font-size: 1.1em; white-space: nowrap; border-right: 2px solid #555; padding-right: 15px;">
+                                <div class="info-segment" style="position: sticky; left: 0; font-size: 1.1em; white-space: nowrap; border-right: 2px solid #555; padding-right: 15px;">
                                     <strong>${state.focusedStation}站</strong>
                                 </div>
-                                <div style="line-height: 1.4; font-size: 0.95em;">
+                                <div style="display: flex; flex-direction: row; gap: 15px; align-items: center; line-height: 1.4; font-size: 0.95em;">
                                     ${trainsHtml}
                                 </div>
                             </div>
