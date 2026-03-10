@@ -533,22 +533,21 @@
                     }
                     else if (state.focusedStation) {
                         const allAvailableTrains = [...todaySegments, ...yesterdaySegments];
+                        const stopDistances = train.data.map(p => allStationDistances[p.x]).filter(d => d !== undefined);
                         const nextTrains = allAvailableTrains
                             .map(train => {
                                 const stop = train.data.find(p => p.x === state.focusedStation);
-                                console.log(`${train.train} ${train.number} : ${train.info.start.slice(6)} ${allStationDistances[train.info.start.slice(6)]} -> ${train.info.end.slice(6)} ${allStationDistances[train.info.end.slice(6)]} | ${allStationDistances[train.info.start.slice(6)] > allStationDistances[train.info.end.slice(6)]}`);
                                 return stop ? { 
                                     number: train.number, 
                                     type: train.train, 
                                     dest: train.info.end.slice(6), 
                                     time: stop.y,
-                                    isclockwise: allStationDistances[train.info.start.slice(6)] > allStationDistances[train.info.end.slice(6)]
+                                    isClockwise: (allStationDistances[train.info.start.slice(6)] > allStationDistances[train.info.end.slice(6)]) ^ (Math.max(...stopDistances) - Math.min(...stopDistances) > 6000)
                                 } : null;
                             })
                             .filter(t => t !== null && t.time >= state.currentTimeMinutes)
                             .sort((a, b) => a.time - b.time);
                         const cwTrains = nextTrains.filter(t => t.isClockwise).slice(0, 2);
-                        console.log(cwTrains);
                         const ccwTrains = nextTrains.filter(t => !t.isClockwise).slice(0, 2);
                         const formatTime = (totalMin) => {
                             const h = Math.floor((totalMin % 1440) / 60);
