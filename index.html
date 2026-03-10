@@ -9,6 +9,7 @@
         <link href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic&display=swap" rel="stylesheet">
         <style>
             /* @import url("https://font.emtech.cc/css/LXGWHeartSerifMN"); */
+            @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap');
             @font-face {
                 font-family: 'GlowSansTCCom';
                 src: url('fonts/GlowSansTC-Compressed-Regular.otf') format('opentype');
@@ -64,7 +65,7 @@
             #pill-container, #line-pill-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 25px; }
             .pill, .rev-pill { 
                 border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 20px; 
-                cursor: pointer; font-size: 13px; transition: all 0.3s ease; 
+                cursor: pointer; font-size: 13px; transition: all 0.3s ease; font-family: "GlowSansTCCom"
             }
             .pill { background-color: var(--panel-bg); color: var(--subtext-color); }
             .rev-pill { background-color: var(--subtext-color); color: var(--panel-bg); }
@@ -164,6 +165,8 @@
             .close-infomodal:hover, .close-questionmodal:hover { opacity: 1; }
             @keyframes modalFadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
             .last-update { font-style: italic; color: #888; }
+
+            .orbitron { font-family: "Orbitron", sans-serif; font-optical-sizing: auto; font-weight: 500; font-style: normal; }
 
             /* .biz-udgothic-regular { font-family: "BIZ UDGothic", sans-serif; font-weight: 400; font-style: normal; } */
         </style>
@@ -966,7 +969,7 @@
                             getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0,
                             getColor: isLight ? [80, 80, 80] : [180, 180, 180],
                             characterSet: 'auto',
-                            fontFamily: 'GlowSansTCCom, Microsoft YaHei, SimHei, Arial, sans-serif',
+                            fontFamily: '"GlowSansTCCom", Microsoft YaHei, Arial, sans-serif',
                             getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
                         })
                     ]);
@@ -1015,7 +1018,7 @@
                             getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0,
                             getColor: isLight ? [189, 146, 8] : [232, 252, 13],
                             characterSet: 'auto',
-                            fontFamily: 'GlowSansTCCom, Microsoft YaHei, SimHei, Arial, sans-serif',
+                            fontFamily: '"Orbitron", "GlowSansTCCom", Microsoft YaHei, Arial, sans-serif',
                             getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10],
                             background: true, getBackgroundColor: isLight ? [235, 235, 235, 180] : [20, 20, 20, 180],
                             updateTriggers: { data: [state.currentZoom, state.focusedStation] }
