@@ -22,7 +22,7 @@
             }
             body { 
                 margin: 0; padding: 0; display: flex; background-color: var(--bg-color);
-                font-family: "Orbitron", "GlowSansTCCom", sans-serif; height: 100vh; width: 100vw; overflow: hidden;
+                font-family: "GlowSansTCCom", sans-serif; height: 100vh; width: 100vw; overflow: hidden;
                 transition: all 0.3s ease; cursor: auto;
             }
             body.light-theme {
@@ -31,7 +31,7 @@
                 --cursor-color: black; --monitor-color: #080; --icon-invert: 0%;
             }
             #main-wrapper { display: flex; flex-direction: column; width: 100vw; height: 100vh; position: relative; overflow: hidden; }
-            #container { width: 100%; height: 85vh; position: relative; font-family: "Orbitron", "GlowSansTCCom", sans-serif !important; }
+            #container { width: 100%; height: 85vh; position: relative; font-family: "GlowSansTCCom", sans-serif !important; }
             #bottompanel {
                 width: 100%; height: 15vh; background-color: var(--panel-bg); color: var(--text-color);
                 padding: 0 15px; box-sizing: border-box; border-top: 1px solid var(--border-color);
@@ -78,10 +78,18 @@
             .date-input {
                 width: 60%; padding: 10px; background-color: var(--panel-bg); border: 1px solid var(--border-color);
                 color: var(--text-color); border-radius: 8px; font-size: 16px; margin-bottom: 20px;
-                outline: none; cursor: pointer; 
+                outline: none; cursor: pointer; font-family: "Orbitron", "GlowSansTCCom", sans-serif;
             }
             .date-input:hover { filter: brightness(1.2); }
             .date-input::-webkit-calendar-picker-indicator { cursor: pointer; filter: invert(var(--icon-invert)); }
+            .date-input::-webkit-datetime-edit,
+            .date-input::-webkit-datetime-edit-fields-wrapper,
+            .date-input::-webkit-datetime-edit-text,
+            .date-input::-webkit-datetime-edit-month-field,
+            .date-input::-webkit-datetime-edit-day-field,
+            .date-input::-webkit-datetime-edit-year-field {
+                font-family: "Orbitron", "GlowSansTCCom", sans-serif;
+            }
 
             #info-content { display: flex; flex-direction: row; align-items: center; gap: 10px; flex-grow: 1; overflow: hidden; }
             #info-content div , #info-content p { margin: 0; display: flex; flex-direction: row; align-items: center; white-space: nowrap; padding: 0 15px; }
@@ -177,8 +185,8 @@
                 <div id="view-monitor">
                     Zoom: <span id="val-zoom">0</span> | Center: [<span id="val-x">0</span>, <span id="val-y">0</span>]
                 </div>
-                <div style="font-family: 'Orbitron', 'GlowSansTCCom'; visibility: hidden; position: absolute;">
-                    Preloading Fonts Orbitron & 未来荧黑 ...
+                <div style="font-family: 'GlowSansTCCom'; visibility: hidden; position: absolute;">
+                    Preloading Font 未来荧黑 ...
                 </div>
             </div>
             <div id="bottompanel" class="biz-udgothic-regular">
@@ -969,7 +977,7 @@
                             pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 150],
                             getPosition: d => [d.position[0], d.position[1] + offset],
                             getText: d => d.text,
-                            fontFamily: 'Orbitron, GlowSansTCCom, sans-serif', 
+                            fontFamily: 'GlowSansTCCom, sans-serif', 
                             getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0,
                             getColor: isLight ? [80, 80, 80] : [180, 180, 180],
                             characterSet: 'auto',
@@ -1008,7 +1016,7 @@
                                 const format = (val) => `${Math.floor(val/60).toString().padStart(2,'0')}${(val%60).toString().padStart(2,'0')}`;
                                 return `${format(d.arr)} - ${format(d.dep)} ${d.station}`;
                             },
-                            fontFamily: 'Orbitron, GlowSansTCCom, sans-serif', 
+                            fontFamily: 'GlowSansTCCom, sans-serif', 
                             getSize: 13, getColor: isLight ? [0, 0, 0] : [255, 255, 255], characterSet: 'auto',
                             getTextAnchor: 'start', getAlignmentBaseline: 'center', pixelOffset: [15, 0], 
                             background: true, getBackgroundColor: isLight ? [255, 255, 255, 180] : [0, 0, 0, 180]
@@ -1019,7 +1027,7 @@
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true,
                             getPosition: d => [d.position[0], d.position[1] + offset],
                             getText: d => d.text,
-                            fontFamily: 'Orbitron, GlowSansTCCom, sans-serif', 
+                            fontFamily: 'GlowSansTCCom, sans-serif', 
                             getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0,
                             getColor: isLight ? [189, 146, 8] : [232, 252, 13],
                             characterSet: 'auto',
@@ -1043,7 +1051,7 @@
                             data: state.currentZoom > 0.8 ? gridData.denseLabels : state.currentZoom > -0.4 ? gridData.normalLabels : state.currentZoom > -1.6 ? gridData.sparseLabels : state.currentZoom > -2 ? gridData.simpleLabels : [],
                             coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                             getPosition: d => d.position, getText: d => d.text,
-                            fontFamily: 'Orbitron, GlowSansTCCom, sans-serif', 
+                            fontFamily: 'GlowSansTCCom, sans-serif', 
                             getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0,
                             getColor: isLight ? [80, 80, 80] : [180, 180, 180], characterSet: 'auto',
                             getAlignmentBaseline: 'top', getTextAnchor: 'start', pixelOffset: [5, 5]
