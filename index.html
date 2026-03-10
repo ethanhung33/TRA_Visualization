@@ -22,7 +22,7 @@
             body { 
                 margin: 0; padding: 0; display: flex; background-color: var(--bg-color);
                 font-family: "GlowSansTCCom", sans-serif !important; height: 100vh; width: 100vw; overflow: hidden;
-                transition: all 0.3s ease; cursor: auto;
+                transition: all 0.3s ease-in-out; cursor: auto;
             }
             body.light-theme {
                 --bg-color: #fff; --sidebar-bg: #bbb; --text-color: #222;
@@ -30,7 +30,7 @@
                 --cursor-color: black; --monitor-color: #080; --icon-invert: 0%;
             }
             #main-wrapper { display: flex; flex-direction: column; width: 100vw; height: 100vh; position: relative; overflow: hidden; }
-            #container { width: 100%; height: 90vh; position: relative; }
+            #container { width: 100%; height: 90vh; position: relative; transition: all 0.3s ease-in-out; }
             #bottompanel {
                 width: 100%; height: 15vh; background-color: var(--panel-bg); color: var(--text-color);
                 padding: 0 15px; box-sizing: border-box; border-top: 1px solid var(--border-color);
@@ -42,7 +42,7 @@
             #bottompanel::-webkit-scrollbar { height: 6px; }
             #bottompanel::-webkit-scrollbar-thumb { background: #555; border-radius: 10px; }
             #bottompanel::-webkit-scrollbar-track { background: transparent; }
-            .panel-train-info { width: 160px; }
+            .panel-train-info { width: 180px; }
             /* .scrollable { overflow: scroll !important; } */
             #sidebar { 
                 width: 25vw; height: 100vh; background-color: var(--sidebar-bg); color: var(--text-color);
@@ -64,7 +64,7 @@
             #pill-container, #line-pill-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 25px; }
             .pill, .rev-pill { 
                 border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 20px; 
-                cursor: pointer; font-size: 13px; transition: all 0.3s ease; 
+                cursor: pointer; font-size: 13px; transition: all 0.3s ease-in-out; 
             }
             .pill { background-color: var(--panel-bg); color: var(--subtext-color); }
             .rev-pill { background-color: var(--subtext-color); color: var(--panel-bg); }
@@ -85,7 +85,7 @@
             #info-content { display: flex; flex-direction: row; align-items: center; gap: 10px; flex-grow: 1; overflow: hidden; }
             #info-content div , #info-content p { margin: 0; display: flex; flex-direction: row; align-items: center; white-space: nowrap; padding: 0 15px; }
 
-            #info-content .info-segment {
+            .info-segment {
                 display: flex; align-items: center; justify-content: center; flex-shrink: 0; 
                 padding: 0 10px; height: 1.2em; white-space: nowrap; transition: all 0.3s ease-in-out;
             }
@@ -104,7 +104,6 @@
                 justify-content: center; padding: 0 !important; border-right: none !important;
                 flex: 0 0 18px !important; font-size: 9px; border-radius: 4px;
                 font-weight: bold; background-color: var(--sidebar-bg); color: var(--text-color); line-height: 1;
-                transition: all 0.3s ease;
             }
             #info-content .day-box.special-rule { position: relative; color: var(--text-color); }
             #info-content .day-box.special-rule::before,
