@@ -37,11 +37,14 @@
                 display: flex; flex-direction: row; align-items: center; transition: all 0.3s ease-in-out;
                 justify-content: flex-start; gap: 20px; overflow: auto hidden; white-space: nowrap;
                 scroll-behavior: smooth; font-size: 1.3em; -webkit-overflow-scrolling: touch;
+                transform: rotate(-90deg);
             }
             #bottompanel > * { flex: 0 0 auto; }
             #bottompanel::-webkit-scrollbar { height: 6px; }
             #bottompanel::-webkit-scrollbar-thumb { background: #555; border-radius: 10px; }
             #bottompanel::-webkit-scrollbar-track { background: transparent; }
+            .panel-train-info { width: 160px; }
+            .transform-undo { transform: rotate(90deg); }
             /* .scrollable { overflow: scroll !important; } */
             #sidebar { 
                 width: 25vw; height: 100vh; background-color: var(--sidebar-bg); color: var(--text-color);
@@ -86,7 +89,7 @@
 
             #info-content .info-segment {
                 display: flex; align-items: center; justify-content: center; flex-shrink: 0; 
-                padding: 0 10px; height: 1.2em; white-space: nowrap;
+                padding: 0 10px; height: 1.2em; white-space: nowrap; transition: all 0.3s ease-in-out;
             }
             .train-id { width: 70px; }
             .via-label { width: 30px; font-weight: bold; }
@@ -175,21 +178,23 @@
                 </div>
             </div>
             <div id="bottompanel" class="biz-udgothic-regular">
-                <div id="view-train" class="tab-view hidden" style="display: flex; align-items: center; width: 100%; gap: 20px;">
-                    <h2 style="margin: 0; white-space: nowrap;">列車資訊</h2>
-                    <div id="info-content"></div>
-                </div>
-                <div id="view-station" class="tab-view hidden" style="display: flex; align-items: center; width: 100%; gap: 20px;">
-                    <h2 style="margin: 0; white-space: nowrap;">車站資訊</h2>
-                    <div id="station-info-content" class="scrollable"></div>
-                </div>
-                <div id="view-null" class="tab-view" style="display: flex; align-items: center; width: 100%; gap: 20px;">
-                    <h2 style="margin: 0; white-space: nowrap;">列車資訊</h2>
-                    <div>
-                        <p class="placeholder">點選列車或車站以顯示資訊</p>
+                <div class="transform-undo">
+                    <div id="view-train" class="tab-view hidden" style="display: flex; align-items: center; width: 100%; gap: 20px;">
+                        <h2 style="margin: 0; white-space: nowrap;">列車資訊</h2>
+                        <div id="info-content"></div>
                     </div>
+                    <div id="view-station" class="tab-view hidden" style="display: flex; align-items: center; width: 100%; gap: 20px;">
+                        <h2 style="margin: 0; white-space: nowrap;">車站資訊</h2>
+                        <div id="station-info-content" class="scrollable"></div>
+                    </div>
+                    <div id="view-null" class="tab-view" style="display: flex; align-items: center; width: 100%; gap: 20px;">
+                        <h2 style="margin: 0; white-space: nowrap;">列車資訊</h2>
+                        <div>
+                            <p class="placeholder">點選列車或車站以顯示資訊</p>
+                        </div>
+                    </div>
+                    <button id="btn-clear-selection" style="display: none; background: none; color: var(--panel-bg); cursor: pointer; font-size: 24px; line-height: 1;"></button>
                 </div>
-                <button id="btn-clear-selection" style="display: none; background: none; color: var(--panel-bg); cursor: pointer; font-size: 24px; line-height: 1;"></button>
             </div>
         </div>
         <button id="sidebar-toggle" class="toggle-btn">
@@ -563,13 +568,13 @@
                         const cwtext = nextTrains.length > 0 ? cwTrains.map(t => `<span style="color: ${htmlcolorPalette[t.type]};">${t.type} ${t.number}</span><span> ${formatTime(t.time)} 往 ${t.dest}</span>`).join(' >> ') : "";
                         const ccwtext = nextTrains.length > 0 ? ccwTrains.map(t => `<span style="color: ${htmlcolorPalette[t.type]};">${t.type} ${t.number}</span><span> ${formatTime(t.time)} 往 ${t.dest}</span>`).join(' >> ') : "";
                         let trainsHtml = nextTrains.length == 0 ? `<span class="placeholder" style="padding-left: 10px;">今日無後續車次</span>`
-                            : cwtext != "" && ccwtext == "" ? `<span>順行 >> ${cwtext}<br>逆行無後續車次</span>`
-                            : cwtext == "" && ccwtext != "" ? `<span>順行無後續車次<br>逆行 >> ${ccwtext}</span>`
-                            : `<span>順行 >> ${cwtext}<br>逆行 >> ${ccwtext}</span>`;
+                            : cwtext != "" && ccwtext == "" ? `<span class="panel-train-info">順行 >> ${cwtext}<br>逆行無後續車次</span>`
+                            : cwtext == "" && ccwtext != "" ? `<span class="panel-train-info">順行無後續車次<br>逆行 >> ${ccwtext}</span>`
+                            : `<span class="panel-train-info">順行 >> ${cwtext}<br>逆行 >> ${ccwtext}</span>`;
 
                         DOM.stationBox.innerHTML = `
                             <div style="display: flex; align-items: center; gap: 15px;">
-                                <div class="info-segment" style="position: sticky; left: -15px; display: flex; align-items: center; z-index: 20; font-size: 1.3em; white-space: nowrap; background: var(--panel-bg); border-right: 1px solid var(--border-color); padding-left: 20px; padding-right: 20px; height: 15vh; transition: all 0.3s ease-in-out; ">
+                                <div class="info-segment" style="position: sticky; left: -15px; display: flex; align-items: center; z-index: 20; font-size: 1.3em; white-space: nowrap; background: var(--panel-bg); border-right: 1px solid var(--border-color); padding-left: 20px; padding-right: 20px; height: 15vh; ">
                                     <strong>${state.focusedStation}站</strong>
                                 </div>
                                 <div style="display: flex; flex-direction: row; gap: 15px; align-items: center; line-height: 1.4; font-size: 0.95em; padding-right: 30vw">
@@ -624,13 +629,13 @@
                     }
                 }
 
-                const panel = document.getElementById('bottompanel');
-                panel.addEventListener('wheel', (event) => {
-                    if (event.deltaY !== 0) {
-                        event.preventDefault();
-                        panel.scrollLeft += event.deltaY * 3;
-                    }
-                }, { passive: false });
+                // const panel = document.getElementById('bottompanel');
+                // panel.addEventListener('wheel', (event) => {
+                //     if (event.deltaY !== 0) {
+                //         event.preventDefault();
+                //         panel.scrollLeft += event.deltaY * 4;
+                //     }
+                // }, { passive: false });
 
                 DOM.typeFilters.forEach(checkbox => {
                     checkbox.addEventListener('change', (e) => {
