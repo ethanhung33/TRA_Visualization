@@ -557,9 +557,9 @@
                         const cwtext = nextTrains.length > 0 ? cwTrains.map(t => `<span style="color: ${htmlcolorPalette[t.type]};">${t.type} ${t.number}</span><span> ${formatTime(t.time)} 往 ${t.dest}</span>`).join(' >> ') : "";
                         const ccwtext = nextTrains.length > 0 ? ccwTrains.map(t => `<span style="color: ${htmlcolorPalette[t.type]};">${t.type} ${t.number}</span><span> ${formatTime(t.time)} 往 ${t.dest}</span>`).join(' >> ') : "";
                         let trainsHtml = nextTrains.length == 0 ? `<span class="placeholder" style="padding-left: 10px;">今日無後續車次</span>`
-                            : cwtext != "" && ccwtext == "" ? `<span>順行 >> ${cwtext}</span><div>逆行無後續車次</div>`
-                            : cwtext == "" && ccwtext != "" ? `<span>順行無後續車次</span><div>逆行 >> ${ccwtext}</div>`
-                            : `<span>順行 >> ${cwtext}</span><div>逆行 >> ${ccwtext}</div>`;
+                            : cwtext != "" && ccwtext == "" ? `<span><span>順行 >> ${cwtext}</span><div>逆行無後續車次</div></span>`
+                            : cwtext == "" && ccwtext != "" ? `<span><span>順行無後續車次</span><div>逆行 >> ${ccwtext}</div></span>`
+                            : `<span><span>順行 >> ${cwtext}</span><div>逆行 >> ${ccwtext}</div></span>`;
 
                         DOM.stationBox.innerHTML = `
                             <span class="info-segment" style="font-size: 1.1em;"><strong>${state.focusedStation}站</strong></span>
