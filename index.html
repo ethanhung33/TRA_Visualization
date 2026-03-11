@@ -1111,6 +1111,20 @@
                     isLight = true;
                     updateMapTheme(isLight);
                 }
+                
+
+                window.selectTrain = function(trainNumber) {
+                    const allTrainsSource = [...rawData, ...yrawData];
+                    const selected = allTrainsSource.find(t => t.number === trainNumber);
+                    console.log(allTrainsSource);
+                    
+                    if (selected) {
+                        state.selectedLine = selected;
+                        state.focusedStation = null; 
+                        updateInfoBox(); 
+                        renderLayers(); 
+                    }
+                };
 
                 syncPillStyles();
                 updateStationGridData();
@@ -1156,19 +1170,6 @@
                     questionModal.style.display = 'none';
                 }
             });
-
-            window.selectTrain = function(trainNumber) {
-                const allTrainsSource = [...rawData, ...yrawData];
-                const selected = allTrainsSource.find(t => t.number === trainNumber);
-                console.log(allTrainsSource);
-                
-                if (selected) {
-                    state.selectedLine = selected;
-                    state.focusedStation = null; 
-                    updateInfoBox(); 
-                    renderLayers(); 
-                }
-            };
 
         </script>
     </body>
