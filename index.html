@@ -1115,12 +1115,7 @@
 
                 window.selectTrain = function(trainNumber) {
                     const allTrainsSource = [...rawData, ...yrawData];
-                    const selected = allTrainsSource.find(t => {
-                        console.log(t)
-                        console.log(t.number);
-                        return (t.number === trainNumber);
-                    });
-                    console.log(trainNumber);
+                    const selected = allTrainsSource.find( t => t.number == trainNumber );
                     console.log(selected);
                     if (selected) {
                         state.selectedLine = selected;
