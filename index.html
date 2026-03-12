@@ -515,6 +515,11 @@
 
                 function updateInfoBox() {
                     DOM.btnClearSelection.style.display = 'block';
+                    const formatTime = (totalMin) => {
+                        const h = Math.floor((totalMin % 1440) / 60);
+                        const m = Math.floor(totalMin % 60);
+                        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                    };
                     if (state.selectedLine) {
                         const daysLabel = ["加", "一", "二", "三", "四", "五", "六", "日", "例"];
                         const sequence = [0, 1, 2, 3, 4, 5, 6, 7, 8];
@@ -593,11 +598,6 @@
                             .sort((a, b) => a.time - b.time);
                         const cwTrains = nextTrains.filter(t => t.isClockwise);
                         const ccwTrains = nextTrains.filter(t => !t.isClockwise);
-                        const formatTime = (totalMin) => {
-                            const h = Math.floor((totalMin % 1440) / 60);
-                            const m = Math.floor(totalMin % 60);
-                            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                        };
                         const cwtext = nextTrains.length > 0 ? cwTrains.map(t => `
                         <span class="panel-train-info" onclick="selectTrain('${t.number}')"
                             style="cursor: pointer; transition: opacity 0.2s;"
