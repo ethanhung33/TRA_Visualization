@@ -1173,26 +1173,43 @@
                     }
 
                     if (state.stationDistances[stationName] !== undefined) {
-                        state.selectedLine = null;
-                        state.showSchedule = false; 
-                        state.focusedStation = stationName; 
-                        const currentVS = deckInstance.viewState;
-                        const targetY = state.stationDistances[stationName];
-                        const updatedViewState = {
-                            ...currentVS,
-                            zoom: currentVS.zoom,
-                            transitionDuration: 400,
-                            transitionInterpolator: new deck.LinearInterpolator(['target'])
-                        };
-                        updatedViewState.target[1] = targetY;
-                        updatedViewState.transitionDuration = 400;
-                        updatedViewState.transitionInterpolator = new deck.LinearInterpolator(['target']);
-                        deckInstance.setProps({ viewState: updatedViewState });
-                        console.log(deckInstance);
-                        updateBottomPanel();
-                        renderLayers(); 
-                        updateInfoBox(); 
-                    }
+    state.selectedLine = null;
+    state.showSchedule = false; 
+    state.focusedStation = stationName; 
+
+    // 1. Pull the absolute latest viewState from the deck props
+    const currentVS = deckInstance.props.viewState || state.viewState;
+    const targetY = state.stationDistances[stationName];
+
+    // 2. Safeguard the coordinates
+    // If currentVS.target exists, use it. Otherwise, fallback to initial calculations.
+    const x = currentVS.target ? currentVS.target[0] : (state.currentTimeMinutes * 3 + 180);
+    const z = currentVS.target ? currentVS.target[2] : 0;
+
+    const updatedViewState = {
+        ...currentVS,
+        // This creates a NEW array reference with the exact X and the NEW Y
+        target: [x, targetY, z], 
+        zoom: currentVS.zoom ?? state.currentZoom ?? 0,
+        
+        // Animation Settings
+        transitionDuration: 600,
+        transitionInterpolator: new deck.LinearInterpolator(['target']),
+        transitionInterruption: 1 // deck.TRANSITION_EVENTS.BREAK
+    };
+
+    // 3. Update internal state
+    state.viewState = updatedViewState;
+
+    // 4. Trigger the animated update
+    console.log("Moving from:", currentVS.target, "To:", [x, targetY, z]);
+    deckInstance.setProps({ viewState: updatedViewState });
+
+    // 5. Refresh UI
+    updateBottomPanel();
+    renderLayers(); 
+    updateInfoBox(); 
+}
                 };
                 syncPillStyles();
                 updateStationGridData();
