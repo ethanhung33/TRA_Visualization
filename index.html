@@ -1160,37 +1160,45 @@
                 
                 window.selectStation = function(stationName) {
                     if (!stationName) return;
-                    const switchLine = (type) => {
-                        const targetPill = [...DOM.linePills].find(p => p.getAttribute('data-line') === type);
-                        if (targetPill) targetPill.click();
-                    };
                     if (state.stationDistances[stationName] === undefined) {
-                        if (mountStationDistances[stationName] !== undefined) {
-                            switchLine('mountain');
-                        } else if (seaStationDistances[stationName] !== undefined) {
-                            switchLine('sea');
+                        const type = mountStationDistances[stationName] !== undefined ? 'mountain' : 
+                                    (seaStationDistances[stationName] !== undefined ? 'sea' : null);
+                        if (type) {
+                            const targetPill = [...DOM.linePills].find(p => p.getAttribute('data-line') === type);
+                            if (targetPill) {
+                                // Remove 'active' from others and add to this one manually to sync UI
+                                DOM.linePills.forEach(p => p.classList.remove('active'));
+                                targetPill.classList.add('active');
+                                
+                                // Manually trigger the state switch logic you have in the click listener
+                                isMountain = type === 'mountain';
+                                state.stationList = isMountain ? mountStationList : seaStationList;
+                                state.stationDistances = isMountain ? mountStationDistances : seaStationDistances;
+                                state.period = isMountain ? 8759 : 8806;
+                                updateStationGridData();
+                            }
                         }
                     }
-
                     if (state.stationDistances[stationName] !== undefined) {
                         state.selectedLine = null;
                         state.showSchedule = false; 
                         state.focusedStation = stationName; 
-                        const currentVS = deckInstance.viewState || state.viewState;
+                        const currentVS = deckInstance.props.viewState || state.viewState;
                         const targetY = state.stationDistances[stationName];
                         const currentX = (currentVS && currentVS.target) ? currentVS.target[0] : (state.currentTimeMinutes * 3 + 180);
                         const updatedViewState = {
                             ...currentVS,
                             target: [currentX, targetY, 0], 
-                            zoom: currentVS.zoom,
+                            zoom: currentVS.zoom !== undefined ? currentVS.zoom : state.currentZoom,
                             transitionDuration: 400,
-                            transitionInterpolator: new deck.LinearInterpolator(['target'])
+                            transitionInterpolator: new deck.LinearInterpolator(['target']),
+                            transitionInterruption: deck.TRANSITION_EVENTS.IGNORE 
                         };
                         state.viewState = updatedViewState;
                         deckInstance.setProps({ viewState: updatedViewState });
                         updateBottomPanel();
-                        renderLayers(); 
                         updateInfoBox(); 
+                        renderLayers(); 
                     }
                 };
                 syncPillStyles();
