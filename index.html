@@ -191,7 +191,7 @@
                     Zoom: <span id="val-zoom">0</span> | Center: [<span id="val-x">0</span>, <span id="val-y">0</span>]
                 </div>
                 <div style="font-family: 'GlowSansTCCom-Compressed'; visibility: hidden; position: absolute;">
-                    Preloading Font 未来荧黑 ...
+                    ## Test Message 載入字體 未来荧黑 ... ##
                 </div>
             </div>
             <div id="bottompanel" class="biz-udgothic-regular">
@@ -261,7 +261,7 @@
                     <p>2. 本站資訊僅供參考，不保證資料之即時性、完整性或準確性，實際運行狀況請以 國營臺灣鐵路股份有限公司 公告為準。</p>
                     <p>3. 地圖資料與列車位置僅大致計算，並未考量部分路段速率不等的情形，可能與實際狀況存在誤差。</p>
                     <p>4. 歡迎任何非商業性使用與分享，惟請標示來源。</p>
-                    <p class="last-update">版本： test | 最後更新： 2026/03/10</p>
+                    <p class="last-update">版本： test | 最後更新： 2026/03/12</p>
                 </div>
             </div>
         </div>
@@ -285,12 +285,15 @@
                     <p>路線：點擊可切換顯示的路線，目前僅支援環島鐵路，可選擇經由山線或海線。</p>
                     <p>車種：點擊可篩選特定車種。</p>
                     <h3>列車與車站資訊</h3>
-                    <p>點擊列車會在圖中顯示其停靠站與停靠時間，並在下方顯示列車資訊。點擊空白處或按下 Esc 鍵可取消選取。</p>
+                    <p>一、點擊列車會在圖中顯示其停靠站與停靠時間，並在下方顯示列車資訊。點擊空白處或按下 Esc 鍵可取消選取。</p>
                     <p>1. 列車資訊由左至右分別為：車種、車次、經由路線、起訖站與時間、行駛日期、乘客服務與其他資訊。</p>
                     <p>2. 滑鼠指標停留在行駛日期上，可顯示加班列車的行駛日期。</p>
                     <p>3. 滑鼠指標停留在乘客服務上，可顯示各圖示所對應的資訊。</p>
-                    <p>點擊車站（橫線）會篩選有停靠該車站的列車，並在下方顯示車站資訊。點擊空白處或按下 Esc 鍵可取消篩選。</p>
+                    <p>4. 點擊車站會顯示其資訊，同下方 二、，並將該車站置中。</p>
+                    <p>二、點擊車站（橫線）會篩選有停靠該車站的列車，並在下方顯示車站資訊。點擊空白處或按下 Esc 鍵可取消篩選。</p>
                     <p>1. 車站資訊包含現在時間起今日所有停靠該車站的列車，依離站時間排序。</p>
+                    <p>2. 點擊列車會顯示其資訊，同上方 一、。</p>
+                    <p>註：由於目前僅支援環島鐵路，因此點擊非環島鐵路的車站（含基隆、三坑、蘇澳與各支線不在環島鐵路上的車站）暫無資訊。</p>
                 </div>
             </div>
         </div>
@@ -555,8 +558,8 @@
                         iconsHtml += '</div>';
                         const stopsMap = state.selectedLine.data.reduce((acc, curr) => {
                             if (!acc[curr.x]) acc[curr.x] = { arr: null, dep: null };
-                            if (acc[curr.x].arr === null) acc[curr.x].arr = curr.y;
-                            else acc[curr.x].dep = curr.y;
+                            if (acc[curr.x].arr === null) acc[curr.x].arr = Math.ceil(curr.y);
+                            else acc[curr.x].dep = Math.floor(curr.y);
                             return acc;
                         }, {});
                         const stationsHtml = Object.entries(stopsMap).map(([name, times]) => {
