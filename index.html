@@ -1175,13 +1175,13 @@
                         const currentVS = deckInstance.viewState || state.viewState;
                         const targetY = state.stationDistances[stationName];
                         const currentX = (currentVS && currentVS.target) ? currentVS.target[0] : (state.currentTimeMinutes * 3 + 180);
-                        const updatedViewState = {
+                        let updatedViewState = {
                             ...currentVS,
-                            target: [currentX, targetY, 0], 
                             zoom: currentVS.zoom,
                             transitionDuration: 400,
                             transitionInterpolator: new deck.LinearInterpolator(['target'])
                         };
+                        updatedViewState.target[1] = targetY;
                         state.viewState = updatedViewState;
                         deckInstance.setProps({ viewState: updatedViewState });
                         updateBottomPanel();
