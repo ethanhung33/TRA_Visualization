@@ -1155,19 +1155,32 @@
                 };
                 
                 window.selectStation = function(stationName) {
-                    if (stationName && state.stationDistances[stationName] !== undefined) {
+                    if (!stationName) return;
+                    const switchLine = (type) => {
+                        const targetPill = [...DOM.linePills].find(p => p.getAttribute('data-line') === type);
+                        if (targetPill) targetPill.click();
+                    };
+                    if (state.stationDistances[stationName] === undefined) {
+                        if (mountStationDistances[stationName] !== undefined) {
+                            switchLine('mountain');
+                        } else if (seaStationDistances[stationName] !== undefined) {
+                            switchLine('sea');
+                        }
+                    }
+
+                    if (state.stationDistances[stationName] !== undefined) {
                         state.selectedLine = null;
                         state.showSchedule = false; 
                         state.focusedStation = stationName; 
                         const currentViewState = deckInstance.viewState || deckInstance.props.viewState || {};
-                        const targetY = allStationDistances[stationName];
+                        const targetY = state.stationDistances[stationName];
                         const newviewState = {
                             ...currentViewState,
+                            target: [currentViewState.target[0], targetY, 0],
                             zoom: currentViewState.zoom || 0,
-                            transitionDuration: 300,
+                            transitionDuration: 400,
                             transitionInterpolator: new deck.LinearInterpolator(['target'])
-                        }
-                        newviewState.target[1] = targetY;
+                        };
                         deckInstance.setProps({ viewState: newviewState });
                         updateBottomPanel();
                         renderLayers(); 
