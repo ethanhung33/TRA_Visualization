@@ -1180,11 +1180,11 @@
                         const targetY = state.stationDistances[stationName];
                         const updatedViewState = {
                             ...currentVS,
-                            target: [currentVS.target[0], targetY, 0],
                             zoom: currentVS.zoom,
                             transitionDuration: 400,
                             transitionInterpolator: new deck.LinearInterpolator(['target'])
                         };
+                        updatedViewState.target[1] = targetY;
                         deckInstance.setProps({ viewState: updatedViewState });
                         updateBottomPanel();
                         renderLayers(); 
