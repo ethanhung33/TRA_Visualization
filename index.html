@@ -575,7 +575,9 @@
                         DOM.infoBox.innerHTML = `
                             <div style="display: flex; align-items: stretch; gap: 15px;">
                                 <span style="display: flex; align-items: center;">
-                                    <span class="info-segment train-id" style="color: ${htmlcolorPalette[state.selectedLine.train]}"><strong>${state.selectedLine.train} ${state.selectedLine.number}</strong></span>
+                                    <span class="info-segment train-id" style="color: ${htmlcolorPalette[state.selectedLine.train]}; position: sticky; z-index: 20; ">
+                                        <strong>${state.selectedLine.train} ${state.selectedLine.number}</strong>
+                                    </span>
                                     <span class="info-segment via-label" style="color: ${viaColor}">${viaText}</span>
                                     <span class="info-segment route-display">${state.selectedLine.info.start} → ${state.selectedLine.info.end}</span>
                                     ${boxesHtml}
@@ -625,7 +627,9 @@
 
                         DOM.stationBox.innerHTML = `
                             <div style="display: flex; align-items: stretch; gap: 15px;">
-                                <div class="info-segment" style="position: sticky; left: -15px; display: flex; align-items: center; z-index: 20; font-size: 1.3em; white-space: nowrap; background: var(--panel-bg); border-right: 1px solid var(--border-color); padding-left: 20px; padding-right: 20px; height: 15vh; transition: all 0.3s ease-in-out; ">
+                                <div class="info-segment" style="position: sticky; left: -15px; display: flex; align-items: center; z-index: 20;
+                                    font-size: 1.3em; white-space: nowrap; background: var(--panel-bg); border-right: 1px solid var(--border-color); 
+                                    padding-left: 20px; padding-right: 20px; height: 15vh; transition: all 0.3s ease-in-out; ">
                                     <strong>${state.focusedStation}站</strong>
                                 </div>
                                 <div style="display: flex; flex-direction: row; gap: 15px; align-items: center; line-height: 1.4; font-size: 0.95em; padding-right: 30vw">
@@ -1175,13 +1179,13 @@
                         const currentVS = deckInstance.viewState || state.viewState;
                         const targetY = state.stationDistances[stationName];
                         const currentX = (currentVS && currentVS.target) ? currentVS.target[0] : (state.currentTimeMinutes * 3 + 180);
-                        let updatedViewState = {
+                        const updatedViewState = {
                             ...currentVS,
+                            target: [currentX, targetY, 0], 
                             zoom: currentVS.zoom,
                             transitionDuration: 400,
                             transitionInterpolator: new deck.LinearInterpolator(['target'])
                         };
-                        updatedViewState.target[1] = targetY;
                         state.viewState = updatedViewState;
                         deckInstance.setProps({ viewState: updatedViewState });
                         updateBottomPanel();
