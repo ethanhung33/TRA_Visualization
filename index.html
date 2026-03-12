@@ -565,7 +565,7 @@
                             const isFocused = name === state.focusedStation ? 'border-bottom: 2px solid #fff; font-weight: bold;' : '';
                             return `
                                 <span onclick="selectStation('${name}')"
-                                    style="width: 30px; text-align: center; display: inline-block; white-space: nowrap;
+                                    style="width: 50px; text-align: center; display: inline-block; white-space: nowrap;
                                     ${isFocused} cursor: pointer; transition: opacity 0.2s;"
                                     onmouseover="this.style.opacity=0.6" onmouseout="this.style.opacity=1">
                                     <span style="font-size: 0.8em;">${name}<br><span style="font-size: 0.6em; opacity: 0.7;">${arrStr}<br>${depStr}</span></span>
@@ -1155,10 +1155,22 @@
                 };
                 
                 window.selectStation = function(stationName) {
-                    if (stationName) {
+                    if (stationName && state.stationDistances[stationName] !== undefined) {
                         state.selectedLine = null;
                         state.showSchedule = false; 
                         state.focusedStation = stationName; 
+                        const currentViewState = deckInstance.viewState || deckInstance.props.viewState || {};
+                        const currentX = currentViewState.target ? currentViewState.target[0] : (state.currentTimeMinutes * 3 + 180);
+                        const targetY = allStationDistances[stationName];
+                        deckInstance.setProps({
+                            viewState: {
+                                ...currentViewState,
+                                target: [currentX, targetY, 0],
+                                zoom: currentViewState.zoom || 0,
+                                transitionDuration: 800,
+                                transitionInterpolator: new deck.LinearInterpolator(['target'])
+                            }
+                        });
                         updateBottomPanel();
                         renderLayers(); 
                         updateInfoBox(); 
