@@ -1201,7 +1201,7 @@ if (state.stationDistances[stationName] !== undefined) {
 
         // 4. Update the tracker and the map
         state.viewState = updatedViewState;
-        console.log("Moving from:", currentVS.target, "To:", [x, targetY, z]);
+        console.log("Moving from:", currentVS.target, "To:", updatedViewState.target);
         deckInstance.setProps({ viewState: updatedViewState });
 
         updateBottomPanel();
