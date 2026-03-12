@@ -1160,17 +1160,15 @@
                         state.showSchedule = false; 
                         state.focusedStation = stationName; 
                         const currentViewState = deckInstance.viewState || deckInstance.props.viewState || {};
-                        const currentX = currentViewState.target ? currentViewState.target[0] : (state.currentTimeMinutes * 3 + 180);
                         const targetY = allStationDistances[stationName];
-                        deckInstance.setProps({
-                            viewState: {
-                                ...currentViewState,
-                                target: [currentX, targetY, 0],
-                                zoom: currentViewState.zoom || 0,
-                                transitionDuration: 800,
-                                transitionInterpolator: new deck.LinearInterpolator(['target'])
-                            }
-                        });
+                        const newviewState = {
+                            ...currentViewState,
+                            zoom: currentViewState.zoom || 0,
+                            transitionDuration: 300,
+                            transitionInterpolator: new deck.LinearInterpolator(['target'])
+                        }
+                        newviewState.target[1] = targetY;
+                        deckInstance.setProps({ viewState: newviewState });
                         updateBottomPanel();
                         renderLayers(); 
                         updateInfoBox(); 
