@@ -564,18 +564,20 @@
                             const depStr = times.dep !== null ? formatTime(times.dep) : (times.arr !== null ? formatTime(times.arr) : "--:--");
                             const isFocused = name === state.focusedStation ? 'border-bottom: 2px solid #fff; font-weight: bold;' : '';
                             return `
-                                <div class="panel-train-info" style="width: 120px; text-align: center; ${isFocused}">
-                                    <span style="font-size: 1.1em; margin-top: 4px;">${name}<br>${arrStr}<br>${depStr}</span>
+                                <div class="panel-train-info" style="width: 35px; text-align: center; ${isFocused}">
+                                    <span style="font-size: 1em; margin-top: 4px;">${name}<br><span style="font-size: 0.7em; opacity: 0.7;">${arrStr}<br>${depStr}</span></span>
                                 </div>
                             `;
-                        }).join('<b style="opacity: 0.3; align-self: center;">→</b>');
+                        }).join('<b style="opacity: 0.5; align-self: center;">→</b>');
                         DOM.infoBox.innerHTML = `
-                            <span class="info-segment train-id" style="color: ${htmlcolorPalette[state.selectedLine.train]}"><strong>${state.selectedLine.train} ${state.selectedLine.number}</strong></span>
-                            <span class="info-segment via-label" style="color: ${viaColor}">${viaText}</span>
-                            <span class="info-segment route-display">${state.selectedLine.info.start} → ${state.selectedLine.info.end}</span>
-                            ${boxesHtml}
-                            ${iconsHtml}
-                            <span style="display: flex; flex-direction: row; gap: 15px; align-items: center; padding-left: 20px; padding-right: 50vw;">${stationsHtml}</span>
+                            <div style="display: flex; align-items: stretch; gap: 15px;">
+                                <span class="info-segment train-id" style="color: ${htmlcolorPalette[state.selectedLine.train]}"><strong>${state.selectedLine.train} ${state.selectedLine.number}</strong></span>
+                                <span class="info-segment via-label" style="color: ${viaColor}">${viaText}</span>
+                                <span class="info-segment route-display">${state.selectedLine.info.start} → ${state.selectedLine.info.end}</span>
+                                ${boxesHtml}
+                                ${iconsHtml}
+                                <span style="display: flex; flex-direction: row; gap: 15px; align-items: center; padding-left: 20px; padding-right: 50vw;">${stationsHtml}</span>
+                            </div>
                         `;
                         // <span style="color: #888; font-size: 0.9em;">${processedNote.trim()}</span>
                     }
