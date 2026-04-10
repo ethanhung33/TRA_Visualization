@@ -74,6 +74,11 @@ body {
     padding: 20px; box-sizing: border-box; border-left: 1px solid var(--border-color);
     z-index: 2000; position: fixed; right: 0; top: 0; transition: all 0.3s ease-in-out;
     box-shadow: -5px 0 15px rgba(0,0,0,0.3);
+    
+    /* 💡 主要是補上下面這三行：確保隱藏、垂直排列、且可以上下滾動 */
+    display: none; 
+    flex-direction: column; 
+    overflow-y: auto;
 }
 .placeholder { color: #888; font-style: italic; }
 #sidebar h2 { border-bottom: 1px solid var(--panel-bg); padding-bottom: 8px; }
