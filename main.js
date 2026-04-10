@@ -224,7 +224,7 @@ async function loadData() {
     } 
     else if (currentRegion === 'JP') {
         try {
-            // 💡 永遠只讀取這一個包含所有路線的檔案！
+            // 💡 永遠只讀取這個包含所有路線的總檔！
             const res = await fetch('Nankai/nankai_timetable.json');
             if (!res.ok) throw new Error('找不到 nankai_timetable.json');
             rawData = await res.json();
