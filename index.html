@@ -2,437 +2,139 @@
 <html lang="zh-TW">
     <head>
         <meta charset="UTF-8">
-        <title>Railway Operation Diagram (Taiwan / Nankai)</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Taiwan Railway Operation Diagram</title>
         <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic&display=swap" rel="stylesheet">
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap');
-            @font-face {
-                font-family: 'GlowSansTCCom-Compressed';
-                src: url('fonts/GlowSansTC-Compressed-Regular.otf') format('opentype');
-                font-weight: normal; font-style: normal;
-            }
-            :root {
-                --bg-color: #000; --sidebar-bg: #444; --text-color: #ddd;
-                --border-color: #555; --panel-bg: #222; --subtext-color: #bbb;
-                --cursor-color: white; --monitor-color: #0f0; --icon-invert: 100%;
-            }
-            body { 
-                margin: 0; padding: 0; display: flex; background-color: var(--bg-color);
-                font-family: "GlowSansTCCom-Compressed", sans-serif; height: 100vh; width: 100vw; overflow: hidden;
-                transition: all 0.3s ease-in-out; cursor: auto;
-            }
-            body.light-theme {
-                --bg-color: #fff; --sidebar-bg: #bbb; --text-color: #222;
-                --border-color: #aaa; --panel-bg: #ddd; --subtext-color: #444;
-                --cursor-color: black; --monitor-color: #080; --icon-invert: 0%;
-            }
-
-            /* --- 啟動畫面樣式 --- */
-            #startup-screen {
-                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-                background-color: var(--bg-color); z-index: 9999;
-                display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 40px;
-                color: var(--text-color); font-family: "Orbitron", "GlowSansTCCom-Compressed", sans-serif;
-            }
-            .region-btn {
-                background: var(--panel-bg); color: var(--text-color); border: 2px solid var(--border-color);
-                padding: 20px 50px; font-size: 28px; border-radius: 12px; cursor: pointer; transition: all 0.3s;
-                font-family: inherit; font-weight: bold; width: 350px; text-align: center;
-            }
-            .region-btn:hover { background: var(--text-color); color: var(--bg-color); transform: translateY(-5px); }
-            /* ------------------ */
-
-            #main-wrapper { display: none; flex-direction: column; width: 100vw; height: 100vh; position: relative; overflow: hidden; }
-            #container { width: 100%; height: 85vh; position: relative; font-family: "GlowSansTCCom-Compressed", sans-serif !important; }
-            #bottompanel {
-                width: 100%; height: 15vh; background-color: var(--panel-bg); color: var(--text-color);
-                padding: 0 15px; box-sizing: border-box; border-top: 1px solid var(--border-color);
-                display: flex; flex-direction: row; align-items: center; transition: all 0.3s ease-in-out;
-                justify-content: flex-start; gap: 20px; overflow: auto hidden; white-space: nowrap;
-                scroll-behavior: smooth; font-size: 1.3em; -webkit-overflow-scrolling: touch;
-            }
-            #bottompanel > * { flex: 0 0 auto; }
-            #bottompanel::-webkit-scrollbar { height: 6px; }
-            #bottompanel::-webkit-scrollbar-thumb { background: #555; border-radius: 10px; }
-            #bottompanel::-webkit-scrollbar-track { background: transparent; }
-            .panel-train-info { display: inline-block; width: 195px; white-space: nowrap; }
-            #sidebar { 
-                width: 25vw; height: 100vh; background-color: var(--sidebar-bg); color: var(--text-color);
-                padding: 20px; box-sizing: border-box; border-left: 1px solid var(--border-color);
-                z-index: 2000; position: fixed; right: 0; top: 0; transition: all 0.3s ease-in-out;
-                box-shadow: -5px 0 15px rgba(0,0,0,0.3); font-family: 'GlowSansTCCom-Compressed';
-                display: none; flex-direction: column; overflow-y: auto;
-            }
-            .placeholder { color: #888; font-style: italic; }
-            #sidebar h2 { border-bottom: 1px solid var(--panel-bg); padding-bottom: 8px; margin-top: 20px;}
-            .toggle-btn {
-                position: fixed; right: 25vw; top: 20px; z-index: 2100; background: var(--sidebar-bg);
-                color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px 0 0 4px; 
-                padding: 10px 8px; cursor: pointer; transition: all 0.3s ease-in-out; display: none;
-            }
-            #sidebar.collapsed { transform: translateX(100%); }
-            #sidebar.collapsed + .toggle-btn, .collapsed ~ #sidebar-toggle { right: 0; }
-            #sidebar.collapsed .icon, #sidebar.collapsed + #sidebar-toggle .icon { display: inline-block; transform: rotate(180deg); }
-
-            .pill-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
-            .pill, .rev-pill { 
-                border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 20px; 
-                cursor: pointer; font-size: 13px; transition: all 0.3s ease-in-out; font-family: "GlowSansTCCom-Compressed"
-            }
-            .pill { background-color: var(--panel-bg); color: var(--subtext-color); }
-            .rev-pill { background-color: var(--subtext-color); color: var(--panel-bg); }
-            .pill:hover, .rev-pill:hover { transform: translateY(-1px); filter: brightness(1.2); }
-            .pill.active { color: var(--panel-bg); border-color: transparent; }
-            .pill.utility:hover { background-color: var(--panel-bg); color: var(--text-color); }
-
-            .date-input {
-                width: 60%; padding: 10px; background-color: var(--panel-bg); border: 1px solid var(--border-color);
-                color: var(--text-color); border-radius: 8px; font-size: 16px; margin-bottom: 20px;
-                outline: none; cursor: pointer; font-family: "Orbitron", "GlowSansTCCom-Compressed", sans-serif;
-            }
-            .date-input::-webkit-calendar-picker-indicator { cursor: pointer; filter: invert(var(--icon-invert)); }
-
-            #info-content { display: flex; flex-direction: row; align-items: center; gap: 10px; flex-grow: 1; }
-            #info-content div , #info-content p { margin: 0; display: flex; flex-direction: row; align-items: center; white-space: nowrap; padding: 0 15px; }
-            #info-content .info-segment {
-                display: flex; align-items: center; justify-content: center; flex-shrink: 0; 
-                padding: 0 10px; height: 1.2em; white-space: nowrap;
-            }
-            .train-id { width: 70px; }
-            .via-label { width: 30px; font-weight: bold; }
-            .route-display { width: 200px; }
-            .day-container { display: inline-flex !important; height: 24px !important; align-items: center; gap: 4px; padding: 0 10px; }
-            .day-box { 
-                width: 18px !important; min-width: 18px !important; height: 18px !important; display: flex !important; align-items: center;
-                justify-content: center; padding: 0 !important; font-size: 9px; border-radius: 4px; font-weight: bold; 
-                background-color: var(--sidebar-bg); color: var(--text-color); line-height: 1; transition: all 0.3s ease-in-out;
-            }
-            .day-box.active { background-color: var(--subtext-color) !important; color: var(--border-color) !important; }
-            
-            .service-container { display: inline-flex !important; height: 24px !important; align-items: center; gap: 4px; margin-left: 10px; }
-            .service-box img { width: 18px; height: 18px; object-fit: contain; }
-            .hidden { display: none !important; }
-            #view-monitor { 
-                display: none; position: absolute; bottom: 20px; left: 20px; background: var(--panel-bg); color: #00ff00; 
-                padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; pointer-events: none; z-index: 10; border: 1px solid var(--border-color); 
-            }
-        </style>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic&display=swap">
+        <link rel="stylesheet" href="style.css">
     </head>
     <body>
-
-        <div id="startup-screen">
-            <h1>SELECT REGION</h1>
-            <button class="region-btn" onclick="initRegion('TW')">🇹🇼 臺灣鐵路 (TRA)</button>
-            <button class="region-btn" onclick="initRegion('JP')">🇯🇵 南海電鐵 (Nankai)</button>
-        </div>
-
         <div id="main-wrapper">
             <div id="container">
                 <div id="view-monitor">
                     Zoom: <span id="val-zoom">0</span> | Center: [<span id="val-x">0</span>, <span id="val-y">0</span>]
                 </div>
+                <div style="visibility: hidden; position: absolute;">
+                    ## Test Message 載入字體 未来荧黑 ... ##
+                </div>
             </div>
             <div id="bottompanel" class="biz-udgothic-regular">
-                <div id="view-train" class="tab-view hidden" style="display: flex; align-items: center; width: 100%; gap: 20px;">
-                    <h2 style="margin: 0; white-space: nowrap;">列車資訊</h2>
+                <div id="view-train" class="tab-view hidden">
+                    <h2>列車資訊</h2>
                     <div id="info-content" class="scrollable"></div>
                 </div>
-                <div id="view-station" class="tab-view hidden" style="display: flex; align-items: center; width: 100%; gap: 20px;">
-                    <h2 style="margin: 0; white-space: nowrap;">車站資訊</h2>
+                <div id="view-station" class="tab-view hidden">
+                    <h2>車站資訊</h2>
                     <div id="station-info-content" class="scrollable"></div>
                 </div>
-                <div id="view-null" class="tab-view" style="display: flex; align-items: center; width: 100%; gap: 20px;">
-                    <h2 style="margin: 0; white-space: nowrap;">資訊面板</h2>
-                    <div><p class="placeholder">點選地圖上的列車或車站以顯示詳細資訊</p></div>
+                <div id="view-null" class="tab-view">
+                    <h2>列車資訊</h2>
+                    <div>
+                        <p class="placeholder">點選列車或車站以顯示資訊</p>
+                    </div>
                 </div>
-                <button id="btn-clear-selection" style="display: none; background: none; color: var(--text-color); cursor: pointer; font-size: 24px; border: none; padding: 0 15px;">✖</button>
+                <button id="btn-clear-selection"></button>
             </div>
-        </div>
-
-        <button id="sidebar-toggle" class="toggle-btn"><span class="icon">❯</span></button>
-        
-        <div id="sidebar">
-            <div style="display: flex; gap: 10px;">
+            <div id="sidebar">
                 <button id="theme-toggle" class="rev-pill utility" title="切換深淺主題">
                     <span id="theme-icon">☀️</span>
                 </button>
-                <button class="pill utility" onclick="location.reload()" title="回首頁">🏠 返回選擇</button>
-            </div>
-            
-            <div id="controls-tw" style="display: none;">
+                <button id="btn-info" class="pill" title="關於本站">
+                    <span class="icon">ℹ️</span>
+                </button>
+                <button id="btn-question" class="pill" title="使用說明">
+                    <span class="icon">❓</span>
+                </button>
                 <h2>日期</h2>
-                <div><input type="date" id="date-selector" class="date-input" title="選擇日期"></div>
+                <div>
+                    <input type="date" id="date-selector" class="date-input" title="選擇日期" font-family="Orbitron">
+                </div>
                 <h2>路線</h2>
-                <div class="pill-container" id="tw-line-container">
-                    <button class="pill line-pill active" data-line="mountain" style="background:#4CAF50; color:white">山線</button>
-                    <button class="pill line-pill" data-line="sea" style="background:#2196F3; color:white">海線</button>
+                <div id="line-pill-container">
+                    <button class="pill line-pill mount-text active" data-line="mountain">山線</button>
+                    <button class="pill line-pill sea-text" data-line="sea">海線</button>
+                </div>
+                <h2>車種</h2>
+                <div id="pill-container">
+                    <button id="btn-select-all" class="pill utility">全選</button>
+                    <button id="btn-deselect-all" class="pill utility">全部不選</button>
+                    <button class="pill active" data-type="普悠瑪" checked> 普悠瑪</button>
+                    <button class="pill active" data-type="太魯閣" checked> 太魯閣</button>
+                    <button class="pill active" data-type="新自強" checked> 新自強</button>
+                    <button class="pill active" data-type="自強" checked> 自強</button>
+                    <button class="pill active" data-type="莒光" checked> 莒光</button>
+                    <button class="pill active" data-type="區間快" checked> 區間快</button>
+                    <button class="pill active" data-type="區間" checked> 區間</button>
                 </div>
             </div>
-
-            <div id="controls-jp" style="display: none;">
-                <h2>平假日</h2>
-                <div class="pill-container" id="jp-day-container">
-                    <button class="pill day-pill active" data-day="平日" style="background:#009688; color:white">平日</button>
-                    <button class="pill day-pill" data-day="土休日" style="background:#FF9800; color:white">土休日</button>
-                </div>
-                <h2>路線</h2>
-                <div class="pill-container" id="jp-line-container">
+            <button id="sidebar-toggle" class="toggle-btn">
+                <span class="icon">❯</span>
+            </button>
+            
+            <div id="info-modal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>關於本站</h2>
+                        <span class="close-infomodal">&times;</span>
                     </div>
+                    <div class="modal-body">
+                        <h3>網站介紹</h3>
+                        <p>本站提供每日鐵路運行圖與列車運行資訊，並可依需求選擇路線與篩選車種。</p>
+                        <h3>聲明</h3>
+                        <p>1. 本站所提供的資料，均取自 國營臺灣鐵路股份有限公司 官網。</p>
+                        <p>2. 本站資訊僅供參考，不保證資料之即時性、完整性或準確性，實際運行狀況請以 國營臺灣鐵路股份有限公司 公告為準。</p>
+                        <p>3. 地圖資料與列車位置僅大致計算，並未考量部分路段速率不等的情形，可能與實際狀況存在誤差。</p>
+                        <p>4. 歡迎任何非商業性使用與分享，惟請標示來源。</p>
+                        <p class="last-update">版本： 1.0 | 最後更新： 2026/04/04</p>
+                        <h3>意見回應</h3>
+                        <form id="feedback-form" action="https://formspree.io/f/xqeyyqke" method="POST" class="feedback-form">
+                            <div class="input-group">
+                                <textarea name="message" id="feedback-text" placeholder="輸入任何想法、建議或回應！" required></textarea><br>
+                            </div>
+                            <div class="form-footer">
+                                <button type="submit" class="pill submit-btn">傳送</button>
+                                <span id="submit-status" style="font-size: 0.8em; color: var(--text-color); display: none;">✓ 成功送出回應！</span>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
-
-            <h2>車種</h2>
-            <div class="pill-container" id="pill-container">
-                <button id="btn-select-all" class="pill utility">全選</button>
-                <button id="btn-deselect-all" class="pill utility">全部不選</button>
-                <div id="dynamic-type-pills" class="pill-container" style="margin-top: 10px; width: 100%;"></div>
+            <div id="question-modal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>使用說明</h2>
+                        <span class="close-questionmodal">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <h3>座標軸與標記</h3>
+                        <p>橫軸：時間。天藍色鉛直線為現在時刻。</p>
+                        <p>縱軸：距離，其中畫線代表車站。沿著縱軸往上為順行，往下為逆行。</p>
+                        <p>彩色折線：列車行駛路線。折線與車站重疊的橫線段代表該列車會在該車站停留；無橫線段則代表不停留，與車站橫線交點為估計之通過時間（註：僅為推算，可能與真實有誤差）。路線的顏色依車種而不同，對應顏色見右方側邊欄。</p>
+                        <h3>側邊欄</h3>
+                        <p>☀️/🌙 切換淺色/深色主題。</p>
+                        <p>ℹ️ 關於此網站的介紹、版本與聲明。</p>
+                        <p>❓ 此網站的使用說明。（就是你正在讀的這段文字）</p>
+                        <p>日期：點擊行事曆圖形可以選擇日期，也可以點擊數字直接輸入。</p>
+                        <p>路線：點擊可切換顯示的路線，目前僅支援環島鐵路，可選擇經由山線或海線。</p>
+                        <p>車種：點擊可篩選特定車種。</p>
+                        <h3>列車與車站資訊</h3>
+                        <p>一、點擊列車會在圖中顯示其停靠站與停靠時間，並在下方顯示列車資訊。點擊空白處或按下 Esc 鍵可取消選取。</p>
+                        <p>1. 列車資訊由左至右分別為：車種、車次、經由路線、起訖站與時間、行駛日期、乘客服務與其他資訊。</p>
+                        <p>2. 滑鼠指標停留在行駛日期上，可顯示加班列車的行駛日期。</p>
+                        <p>3. 滑鼠指標停留在乘客服務上，可顯示各圖示所對應的資訊。</p>
+                        <p>4. 點擊車站會顯示其資訊，同下方 二、，並將該車站置中。</p>
+                        <p>二、點擊車站（橫線）會篩選有停靠該車站的列車，並在下方顯示車站資訊。點擊空白處或按下 Esc 鍵可取消篩選。</p>
+                        <p>1. 車站資訊包含現在時間起今日所有停靠該車站的列車，依離站時間排序。</p>
+                        <p>2. 點擊列車會顯示其資訊，同上方 一、。</p>
+                        <p>註：由於目前僅支援環島鐵路，因此點擊非環島鐵路的車站（含基隆、三坑、蘇澳與各支線不在環島鐵路上的車站）暫無資訊。</p>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <script type="text/javascript">
-            // === 共用狀態與核心變數 ===
-            let isLight = false;
-            let currentRegion = null; 
-            let deckInstance = null;
-            let rawData = [];
-            let yrawData = []; 
-            let state = {
-                selectedLine: null, showSchedule: false, currentZoom: 0, 
-                enabledTypes: new Set(),
-                stationList: new Set(), stationDistances: {}, focusedStation: null,
-                period: 8759, initialY: 246, currentTimeMinutes: 0,
-                nankaiActiveLine: "南海本線", nankaiActiveDay: "平日"
-            };
-            
-            // 這是為了後續畫地圖格線的物件結構，先保留
-            let gridData = {
-                denseLabels: [], normalLabels: [], sparseLabels: [], simpleLabels: [],
-                thickLines: [], thinLines: [],
-                denseLabelData: [], normalLabelData: [], sparseLabelData: [], mainLabelData: [],
-                minDistance: 0, maxDistance: 0
-            };
+        <script src="main.js"></script>
 
-            // === 臺灣鐵路資料定義 ===
-            const twColorPalette = {"普悠瑪": [255, 82, 82], "太魯閣": [255, 152, 0], "新自強": [187, 153, 255], "自強": [102, 255, 106], "莒光": [253, 216, 53], "區間快": [51, 204, 255], "區間": [230, 230, 230]};
-            const twHtmlPalette = {"普悠瑪": "#FF5252", "太魯閣": "#FF9800", "新自強": "#BB99FF", "自強": "#66FF6A", "莒光": "#FDD835", "區間快": "#33CCFF", "區間": "#E6E6E6"};
-            const twMountDists = {'八堵': 0, '七堵': 23, '臺北': 246, '板橋': 318, '桃園': 537, '中壢': 636, '新竹': 1027, '竹南': 1214, '苗栗': 1367, '臺中': 1892, '彰化': 2070, '嘉義': 2879, '臺南': 3493, '高雄': 3960, '屏東': 4169}; 
-            const twSeaDists = {'八堵': 0, '七堵': 23, '臺北': 246, '板橋': 318, '桃園': 537, '中壢': 636, '新竹': 1027, '竹南': 1214, '大甲': 1755, '沙鹿': 1899, '彰化': 2117, '嘉義': 2926, '臺南': 3540, '高雄': 4007, '屏東': 4216}; 
-
-            // === 南海電鐵資料定義 ===
-            const jpColorPalette = {
-                "特急ラピートα": [0, 0, 180], "特急ラピートβ": [0, 0, 180], "特急ラピート": [0, 0, 180],
-                "特急サザン": [0, 180, 0], "特急泉北ライナー": [218, 165, 32],
-                "特急こうや": [220, 20, 60], "特急りんかん": [220, 20, 60], "特急": [220, 20, 60],
-                "空港急行": [255, 69, 0], "急行": [255, 140, 0], "快速急行": [255, 140, 0], "区間急行": [154, 205, 50],
-                "準急": [30, 144, 255], "各駅停車": [150, 150, 150], "普通": [150, 150, 150]
-            };
-            const jpHtmlPalette = {
-                "特急ラピートα": "#0000B4", "特急ラピートβ": "#0000B4", "特急ラピート": "#0000B4",
-                "特急サザン": "#00B400", "特急泉北ライナー": "#DAA520",
-                "特急こうや": "#DC143C", "特急りんかん": "#DC143C", "特急": "#DC143C",
-                "空港急行": "#FF4500", "急行": "#FF8C00", "快速急行": "#FF8C00", "区間急行": "#9ACD32",
-                "準急": "#1E90FF", "各駅停車": "#969696", "普通": "#969696"
-            };
-            const jpLinesStruct = {
-                "南海本線": ["難波", "新今宮", "天下茶屋", "岸里玉出", "粉浜", "住吉大社", "住ノ江", "七道", "堺", "湊", "石津川", "諏訪ノ森", "浜寺公園", "羽衣", "高石", "北助松", "松ノ浜", "泉大津", "忠岡", "春木", "和泉大宮", "岸和田", "蛸地蔵", "貝塚", "二色浜", "鶴原", "井原里", "泉佐野", "羽倉崎", "吉見ノ里", "岡田浦", "樽井", "尾崎", "鳥取ノ荘", "箱作", "淡輪", "みさき公園", "孝子", "和歌山大学前", "紀ノ川", "和歌山市"],
-                "空港線": ["泉佐野", "りんくうタウン", "関西空港"],
-                "加太線": ["紀ノ川", "東松江", "中松江", "八幡前", "西ノ庄", "二里ケ浜", "磯ノ浦", "加太"],
-                "高野線": ["難波", "今宮戎", "新今宮", "萩ノ茶屋", "天下茶屋", "岸里玉出", "帝塚山", "住吉東", "沢ノ町", "我孫子前", "浅香山", "堺東", "三国ヶ丘", "百舌鳥八幡", "中百舌鳥", "白鷺", "初芝", "萩原天神", "北野田", "狭山", "大阪狭山市", "金剛", "滝谷", "千代田", "河内長野", "三日市町", "美加の台", "千早口", "天見", "紀見峠", "林間田園都市", "御幸辻", "橋本", "紀伊清水", "学文路", "九度山", "高野下", "下古沢", "上古沢", "紀伊細川", "紀伊神谷", "極楽橋"],
-                "泉北線": ["中百舌鳥", "深井", "泉ケ丘", "栂・美木多", "光明池", "和泉中央"]
-            };
-
-            // === 啟動區域選擇與初始化 ===
-            async function initRegion(region) {
-                currentRegion = region;
-                document.getElementById('startup-screen').style.display = 'none';
-                document.getElementById('main-wrapper').style.display = 'flex';
-                document.getElementById('sidebar').style.display = 'flex';
-                document.getElementById('sidebar-toggle').style.display = 'block';
-                
-                const dynamicTypesContainer = document.getElementById('dynamic-type-pills');
-                dynamicTypesContainer.innerHTML = '';
-                state.enabledTypes.clear();
-
-                if (region === 'TW') {
-                    document.getElementById('controls-tw').style.display = 'block';
-                    Object.keys(twColorPalette).forEach(type => {
-                        state.enabledTypes.add(type);
-                        dynamicTypesContainer.innerHTML += `<button class="pill active train-type-pill" data-type="${type}" style="background:${twHtmlPalette[type]}; color:#fff">${type}</button>`;
-                    });
-                    
-                    state.stationDistances = twMountDists; 
-                    state.stationList = new Set(Object.keys(twMountDists));
-                    
-                    try {
-                        const res = await fetch(`Taiwan/data/20260312.json`); 
-                        rawData = await res.json();
-                    } catch(e) { rawData = []; }
-                    yrawData = []; 
-
-                } else if (region === 'JP') {
-                    document.getElementById('controls-jp').style.display = 'block';
-                    
-                    const jpLineContainer = document.getElementById('jp-line-container');
-                    jpLineContainer.innerHTML = '';
-                    Object.keys(jpLinesStruct).forEach(line => {
-                        const isActive = line === state.nankaiActiveLine ? 'active' : '';
-                        const bg = isActive ? 'background:#E91E63; color:white' : '';
-                        jpLineContainer.innerHTML += `<button class="pill nankai-line-pill ${isActive}" data-line="${line}" style="${bg}">${line}</button>`;
-                    });
-
-                    Object.keys(jpColorPalette).forEach(type => {
-                        state.enabledTypes.add(type);
-                        dynamicTypesContainer.innerHTML += `<button class="pill active train-type-pill" data-type="${type}" style="background:${jpHtmlPalette[type]}; color:#fff">${type}</button>`;
-                    });
-
-                    setupNankaiLine(state.nankaiActiveLine);
-
-                    try {
-                        // 💡 修正好的正確路徑：
-                        const res = await fetch(`Japan/Nankai/nankai_timetable.json`);
-                        rawData = await res.json();
-                    } catch(e) { 
-                        alert('找不到 nankai_timetable.json，請檢查路徑');
-                        rawData = []; 
-                    }
-                    yrawData = []; 
-                }
-
-                bindPillEvents();
-                setupDeckGL();
-            }
-
-            // === 南海路線切換邏輯 ===
-            function setupNankaiLine(lineName) {
-                state.nankaiActiveLine = lineName;
-                const stations = jpLinesStruct[lineName] || [];
-                state.stationList = new Set(stations);
-                state.stationDistances = {};
-                stations.forEach((st, idx) => {
-                    state.stationDistances[st] = idx * 35;
-                });
-                state.period = stations.length * 35; 
-                if(deckInstance) renderLayers();
-            }
-
-            // === UI 綁定 ===
-            function bindPillEvents() {
-                document.querySelectorAll('.train-type-pill').forEach(pill => {
-                    pill.addEventListener('click', (e) => {
-                        const type = e.target.getAttribute('data-type');
-                        const palette = currentRegion === 'TW' ? twHtmlPalette : jpHtmlPalette;
-                        if (state.enabledTypes.has(type)) {
-                            state.enabledTypes.delete(type);
-                            e.target.style.background = 'transparent';
-                            e.target.style.color = 'var(--text-color)';
-                        } else {
-                            state.enabledTypes.add(type);
-                            e.target.style.background = palette[type];
-                            e.target.style.color = '#fff';
-                        }
-                        renderLayers();
-                    });
-                });
-
-                document.querySelectorAll('.nankai-line-pill').forEach(pill => {
-                    pill.addEventListener('click', (e) => {
-                        document.querySelectorAll('.nankai-line-pill').forEach(p => { p.classList.remove('active'); p.style.background = ''; p.style.color=''; });
-                        e.target.classList.add('active');
-                        e.target.style.background = '#E91E63'; e.target.style.color = 'white';
-                        setupNankaiLine(e.target.getAttribute('data-line'));
-                    });
-                });
-
-                document.querySelectorAll('.day-pill').forEach(pill => {
-                    pill.addEventListener('click', (e) => {
-                        document.querySelectorAll('.day-pill').forEach(p => { p.classList.remove('active'); p.style.background = ''; p.style.color=''; });
-                        e.target.classList.add('active');
-                        state.nankaiActiveDay = e.target.getAttribute('data-day');
-                        if(state.nankaiActiveDay === '平日') { e.target.style.background = '#009688'; e.target.style.color = 'white'; }
-                        else { e.target.style.background = '#FF9800'; e.target.style.color = 'white'; }
-                        renderLayers();
-                    });
-                });
-            }
-
-            // === DeckGL 核心繪圖 ===
-            function setupDeckGL() {
-                const today = new Date();
-                state.currentTimeMinutes = today.getHours() * 60 + today.getMinutes();
-                
-                deckInstance = new deck.DeckGL({
-                    container: 'container',
-                    views: [new deck.OrthographicView({id: 'ortho'})],
-                    initialViewState: { 
-                        target: [state.currentTimeMinutes * 3, 500, 0], 
-                        zoom: -0.5, minZoom: -3.75, maxZoom: 2.75 
-                    },
-                    controller: true, pickingRadius: 10,
-                    onViewStateChange: ({viewState}) => { 
-                        state.currentZoom = viewState.zoom;
-                        const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 3.25);
-                        deckInstance.setProps({viewState: {...viewState, zoom: clampedZoom}});
-                        renderLayers();
-                    }
-                });
-                renderLayers();
-            }
-
-            function renderLayers() {
-                if(!deckInstance) return;
-                
-                // ---過濾資料---
-                let renderData = rawData.filter(train => {
-                    if (!state.enabledTypes.has(train.train)) return false;
-                    
-                    if (currentRegion === 'JP') {
-                        if (train.drive !== state.nankaiActiveDay) return false;
-                        if (train.line !== state.nankaiActiveLine) return false;
-                    }
-                    return train.data.some(p => state.stationList.has(p.x));
-                });
-
-                // --- 處理座標 ---
-                let pathData = renderData.map(train => {
-                    const validPoints = train.data.map(p => {
-                        return { x: p.y * 3, y: state.stationDistances[p.x] };
-                    }).filter(p => p.y !== undefined); 
-
-                    return {
-                        path: validPoints.map(p => [p.x, p.y]),
-                        color: currentRegion === 'TW' ? twColorPalette[train.train] : jpColorPalette[train.train],
-                        raw: train
-                    };
-                }).filter(t => t.path.length > 1);
-
-                // --- 繪製車站橫線 ---
-                const stationLines = Object.entries(state.stationDistances).map(([name, y]) => ({
-                    path: [[0, y], [4500, y]], name
-                }));
-
-                const layers = [
-                    new deck.PathLayer({
-                        id: 'grid-lines', data: stationLines,
-                        getPath: d => d.path, getColor: [100, 100, 100], getWidth: 1
-                    }),
-                    new deck.TextLayer({
-                        id: 'station-labels', data: stationLines,
-                        getPosition: d => [50, d.path[0][1]], getText: d => d.name,
-                        getSize: 1, getColor: [200, 200, 200], getAlignmentBaseline: 'bottom',
-
-                        fontFamily: 'GlowSansTCCom-Compressed, sans-serif', 
-                        characterSet: 'auto'
-                    }),
-                    new deck.PathLayer({
-                        id: 'train-paths', data: pathData,
-                        getPath: d => d.path, getColor: d => d.color || [200,200,200], getWidth: 2
-                    })
-                ];
-
-                deckInstance.setProps({ layers: layers });
-            }
-        </script>
     </body>
 </html>

@@ -1,0 +1,995 @@
+
+const lightcolorPalette = {"普悠瑪": "#F12F2F", "太魯閣": "#F57C00", "新自強": "#7B1FA2", "自強": "#00994D", "莒光": "#FBC02D", "區間快": "#1A1AFF", "區間": "#262626"}
+const darkcolorPalette  = {"普悠瑪": "#FF5252", "太魯閣": "#FF9800", "新自強": "#BB99FF", "自強": "#66FF6A", "莒光": "#FDD835", "區間快": "#33CCFF", "區間": "#E6E6E6"};
+const allStationDistances = {'基隆': -3.9, '三坑': -2.4, '八堵': 0, '七堵': 23, '百福': 50, '五堵': 80, '汐止': 94, '汐科': 107, '南港': 154, '松山': 182, '臺北': 246, '萬華': 274, '板橋': 318, '浮洲': 342, '樹林': 372, '南樹林': 392, '山佳': 411, '鶯歌': 455, '鳳鳴': 505, '桃園': 537, '內壢': 596, '中壢': 636, '埔心': 694, '楊梅': 734, '富岡': 802, '新富': 819, '北湖': 834, '湖口': 859, '新豐': 921, '竹北': 969, '北新竹': 1013, '千甲': 991, '新莊': 961, '竹中': 948, '六家': 917, '上員': 921, '榮華': 877, '竹東': 861, '橫山': 826, '九讚頭': 806, '合興': 784, '富貴': 770, '內灣': 748, '新竹': 1027, '三姓橋': 1075, '香山': 1107, '崎頂': 1169, '竹南': 1214, '談文': 1259, '大山': 1327, '後龍': 1364, '龍港': 1400, '白沙屯': 1481, '新埔': 1512, '通霄': 1570, '苑裡': 1631, '日南': 1708, '大甲': 1755, '臺中港': 1807, '清水': 1867, '沙鹿': 1899, '龍井': 1945, '大肚': 1995, '追分': 2045, '造橋': 1268, '豐富': 1327, '苗栗': 1367, '南勢': 1433, '銅鑼': 1475, '三義': 1549, '泰安': 1658, '后里': 1684, '豐原': 1751, '栗林': 1777, '潭子': 1802, '頭家厝': 1821, '松竹': 1838, '太原': 1856, '精武': 1873, '臺中': 1892, '五權': 1914, '大慶': 1935, '烏日': 1966, '新烏日': 1975, '成功': 1999, '彰化': 2070, '花壇': 2136, '大村': 2182, '員林': 2217, '永靖': 2252, '社頭': 2289, '田中': 2332, '二水': 2390, '源泉': 2420, '濁水': 2498, '龍泉': 2547, '集集': 2590, '水里': 2664, '車埕': 2686, '林內': 2471, '石榴': 2519, '斗六': 2567, '斗南': 2643, '石龜': 2682, '大林': 2728, '民雄': 2786, '嘉北': 2853, '嘉義': 2879, '水上': 2945, '南靖': 2971, '後壁': 3031, '新營': 3108, '柳營': 3141, '林鳳營': 3180, '隆田': 3235, '拔林': 3257, '善化': 3303, '南科': 3332, '新市': 3379, '永康': 3429, '大橋': 3466, '臺南': 3493, '保安': 3569, '仁德': 3583, '中洲': 3608, '長榮大學': 3634, '沙崙': 3665, '大湖': 3637, '路竹': 3667, '岡山': 3745, '橋頭': 3781, '楠梓': 3823, '新左營': 3874, '左營': 3894, '內惟': 3905, '美術館': 3922, '鼓山': 3934, '三塊厝': 3951, '高雄': 3960, '民族': 3973, '科工館': 3984, '正義': 4002, '鳳山': 4015, '後庄': 4054, '九曲堂': 4096, '六塊厝': 4146, '屏東': 4169, '歸來': 4195, '麟洛': 4218, '西勢': 4242, '竹田': 4279, '潮州': 4319, '崁頂': 4368, '南州': 4392, '鎮安': 4430, '林邊': 4461, '佳冬': 4500, '東海': 4531, '枋寮': 4572, '加祿': 4625, '內獅': 4660, '枋山': 4708, '大武': 5010, '瀧溪': 5127, '金崙': 5211, '太麻里': 5320, '知本': 5437, '康樂': 5508, '臺東': 5553, '山里': 5635, '鹿野': 5696, '瑞源': 5751, '瑞和': 5778, '關山': 5853, '海端': 5918, '池上': 5975, '富里': 6043, '東竹': 6104, '東里': 6164, '玉里': 6232, '三民': 6340, '瑞穗': 6434, '富源': 6525, '大富': 6557, '光復': 6632, '萬榮': 6688, '鳳林': 6737, '南平': 6779, '林榮新光': 6801, '豐田': 6863, '壽豐': 6891, '平和': 6909, '志學': 6939, '吉安': 7027, '花蓮': 7062, '北埔': 7108, '景美': 7173, '新城': 7226, '崇德': 7279, '和仁': 7379, '和平': 7458, '漢本': 7502, '武塔': 7631, '南澳': 7668, '東澳': 7748, '永樂': 7805, '蘇澳': 7824, '蘇澳新': 7857, '冬山': 7908, '羅東': 7958, '中里': 7976, '二結': 7988, '宜蘭': 8046, '四城': 8083, '礁溪': 8130, '頂埔': 8171, '頭城': 8193, '外澳': 8230, '龜山': 8265, '大溪': 8311, '大里': 8358, '石城': 8385, '福隆': 8439, '貢寮': 8477, '雙溪': 8530, '牡丹': 8564, '三貂嶺': 8599, '大華': 8563, '十分': 8535, '望古': 8518, '嶺腳': 8497, '平溪': 8487, '菁桐': 8470, '猴硐': 8624, '瑞芳': 8670, '海科館': 8713, '八斗子': 8717, '四腳亭': 8720, '暖暖': 8743};
+const mountStationDistances = {'八堵': 0, '七堵': 23, '百福': 50, '五堵': 80, '汐止': 94, '汐科': 107, '南港': 154, '松山': 182, '臺北': 246, '萬華': 274, '板橋': 318, '浮洲': 342, '樹林': 372, '南樹林': 392, '山佳': 411, '鶯歌': 455, '鳳鳴': 505, '桃園': 537, '內壢': 596, '中壢': 636, '埔心': 694, '楊梅': 734, '富岡': 802, '新富': 819, '北湖': 834, '湖口': 859, '新豐': 921, '竹北': 969, '北新竹': 1013, '新竹': 1027, '三姓橋': 1075, '香山': 1107, '崎頂': 1169, '竹南': 1214, '造橋': 1268, '豐富': 1327, '苗栗': 1367, '南勢': 1433, '銅鑼': 1475, '三義': 1549, '泰安': 1658, '后里': 1684, '豐原': 1751, '栗林': 1777, '潭子': 1802, '頭家厝': 1821, '松竹': 1838, '太原': 1856, '精武': 1873, '臺中': 1892, '五權': 1914, '大慶': 1935, '烏日': 1966, '新烏日': 1975, '成功': 1999, '彰化': 2070, '花壇': 2136, '大村': 2182, '員林': 2217, '永靖': 2252, '社頭': 2289, '田中': 2332, '二水': 2390, '林內': 2471, '石榴': 2519, '斗六': 2567, '斗南': 2643, '石龜': 2682, '大林': 2728, '民雄': 2786, '嘉北': 2853, '嘉義': 2879, '水上': 2945, '南靖': 2971, '後壁': 3031, '新營': 3108, '柳營': 3141, '林鳳營': 3180, '隆田': 3235, '拔林': 3257, '善化': 3303, '南科': 3332, '新市': 3379, '永康': 3429, '大橋': 3466, '臺南': 3493, '保安': 3569, '仁德': 3583, '中洲': 3608, '大湖': 3637, '路竹': 3667, '岡山': 3745, '橋頭': 3781, '楠梓': 3823, '新左營': 3874, '左營': 3894, '內惟': 3905, '美術館': 3922, '鼓山': 3934, '三塊厝': 3951, '高雄': 3960, '民族': 3973, '科工館': 3984, '正義': 4002, '鳳山': 4015, '後庄': 4054, '九曲堂': 4096, '六塊厝': 4146, '屏東': 4169, '歸來': 4195, '麟洛': 4218, '西勢': 4242, '竹田': 4279, '潮州': 4319, '崁頂': 4368, '南州': 4392, '鎮安': 4430, '林邊': 4461, '佳冬': 4500, '東海': 4531, '枋寮': 4572, '加祿': 4625, '內獅': 4660, '枋山': 4708, '大武': 5010, '瀧溪': 5127, '金崙': 5211, '太麻里': 5320, '知本': 5437, '康樂': 5508, '臺東': 5553, '山里': 5635, '鹿野': 5696, '瑞源': 5751, '瑞和': 5778, '關山': 5853, '海端': 5918, '池上': 5975, '富里': 6043, '東竹': 6104, '東里': 6164, '玉里': 6232, '三民': 6340, '瑞穗': 6434, '富源': 6525, '大富': 6557, '光復': 6632, '萬榮': 6688, '鳳林': 6737, '南平': 6779, '林榮新光': 6801, '豐田': 6863, '壽豐': 6891, '平和': 6909, '志學': 6939, '吉安': 7027, '花蓮': 7062, '北埔': 7108, '景美': 7173, '新城': 7226, '崇德': 7279, '和仁': 7379, '和平': 7458, '漢本': 7502, '武塔': 7631, '南澳': 7668, '東澳': 7748, '永樂': 7805, '蘇澳新': 7857, '冬山': 7908, '羅東': 7958, '中里': 7976, '二結': 7988, '宜蘭': 8046, '四城': 8083, '礁溪': 8130, '頂埔': 8171, '頭城': 8193, '外澳': 8230, '龜山': 8265, '大溪': 8311, '大里': 8358, '石城': 8385, '福隆': 8439, '貢寮': 8477, '雙溪': 8530, '牡丹': 8564, '三貂嶺': 8599, '猴硐': 8624, '瑞芳': 8670, '四腳亭': 8720, '暖暖': 8743};
+const seaStationDistances = {'八堵': 0, '七堵': 23, '百福': 50, '五堵': 80, '汐止': 94, '汐科': 107, '南港': 154, '松山': 182, '臺北': 246, '萬華': 274, '板橋': 318, '浮洲': 342, '樹林': 372, '南樹林': 392, '山佳': 411, '鶯歌': 455, '鳳鳴': 505, '桃園': 537, '內壢': 596, '中壢': 636, '埔心': 694, '楊梅': 734, '富岡': 802, '新富': 819, '北湖': 834, '湖口': 859, '新豐': 921, '竹北': 969, '北新竹': 1013, '新竹': 1027, '三姓橋': 1075, '香山': 1107, '崎頂': 1169, '竹南': 1214, '談文': 1259, '大山': 1327, '後龍': 1364, '龍港': 1400, '白沙屯': 1481, '新埔': 1512, '通霄': 1570, '苑裡': 1631, '日南': 1708, '大甲': 1755, '臺中港': 1807, '清水': 1867, '沙鹿': 1899, '龍井': 1945, '大肚': 1995, '追分': 2045, '彰化': 2117, '花壇': 2183, '大村': 2229, '員林': 2264, '永靖': 2299, '社頭': 2336, '田中': 2379, '二水': 2437, '林內': 2518, '石榴': 2566, '斗六': 2614, '斗南': 2690, '石龜': 2729, '大林': 2775, '民雄': 2833, '嘉北': 2900, '嘉義': 2926, '水上': 2992, '南靖': 3018, '後壁': 3078, '新營': 3155, '柳營': 3188, '林鳳營': 3227, '隆田': 3282, '拔林': 3304, '善化': 3350, '南科': 3379, '新市': 3426, '永康': 3476, '大橋': 3513, '臺南': 3540, '保安': 3616, '仁德': 3630, '中洲': 3655, '大湖': 3684, '路竹': 3714, '岡山': 3792, '橋頭': 3828, '楠梓': 3870, '新左營': 3921, '左營': 3941, '內惟': 3952, '美術館': 3969, '鼓山': 3981, '三塊厝': 3998, '高雄': 4007, '民族': 4020, '科工館': 4031, '正義': 4049, '鳳山': 4062, '後庄': 4101, '九曲堂': 4143, '六塊厝': 4193, '屏東': 4216, '歸來': 4242, '麟洛': 4265, '西勢': 4289, '竹田': 4326, '潮州': 4366, '崁頂': 4415, '南州': 4439, '鎮安': 4477, '林邊': 4508, '佳冬': 4547, '東海': 4578, '枋寮': 4619, '加祿': 4672, '內獅': 4707, '枋山': 4755, '大武': 5057, '瀧溪': 5174, '金崙': 5258, '太麻里': 5367, '知本': 5484, '康樂': 5555, '臺東': 5600, '山里': 5682, '鹿野': 5743, '瑞源': 5798, '瑞和': 5825, '關山': 5900, '海端': 5965, '池上': 6022, '富里': 6090, '東竹': 6151, '東里': 6211, '玉里': 6279, '三民': 6387, '瑞穗': 6481, '富源': 6572, '大富': 6604, '光復': 6679, '萬榮': 6735, '鳳林': 6784, '南平': 6826, '林榮新光': 6848, '豐田': 6910, '壽豐': 6938, '平和': 6956, '志學': 6986, '吉安': 7074, '花蓮': 7109, '北埔': 7155, '景美': 7220, '新城': 7273, '崇德': 7326, '和仁': 7426, '和平': 7505, '漢本': 7549, '武塔': 7678, '南澳': 7715, '東澳': 7795, '永樂': 7852, '蘇澳新': 7904, '冬山': 7955, '羅東': 8005, '中里': 8023, '二結': 8035, '宜蘭': 8093, '四城': 8130, '礁溪': 8177, '頂埔': 8218, '頭城': 8240, '外澳': 8277, '龜山': 8312, '大溪': 8358, '大里': 8405, '石城': 8432, '福隆': 8486, '貢寮': 8524, '雙溪': 8577, '牡丹': 8611, '三貂嶺': 8646, '猴硐': 8671, '瑞芳': 8717, '四腳亭': 8767, '暖暖': 8790};
+const mainStationList = new Set(["基隆", "八堵", "七堵", "汐止", "南港", "松山", "臺北", "萬華", "板橋", "樹林", "鶯歌", "桃園", "中壢", "新竹", "竹南", "大甲", "臺中港", "沙鹿", "苗栗", "豐原", "臺中", "新烏日", "彰化", "員林", "田中", "二水", "斗六", "斗南", "嘉義", "新營", "隆田", "善化", "永康", "臺南", "中洲", "岡山", "楠梓", "新左營", "高雄", "鳳山", "屏東", "潮州", "枋寮", "臺東", "玉里", "花蓮", "新城", "和平", "東澳", "蘇澳新", "羅東", "宜蘭", "頭城", "雙溪", "瑞芳"]);
+const mountStationList = new Set(['八堵', '七堵', '百福', '五堵', '汐止', '汐科', '南港', '松山', '臺北', '萬華', '板橋', '浮洲', '樹林', '南樹林', '山佳', '鶯歌', '鳳鳴', '桃園', '內壢', '中壢', '埔心', '楊梅', '富岡', '新富', '北湖', '湖口', '新豐', '竹北', '北新竹', '新竹', '三姓橋', '香山', '崎頂', '竹南', '造橋', '豐富', '苗栗', '南勢', '銅鑼', '三義', '泰安', '后里', '豐原', '栗林', '潭子', '頭家厝', '松竹', '太原', '精武', '臺中', '五權', '大慶', '烏日', '新烏日', '成功', '彰化', '花壇', '大村', '員林', '永靖', '社頭', '田中', '二水', '林內', '石榴', '斗六', '斗南', '石龜', '大林', '民雄', '嘉北', '嘉義', '水上', '南靖', '後壁', '新營', '柳營', '林鳳營', '隆田', '拔林', '善化', '南科', '新市', '永康', '大橋', '臺南', '保安', '仁德', '中洲', '大湖', '路竹', '岡山', '橋頭', '楠梓', '新左營', '左營', '內惟', '美術館', '鼓山', '三塊厝', '高雄', '民族', '科工館', '正義', '鳳山', '後庄', '九曲堂', '六塊厝', '屏東', '歸來', '麟洛', '西勢', '竹田', '潮州', '崁頂', '南州', '鎮安', '林邊', '佳冬', '東海', '枋寮', '加祿', '內獅', '枋山', '大武', '瀧溪', '金崙', '太麻里', '知本', '康樂', '臺東', '山里', '鹿野', '瑞源', '瑞和', '關山', '海端', '池上', '富里', '東竹', '東里', '玉里', '三民', '瑞穗', '富源', '大富', '光復', '萬榮', '鳳林', '南平', '林榮新光', '豐田', '壽豐', '平和', '志學', '吉安', '花蓮', '北埔', '景美', '新城', '崇德', '和仁', '和平', '漢本', '武塔', '南澳', '東澳', '永樂', '蘇澳新', '冬山', '羅東', '中里', '二結', '宜蘭', '四城', '礁溪', '頂埔', '頭城', '外澳', '龜山', '大溪', '大里', '石城', '福隆', '貢寮', '雙溪', '牡丹', '三貂嶺', '猴硐', '瑞芳', '四腳亭', '暖暖']);
+const seaStationList = new Set(['八堵', '七堵', '百福', '五堵', '汐止', '汐科', '南港', '松山', '臺北', '萬華', '板橋', '浮洲', '樹林', '南樹林', '山佳', '鶯歌', '鳳鳴', '桃園', '內壢', '中壢', '埔心', '楊梅', '富岡', '新富', '北湖', '湖口', '新豐', '竹北', '北新竹', '新竹', '三姓橋', '香山', '崎頂', '竹南', "談文", "大山", "後龍", "龍港", "白沙屯", "新埔", "通霄", "苑裡", "日南", "大甲", "臺中港", "清水", "沙鹿", "龍井", "大肚", "追分", '彰化', '花壇', '大村', '員林', '永靖', '社頭', '田中', '二水', '林內', '石榴', '斗六', '斗南', '石龜', '大林', '民雄', '嘉北', '嘉義', '水上', '南靖', '後壁', '新營', '柳營', '林鳳營', '隆田', '拔林', '善化', '南科', '新市', '永康', '大橋', '臺南', '保安', '仁德', '中洲', '大湖', '路竹', '岡山', '橋頭', '楠梓', '新左營', '左營', '內惟', '美術館', '鼓山', '三塊厝', '高雄', '民族', '科工館', '正義', '鳳山', '後庄', '九曲堂', '六塊厝', '屏東', '歸來', '麟洛', '西勢', '竹田', '潮州', '崁頂', '南州', '鎮安', '林邊', '佳冬', '東海', '枋寮', '加祿', '內獅', '枋山', '大武', '瀧溪', '金崙', '太麻里', '知本', '康樂', '臺東', '山里', '鹿野', '瑞源', '瑞和', '關山', '海端', '池上', '富里', '東竹', '東里', '玉里', '三民', '瑞穗', '富源', '大富', '光復', '萬榮', '鳳林', '南平', '林榮新光', '豐田', '壽豐', '平和', '志學', '吉安', '花蓮', '北埔', '景美', '新城', '崇德', '和仁', '和平', '漢本', '武塔', '南澳', '東澳', '永樂', '蘇澳新', '冬山', '羅東', '中里', '二結', '宜蘭', '四城', '礁溪', '頂埔', '頭城', '外澳', '龜山', '大溪', '大里', '石城', '福隆', '貢寮', '雙溪', '牡丹', '三貂嶺', '猴硐', '瑞芳', '四腳亭', '暖暖']);
+
+let isLight = false;
+let colorPalette = darkcolorPalette;
+let deckInstance = null;
+let realtime = false;
+let rawData = [];
+let yrawData = [];
+let state = {
+    selectedLine: null, showSchedule: false, currentZoom: 0, 
+    enabledTypes: new Set(['普悠瑪', '太魯閣', '新自強', '自強', '莒光', '區間快', '區間']),
+    stationList: mountStationList, stationDistances: mountStationDistances, focusedStation: null,
+    period: 8759, initialY: 246, currentTimeMinutes: 0
+};
+let gridData = {
+    denseLabels: [], normalLabels: [], sparseLabels: [], simpleLabels: [],
+    thickLines: [], thinLines: [],
+    denseLabelData: [], normalLabelData: [], sparseLabelData: [], mainLabelData: [],
+    minDistance: 0, maxDistance: 0
+};
+const dateSelector = document.getElementById('date-selector');
+let today = new Date();
+if (today.getHours() < 2) { today.setDate(today.getDate() - 1); }
+dateSelector.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+today.setDate(today.getDate() - 1);
+const yesterday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+function getSelectedDateFilename() { return realtime ? `Taiwan/data/${dateSelector.value.replace(/-/g, '')}_realtime.json` : `Taiwan/data/${dateSelector.value.replace(/-/g, '')}.json`; }
+function getYesterdayFilename() { 
+    const selectedDate = new Date(dateSelector.value + 'T00:00:00');
+    selectedDate.setDate(selectedDate.getDate() - 1);
+    const yesterday = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+    return realtime ? `Taiwan/data/${yesterday.replace(/-/g, '')}_realtime.json` : `Taiwan/data/${yesterday.replace(/-/g, '')}.json`;
+}
+
+// const serviceIcons = { "腳踏車設施": "🚲", "自由座": "💺", "騰雲座艙": "✨", "哺乳室": "🍼", "輪椅座": "♿", "訂便當服務": "🍱", "桌型座": "🪑", "跨日列車": "🌙" };
+const serviceIcons = {
+    "腳踏車設施": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-bicy.png",
+    "自由座": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-freeSeat.jpg",
+    "騰雲座艙": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-business.svg",
+    "親子車廂": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-parenting.png",
+    "哺乳室": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-nursingroom.png",
+    "輪椅座": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-wheelchair.png",
+    "訂便當服務": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-lunchbox.png",
+    "桌型座": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-table.png",
+    "跨日列車": "https://www.railway.gov.tw/tra-tip-web/static/images/serve-crossday.png",
+    "柴聯自強號": "https://cdn-icons-png.flaticon.com/512/5909/5909920.png",
+    "花東民眾優先購票": "https://cdn-icons-png.flaticon.com/512/3769/3769080.png"
+};
+
+const sidebar = document.getElementById('sidebar');
+const wrapper = document.getElementById('main-wrapper');
+const toggleBtn = document.getElementById('sidebar-toggle');
+const toggleIcon = toggleBtn.querySelector('.icon');
+toggleBtn.addEventListener('click', () => {
+    const isCollapsed = sidebar.classList.toggle('collapsed');
+    toggleBtn.style.right = isCollapsed ? '0px' : '25vw'; 
+    toggleIcon.textContent = isCollapsed ? '❮' : '❯'; 
+    wrapper.classList.toggle('sidebar-collapsed');
+});
+
+const themeToggle = document.getElementById('theme-toggle');
+const themeIcon = document.getElementById('theme-icon');
+const body = document.body;
+if (localStorage.getItem('theme') === 'light') {
+    body.classList.add('light-theme');
+    themeIcon.textContent = '🌙';
+    isLight = true;
+}
+
+function updateBottomPanel() {
+    const trainView = document.getElementById('view-train');
+    const stationView = document.getElementById('view-station');
+    const nullView = document.getElementById('view-null');
+    [trainView, stationView, nullView].forEach(v => v.classList.add('hidden'));
+    if (state.selectedLine) {
+        trainView.classList.remove('hidden');
+    } 
+    else if (state.focusedStation) {
+        stationView.classList.remove('hidden');
+    } 
+    else {
+        nullView.classList.remove('hidden');
+    }
+}
+
+document.addEventListener('submit', async (e) => {
+    if (e.target && e.target.id === 'feedback-form') {
+        e.preventDefault();
+        
+        const feedbackForm = e.target;
+        const submitBtn = feedbackForm.querySelector('.submit-btn');
+        const statusMsg = feedbackForm.querySelector('#submit-status');
+        const feedbackText = feedbackForm.querySelector('#feedback-text');
+
+        if (submitBtn) {
+            submitBtn.innerText = "傳送中...";
+            submitBtn.disabled = true;
+        }
+
+        const formData = new FormData(feedbackForm);
+
+        try {
+            const response = await fetch(feedbackForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (response.ok) {
+                if (statusMsg) statusMsg.style.display = "block";
+                if (feedbackText) feedbackText.style.boxShadow = "0 0 15px var(--text-color)";
+                
+                feedbackForm.reset();
+                if (submitBtn) submitBtn.innerText = "傳送";
+                
+                setTimeout(() => {
+                    if (statusMsg) statusMsg.style.display = "none";
+                    if (feedbackText) feedbackText.style.boxShadow = "none";
+                    if (submitBtn) submitBtn.disabled = false;
+                }, 3000);
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Submission failed");
+            }
+        } catch (error) {
+            console.error("Formspree Error:", error);
+            alert("傳送失敗，請重試。");
+            if (submitBtn) {
+                submitBtn.innerText = "RETRY";
+                submitBtn.disabled = false;
+            }
+        }
+    }
+});
+
+async function initMap() {
+    const DOM = {
+        infoBox: document.getElementById('info-content'),
+        stationBox: document.getElementById('station-info-content'),
+        valZoom: document.getElementById('val-zoom'),
+        valX: document.getElementById('val-x'),
+        valY: document.getElementById('val-y'),
+        pillContainer: document.getElementById('pill-container'),
+        pills: document.querySelectorAll('.pill'),
+        trainPills: document.querySelectorAll('.pill[data-type]'),
+        typeFilters: document.querySelectorAll('.type-filter'),
+        linePills: document.querySelectorAll('.line-pill'),
+        btnSelectAll: document.getElementById('btn-select-all'),
+        btnDeselectAll: document.getElementById('btn-deselect-all'),
+        btnClearSelection: document.getElementById('btn-clear-selection'),
+        viewMonitor: document.getElementById('view-monitor')
+    };
+
+    const response = await fetch(realtime ? `Taiwan/data/${dateSelector.value.replace(/-/g, '')}_realtime.json` : `Taiwan/data/${dateSelector.value.replace(/-/g, '')}.json`);
+    let rawData = await response.json();
+    const yresponse = await fetch(realtime ? `Taiwan/data/${yesterday.replace(/-/g, '')}_realtime.json` : `Taiwan/data/${yesterday.replace(/-/g, '')}.json`);
+    let yrawData = await yresponse.json();
+    let todaySegments = [];
+    let yesterdaySegments = [];
+
+    async function loadData() {
+        const filename = getSelectedDateFilename();
+        const yfilename = getYesterdayFilename();
+        try {
+            const response = await fetch(filename);
+            rawData = await response.json();
+        } catch (err) {
+            alert("可選擇日期範圍: 2026/02/19 ~ 2026/04/30");
+            console.error(err);
+        }
+        try {
+            const yresponse = await fetch(yfilename);
+            yrawData = await yresponse.json();
+        } catch (err) {
+            console.error(err);
+        }
+        if (state.selectedLine) { state.selectedLine = rawData.find(t => t.number === state.selectedLine.number) || yrawData.find(t => t.number === state.selectedLine.number) || null; }
+        updateInfoBox();
+        renderLayers();
+    }
+
+    state.currentTimeMinutes = today.getHours() * 60 + today.getMinutes();
+    if (state.currentTimeMinutes < 120) state.currentTimeMinutes += 1440;
+    const deckInstance = new deck.DeckGL({
+        container: 'container',
+        views: [new deck.OrthographicView({id: 'ortho'})],
+        initialViewState: { 
+            target: [state.currentTimeMinutes * 3 + 180, state.initialY, 0], 
+            zoom: 0, minZoom: -3.75, maxZoom: 1.5 
+        },
+        controller: true,
+        pickingRadius: 10,
+        getTooltip: ({object}) => {
+            if (object) {
+                if (object.number !== undefined) {
+                    return {
+                        text: `${object.train} ${object.number}`
+                    };
+                } else if (object.text === undefined) {
+                    return {
+                        text: `${String(object).split(',')[0]}`
+                    }
+                }
+            }
+        },
+        
+        onViewStateChange: ({viewState}) => { 
+            if (viewState.target[1] > state.period) viewState.target[1] -= state.period;
+            else if (viewState.target[1] < 0) viewState.target[1] += state.period;
+            viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
+            state.currentZoom = viewState.zoom;
+            
+            if (DOM.viewMonitor.style.display === 'block') {
+                DOM.valZoom.innerText = viewState.zoom.toFixed(2);
+                DOM.valX.innerText = Math.round(viewState.target[0]);
+                DOM.valY.innerText = Math.round(viewState.target[1]);
+            }
+
+            const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 1.5);
+            const nextViewState = {...viewState, zoom: clampedZoom};
+            deckInstance.setProps({viewState: nextViewState});
+            renderLayers();
+        },
+
+        onClick: (info) => {
+            state.selectedLine = null;
+            state.showSchedule = false;
+            state.focusedStation = null;
+            if (info.object && info.layer.id.includes('main-path-layer')) {
+                const trainNumber = info.object.number;
+                state.selectedLine = rawData.find(t => t.number === trainNumber) || yrawData.find(t => t.number === trainNumber);
+                state.showSchedule = true; 
+            } else if (info.object && (info.layer.id.includes('station-layer') || info.layer.id.includes('station-labels'))) {
+                const stationName = Array.isArray(info.object) ? info.object[0] : info.object.text;
+                state.focusedStation = stationName;
+            }
+            updateBottomPanel();
+            renderLayers();
+            updateInfoBox();
+        }
+    });
+
+    function syncPillStyles() {
+        DOM.trainPills.forEach(pill => {
+            const type = pill.getAttribute('data-type');
+            if (state.enabledTypes.has(type)) {
+                pill.classList.add('active');
+                pill.style.backgroundColor = colorPalette[type];
+                pill.style.color = isLight ? '#ddd' : '#222';
+            } else {
+                pill.classList.remove('active');
+                pill.style.backgroundColor = isLight ? '#ccc' : '#333';
+                pill.style.color = '#888';
+            }
+        });
+    }
+
+    function updateInfoBox() {
+        DOM.btnClearSelection.style.display = 'block';
+        const formatTime = (totalMin) => {
+            const h = Math.floor((totalMin % 1440) / 60);
+            const m = Math.floor(totalMin % 60);
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        };
+        if (state.selectedLine) {
+            const daysLabel = ["加", "一", "二", "三", "四", "五", "六", "日", "例"];
+            const sequence = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+            const viaText = state.selectedLine.info.via !== '-' ? `(${(state.selectedLine.info.via).replace(/線/g, '')})` : '';
+            const viaColor = (viaText.includes("山"))   ? "#4CAF50"
+                            : (viaText.includes("海"))   ? "#2196F3"
+                            : (viaText.includes("成追")) ? "#FF5722" : "#888";
+            let rawNote = state.selectedLine.info.note || "";
+            let specialNote = (rawNote.includes('。') ? rawNote.slice(0, rawNote.indexOf('。')) : "");
+            
+            const tooltipAttr = specialNote ? `title="${specialNote.trim()}"` : '';
+            let boxesHtml = `<div class="day-container" ${tooltipAttr}>`;
+            sequence.forEach(num => {
+                const driveStr = state.selectedLine.info.drive;
+                const isActive = driveStr.includes(num.toString());
+                if (num === 8) {
+                    boxesHtml += `<div class="day-box ${isActive ? 'active' : ''} ${driveStr.includes("9") ? 'special-rule' : ''}">${daysLabel[num]}</div>`;
+                } else {
+                    boxesHtml += `<div class="day-box ${isActive ? 'active' : ''}">${daysLabel[num]}</div>`;
+                }
+            });
+            boxesHtml += '</div>';
+            let iconsHtml = '<div class="service-container">';
+            Object.entries(serviceIcons).forEach(([name, url]) => {
+                if (state.selectedLine.info.img.includes(name) || state.selectedLine.info.note.includes(name)) {
+                    iconsHtml += `
+                        <div class="service-box" title="${name}">
+                            <img src="${url}" alt="${name}">
+                        </div>`;
+                }
+            });
+            iconsHtml += '</div>';
+            const stopsMap = state.selectedLine.data.reduce((acc, curr) => {
+                if (!acc[curr.x]) acc[curr.x] = { arr: null, dep: null };
+                if (acc[curr.x].arr === null) acc[curr.x].arr = Math.ceil(curr.y);
+                else acc[curr.x].dep = Math.floor(curr.y);
+                return acc;
+            }, {});
+            const stationsHtml = Object.entries(stopsMap).map(([name, times]) => {
+                const arrStr = times.arr !== null ? formatTime(times.arr) : "--:--";
+                const depStr = times.dep !== null ? formatTime(times.dep) : (times.arr !== null ? formatTime(times.arr) : "--:--");
+                const isFocused = name === state.focusedStation ? 'border-bottom: 2px solid #fff; font-weight: bold;' : '';
+                return `
+                    <span onclick="selectStation('${name}')"
+                        style="width: 50px; text-align: center; display: inline-block; white-space: nowrap;
+                        ${isFocused} cursor: pointer; transition: opacity 0.2s;"
+                        onmouseover="this.style.opacity=0.6" onmouseout="this.style.opacity=1">
+                        <span style="font-size: 0.8em;">${name}<br><span style="font-size: 0.6em; opacity: 0.7;">${arrStr}<br>${depStr}</span></span>
+                    </span>
+                `;
+            }).join('<b style="opacity: 0.5; align-self: center;">→</b>');
+            DOM.infoBox.innerHTML = `
+                <div style="display: flex; align-items: stretch; gap: 15px;">
+                    <span class="info-segment train-id" style="color: ${colorPalette[state.selectedLine.train]}; 
+                        position: sticky; left: -15px; z-index: 25; gap: 15px; background: var(--panel-bg); 
+                        border-right: 1px solid var(--border-color); padding: 0 20px; height: 15vh; white-space: nowrap; ">
+                        <strong>${state.selectedLine.train} ${state.selectedLine.number}</strong>
+                    </span>
+                    <span style="display: flex; align-items: center;">
+                        <span class="info-segment via-label" style="color: ${viaColor}">${viaText}</span>
+                        <span class="info-segment route-display">${state.selectedLine.info.start} → ${state.selectedLine.info.end}</span>
+                        ${boxesHtml}
+                        ${iconsHtml}
+                    </span>
+                    <span style="display: flex; flex-direction: row; align-items: center; padding-left: 20px; padding-right: 50vw;">${stationsHtml}</span>
+                </div>
+            `;
+        }
+        else if (state.focusedStation) {
+            const allAvailableTrains = [...todaySegments, ...yesterdaySegments];
+            const nextTrains = allAvailableTrains
+            .map(train => {
+                const stop = train.data.findLast(p => p.x === state.focusedStation);
+                const stopDistances = train.data.map(p => allStationDistances[p.x]).filter(d => d !== undefined);
+                    return stop ? { 
+                        number: train.number, 
+                        type: train.train, 
+                        dest: train.info.end.slice(6), 
+                        time: stop.y,
+                        isClockwise: (allStationDistances[train.info.start.slice(6)] > allStationDistances[train.info.end.slice(6)]) ^ (Math.max(...stopDistances) - Math.min(...stopDistances) > 6000)
+                    } : null;
+                })
+                .filter(t => t !== null && t.time >= state.currentTimeMinutes)
+                .sort((a, b) => a.time - b.time);
+            const cwTrains = nextTrains.filter(t => t.isClockwise);
+            const ccwTrains = nextTrains.filter(t => !t.isClockwise);
+            const cwtext = nextTrains.length > 0 ? cwTrains.map(t => `
+            <span class="panel-train-info" onclick="selectTrain('${t.number}')"
+                style="cursor: pointer; transition: opacity 0.2s;"
+                onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1">
+                <span style="color: ${colorPalette[t.type]}; opacity: ${t.dest == state.focusedStation ? 0.5 : 1};">${t.type} ${t.number}</span>
+                <span style="opacity: ${t.dest == state.focusedStation ? 0.5 : 1};"> ${formatTime(t.time)} 往 ${t.dest}</span>
+            </span>`).join(' <b style="opacity: 0.5;">>></b> ') : "";
+            const ccwtext = nextTrains.length > 0 ? ccwTrains.map(t => `
+            <span class="panel-train-info" onclick="selectTrain('${t.number}')"
+                style="cursor: pointer; transition: opacity 0.2s;"
+                onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1">
+                <span style="color: ${colorPalette[t.type]}; opacity: ${t.dest == state.focusedStation ? 0.5 : 1};">${t.type} ${t.number}</span>
+                <span style="opacity: ${t.dest == state.focusedStation ? 0.5 : 1};"> ${formatTime(t.time)} 往 ${t.dest}</span>
+            </span>`).join(' <b style="opacity: 0.5;">>></b> ') : "";
+            let trainsHtml = nextTrains.length == 0 ? `<span class="placeholder" style="padding-left: 10px;">今日無後續車次</span>`
+                : cwtext != "" && ccwtext == "" ? `<span>順行 <b style="opacity: 0.5;">>></b> ${cwtext}<br>逆行無後續車次</span>`
+                : cwtext == "" && ccwtext != "" ? `<span>順行無後續車次<br>逆行 <b style="opacity: 0.5;">>></b> ${ccwtext}</span>`
+                : `<span>順行 <b style="opacity: 0.5;">>></b> ${cwtext}<br>逆行 <b style="opacity: 0.5;">>></b> ${ccwtext}</span>`;
+
+            DOM.stationBox.innerHTML = `
+                <div style="display: flex; align-items: stretch; gap: 15px;">
+                    <div class="info-segment" style="position: sticky; left: -15px; display: flex; align-items: center; z-index: 20;
+                        font-size: 1.3em; white-space: nowrap; background: var(--panel-bg); border-right: 1px solid var(--border-color); 
+                        padding-left: 20px; padding-right: 20px; height: 15vh; ">
+                        <strong>${state.focusedStation}站</strong>
+                    </div>
+                    <div style="display: flex; flex-direction: row; gap: 15px; align-items: center; line-height: 1.4; font-size: 0.95em; padding-right: 30vw">
+                        ${trainsHtml}
+                    </div>
+                </div>
+            `;
+        } else {
+            DOM.stationBox.innerHTML = '';
+            DOM.infoBox.innerHTML = '';
+        }
+    }
+
+    function updateStationGridData() {
+        Object.keys(gridData).forEach(key => Array.isArray(gridData[key]) ? gridData[key] = [] : null);
+        Object.entries(state.stationDistances).forEach(([name, yValue]) => {
+            if (state.stationList.has(name)) {
+                for (let x = 120; x <= 1560; x += 120) {
+                    const entry = { text: name, position: [x * 3, yValue], y: yValue };
+                    if (x % 480 === 0) {
+                        if (mainStationList.has(name)) gridData.mainLabelData.push(entry);
+                        gridData.sparseLabelData.push(entry);
+                    }
+                    if (x % 240 === 0) gridData.normalLabelData.push(entry);
+                    gridData.denseLabelData.push(entry);
+                }
+            }
+        });
+
+        const distances = Array.from(state.stationList).map(name => state.stationDistances[name]);
+        gridData.minDistance = Math.min(...distances);
+        gridData.maxDistance = Math.max(...distances);
+        
+        for (let x = 120; x <= 1560; x += 10) {
+            const path = [[x * 3, gridData.minDistance - state.period], [x * 3, gridData.maxDistance + state.period]];
+            (x % 60 === 0) ? gridData.thickLines.push({ path }) : gridData.thinLines.push({ path });
+        }
+
+        for (let y = gridData.minDistance - state.period; y <= gridData.maxDistance + state.period; y += 400) {
+            for (let x = 120; x <= 1560; x += 10) {
+                const label = { text: `${Math.floor(x/60).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
+                gridData.denseLabels.push(label);
+                if (x % 30 === 0) gridData.normalLabels.push(label);
+            }
+        }
+        for (let y = gridData.minDistance - state.period; y <= gridData.maxDistance + state.period; y += 800) {
+            for (let x = 120; x <= 1560; x += 60) {
+                const label = { text: `${Math.floor(x/60).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
+                gridData.sparseLabels.push(label);
+                if (x % 120 === 0) gridData.simpleLabels.push(label);
+            }
+        }
+    }
+
+    const panel = document.getElementById('bottompanel');
+    panel.addEventListener('wheel', (event) => {
+        if (event.deltaY !== 0) {
+            event.preventDefault();
+            panel.scrollLeft += event.deltaY * 3;
+        }
+    }, { passive: false });
+
+    DOM.typeFilters.forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+            const type = e.target.value;
+            e.target.checked ? state.enabledTypes.add(type) : state.enabledTypes.delete(type);
+            if (state.selectedLine && state.selectedLine.type === type && !e.target.checked) {
+                state.selectedLine = null;
+                updateInfoBox();
+            }
+            renderLayers();
+        });
+    });
+
+    DOM.pills.forEach(pill => {
+        pill.addEventListener('click', () => {
+            const type = pill.getAttribute('data-type');
+            if (state.enabledTypes.has(type)) {
+                state.enabledTypes.delete(type);
+                if (state.selectedLine && state.selectedLine.train === type) {
+                    state.selectedLine = null;
+                }
+            } else {
+                state.enabledTypes.add(type);
+            }
+            syncPillStyles();
+            renderLayers();
+            updateInfoBox();
+        });
+    });
+
+    dateSelector.addEventListener('change', () => { loadData(); });
+
+    DOM.btnSelectAll.addEventListener('click', () => {
+        Object.keys(colorPalette).forEach(type => state.enabledTypes.add(type));
+        syncPillStyles();
+        renderLayers();
+        updateInfoBox();
+    });
+    DOM.btnDeselectAll.addEventListener('click', () => {
+        state.enabledTypes.clear();
+        state.selectedLine = null;
+        syncPillStyles();
+        renderLayers();
+        updateInfoBox();
+    });
+
+    let isMountain = true;
+    DOM.linePills.forEach(pill => {
+        pill.addEventListener('click', () => {
+            DOM.linePills.forEach(p => p.classList.remove('active'));
+            pill.classList.add('active');
+            const lineType = pill.getAttribute('data-line');
+            isMountain = lineType === 'mountain';
+            state.stationList = isMountain ? mountStationList : seaStationList;
+            state.stationDistances = isMountain ? mountStationDistances : seaStationDistances;
+            state.period = isMountain ? 8759 : 8806;
+            
+            if (state.selectedLine) {
+                const updatedMatch = rawData.find(t => 
+                    t.number === state.selectedLine.number && 
+                    t.data.some(p => state.stationList.has(p.x))
+                );
+                const yupdatedMatch = yrawData.find(t => 
+                    t.number === state.selectedLine.number && 
+                    t.data.some(p => state.stationList.has(p.x))
+                );
+                if (updatedMatch) { state.selectedLine = updatedMatch; }
+                else if ( yupdatedMatch ) { state.selectedLine = yupdatedMatch; }
+                else {
+                    state.selectedLine = null;
+                    state.showSchedule = false;
+                    updateInfoBox();
+                }
+            }
+            updateStationGridData();
+            updateInfoBox();
+            renderLayers();
+        });
+    });
+
+    DOM.btnClearSelection.onclick = () => {
+        state.selectedLine = null;
+        state.showSchedule = false;
+        updateInfoBox();
+        updateBottomPanel();
+        renderLayers();
+    };
+
+    document.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        if (key === 'h' && state.selectedLine) {
+            state.showSchedule = !state.showSchedule;
+            renderLayers();
+        }
+        if (key === 'm') {
+            DOM.viewMonitor.style.display = (DOM.viewMonitor.style.display === 'block') ? 'none' : 'block';
+        }
+        if (key === 'r') {
+            realtime = !realtime;
+            loadData();
+        }
+        if (key === "escape" || e.keyCode === 27) {
+            state.focusedStation = null;
+            state.selectedLine = null;
+            state.showSchedule = false;
+            const infoModal = document.getElementById('info-modal');
+            if (infoModal) infoModal.style.display = 'none';
+            const questionModal = document.getElementById('question-modal');
+            if (questionModal) questionModal.style.display = 'none';
+            updateInfoBox();
+            updateBottomPanel();
+            renderLayers();
+        }
+    });
+
+    function renderLayers() {
+        const yOffsets = [-state.period, 0, state.period];
+        
+        todaySegments = rawData
+            .filter(train => {
+                const isEnabled = state.enabledTypes.has(train.train);
+                const passesStation = state.focusedStation ? train.data.some(p => p.x === state.focusedStation) : true;
+                return isEnabled && passesStation;
+            })
+            .flatMap(train => {
+                const segments = [];
+                let currentSegment = [];
+                let cumulativeOffset = 0;
+                for (let i = 0; i < train.data.length; i++) {
+                    const p = train.data[i];
+                    if (p.y == -1) {
+                        continue;
+                    }
+                    if (p.y >= 1560) {
+                        if (currentSegment.length > 0) {
+                            const prevPoint = currentSegment[currentSegment.length - 1];
+                            if (prevPoint.y >= 1560) continue;
+                            const prevDist = state.stationDistances[prevPoint.x];
+                            const currentDist = state.stationDistances[p.x];
+                            currentSegment.push({ ...p, y: 1560, adjustedDist: prevDist + (currentDist - prevDist) * (1560 - prevPoint.y) / (p.y - prevPoint.y) + cumulativeOffset});
+                        }
+                        continue;
+                    }
+                    const currentRawDist = state.stationDistances[p.x];
+                    if (currentSegment.length > 0) {
+                        const prevPoint = currentSegment[currentSegment.length - 1];
+                        const prevRawDist = state.stationDistances[prevPoint.x];
+
+                        if (prevRawDist < 1000 && currentRawDist > 6000) cumulativeOffset -= state.period;
+                        else if (prevRawDist > 6000 && currentRawDist < 1000) cumulativeOffset += state.period;
+
+                        if (currentRawDist === undefined) {
+                            const currentCalcDist = allStationDistances[p.x];
+                            if (currentCalcDist !== undefined)  {
+                                if (currentCalcDist > 1250 && prevRawDist < 1200) {
+                                    currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (1214 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 1214 + cumulativeOffset});
+                                }
+                                if (currentCalcDist < 2050 && prevRawDist > 2100 && train.info.via == "海線" && isMountain) {
+                                    currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (2070 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 2070 + cumulativeOffset});
+                                }
+                                if (currentCalcDist < 2100 && prevRawDist > 2150 && train.info.via == "山線" && !isMountain) {
+                                    currentSegment.push({ ...p, y: prevPoint.y + (p.y - prevPoint.y) * (2117 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 2117 + cumulativeOffset});
+                                }
+                            }
+                        }
+                    }
+                    if (i > 0 && currentRawDist !== undefined) {
+                        const prevPoint = train.data[i - 1];
+                        const prevRawDist = state.stationDistances[prevPoint.x];
+                        if (prevRawDist === undefined) {
+                            const prevCalcDist = allStationDistances[prevPoint.x];
+                            if (prevCalcDist !== undefined)  {
+                                if (prevCalcDist > 1250 && currentRawDist < 1200) {
+                                    currentSegment.push({ ...p, y: p.y + (prevPoint.y - p.y) * (1214 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 1214 + cumulativeOffset});
+                                }
+                                if (prevCalcDist < 2050 && currentRawDist > 2100 && train.info.via == "海線" && isMountain) {
+                                    currentSegment.push({ ...p, y: p.y + (prevPoint.y - p.y) * (2070 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 2070 + cumulativeOffset});
+                                }
+                                if (prevCalcDist < 2100 && currentRawDist > 2150 && train.info.via == "山線" && !isMountain) {
+                                    currentSegment.push({ ...p, y: p.y + (prevPoint.y - p.y) * (2117 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 2117 + cumulativeOffset});
+                                }
+                            }
+                        }
+                    }
+                    if (currentRawDist === undefined) {
+                        if (currentSegment.length > 1) {
+                            segments.push({ ...train, data: currentSegment });
+                        }
+                        currentSegment = [];
+                        continue;
+                    }
+                    currentSegment.push({ ...p, adjustedDist: currentRawDist + cumulativeOffset });
+                }
+
+                if (currentSegment.length > 1) {
+                    segments.push({ ...train, data: currentSegment });
+                }
+
+                return segments;
+            })
+            .filter(train => train.data.length > 1);
+
+        yesterdaySegments = yrawData
+            .filter(train => {
+                const isEnabled = state.enabledTypes.has(train.train);
+                const passesStation = state.focusedStation ? train.data.some(p => p.x === state.focusedStation) : true;
+                return isEnabled && passesStation;
+            })
+            .flatMap(train => {
+                const segments = [];
+                let currentSegment = [];
+                let cumulativeOffset = 0;
+                for (let i = 0; i < train.data.length; i++) {
+                    const p = train.data[i];
+                    if (p.y < 1560) { continue; }
+                    let tmpy = p.y - 1440;
+                    const currentRawDist = state.stationDistances[p.x];
+                    if (currentSegment.length > 0) {
+                        const prevPoint = currentSegment[currentSegment.length - 1];
+                        const prevRawDist = state.stationDistances[prevPoint.x];
+                        let tmpprey = (prevPoint.y >= 1560) ? prevPoint.y - 1440 : prevPoint.y;
+
+                        if (prevRawDist < 1000 && currentRawDist > 6000) cumulativeOffset -= state.period;
+                        else if (prevRawDist > 6000 && currentRawDist < 1000) cumulativeOffset += state.period;
+
+                        if (currentRawDist === undefined) {
+                            const currentCalcDist = allStationDistances[p.x];
+                            if (currentCalcDist !== undefined)  {
+                                if (currentCalcDist > 1250 && prevRawDist < 1200) {
+                                    currentSegment.push({ ...p, y: tmpprey + (tmpy - tmpprey) * (1214 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 1214 + cumulativeOffset});
+                                }
+                                if (currentCalcDist < 2050 && prevRawDist > 2100 && train.info.via == "海線" && isMountain) {
+                                    currentSegment.push({ ...p, y: tmpprey + (tmpy - tmpprey) * (2070 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 2070 + cumulativeOffset});
+                                }
+                                if (currentCalcDist < 2100 && prevRawDist > 2150 && train.info.via == "山線" && !isMountain) {
+                                    currentSegment.push({ ...p, y: tmpprey + (tmpy - tmpprey) * (2117 - prevRawDist) / (currentCalcDist - prevRawDist), adjustedDist: 2117 + cumulativeOffset});
+                                }
+                            }
+                        }
+                    } else {
+                        if (i > 0) {
+                            const prevPoint = train.data[i - 1];
+                            if (prevPoint.y >= 1560) continue;
+                            const prevDist = state.stationDistances[prevPoint.x];
+                            const currentDist = state.stationDistances[p.x];
+                            currentSegment.push({ ...p, y: 120, adjustedDist: prevDist + (currentDist - prevDist) * (1560 - prevPoint.y) / (p.y - prevPoint.y) + cumulativeOffset});
+
+                        }
+                    }
+                    if (i > 0 && currentRawDist !== undefined) {
+                        const prevPoint = train.data[i - 1];
+                        const prevRawDist = state.stationDistances[prevPoint.x];
+                        if (prevRawDist === undefined) {
+                            const prevCalcDist = allStationDistances[prevPoint.x];
+                            if (prevCalcDist !== undefined)  {
+                                if (prevCalcDist > 1250 && currentRawDist < 1200) {
+                                    currentSegment.push({ ...p, y: tmpy + (tmpprey - tmpy) * (1214 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 1214 + cumulativeOffset});
+                                }
+                                if (prevCalcDist < 2050 && currentRawDist > 2100 && train.info.via == "海線" && isMountain) {
+                                    currentSegment.push({ ...p, y: tmpy + (tmpprey - tmpy) * (2070 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 2070 + cumulativeOffset});
+                                }
+                                if (prevCalcDist < 2100 && currentRawDist > 2150 && train.info.via == "山線" && !isMountain) {
+                                    currentSegment.push({ ...p, y: tmpy + (tmpprey - tmpy) * (2117 - currentRawDist) / (prevCalcDist - currentRawDist), adjustedDist: 2117 + cumulativeOffset});
+                                }
+                            }
+                        }
+                    }
+                    if (currentRawDist === undefined) {
+                        if (currentSegment.length > 1) {
+                            segments.push({ ...train, data: currentSegment });
+                        }
+                        currentSegment = [];
+                        continue;
+                    }
+
+                    currentSegment.push({ ...p, y: tmpy, adjustedDist: currentRawDist + cumulativeOffset });
+                }
+
+                if (currentSegment.length > 1) {
+                    segments.push({ ...train, data: currentSegment });
+                }
+
+                return segments;
+            })
+            .filter(train => train.data.length > 1);
+
+        const processedSegments = [...todaySegments, ...yesterdaySegments];
+
+        let scheduleData = [];
+        if (state.showSchedule && state.selectedLine) {
+            const grouped = {};
+            const selectedNum = state.selectedLine.number;
+            const isTodayTrain = todaySegments.some(t => t.number === selectedNum);
+            const isYesterdayTrain = yesterdaySegments.some(t => t.number === selectedNum);
+            state.selectedLine.data.forEach(p => {
+                if (state.stationDistances[p.x] !== undefined) {
+                    if ((isTodayTrain && p.y < 1560) || (isYesterdayTrain && p.y >= 1560)) {
+                        if (!grouped[p.x]) grouped[p.x] = [];
+                        grouped[p.x].push(isYesterdayTrain ? p.y - 1440 : p.y);
+                    }
+                }
+            });
+
+            scheduleData = Object.entries(grouped).map(([name, times]) => {
+                const sortedTimes = times.sort((a, b) => a - b);
+                return {
+                    station: name,
+                    arr: Math.ceil(sortedTimes[0]),
+                    dep: Math.floor(sortedTimes[1] || sortedTimes[0]),
+                    yCoord: state.stationDistances[name]
+                };
+            });
+        }
+
+        const activeLabelData = state.currentZoom > 0.8 ? gridData.denseLabelData : 
+                    state.currentZoom > -0.4 ? gridData.normalLabelData : 
+                    state.currentZoom > -1.8 ? gridData.sparseLabelData : [];
+
+        const offsetLayers = yOffsets.flatMap(offset => [
+            new deck.PathLayer({
+                id: `station-layer-${offset}`,
+                data: Object.entries(state.stationDistances).filter(([name]) => state.stationList.has(name)),
+                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                pickable: true, autoHighlight: true, highlightColor: [220, 220, 220, 150],
+                getPath: d => [[270, d[1] + offset], [4770, d[1] + offset]],
+                getColor: d => d[0] === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [180, 180, 180] : [80, 80, 80]),
+                getWidth: d => d[0] === state.focusedStation ? 3 : 1, widthMaxPixels: 2, widthMinPixels: 0
+            }),
+            new deck.TextLayer({
+                id: `station-labels-${offset}`,
+                data: state.currentZoom >  0.8 ? gridData.denseLabelData : 
+                        state.currentZoom > -0.4 ? gridData.normalLabelData : 
+                        state.currentZoom > -1.8 ? gridData.mainLabelData : [],
+                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, 
+                pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 150],
+                getPosition: d => [d.position[0], d.position[1] + offset],
+                getText: d => d.text,
+                fontFamily: 'GlowSansSCCom-Compressed, sans-serif', 
+                getSize: 16, sizeMaxPixels: 16, sizeMinPixels: 0,
+                getColor: isLight ? [60, 60, 60] : [210, 210, 210],
+                characterSet: 'auto',
+                getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
+            })
+        ]);
+
+        const mainPlotLayers = yOffsets.flatMap(offset => [
+            new deck.PathLayer({
+                id: `main-path-layer-${offset}`,
+                data: processedSegments,
+                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 150],
+                getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
+                getColor: d => { 
+                    const hexcolor = colorPalette[d.train];
+                    const r = parseInt(hexcolor.substring(1, 3), 16);
+                    const g = parseInt(hexcolor.substring(3, 5), 16);
+                    const b = parseInt(hexcolor.substring(5, 7), 16);
+                    return [r, g, b]; 
+                },
+                getWidth: 1.5, widthMaxPixels: 2, widthMinPixels: 0
+            })
+        ]);
+        
+        const selectionLayers = yOffsets.flatMap(offset => [
+            new deck.PathLayer({
+                id: `selection-layer-${offset}`,
+                data: state.selectedLine && state.enabledTypes.has(state.selectedLine.train) ? processedSegments.filter(s => s.number === state.selectedLine.number) : [],
+                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                pickable: false,
+                getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
+                getColor: isLight ? [255, 214, 0] : [255, 196, 0],
+                getWidth: 4, widthMaxPixels: 4.5, widthMinPixels: 0
+            }),
+            new deck.TextLayer({
+                id: `train-schedule-labels-${offset}`,
+                data: scheduleData,
+                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                getPosition: d => [(d.dep+1.5) * 3, d.yCoord + offset, 0],
+                getText: d => {
+                    const format = (val) => `${Math.floor(val/60).toString().padStart(2,'0')}${(val%60).toString().padStart(2,'0')}`;
+                    return `${format(d.arr)} - ${format(d.dep)} ${d.station}`;
+                },
+                fontFamily: 'GlowSansSCCom-Compressed, sans-serif', 
+                getSize: 13, getColor: isLight ? [0, 0, 0] : [255, 255, 255], characterSet: 'auto',
+                getTextAnchor: 'start', getAlignmentBaseline: 'center', pixelOffset: [15, 0], 
+                background: true, getBackgroundColor: isLight ? [255, 255, 255, 180] : [0, 0, 0, 180]
+            }),
+            new deck.TextLayer({
+                id: `station-labels-highlight-${offset}`,
+                data: activeLabelData.filter(d => d.text === state.focusedStation),
+                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true,
+                getPosition: d => [d.position[0], d.position[1] + offset],
+                getText: d => d.text,
+                fontFamily: 'GlowSansSCCom-Compressed, sans-serif', 
+                getSize: 16, sizeMaxPixels: 16, sizeMinPixels: 0,
+                getColor: isLight ? [189, 146, 8] : [232, 252, 13],
+                characterSet: 'auto',
+                getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10],
+                background: true, getBackgroundColor: isLight ? [235, 235, 235, 180] : [20, 20, 20, 180],
+                updateTriggers: { data: [state.currentZoom, state.focusedStation] }
+            })
+        ]);
+
+        const baseLayers = [
+            new deck.PathLayer({
+                id: 'thin-time-lines', data: gridData.thinLines, coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                getPath: d => d.path, getColor: isLight ? [200, 200, 200] : [50, 50, 50], getWidth: 1, widthMaxPixels: 2, widthMinPixels: 0
+            }),
+            new deck.PathLayer({
+                id: 'thick-time-lines', data: gridData.thickLines, coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                getPath: d => d.path, getColor: isLight ? [180, 180, 180] : [80, 80, 80], getWidth: 2, widthMaxPixels: 3, widthMinPixels: 0
+            }),
+            new deck.TextLayer({
+                id: 'vertical-labels',
+                data: state.currentZoom > 0.8 ? gridData.denseLabels : state.currentZoom > -0.4 ? gridData.normalLabels : state.currentZoom > -1.6 ? gridData.sparseLabels : state.currentZoom > -2 ? gridData.simpleLabels : [],
+                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                getPosition: d => d.position, getText: d => d.text,
+                fontFamily: 'GlowSansSCCom-Compressed, sans-serif', 
+                getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0,
+                getColor: isLight ? [80, 80, 80] : [180, 180, 180], characterSet: 'auto',
+                getAlignmentBaseline: 'top', getTextAnchor: 'start', pixelOffset: [5, 5]
+            }),
+            new deck.ScatterplotLayer({
+                id: 'json-layer',
+                data: rawData.flatMap(g => g.data.map(p => ({...p, train: g.train}))),
+                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                getPosition: d => [d.y*3, state.stationDistances[d.x]], 
+                getFillColor: isLight? [50, 50, 50] : [200, 200, 200], getRadius: 0.0001, radiusMaxPixels: 0.001, radiusMinPixels: 0.00001
+            })
+        ];
+
+        const currentTimeLayers = [
+            new deck.PathLayer({
+                id: 'current-time-line',
+                data: [{ path: [[state.currentTimeMinutes * 3, gridData.minDistance - state.period], [state.currentTimeMinutes * 3, gridData.maxDistance + state.period]] }],
+                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
+                getPath: d => d.path, getColor: isLight ? [0, 172, 193] : [0, 225, 255], getWidth: 3.5, widthMaxPixels: 4.5, widthMinPixels: 0
+            })
+        ];
+
+        deckInstance.setProps({ layers: [...baseLayers, ...offsetLayers, ...mainPlotLayers, ...currentTimeLayers, ...selectionLayers] });
+    }
+
+    function updateMapTheme(isLight) {
+        const newColors = isLight ? [0, 0, 0] : [255, 255, 255];
+        colorPalette = isLight ? lightcolorPalette : darkcolorPalette;
+        updateStationGridData();
+        syncPillStyles();
+        renderLayers(); 
+    }
+    themeToggle.addEventListener('click', () => {
+        body.classList.toggle('light-theme');
+        isLight = body.classList.contains('light-theme');
+        themeIcon.textContent = isLight ? '🌙' : '☀️';
+        localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        updateMapTheme(isLight);
+        updateInfoBox();
+    });
+    if (localStorage.getItem('theme') === 'light') {
+        isLight = true;
+        updateMapTheme(isLight);
+    }
+    
+    window.selectTrain = function(trainNumber) {
+        const allTrainsSource = [...rawData, ...yrawData];
+        const selected = allTrainsSource.find( t => t.number == trainNumber );
+        if (selected) {
+            state.selectedLine = selected;
+            state.showSchedule = true; 
+            state.focusedStation = null; 
+            updateBottomPanel();
+            renderLayers(); 
+            updateInfoBox(); 
+        }
+    };
+    
+    window.selectStation = function(stationName) {
+        if (!stationName) return;
+        const switchLine = (type) => {
+            const targetPill = [...DOM.linePills].find(p => p.getAttribute('data-line') === type);
+            if (targetPill) targetPill.click();
+        };
+        if (state.stationDistances[stationName] === undefined) {
+            if (mountStationDistances[stationName] !== undefined) {
+                switchLine('mountain');
+            } else if (seaStationDistances[stationName] !== undefined) {
+                switchLine('sea');
+            }
+        }
+        if (state.stationDistances[stationName] !== undefined) {
+            state.selectedLine = null;
+            state.showSchedule = false; 
+            state.focusedStation = stationName; 
+            const currentVS = deckInstance.props.viewState || 
+                            (deckInstance.viewManager && deckInstance.viewManager.getViewState('ortho')) || 
+                            state.viewState || {};
+            const targetY = state.stationDistances[stationName];
+            const currentTarget = currentVS.target || [state.currentTimeMinutes * 3 + 180, 0, 0];
+            const currentZoom = (typeof currentVS.zoom === 'number') ? currentVS.zoom : (state.currentZoom || 0);
+            const updatedViewState = {
+                ...currentVS,
+                target: [currentTarget[0], targetY, currentTarget[2] || 0], 
+                zoom: currentZoom,
+                transitionDuration: 400,
+                transitionInterpolator: new deck.LinearInterpolator(['target']),
+                transitionInterruption: 1
+            };
+            state.viewState = updatedViewState;
+            deckInstance.setProps({ viewState: updatedViewState });
+            updateBottomPanel();
+            renderLayers(); 
+            updateInfoBox(); 
+        }
+    };
+    syncPillStyles();
+    updateStationGridData();
+    renderLayers();
+}
+
+initMap();
+
+const infoModal = document.getElementById('info-modal');
+const infoBtn = document.getElementById('btn-info');
+const closeinfoBtn = document.querySelector('.close-infomodal');
+const questionModal = document.getElementById('question-modal');
+const questionBtn = document.getElementById('btn-question');
+const closequestionBtn = document.querySelector('.close-questionmodal');
+
+infoBtn.addEventListener('click', () => {
+    infoModal.style.display = 'flex';
+});
+closeinfoBtn.addEventListener('click', () => {
+    infoModal.style.display = 'none';
+});
+window.addEventListener('click', (event) => {
+    if (event.target === infoModal) {
+        infoModal.style.display = 'none';
+    }
+});
+
+questionBtn.addEventListener('click', () => {
+    questionModal.style.display = 'flex';
+});
+closequestionBtn.addEventListener('click', () => {
+    questionModal.style.display = 'none';
+});
+window.addEventListener('click', (event) => {
+    if (event.target === questionModal) {
+        questionModal.style.display = 'none';
+    }
+});
