@@ -212,7 +212,7 @@ body {
 }
 
 .deck-tooltip {
-    font-family: "GlowSansSCCom-Compressed", sans-serif !important;
+    font-family: "GlowSansTCCom-Compressed", sans-serif !important;
     background: var(--panel-bg) !important; letter-spacing: 1px;
     border: 1px solid var(--border-color) !important;
     color: var(--text-color) !important;

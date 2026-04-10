@@ -779,7 +779,7 @@ async function initMap() {
                 pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 150],
                 getPosition: d => [d.position[0], d.position[1] + offset],
                 getText: d => d.text,
-                fontFamily: 'GlowSansSCCom-Compressed, sans-serif', 
+                fontFamily: 'GlowSansTCCom-Compressed, sans-serif', 
                 getSize: 16, sizeMaxPixels: 16, sizeMinPixels: 0,
                 getColor: isLight ? [60, 60, 60] : [210, 210, 210],
                 characterSet: 'auto',
@@ -824,7 +824,7 @@ async function initMap() {
                     const format = (val) => `${Math.floor(val/60).toString().padStart(2,'0')}${(val%60).toString().padStart(2,'0')}`;
                     return `${format(d.arr)} - ${format(d.dep)} ${d.station}`;
                 },
-                fontFamily: 'GlowSansSCCom-Compressed, sans-serif', 
+                fontFamily: 'GlowSansTCCom-Compressed, sans-serif', 
                 getSize: 13, getColor: isLight ? [0, 0, 0] : [255, 255, 255], characterSet: 'auto',
                 getTextAnchor: 'start', getAlignmentBaseline: 'center', pixelOffset: [15, 0], 
                 background: true, getBackgroundColor: isLight ? [255, 255, 255, 180] : [0, 0, 0, 180]
@@ -835,7 +835,7 @@ async function initMap() {
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true,
                 getPosition: d => [d.position[0], d.position[1] + offset],
                 getText: d => d.text,
-                fontFamily: 'GlowSansSCCom-Compressed, sans-serif', 
+                fontFamily: 'GlowSansTCCom-Compressed, sans-serif', 
                 getSize: 16, sizeMaxPixels: 16, sizeMinPixels: 0,
                 getColor: isLight ? [189, 146, 8] : [232, 252, 13],
                 characterSet: 'auto',
@@ -859,7 +859,7 @@ async function initMap() {
                 data: state.currentZoom > 0.8 ? gridData.denseLabels : state.currentZoom > -0.4 ? gridData.normalLabels : state.currentZoom > -1.6 ? gridData.sparseLabels : state.currentZoom > -2 ? gridData.simpleLabels : [],
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                 getPosition: d => d.position, getText: d => d.text,
-                fontFamily: 'GlowSansSCCom-Compressed, sans-serif', 
+                fontFamily: 'GlowSansTCCom-Compressed, sans-serif', 
                 getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0,
                 getColor: isLight ? [80, 80, 80] : [180, 180, 180], characterSet: 'auto',
                 getAlignmentBaseline: 'top', getTextAnchor: 'start', pixelOffset: [5, 5]
