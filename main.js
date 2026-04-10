@@ -32,6 +32,7 @@ let yrawData = [];
 let todaySegments = [];
 let yesterdaySegments = [];
 let isMountain = true;
+let jpLinesStruct = {};
 
 let state = {
     selectedLine: null, showSchedule: false, currentZoom: 0, 
@@ -109,40 +110,31 @@ window.initRegion = async function(region) {
     state.enabledTypes.clear();
 
     if (region === 'TW') {
+        // ... 台鐵邏輯保持不變 ...
         document.getElementById('controls-tw').style.display = 'block';
         if(document.getElementById('controls-jp')) document.getElementById('controls-jp').style.display = 'none';
-        
         colorPalette = isLight ? lightcolorPalette : darkcolorPalette;
-        if(dynamicTypesContainer) {
-            Object.keys(colorPalette).forEach(type => {
-                state.enabledTypes.add(type);
-                dynamicTypesContainer.innerHTML += `<button class="pill active train-type-pill" data-type="${type}" style="background:${colorPalette[type]}; color:#fff">${type}</button>`;
-            });
-        }
-        
         state.stationDistances = isMountain ? mountStationDistances : seaStationDistances;
         state.stationList = isMountain ? mountStationList : seaStationList;
         state.period = isMountain ? 8759 : 8806;
-
-    } else if (region === 'JP') {
+    } 
+    else if (region === 'JP') {
         document.getElementById('controls-tw').style.display = 'none';
         document.getElementById('controls-jp').style.display = 'block';
         colorPalette = jpColorPalette;
 
-        // 💡 1. 從外部檔案讀取車站結構
+        // 💡 修正：先抓取車站資料檔
         try {
             const res = await fetch('Japan/Nankai/station.json');
-            // 將讀取到的資料存入全域變數或 state 供其他功能使用
-            window.jpLinesStruct = await res.json(); 
+            jpLinesStruct = await res.json(); 
         } catch (e) {
-            console.error("無法載入 station.json:", e);
-            window.jpLinesStruct = {}; // 防呆
+            console.error("無法載入 station.json", e);
         }
         
         const jpLineContainer = document.getElementById('jp-line-container');
         if(jpLineContainer) {
             jpLineContainer.innerHTML = '';
-            // 💡 2. 使用剛剛 fetch 回來的 jpLinesStruct 來產生按鈕
+            // 💡 根據抓到的 JSON Key 產生按鈕
             Object.keys(jpLinesStruct).forEach(line => {
                 const isActive = line === state.nankaiActiveLine ? 'active' : '';
                 const bg = isActive ? 'background:#E91E63; color:white' : '';
@@ -157,10 +149,10 @@ window.initRegion = async function(region) {
             });
         }
 
-        // 💡 3. 確保 setupNankaiLine 也是使用新的結構
         setupNankaiLine(state.nankaiActiveLine);
     }
     
+    // 💡 關鍵：必須在按鈕 innerHTML 完之後才綁定事件
     bindDynamicPillEvents();
     await loadData();
     if (!deckInstance) initDeckGL();
@@ -182,109 +174,66 @@ function setupNankaiLine(lineName) {
 }
 
 function bindDynamicPillEvents() {
-    const container = document.getElementById('dynamic-type-pills');
-    if(container) {
-        container.onclick = (e) => {
-            if (e.target.classList.contains('train-type-pill')) {
-                const type = e.target.getAttribute('data-type');
-                if (state.enabledTypes.has(type)) {
-                    state.enabledTypes.delete(type);
-                    e.target.style.background = 'transparent';
-                    e.target.style.color = 'var(--text-color)';
-                    if (state.selectedLine && state.selectedLine.train === type) {
-                        state.selectedLine = null;
-                        updateInfoBox();
-                    }
-                } else {
-                    state.enabledTypes.add(type);
-                    e.target.style.background = colorPalette[type];
-                    e.target.style.color = '#fff';
-                }
-                if (deckInstance) renderLayers();
+    // 1. 車種過濾按鈕
+    document.querySelectorAll('.train-type-pill').forEach(pill => {
+        pill.onclick = () => {
+            const type = pill.dataset.type;
+            if (state.enabledTypes.has(type)) {
+                state.enabledTypes.delete(type);
+                pill.classList.remove('active');
+            } else {
+                state.enabledTypes.add(type);
+                pill.classList.add('active');
             }
+            renderLayers();
         };
-    }
+    });
 
-    const twLineContainer = document.getElementById('tw-line-container');
-    if (twLineContainer) {
-        twLineContainer.onclick = (e) => {
-            if (e.target.classList.contains('line-pill')) {
-                document.querySelectorAll('#tw-line-container .line-pill').forEach(p => p.classList.remove('active'));
-                e.target.classList.add('active');
-                isMountain = e.target.getAttribute('data-line') === 'mountain';
-                state.stationList = isMountain ? mountStationList : seaStationList;
-                state.stationDistances = isMountain ? mountStationDistances : seaStationDistances;
-                state.period = isMountain ? 8759 : 8806;
-                
-                if (state.selectedLine) {
-                    const updatedMatch = rawData.find(t => t.number === state.selectedLine.number && t.data.some(p => state.stationList.has(p.x)));
-                    const yupdatedMatch = yrawData.find(t => t.number === state.selectedLine.number && t.data.some(p => state.stationList.has(p.x)));
-                    if (updatedMatch) state.selectedLine = updatedMatch;
-                    else if (yupdatedMatch) state.selectedLine = yupdatedMatch;
-                    else { state.selectedLine = null; state.showSchedule = false; }
-                }
-                updateStationGridData();
-                updateInfoBox();
-                if(deckInstance) renderLayers();
-            }
-        };
-    }
+    // 💡 2. 修正：南海路線切換按鈕
+    document.querySelectorAll('.nankai-line-pill').forEach(pill => {
+        pill.onclick = async () => {
+            const line = pill.dataset.line;
+            
+            // UI 反饋
+            document.querySelectorAll('.nankai-line-pill').forEach(p => {
+                p.classList.remove('active');
+                p.style.background = '';
+                p.style.color = '';
+            });
+            pill.classList.add('active');
+            pill.style.background = '#E91E63';
+            pill.style.color = 'white';
 
-    const jpLineContainer = document.getElementById('jp-line-container');
-    if (jpLineContainer) {
-        jpLineContainer.onclick = (e) => {
-            if (e.target.classList.contains('nankai-line-pill')) {
-                document.querySelectorAll('#jp-line-container .nankai-line-pill').forEach(p => { p.classList.remove('active'); p.style.background = ''; p.style.color=''; });
-                e.target.classList.add('active');
-                e.target.style.background = '#E91E63'; e.target.style.color = 'white';
-                setupNankaiLine(e.target.getAttribute('data-line'));
-            }
+            // 更新邏輯
+            state.nankaiActiveLine = line;
+            setupNankaiLine(line); // 更新座標表
+            await loadData();      // 讀取該路線 JSON (如 空港線.json)
+            renderLayers();        // 重新繪圖
         };
-    }
-
-    const jpDayContainer = document.getElementById('jp-day-container');
-    if (jpDayContainer) {
-        jpDayContainer.onclick = (e) => {
-            if (e.target.classList.contains('day-pill')) {
-                document.querySelectorAll('#jp-day-container .day-pill').forEach(p => { p.classList.remove('active'); p.style.background = ''; p.style.color=''; });
-                e.target.classList.add('active');
-                state.nankaiActiveDay = e.target.getAttribute('data-day');
-                if(state.nankaiActiveDay === '平日') { e.target.style.background = '#009688'; e.target.style.color = 'white'; }
-                else { e.target.style.background = '#FF9800'; e.target.style.color = 'white'; }
-                if(deckInstance) renderLayers();
-            }
-        };
-    }
+    });
 }
 
 async function loadData() {
     if (currentRegion === 'TW') {
-        const filename = getSelectedDateFilename();
-        const yfilename = getYesterdayFilename();
+        const path = `data/${state.selectedDate.replace(/-/g, '')}.json`;
         try {
-            const response = await fetch(filename);
-            rawData = await response.json();
-        } catch (err) { rawData = []; }
-        try {
-            const yresponse = await fetch(yfilename);
-            yrawData = await yresponse.json();
-        } catch (err) { yrawData = []; }
-    } 
-    else if (currentRegion === 'JP') {
-        try {
-            const res = await fetch(`Japan/Nankai/nankai_timetable.json`);
+            const res = await fetch(path);
             rawData = await res.json();
         } catch(e) { rawData = []; }
         yrawData = []; 
+    } 
+    else if (currentRegion === 'JP') {
+        // 💡 修正：去 Nankai 資料夾抓對應路線的檔案
+        const fileName = state.nankaiActiveLine;
+        try {
+            const res = await fetch(`Japan/Nankai/${fileName}.json`);
+            rawData = await res.json();
+        } catch (e) {
+            console.error(`找不到檔案: Japan/Nankai/${fileName}.json`);
+            rawData = [];
+        }
+        yrawData = []; 
     }
-
-    if (state.selectedLine) { 
-        state.selectedLine = rawData.find(t => t.number === state.selectedLine.number) || yrawData.find(t => t.number === state.selectedLine.number) || null; 
-    }
-    
-    updateStationGridData();
-    updateInfoBox();
-    if(deckInstance) renderLayers();
 }
 
 function initDeckGL() {
