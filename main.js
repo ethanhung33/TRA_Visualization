@@ -215,32 +215,25 @@ function bindDynamicPillEvents() {
 
 async function loadData() {
     if (currentRegion === 'TW') {
-        const filename = getSelectedDateFilename();
-        const yfilename = getYesterdayFilename();
+        const path = `data/${state.selectedDate.replace(/-/g, '')}.json`;
         try {
-            const response = await fetch(filename);
-            rawData = await response.json();
-        } catch (err) { rawData = []; }
-        try {
-            const yresponse = await fetch(yfilename);
-            yrawData = await yresponse.json();
-        } catch (err) { yrawData = []; }
-    } 
-    else if (currentRegion === 'JP') {
-        try {
-            const res = await fetch(`Japan/Nankai/nankai_timetable.json`);
+            const res = await fetch(path);
             rawData = await res.json();
         } catch(e) { rawData = []; }
         yrawData = []; 
+    } 
+    else if (currentRegion === 'JP') {
+        try {
+            // 💡 永遠只讀取這一個包含所有路線的檔案！
+            const res = await fetch('Nankai/nankai_timetable.json');
+            if (!res.ok) throw new Error('找不到 nankai_timetable.json');
+            rawData = await res.json();
+        } catch (e) {
+            console.error("載入時刻表失敗:", e);
+            rawData = [];
+        }
+        yrawData = []; // 日本模式暫不處理跨日
     }
-
-    if (state.selectedLine) { 
-        state.selectedLine = rawData.find(t => t.number === state.selectedLine.number) || yrawData.find(t => t.number === state.selectedLine.number) || null; 
-    }
-    
-    updateStationGridData();
-    updateInfoBox();
-    if(deckInstance) renderLayers();
 }
 
 function initDeckGL() {
@@ -332,22 +325,31 @@ function renderLayers() {
             return state.focusedStation ? train.data.some(p => p.x === state.focusedStation) : true;
         }).flatMap(train => {
             if (currentRegion === 'JP') {
+                // 💡 致命 Bug 修正 1：不符合路線時，必須回傳 []，絕對不能 return false!
+                if (train.line !== state.nankaiActiveLine) return [];
+
+                // 平假日過濾 (一樣要 return [])
+                const driveStr = train.drive || "";
+                const activeStr = state.nankaiActiveDay === '平日' ? '平日' : '土休';
+                if (!driveStr.includes(activeStr) && !driveStr.includes("毎日")) return [];
+
                 const seg = [];
-                // 💡 修正 3：日本採用絕對線性座標，不進行環狀位移計算，確保雙向列車皆正常顯示
                 for (let p of train.data) {
                     if (p.y == -1) continue;
-                    const cDist = state.stationDistances[p.x];
                     
-                    // 只抓取目前路線定義內的車站
+                    // 💡 加入 .trim() 預防站名裡有看不見的空白
+                    const stationName = p.x.trim();
+                    const cDist = state.stationDistances[stationName];
+                    
                     if (cDist !== undefined) {
+                        // 💡 致命 Bug 修正 2：直接使用 cDist 絕對座標，不要加任何 offset，防止回程車飛到外太空
                         seg.push({ 
                             ...p, 
                             y: isYesterday ? p.y - 1440 : p.y, 
-                            adjustedDist: cDist // 直接使用原始座標
+                            adjustedDist: cDist 
                         });
                     }
                 }
-                // 至少要有兩個點才能連成線
                 return seg.length > 1 ? [{ ...train, data: seg }] : [];
             }
 
