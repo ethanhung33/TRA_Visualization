@@ -18,6 +18,13 @@ const jpColorPalette = {
     "空港急行": "#FF4500", "急行": "#FF8C00", "快速急行": "#FF8C00", "区間急行": "#9ACD32",
     "準急": "#1E90FF", "各駅停車": "#969696", "普通": "#969696"
 };
+const jpLinesStruct = {
+    "南海本線": ["難波", "新今宮", "天下茶屋", "岸里玉出", "粉浜", "住吉大社", "住ノ江", "七道", "堺", "湊", "石津川", "諏訪ノ森", "浜寺公園", "羽衣", "高石", "北助松", "松ノ浜", "泉大津", "忠岡", "春木", "和泉大宮", "岸和田", "蛸地蔵", "貝塚", "二色浜", "鶴原", "井原里", "泉佐野", "羽倉崎", "吉見ノ里", "岡田浦", "樽井", "尾崎", "鳥取ノ荘", "箱作", "淡輪", "みさき公園", "孝子", "和歌山大学前", "紀ノ川", "和歌山市"],
+    "空港線": ["泉佐野", "りんくうタウン", "関西空港"],
+    "加太線": ["紀ノ川", "東松江", "中松江", "八幡前", "西ノ庄", "二里ケ浜", "磯ノ浦", "加太"],
+    "高野線": ["難波", "今宮戎", "新今宮", "萩ノ茶屋", "天下茶屋", "岸里玉出", "帝塚山", "住吉東", "沢ノ町", "我孫子前", "浅香山", "堺東", "三国ヶ丘", "百舌鳥八幡", "中百舌鳥", "白鷺", "初芝", "萩原天神", "北野田", "狭山", "大阪狭山市", "金剛", "滝谷", "千代田", "河内長野", "三日市町", "美加の台", "千早口", "天見", "紀見峠", "林間田園都市", "御幸辻", "橋本", "紀伊清水", "学文路", "九度山", "高野下", "下古沢", "上古沢", "紀伊細川", "紀伊神谷", "極楽橋"],
+    "泉北線": ["中百舌鳥", "深井", "泉ケ丘", "栂・美木多", "光明池", "和泉中央"]
+};
 
 // ==========================================
 // 全域變數狀態
@@ -32,14 +39,12 @@ let yrawData = [];
 let todaySegments = [];
 let yesterdaySegments = [];
 let isMountain = true;
-let jpLinesStruct = {};
 
 let state = {
     selectedLine: null, showSchedule: false, currentZoom: 0, 
     enabledTypes: new Set(),
     stationList: mountStationList, stationDistances: mountStationDistances, focusedStation: null,
     period: 8759, initialY: 246, currentTimeMinutes: 0,
-    selectedDate: '2026-04-10',
     nankaiActiveLine: "南海本線", nankaiActiveDay: "平日"
 };
 
@@ -111,31 +116,40 @@ window.initRegion = async function(region) {
     state.enabledTypes.clear();
 
     if (region === 'TW') {
-        // ... 台鐵邏輯保持不變 ...
         document.getElementById('controls-tw').style.display = 'block';
         if(document.getElementById('controls-jp')) document.getElementById('controls-jp').style.display = 'none';
+        
         colorPalette = isLight ? lightcolorPalette : darkcolorPalette;
+        if(dynamicTypesContainer) {
+            Object.keys(colorPalette).forEach(type => {
+                state.enabledTypes.add(type);
+                dynamicTypesContainer.innerHTML += `<button class="pill active train-type-pill" data-type="${type}" style="background:${colorPalette[type]}; color:#fff">${type}</button>`;
+            });
+        }
+        
         state.stationDistances = isMountain ? mountStationDistances : seaStationDistances;
         state.stationList = isMountain ? mountStationList : seaStationList;
         state.period = isMountain ? 8759 : 8806;
-    } 
-    else if (region === 'JP') {
+
+    } else if (region === 'JP') {
         document.getElementById('controls-tw').style.display = 'none';
         document.getElementById('controls-jp').style.display = 'block';
         colorPalette = jpColorPalette;
 
-        // 💡 修正：先抓取車站資料檔
+        // 💡 1. 從外部檔案讀取車站結構
         try {
             const res = await fetch('Japan/Nankai/station.json');
-            jpLinesStruct = await res.json(); 
+            // 將讀取到的資料存入全域變數或 state 供其他功能使用
+            window.jpLinesStruct = await res.json(); 
         } catch (e) {
-            console.error("無法載入 station.json", e);
+            console.error("無法載入 station.json:", e);
+            window.jpLinesStruct = {}; // 防呆
         }
         
         const jpLineContainer = document.getElementById('jp-line-container');
         if(jpLineContainer) {
             jpLineContainer.innerHTML = '';
-            // 💡 根據抓到的 JSON Key 產生按鈕
+            // 💡 2. 使用剛剛 fetch 回來的 jpLinesStruct 來產生按鈕
             Object.keys(jpLinesStruct).forEach(line => {
                 const isActive = line === state.nankaiActiveLine ? 'active' : '';
                 const bg = isActive ? 'background:#E91E63; color:white' : '';
@@ -150,10 +164,10 @@ window.initRegion = async function(region) {
             });
         }
 
+        // 💡 3. 確保 setupNankaiLine 也是使用新的結構
         setupNankaiLine(state.nankaiActiveLine);
     }
     
-    // 💡 關鍵：必須在按鈕 innerHTML 完之後才綁定事件
     bindDynamicPillEvents();
     await loadData();
     if (!deckInstance) initDeckGL();
@@ -175,77 +189,109 @@ function setupNankaiLine(lineName) {
 }
 
 function bindDynamicPillEvents() {
-    // 1. 車種過濾按鈕
-    document.querySelectorAll('.train-type-pill').forEach(pill => {
-        pill.onclick = () => {
-            const type = pill.dataset.type;
-            if (state.enabledTypes.has(type)) {
-                state.enabledTypes.delete(type);
-                pill.classList.remove('active');
-            } else {
-                state.enabledTypes.add(type);
-                pill.classList.add('active');
+    const container = document.getElementById('dynamic-type-pills');
+    if(container) {
+        container.onclick = (e) => {
+            if (e.target.classList.contains('train-type-pill')) {
+                const type = e.target.getAttribute('data-type');
+                if (state.enabledTypes.has(type)) {
+                    state.enabledTypes.delete(type);
+                    e.target.style.background = 'transparent';
+                    e.target.style.color = 'var(--text-color)';
+                    if (state.selectedLine && state.selectedLine.train === type) {
+                        state.selectedLine = null;
+                        updateInfoBox();
+                    }
+                } else {
+                    state.enabledTypes.add(type);
+                    e.target.style.background = colorPalette[type];
+                    e.target.style.color = '#fff';
+                }
+                if (deckInstance) renderLayers();
             }
-            renderLayers();
         };
-    });
+    }
 
-    // 💡 2. 修正：南海路線切換按鈕
-    document.querySelectorAll('.nankai-line-pill').forEach(pill => {
-        pill.onclick = async () => {
-            const line = pill.dataset.line;
-            
-            // UI 反饋
-            document.querySelectorAll('.nankai-line-pill').forEach(p => {
-                p.classList.remove('active');
-                p.style.background = '';
-                p.style.color = '';
-            });
-            pill.classList.add('active');
-            pill.style.background = '#E91E63';
-            pill.style.color = 'white';
-
-            // 更新邏輯
-            state.nankaiActiveLine = line;
-            setupNankaiLine(line); // 更新座標表
-            await loadData();      // 讀取該路線 JSON (如 空港線.json)
-            renderLayers();        // 重新繪圖
+    const twLineContainer = document.getElementById('tw-line-container');
+    if (twLineContainer) {
+        twLineContainer.onclick = (e) => {
+            if (e.target.classList.contains('line-pill')) {
+                document.querySelectorAll('#tw-line-container .line-pill').forEach(p => p.classList.remove('active'));
+                e.target.classList.add('active');
+                isMountain = e.target.getAttribute('data-line') === 'mountain';
+                state.stationList = isMountain ? mountStationList : seaStationList;
+                state.stationDistances = isMountain ? mountStationDistances : seaStationDistances;
+                state.period = isMountain ? 8759 : 8806;
+                
+                if (state.selectedLine) {
+                    const updatedMatch = rawData.find(t => t.number === state.selectedLine.number && t.data.some(p => state.stationList.has(p.x)));
+                    const yupdatedMatch = yrawData.find(t => t.number === state.selectedLine.number && t.data.some(p => state.stationList.has(p.x)));
+                    if (updatedMatch) state.selectedLine = updatedMatch;
+                    else if (yupdatedMatch) state.selectedLine = yupdatedMatch;
+                    else { state.selectedLine = null; state.showSchedule = false; }
+                }
+                updateStationGridData();
+                updateInfoBox();
+                if(deckInstance) renderLayers();
+            }
         };
-    });
+    }
+
+    const jpLineContainer = document.getElementById('jp-line-container');
+    if (jpLineContainer) {
+        jpLineContainer.onclick = (e) => {
+            if (e.target.classList.contains('nankai-line-pill')) {
+                document.querySelectorAll('#jp-line-container .nankai-line-pill').forEach(p => { p.classList.remove('active'); p.style.background = ''; p.style.color=''; });
+                e.target.classList.add('active');
+                e.target.style.background = '#E91E63'; e.target.style.color = 'white';
+                setupNankaiLine(e.target.getAttribute('data-line'));
+            }
+        };
+    }
+
+    const jpDayContainer = document.getElementById('jp-day-container');
+    if (jpDayContainer) {
+        jpDayContainer.onclick = (e) => {
+            if (e.target.classList.contains('day-pill')) {
+                document.querySelectorAll('#jp-day-container .day-pill').forEach(p => { p.classList.remove('active'); p.style.background = ''; p.style.color=''; });
+                e.target.classList.add('active');
+                state.nankaiActiveDay = e.target.getAttribute('data-day');
+                if(state.nankaiActiveDay === '平日') { e.target.style.background = '#009688'; e.target.style.color = 'white'; }
+                else { e.target.style.background = '#FF9800'; e.target.style.color = 'white'; }
+                if(deckInstance) renderLayers();
+            }
+        };
+    }
 }
 
 async function loadData() {
     if (currentRegion === 'TW') {
-        // 確保有日期，防止 undefined.replace 錯誤
-        if (!state.selectedDate) state.selectedDate = '2024-01-01'; 
-        const path = `data/${state.selectedDate.replace(/-/g, '')}.json`;
-        
+        const filename = getSelectedDateFilename();
+        const yfilename = getYesterdayFilename();
         try {
-            const res = await fetch(path);
-            if (!res.ok) throw new Error('台鐵檔案讀取失敗');
-            const data = await res.json();
-            // 💡 防呆：確保 rawData 絕對是陣列，如果不是就給空陣列
-            rawData = Array.isArray(data) ? data : []; 
-        } catch(e) {
-            console.error("台鐵錯誤:", e);
-            rawData = [];
-        }
-        yrawData = []; 
+            const response = await fetch(filename);
+            rawData = await response.json();
+        } catch (err) { rawData = []; }
+        try {
+            const yresponse = await fetch(yfilename);
+            yrawData = await yresponse.json();
+        } catch (err) { yrawData = []; }
     } 
     else if (currentRegion === 'JP') {
         try {
-            // 💡 寫死讀取 nankai_timetable.json，不要再用變數了
-            const res = await fetch('Nankai/nankai_timetable.json');
-            if (!res.ok) throw new Error('南海時刻表讀取失敗');
-            const data = await res.json();
-            // 💡 防呆：確保讀出來的一定是陣列
-            rawData = Array.isArray(data) ? data : [];
-        } catch (e) {
-            console.error("日本錯誤:", e);
-            rawData = [];
-        }
+            const res = await fetch(`Japan/Nankai/nankai_timetable.json`);
+            rawData = await res.json();
+        } catch(e) { rawData = []; }
         yrawData = []; 
     }
+
+    if (state.selectedLine) { 
+        state.selectedLine = rawData.find(t => t.number === state.selectedLine.number) || yrawData.find(t => t.number === state.selectedLine.number) || null; 
+    }
+    
+    updateStationGridData();
+    updateInfoBox();
+    if(deckInstance) renderLayers();
 }
 
 function initDeckGL() {
@@ -313,59 +359,37 @@ function initDeckGL() {
 // ==========================================
 function renderLayers() {
     if (!deckInstance) return;
-
-    // 💡 修正 1：日本模式只需要畫 1 份 (Offset 為 0)，取消台鐵的無限循環
+    // 💡 南海電鐵只需要畫 1 份 (Offset 為 0)，不需要像台鐵畫 3 份
     const yOffsets = currentRegion === 'TW' ? [-state.period, 0, state.period] : [0];
     
     // 處理當日與昨日資料邏輯
     const processTrainData = (sourceData, isYesterday) => {
         return sourceData.filter(train => {
-            // 基礎車種過濾
             if (!state.enabledTypes.has(train.train)) return false;
-            
-            // 日本區域的特殊過濾 (平假日)
             if (currentRegion === 'JP') {
                 const driveStr = train.drive || "";
                 const activeStr = state.nankaiActiveDay === '平日' ? '平日' : '土休';
                 if (!driveStr.includes(activeStr) && !driveStr.includes("毎日")) return false;
-                
-                // 💡 修正 2：精準路線比對 (配合你已切分好的 JSON)
-                if (train.line !== state.nankaiActiveLine) return false;
             }
-            
-            // 車站聚焦過濾
             return state.focusedStation ? train.data.some(p => p.x === state.focusedStation) : true;
         }).flatMap(train => {
             if (currentRegion === 'JP') {
-                // 💡 致命 Bug 修正 1：不符合路線時，必須回傳 []，絕對不能 return false!
-                if (train.line !== state.nankaiActiveLine) return [];
-
-                // 平假日過濾 (一樣要 return [])
-                const driveStr = train.drive || "";
-                const activeStr = state.nankaiActiveDay === '平日' ? '平日' : '土休';
-                if (!driveStr.includes(activeStr) && !driveStr.includes("毎日")) return [];
-
                 const seg = [];
+                // 💡 只要該車次有停靠目前 state.stationList 裡的任何一站就顯示，不檢查 train.line
+                const hasOverlap = train.data.some(p => state.stationList.has(p.x));
+                if (!hasOverlap) return [];
+
                 for (let p of train.data) {
                     if (p.y == -1) continue;
-                    
-                    // 💡 加入 .trim() 預防站名裡有看不見的空白
-                    const stationName = p.x.trim();
-                    const cDist = state.stationDistances[stationName];
-                    
+                    const cDist = state.stationDistances[p.x];
+                    // 💡 只畫出屬於目前路線車站清單內的段落
                     if (cDist !== undefined) {
-                        // 💡 致命 Bug 修正 2：直接使用 cDist 絕對座標，不要加任何 offset，防止回程車飛到外太空
-                        seg.push({ 
-                            ...p, 
-                            y: isYesterday ? p.y - 1440 : p.y, 
-                            adjustedDist: cDist 
-                        });
+                        seg.push({ ...p, y: isYesterday ? p.y - 1440 : p.y, adjustedDist: cDist });
                     }
                 }
                 return seg.length > 1 ? [{ ...train, data: seg }] : [];
             }
-
-            // --- 臺灣鐵路：保留原本的跨日與環狀山海線偏移計算 ---
+            // 臺灣鐵路跨日與山海線偏移計算
             const segments = [];
             let curSeg = [];
             let offset = 0;
@@ -407,7 +431,6 @@ function renderLayers() {
     yesterdaySegments = processTrainData(yrawData, true);
     const processedSegments = [...todaySegments, ...yesterdaySegments];
 
-    // 處理停靠站點詳細資訊 (Schedule)
     let scheduleData = [];
     if (state.showSchedule && state.selectedLine) {
         const grouped = {};
@@ -426,9 +449,10 @@ function renderLayers() {
         });
     }
 
+    const activeLabelData = state.currentZoom > 0.8 ? gridData.denseLabelData : state.currentZoom > -0.4 ? gridData.normalLabelData : state.currentZoom > -1.8 ? gridData.sparseLabelData : [];
+
     const layerBuilder = (offset) => {
         return [
-            // 車站水平線
             new deck.PathLayer({
                 id: `station-layer-${offset}`, data: Object.entries(state.stationDistances).filter(([n]) => state.stationList.has(n)),
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true, autoHighlight: true, highlightColor: [220, 220, 220, 150],
@@ -436,18 +460,16 @@ function renderLayers() {
                 getColor: d => d[0] === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [180, 180, 180] : [80, 80, 80]),
                 getWidth: d => d[0] === state.focusedStation ? 3 : 1, widthMaxPixels: 2, widthMinPixels: 0
             }),
-            // 車站名稱標籤
             new deck.TextLayer({
                 id: `station-labels-${offset}`,
-                data: state.currentZoom > 0.8 ? gridData.denseLabelData : state.currentZoom > -0.4 ? gridData.normalLabelData : state.currentZoom > -1.8 ? (currentRegion === 'JP' ? gridData.denseLabelData : gridData.mainLabelData) : [],
+                data: state.currentZoom > 0.8 ? gridData.denseLabelData : state.currentZoom > -0.4 ? gridData.normalLabelData : state.currentZoom > -1.8 ? gridData.mainLabelData : [],
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 150],
                 getPosition: d => [d.position[0], d.position[1] + offset], getText: d => d.text,
                 fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
-                getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0, 
-                getColor: isLight ? [60, 60, 60] : [210, 210, 210], 
-                characterSet: 'auto', getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
+                getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0, getColor: d => d.text === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [80, 80, 80] : [180, 180, 180]),
+                characterSet: 'auto',
+                getColor: isLight ? [60, 60, 60] : [210, 210, 210], characterSet: 'auto', getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
             }),
-            // 主要列車運行線
             new deck.PathLayer({
                 id: `main-path-layer-${offset}`, data: processedSegments, coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                 pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 150],
@@ -458,14 +480,12 @@ function renderLayers() {
                 },
                 getWidth: 1.5, widthMaxPixels: 2, widthMinPixels: 0
             }),
-            // 選中列車高亮
             new deck.PathLayer({
                 id: `selection-layer-${offset}`, data: state.selectedLine && state.enabledTypes.has(state.selectedLine.train) ? processedSegments.filter(s => s.number === state.selectedLine.number) : [],
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: false,
                 getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
                 getColor: isLight ? [255, 214, 0] : [255, 196, 0], getWidth: 4, widthMaxPixels: 4.5, widthMinPixels: 0
             }),
-            // 選中列車的時刻表標籤
             new deck.TextLayer({
                 id: `train-schedule-labels-${offset}`, data: scheduleData, coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                 getPosition: d => [(d.dep+1.5) * 3, d.yCoord + offset, 0],
@@ -474,34 +494,31 @@ function renderLayers() {
                 getSize: 11, sizeMaxPixels: 11, sizeMinPixels: 0, getColor: isLight ? [50, 50, 50] : [220, 220, 220],
                 characterSet: 'auto',
                 getTextAnchor: 'start', getAlignmentBaseline: 'center', pixelOffset: [15, 0], background: true, getBackgroundColor: isLight ? [255, 255, 255, 180] : [0, 0, 0, 180]
+            }),
+            new deck.TextLayer({
+                id: `station-labels-highlight-${offset}`, data: activeLabelData.filter(d => d.text === state.focusedStation),
+                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true,
+                getPosition: d => [d.position[0], d.position[1] + offset], getText: d => d.text,
+                fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
+                getSize: 14, sizeMaxPixels: 14, sizeMinPixels: 0, getColor: isLight ? [189, 146, 8] : [232, 252, 13],
+                characterSet: 'auto',
+                getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10], background: true, getBackgroundColor: isLight ? [235, 235, 235, 180] : [20, 20, 20, 180]
             })
         ];
     };
 
     deckInstance.setProps({ layers: [
-        // 背景格線 (時間軸)
         new deck.PathLayer({ id: 'thin-time-lines', data: gridData.thinLines, getPath: d => d.path, getColor: isLight ? [200, 200, 200] : [50, 50, 50], getWidth: 1, widthMaxPixels: 2, widthMinPixels: 0 }),
         new deck.PathLayer({ id: 'thick-time-lines', data: gridData.thickLines, getPath: d => d.path, getColor: isLight ? [180, 180, 180] : [80, 80, 80], getWidth: 2, widthMaxPixels: 3, widthMinPixels: 0 }),
-        // 時間文字數字
         new deck.TextLayer({ id: 'vertical-labels', 
             data: state.currentZoom > 0.8 ? gridData.denseLabels : state.currentZoom > -0.4 ? gridData.normalLabels : state.currentZoom > -1.6 ? gridData.sparseLabels : state.currentZoom > -2 ? gridData.simpleLabels : [],
             getPosition: d => d.position, getText: d => d.text, 
-            fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
+            fontFamily: 'GlowSansSCCom-Compressed, sans-serif', // 💡 改成明確的字體名稱
             getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0, getColor: isLight ? [80, 80, 80] : [180, 180, 180], characterSet: 'auto', getAlignmentBaseline: 'top', getTextAnchor: 'start', pixelOffset: [5, 5]
         }),
-        // 渲染主要圖層
+        new deck.ScatterplotLayer({ id: 'json-layer', data: rawData.flatMap(g => g.data.map(p => ({...p, train: g.train}))), getPosition: d => [d.y*3, state.stationDistances[d.x]], getFillColor: isLight? [50, 50, 50] : [200, 200, 200], getRadius: 0.0001, radiusMaxPixels: 0.001, radiusMinPixels: 0.00001 }),
         ...yOffsets.flatMap(layerBuilder),
-        // 💡 修正 4：現在時間線，限制長度使其不無限延伸
-        new deck.PathLayer({ 
-            id: 'current-time-line', 
-            data: [{ 
-                path: [
-                    [state.currentTimeMinutes * 3, gridData.minDistance - (currentRegion === 'JP' ? 50 : state.period)], 
-                    [state.currentTimeMinutes * 3, gridData.maxDistance + (currentRegion === 'JP' ? 50 : state.period)]
-                ] 
-            }], 
-            getPath: d => d.path, getColor: isLight ? [0, 172, 193] : [0, 225, 255], getWidth: 3.5, widthMaxPixels: 4.5, widthMinPixels: 0 
-        })
+        new deck.PathLayer({ id: 'current-time-line', data: [{ path: [[state.currentTimeMinutes * 3, gridData.minDistance - state.period], [state.currentTimeMinutes * 3, gridData.maxDistance + state.period]] }], getPath: d => d.path, getColor: isLight ? [0, 172, 193] : [0, 225, 255], getWidth: 3.5, widthMaxPixels: 4.5, widthMinPixels: 0 })
     ]});
 }
 
@@ -692,22 +709,3 @@ window.selectStation = function(stationName) {
         updateBottomPanel(); renderLayers(); updateInfoBox(); 
     }
 };
-
-function setupNankaiLine(lineName) {
-    const stations = jpLinesStruct[lineName];
-    if (!stations) return;
-
-    state.stationDistances = {};
-    stations.forEach((name, idx) => {
-        state.stationDistances[name] = idx * 50; // 💡 支線較短，間距可以拉大一點點 (如 50) 比較好看
-    });
-    
-    state.stationList = new Set(stations);
-    
-    // 💡 關鍵修正：重新計算這條線的總長度
-    // 這樣背景格線跟基準線才會剛好停在最後一站
-    state.period = (stations.length - 1) * 50; 
-
-    // 強制更新格線座標
-    updateStationGridData();
-}
