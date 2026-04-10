@@ -547,21 +547,43 @@ function updateStationGridData() {
         if (state.stationList.has(name)) {
             for (let x = 120; x <= 1560; x += 120) {
                 const entry = { text: name, position: [x * 3, yValue], y: yValue };
-                if (x % 480 === 0) { if (mainStationList.has(name) || currentRegion === 'JP') gridData.mainLabelData.push(entry); gridData.sparseLabelData.push(entry); }
+                if (x % 480 === 0) {
+                    // 💡 修正 1：讓南海電鐵的所有車站都能強制成為「主要顯示標籤」
+                    if (mainStationList.has(name) || currentRegion === 'JP') gridData.mainLabelData.push(entry);
+                    gridData.sparseLabelData.push(entry);
+                }
                 if (x % 240 === 0) gridData.normalLabelData.push(entry);
                 gridData.denseLabelData.push(entry);
             }
         }
     });
+
     const distances = Array.from(state.stationList).map(name => state.stationDistances[name]);
     gridData.minDistance = Math.min(...distances);
     gridData.maxDistance = Math.max(...distances);
-    for (let x = 120; x <= 1560; x += 10) { const path = [[x * 3, gridData.minDistance - state.period], [x * 3, gridData.maxDistance + state.period]]; (x % 60 === 0) ? gridData.thickLines.push({ path }) : gridData.thinLines.push({ path }); }
-    for (let y = gridData.minDistance - state.period; y <= gridData.maxDistance + state.period; y += 400) {
-        for (let x = 120; x <= 1560; x += 10) { const label = { text: `${Math.floor(x/60).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] }; gridData.denseLabels.push(label); if (x % 30 === 0) gridData.normalLabels.push(label); }
+    
+    for (let x = 120; x <= 1560; x += 10) {
+        const path = [[x * 3, gridData.minDistance - state.period], [x * 3, gridData.maxDistance + state.period]];
+        (x % 60 === 0) ? gridData.thickLines.push({ path }) : gridData.thinLines.push({ path });
     }
-    for (let y = gridData.minDistance - state.period; y <= gridData.maxDistance + state.period; y += 800) {
-        for (let x = 120; x <= 1560; x += 60) { const label = { text: `${Math.floor(x/60).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] }; gridData.sparseLabels.push(label); if (x % 120 === 0) gridData.simpleLabels.push(label); }
+
+    // 💡 修正 2：針對南海電鐵較短的 Y 軸距離，動態縮小時間標籤的繪製間隔
+    const yStep1 = currentRegion === 'JP' ? 100 : 400;
+    const yStep2 = currentRegion === 'JP' ? 200 : 800;
+
+    for (let y = gridData.minDistance - state.period; y <= gridData.maxDistance + state.period; y += yStep1) {
+        for (let x = 120; x <= 1560; x += 10) {
+            const label = { text: `${Math.floor(x/60).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
+            gridData.denseLabels.push(label);
+            if (x % 30 === 0) gridData.normalLabels.push(label);
+        }
+    }
+    for (let y = gridData.minDistance - state.period; y <= gridData.maxDistance + state.period; y += yStep2) {
+        for (let x = 120; x <= 1560; x += 60) {
+            const label = { text: `${Math.floor(x/60).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
+            gridData.sparseLabels.push(label);
+            if (x % 120 === 0) gridData.simpleLabels.push(label);
+        }
     }
 }
 

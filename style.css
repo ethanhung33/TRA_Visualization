@@ -101,7 +101,12 @@ body {
 #sidebar.collapsed + .toggle-btn, .collapsed ~ #sidebar-toggle { right: 0; }
 /* #sidebar.collapsed .icon, #sidebar.collapsed + #sidebar-toggle .icon { display: inline-block; transform: rotate(180deg); } */
 
-#pill-container, #line-pill-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 25px; }
+#pill-container, #line-pill-container, .pill-container { 
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 8px; 
+    margin-bottom: 20px; 
+}
 .pill, .rev-pill { 
     border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 20px; 
     cursor: pointer; font-size: 13px; transition: all 0.3s ease-in-out; font-family: inherit;
