@@ -420,7 +420,10 @@
                     new deck.TextLayer({
                         id: 'station-labels', data: stationLines,
                         getPosition: d => [50, d.path[0][1]], getText: d => d.name,
-                        getSize: 16, getColor: [200, 200, 200], getAlignmentBaseline: 'bottom'
+                        getSize: 1, getColor: [200, 200, 200], getAlignmentBaseline: 'bottom',
+
+                        fontFamily: 'GlowSansTCCom-Compressed, sans-serif', 
+                        characterSet: 'auto'
                     }),
                     new deck.PathLayer({
                         id: 'train-paths', data: pathData,
