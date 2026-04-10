@@ -135,10 +135,21 @@ window.initRegion = async function(region) {
         document.getElementById('controls-tw').style.display = 'none';
         document.getElementById('controls-jp').style.display = 'block';
         colorPalette = jpColorPalette;
+
+        // 💡 1. 從外部檔案讀取車站結構
+        try {
+            const res = await fetch('Japan/Nankai/station.json');
+            // 將讀取到的資料存入全域變數或 state 供其他功能使用
+            window.jpLinesStruct = await res.json(); 
+        } catch (e) {
+            console.error("無法載入 station.json:", e);
+            window.jpLinesStruct = {}; // 防呆
+        }
         
         const jpLineContainer = document.getElementById('jp-line-container');
         if(jpLineContainer) {
             jpLineContainer.innerHTML = '';
+            // 💡 2. 使用剛剛 fetch 回來的 jpLinesStruct 來產生按鈕
             Object.keys(jpLinesStruct).forEach(line => {
                 const isActive = line === state.nankaiActiveLine ? 'active' : '';
                 const bg = isActive ? 'background:#E91E63; color:white' : '';
@@ -153,6 +164,7 @@ window.initRegion = async function(region) {
             });
         }
 
+        // 💡 3. 確保 setupNankaiLine 也是使用新的結構
         setupNankaiLine(state.nankaiActiveLine);
     }
     
