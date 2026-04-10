@@ -352,37 +352,50 @@ function initDeckGL() {
 // ==========================================
 function renderLayers() {
     if (!deckInstance) return;
-    // 💡 南海電鐵只需要畫 1 份 (Offset 為 0)，不需要像台鐵畫 3 份
+
+    // 💡 修正 1：日本模式只需要畫 1 份 (Offset 為 0)，取消台鐵的無限循環
     const yOffsets = currentRegion === 'TW' ? [-state.period, 0, state.period] : [0];
     
     // 處理當日與昨日資料邏輯
     const processTrainData = (sourceData, isYesterday) => {
         return sourceData.filter(train => {
+            // 基礎車種過濾
             if (!state.enabledTypes.has(train.train)) return false;
+            
+            // 日本區域的特殊過濾 (平假日)
             if (currentRegion === 'JP') {
                 const driveStr = train.drive || "";
                 const activeStr = state.nankaiActiveDay === '平日' ? '平日' : '土休';
                 if (!driveStr.includes(activeStr) && !driveStr.includes("毎日")) return false;
+                
+                // 💡 修正 2：精準路線比對 (配合你已切分好的 JSON)
+                if (train.line !== state.nankaiActiveLine) return false;
             }
+            
+            // 車站聚焦過濾
             return state.focusedStation ? train.data.some(p => p.x === state.focusedStation) : true;
         }).flatMap(train => {
             if (currentRegion === 'JP') {
                 const seg = [];
-                // 💡 只要該車次有停靠目前 state.stationList 裡的任何一站就顯示，不檢查 train.line
-                const hasOverlap = train.data.some(p => state.stationList.has(p.x));
-                if (!hasOverlap) return [];
-
+                // 💡 修正 3：日本採用絕對線性座標，不進行環狀位移計算，確保雙向列車皆正常顯示
                 for (let p of train.data) {
                     if (p.y == -1) continue;
                     const cDist = state.stationDistances[p.x];
-                    // 💡 只畫出屬於目前路線車站清單內的段落
+                    
+                    // 只抓取目前路線定義內的車站
                     if (cDist !== undefined) {
-                        seg.push({ ...p, y: isYesterday ? p.y - 1440 : p.y, adjustedDist: cDist });
+                        seg.push({ 
+                            ...p, 
+                            y: isYesterday ? p.y - 1440 : p.y, 
+                            adjustedDist: cDist // 直接使用原始座標
+                        });
                     }
                 }
+                // 至少要有兩個點才能連成線
                 return seg.length > 1 ? [{ ...train, data: seg }] : [];
             }
-            // 臺灣鐵路跨日與山海線偏移計算
+
+            // --- 臺灣鐵路：保留原本的跨日與環狀山海線偏移計算 ---
             const segments = [];
             let curSeg = [];
             let offset = 0;
@@ -424,6 +437,7 @@ function renderLayers() {
     yesterdaySegments = processTrainData(yrawData, true);
     const processedSegments = [...todaySegments, ...yesterdaySegments];
 
+    // 處理停靠站點詳細資訊 (Schedule)
     let scheduleData = [];
     if (state.showSchedule && state.selectedLine) {
         const grouped = {};
@@ -442,10 +456,9 @@ function renderLayers() {
         });
     }
 
-    const activeLabelData = state.currentZoom > 0.8 ? gridData.denseLabelData : state.currentZoom > -0.4 ? gridData.normalLabelData : state.currentZoom > -1.8 ? gridData.sparseLabelData : [];
-
     const layerBuilder = (offset) => {
         return [
+            // 車站水平線
             new deck.PathLayer({
                 id: `station-layer-${offset}`, data: Object.entries(state.stationDistances).filter(([n]) => state.stationList.has(n)),
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true, autoHighlight: true, highlightColor: [220, 220, 220, 150],
@@ -453,16 +466,18 @@ function renderLayers() {
                 getColor: d => d[0] === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [180, 180, 180] : [80, 80, 80]),
                 getWidth: d => d[0] === state.focusedStation ? 3 : 1, widthMaxPixels: 2, widthMinPixels: 0
             }),
+            // 車站名稱標籤
             new deck.TextLayer({
                 id: `station-labels-${offset}`,
-                data: state.currentZoom > 0.8 ? gridData.denseLabelData : state.currentZoom > -0.4 ? gridData.normalLabelData : state.currentZoom > -1.8 ? gridData.mainLabelData : [],
+                data: state.currentZoom > 0.8 ? gridData.denseLabelData : state.currentZoom > -0.4 ? gridData.normalLabelData : state.currentZoom > -1.8 ? (currentRegion === 'JP' ? gridData.denseLabelData : gridData.mainLabelData) : [],
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 150],
                 getPosition: d => [d.position[0], d.position[1] + offset], getText: d => d.text,
                 fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
-                getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0, getColor: d => d.text === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [80, 80, 80] : [180, 180, 180]),
-                characterSet: 'auto',
-                getColor: isLight ? [60, 60, 60] : [210, 210, 210], characterSet: 'auto', getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
+                getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0, 
+                getColor: isLight ? [60, 60, 60] : [210, 210, 210], 
+                characterSet: 'auto', getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
             }),
+            // 主要列車運行線
             new deck.PathLayer({
                 id: `main-path-layer-${offset}`, data: processedSegments, coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                 pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 150],
@@ -473,12 +488,14 @@ function renderLayers() {
                 },
                 getWidth: 1.5, widthMaxPixels: 2, widthMinPixels: 0
             }),
+            // 選中列車高亮
             new deck.PathLayer({
                 id: `selection-layer-${offset}`, data: state.selectedLine && state.enabledTypes.has(state.selectedLine.train) ? processedSegments.filter(s => s.number === state.selectedLine.number) : [],
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: false,
                 getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
                 getColor: isLight ? [255, 214, 0] : [255, 196, 0], getWidth: 4, widthMaxPixels: 4.5, widthMinPixels: 0
             }),
+            // 選中列車的時刻表標籤
             new deck.TextLayer({
                 id: `train-schedule-labels-${offset}`, data: scheduleData, coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                 getPosition: d => [(d.dep+1.5) * 3, d.yCoord + offset, 0],
@@ -487,31 +504,34 @@ function renderLayers() {
                 getSize: 11, sizeMaxPixels: 11, sizeMinPixels: 0, getColor: isLight ? [50, 50, 50] : [220, 220, 220],
                 characterSet: 'auto',
                 getTextAnchor: 'start', getAlignmentBaseline: 'center', pixelOffset: [15, 0], background: true, getBackgroundColor: isLight ? [255, 255, 255, 180] : [0, 0, 0, 180]
-            }),
-            new deck.TextLayer({
-                id: `station-labels-highlight-${offset}`, data: activeLabelData.filter(d => d.text === state.focusedStation),
-                coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true,
-                getPosition: d => [d.position[0], d.position[1] + offset], getText: d => d.text,
-                fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
-                getSize: 14, sizeMaxPixels: 14, sizeMinPixels: 0, getColor: isLight ? [189, 146, 8] : [232, 252, 13],
-                characterSet: 'auto',
-                getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10], background: true, getBackgroundColor: isLight ? [235, 235, 235, 180] : [20, 20, 20, 180]
             })
         ];
     };
 
     deckInstance.setProps({ layers: [
+        // 背景格線 (時間軸)
         new deck.PathLayer({ id: 'thin-time-lines', data: gridData.thinLines, getPath: d => d.path, getColor: isLight ? [200, 200, 200] : [50, 50, 50], getWidth: 1, widthMaxPixels: 2, widthMinPixels: 0 }),
         new deck.PathLayer({ id: 'thick-time-lines', data: gridData.thickLines, getPath: d => d.path, getColor: isLight ? [180, 180, 180] : [80, 80, 80], getWidth: 2, widthMaxPixels: 3, widthMinPixels: 0 }),
+        // 時間文字數字
         new deck.TextLayer({ id: 'vertical-labels', 
             data: state.currentZoom > 0.8 ? gridData.denseLabels : state.currentZoom > -0.4 ? gridData.normalLabels : state.currentZoom > -1.6 ? gridData.sparseLabels : state.currentZoom > -2 ? gridData.simpleLabels : [],
             getPosition: d => d.position, getText: d => d.text, 
-            fontFamily: 'GlowSansSCCom-Compressed, sans-serif', // 💡 改成明確的字體名稱
+            fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
             getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0, getColor: isLight ? [80, 80, 80] : [180, 180, 180], characterSet: 'auto', getAlignmentBaseline: 'top', getTextAnchor: 'start', pixelOffset: [5, 5]
         }),
-        new deck.ScatterplotLayer({ id: 'json-layer', data: rawData.flatMap(g => g.data.map(p => ({...p, train: g.train}))), getPosition: d => [d.y*3, state.stationDistances[d.x]], getFillColor: isLight? [50, 50, 50] : [200, 200, 200], getRadius: 0.0001, radiusMaxPixels: 0.001, radiusMinPixels: 0.00001 }),
+        // 渲染主要圖層
         ...yOffsets.flatMap(layerBuilder),
-        new deck.PathLayer({ id: 'current-time-line', data: [{ path: [[state.currentTimeMinutes * 3, gridData.minDistance - state.period], [state.currentTimeMinutes * 3, gridData.maxDistance + state.period]] }], getPath: d => d.path, getColor: isLight ? [0, 172, 193] : [0, 225, 255], getWidth: 3.5, widthMaxPixels: 4.5, widthMinPixels: 0 })
+        // 💡 修正 4：現在時間線，限制長度使其不無限延伸
+        new deck.PathLayer({ 
+            id: 'current-time-line', 
+            data: [{ 
+                path: [
+                    [state.currentTimeMinutes * 3, gridData.minDistance - (currentRegion === 'JP' ? 50 : state.period)], 
+                    [state.currentTimeMinutes * 3, gridData.maxDistance + (currentRegion === 'JP' ? 50 : state.period)]
+                ] 
+            }], 
+            getPath: d => d.path, getColor: isLight ? [0, 172, 193] : [0, 225, 255], getWidth: 3.5, widthMaxPixels: 4.5, widthMinPixels: 0 
+        })
     ]});
 }
 
@@ -702,3 +722,22 @@ window.selectStation = function(stationName) {
         updateBottomPanel(); renderLayers(); updateInfoBox(); 
     }
 };
+
+function setupNankaiLine(lineName) {
+    const stations = jpLinesStruct[lineName];
+    if (!stations) return;
+
+    state.stationDistances = {};
+    stations.forEach((name, idx) => {
+        state.stationDistances[name] = idx * 50; // 💡 支線較短，間距可以拉大一點點 (如 50) 比較好看
+    });
+    
+    state.stationList = new Set(stations);
+    
+    // 💡 關鍵修正：重新計算這條線的總長度
+    // 這樣背景格線跟基準線才會剛好停在最後一站
+    state.period = (stations.length - 1) * 50; 
+
+    // 強制更新格線座標
+    updateStationGridData();
+}
