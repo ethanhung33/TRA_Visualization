@@ -11,6 +11,11 @@
         <link rel="stylesheet" href="style.css">
     </head>
     <body>
+        <div id="startup-screen">
+            <h1>SELECT REGION</h1>
+            <button class="region-btn" onclick="initRegion('TW')">🇹🇼 臺灣鐵路 (TRA)</button>
+            <button class="region-btn" onclick="initRegion('JP')">🇯🇵 南海電鐵 (Nankai)</button>
+        </div>
         <div id="main-wrapper">
             <div id="container">
                 <div id="view-monitor">
@@ -38,35 +43,39 @@
                 <button id="btn-clear-selection"></button>
             </div>
             <div id="sidebar">
-                <button id="theme-toggle" class="rev-pill utility" title="切換深淺主題">
-                    <span id="theme-icon">☀️</span>
-                </button>
-                <button id="btn-info" class="pill" title="關於本站">
-                    <span class="icon">ℹ️</span>
-                </button>
-                <button id="btn-question" class="pill" title="使用說明">
-                    <span class="icon">❓</span>
-                </button>
-                <h2>日期</h2>
-                <div>
-                    <input type="date" id="date-selector" class="date-input" title="選擇日期" font-family="Orbitron">
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button id="theme-toggle" class="rev-pill utility" title="切換深淺主題">
+                        <span id="theme-icon">☀️</span>
+                    </button>
+                    <button class="pill utility" onclick="location.reload()" title="回首頁">🏠 返回選擇</button>
                 </div>
-                <h2>路線</h2>
-                <div id="line-pill-container">
-                    <button class="pill line-pill mount-text active" data-line="mountain">山線</button>
-                    <button class="pill line-pill sea-text" data-line="sea">海線</button>
+                
+                <div id="controls-tw" style="display: none;">
+                    <h2>日期</h2>
+                    <div><input type="date" id="date-selector" class="date-input" title="選擇日期"></div>
+                    <h2>路線</h2>
+                    <div class="pill-container" id="tw-line-container">
+                        <button class="pill line-pill active" data-line="mountain" style="background:#4CAF50; color:white">山線</button>
+                        <button class="pill line-pill" data-line="sea" style="background:#2196F3; color:white">海線</button>
+                    </div>
                 </div>
+
+                <div id="controls-jp" style="display: none;">
+                    <h2>平假日</h2>
+                    <div class="pill-container" id="jp-day-container">
+                        <button class="pill day-pill active" data-day="平日" style="background:#009688; color:white">平日</button>
+                        <button class="pill day-pill" data-day="土休日" style="background:#FF9800; color:white">土休日</button>
+                    </div>
+                    <h2>路線</h2>
+                    <div class="pill-container" id="jp-line-container">
+                        </div>
+                </div>
+
                 <h2>車種</h2>
-                <div id="pill-container">
+                <div class="pill-container" id="pill-container">
                     <button id="btn-select-all" class="pill utility">全選</button>
                     <button id="btn-deselect-all" class="pill utility">全部不選</button>
-                    <button class="pill active" data-type="普悠瑪" checked> 普悠瑪</button>
-                    <button class="pill active" data-type="太魯閣" checked> 太魯閣</button>
-                    <button class="pill active" data-type="新自強" checked> 新自強</button>
-                    <button class="pill active" data-type="自強" checked> 自強</button>
-                    <button class="pill active" data-type="莒光" checked> 莒光</button>
-                    <button class="pill active" data-type="區間快" checked> 區間快</button>
-                    <button class="pill active" data-type="區間" checked> 區間</button>
+                    <div id="dynamic-type-pills" class="pill-container" style="margin-top: 10px; width: 100%;"></div>
                 </div>
             </div>
             <button id="sidebar-toggle" class="toggle-btn">

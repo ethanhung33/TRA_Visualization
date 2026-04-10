@@ -27,6 +27,25 @@ body {
     overflow: hidden; transition: all 0.3s ease-in-out; cursor: auto;
 }
 
+/* --- 啟動畫面樣式 --- */
+#startup-screen {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background-color: var(--bg-color); z-index: 9999;
+    display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 40px;
+    color: var(--text-color); font-family: "Orbitron", "GlowSansTCCom-Compressed", sans-serif;
+}
+.region-btn {
+    background: var(--panel-bg); color: var(--text-color); border: 2px solid var(--border-color);
+    padding: 20px 50px; font-size: 28px; border-radius: 12px; cursor: pointer; transition: all 0.3s;
+    font-family: inherit; font-weight: bold; width: 350px; text-align: center;
+}
+.region-btn:hover { background: var(--text-color); color: var(--bg-color); transform: translateY(-5px); }
+
+/* 隱藏主畫面直到使用者選擇地區 */
+#main-wrapper { display: none; }
+#sidebar { display: none; }
+.toggle-btn { display: none; }
+
 #main-wrapper { display: flex; flex-direction: column; width: 100vw; height: 100dvh; position: relative; overflow: hidden; }
 #container { width: 100%; height: 85dvh; position: relative; }
 
