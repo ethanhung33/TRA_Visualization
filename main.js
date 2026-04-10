@@ -341,15 +341,16 @@ function initDeckGL() {
 // ==========================================
 function renderLayers() {
     if (!deckInstance) return;
-    const yOffsets = [-state.period, 0, state.period];
+    const yOffsets = currentRegion === 'TW' ? [-state.period, 0, state.period] : new Array(1).fill(0);
     
     // 處理當日與昨日資料邏輯
     const processTrainData = (sourceData, isYesterday) => {
         return sourceData.filter(train => {
             if (!state.enabledTypes.has(train.train)) return false;
             if (currentRegion === 'JP') {
-                if (train.drive !== state.nankaiActiveDay) return false;
-                if (train.line !== state.nankaiActiveLine) return false;
+                const driveStr = train.drive || "";
+                const activeStr = state.nankaiActiveDay === '平日' ? '平日' : '土休';
+                if (!driveStr.includes(activeStr) && !driveStr.includes("毎日")) return false;
             }
             return state.focusedStation ? train.data.some(p => p.x === state.focusedStation) : true;
         }).flatMap(train => {
