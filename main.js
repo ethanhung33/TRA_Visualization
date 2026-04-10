@@ -215,25 +215,32 @@ function bindDynamicPillEvents() {
 
 async function loadData() {
     if (currentRegion === 'TW') {
-        const path = `data/${state.selectedDate.replace(/-/g, '')}.json`;
+        const filename = getSelectedDateFilename();
+        const yfilename = getYesterdayFilename();
         try {
-            const res = await fetch(path);
+            const response = await fetch(filename);
+            rawData = await response.json();
+        } catch (err) { rawData = []; }
+        try {
+            const yresponse = await fetch(yfilename);
+            yrawData = await yresponse.json();
+        } catch (err) { yrawData = []; }
+    } 
+    else if (currentRegion === 'JP') {
+        try {
+            const res = await fetch(`Japan/Nankai/nankai_timetable.json`);
             rawData = await res.json();
         } catch(e) { rawData = []; }
         yrawData = []; 
-    } 
-    else if (currentRegion === 'JP') {
-        // 💡 修正：去 Nankai 資料夾抓對應路線的檔案
-        const fileName = state.nankaiActiveLine;
-        try {
-            const res = await fetch(`Japan/Nankai/${fileName}.json`);
-            rawData = await res.json();
-        } catch (e) {
-            console.error(`找不到檔案: Japan/Nankai/${fileName}.json`);
-            rawData = [];
-        }
-        yrawData = []; 
     }
+
+    if (state.selectedLine) { 
+        state.selectedLine = rawData.find(t => t.number === state.selectedLine.number) || yrawData.find(t => t.number === state.selectedLine.number) || null; 
+    }
+    
+    updateStationGridData();
+    updateInfoBox();
+    if(deckInstance) renderLayers();
 }
 
 function initDeckGL() {
