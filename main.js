@@ -39,6 +39,7 @@ let state = {
     enabledTypes: new Set(),
     stationList: mountStationList, stationDistances: mountStationDistances, focusedStation: null,
     period: 8759, initialY: 246, currentTimeMinutes: 0,
+    selectedDate: '2026-04-10',
     nankaiActiveLine: "南海本線", nankaiActiveDay: "平日"
 };
 
@@ -215,25 +216,32 @@ function bindDynamicPillEvents() {
 
 async function loadData() {
     if (currentRegion === 'TW') {
-        // 台鐵資料讀取邏輯
+        // 確保有日期，防止 undefined.replace 錯誤
+        if (!state.selectedDate) state.selectedDate = '2024-01-01'; 
         const path = `data/${state.selectedDate.replace(/-/g, '')}.json`;
+        
         try {
             const res = await fetch(path);
-            rawData = await res.json();
-        } catch(e) { 
-            console.error("台鐵資料載入失敗", e);
-            rawData = []; 
+            if (!res.ok) throw new Error('台鐵檔案讀取失敗');
+            const data = await res.json();
+            // 💡 防呆：確保 rawData 絕對是陣列，如果不是就給空陣列
+            rawData = Array.isArray(data) ? data : []; 
+        } catch(e) {
+            console.error("台鐵錯誤:", e);
+            rawData = [];
         }
         yrawData = []; 
     } 
     else if (currentRegion === 'JP') {
-        // 南海電鐵資料讀取邏輯 (永遠只讀這個總檔)
         try {
+            // 💡 寫死讀取 nankai_timetable.json，不要再用變數了
             const res = await fetch('Nankai/nankai_timetable.json');
-            if (!res.ok) throw new Error('找不到 nankai_timetable.json');
-            rawData = await res.json();
+            if (!res.ok) throw new Error('南海時刻表讀取失敗');
+            const data = await res.json();
+            // 💡 防呆：確保讀出來的一定是陣列
+            rawData = Array.isArray(data) ? data : [];
         } catch (e) {
-            console.error("南海電鐵資料載入失敗:", e);
+            console.error("日本錯誤:", e);
             rawData = [];
         }
         yrawData = []; 
