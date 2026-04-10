@@ -215,24 +215,28 @@ function bindDynamicPillEvents() {
 
 async function loadData() {
     if (currentRegion === 'TW') {
+        // 台鐵資料讀取邏輯
         const path = `data/${state.selectedDate.replace(/-/g, '')}.json`;
         try {
             const res = await fetch(path);
             rawData = await res.json();
-        } catch(e) { rawData = []; }
+        } catch(e) { 
+            console.error("台鐵資料載入失敗", e);
+            rawData = []; 
+        }
         yrawData = []; 
     } 
     else if (currentRegion === 'JP') {
+        // 南海電鐵資料讀取邏輯 (永遠只讀這個總檔)
         try {
-            // 💡 永遠只讀取這個包含所有路線的總檔！
             const res = await fetch('Nankai/nankai_timetable.json');
             if (!res.ok) throw new Error('找不到 nankai_timetable.json');
             rawData = await res.json();
         } catch (e) {
-            console.error("載入時刻表失敗:", e);
+            console.error("南海電鐵資料載入失敗:", e);
             rawData = [];
         }
-        yrawData = []; // 日本模式暫不處理跨日
+        yrawData = []; 
     }
 }
 
