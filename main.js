@@ -303,19 +303,25 @@ function initDeckGL() {
             }
         },
         onViewStateChange: ({viewState}) => { 
-            if (viewState.target[1] > state.period) viewState.target[1] -= state.period;
-            else if (viewState.target[1] < 0) viewState.target[1] += state.period;
-            viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
-            state.currentZoom = viewState.zoom;
-            
-            if (DOM.viewMonitor && DOM.viewMonitor.style.display === 'block') {
-                if(DOM.valZoom) DOM.valZoom.innerText = viewState.zoom.toFixed(2);
-                if(DOM.valX) DOM.valX.innerText = Math.round(viewState.target[0]);
-                if(DOM.valY) DOM.valY.innerText = Math.round(viewState.target[1]);
-            }
-            const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 1.5);
-            deckInstance.setProps({viewState: {...viewState, zoom: clampedZoom}});
-            renderLayers();
+            if (currentRegion === 'JP') {
+                // 💡 限制 Y 軸捲動範圍，防止滑到空白處
+                viewState.target[1] = Math.min(Math.max(viewState.target[1], -50), state.period + 50);
+            } else {
+                // 台鐵原本的無限循環邏輯...
+                if (viewState.target[1] > state.period) viewState.target[1] -= state.period;
+                else if (viewState.target[1] < 0) viewState.target[1] += state.period;
+                viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
+                state.currentZoom = viewState.zoom;
+                
+                if (DOM.viewMonitor && DOM.viewMonitor.style.display === 'block') {
+                    if(DOM.valZoom) DOM.valZoom.innerText = viewState.zoom.toFixed(2);
+                    if(DOM.valX) DOM.valX.innerText = Math.round(viewState.target[0]);
+                    if(DOM.valY) DOM.valY.innerText = Math.round(viewState.target[1]);
+                }
+                const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 1.5);
+                deckInstance.setProps({viewState: {...viewState, zoom: clampedZoom}});
+                renderLayers();
+                }
         },
         onClick: (info) => {
             state.selectedLine = null;
@@ -341,7 +347,8 @@ function initDeckGL() {
 // ==========================================
 function renderLayers() {
     if (!deckInstance) return;
-    const yOffsets = currentRegion === 'TW' ? [-state.period, 0, state.period] : new Array(1).fill(0);
+    // 💡 南海電鐵只需要畫 1 份 (Offset 為 0)，不需要像台鐵畫 3 份
+    const yOffsets = currentRegion === 'TW' ? [-state.period, 0, state.period] : [0];
     
     // 處理當日與昨日資料邏輯
     const processTrainData = (sourceData, isYesterday) => {
@@ -355,8 +362,20 @@ function renderLayers() {
             return state.focusedStation ? train.data.some(p => p.x === state.focusedStation) : true;
         }).flatMap(train => {
             if (currentRegion === 'JP') {
-                const seg = train.data.map(p => ({ ...p, adjustedDist: state.stationDistances[p.x] })).filter(p => p.adjustedDist !== undefined);
-                return seg.length > 1 ? [{...train, data: seg}] : [];
+                const seg = [];
+                // 💡 只要該車次有停靠目前 state.stationList 裡的任何一站就顯示，不檢查 train.line
+                const hasOverlap = train.data.some(p => state.stationList.has(p.x));
+                if (!hasOverlap) return [];
+
+                for (let p of train.data) {
+                    if (p.y == -1) continue;
+                    const cDist = state.stationDistances[p.x];
+                    // 💡 只畫出屬於目前路線車站清單內的段落
+                    if (cDist !== undefined) {
+                        seg.push({ ...p, y: isYesterday ? p.y - 1440 : p.y, adjustedDist: cDist });
+                    }
+                }
+                return seg.length > 1 ? [{ ...train, data: seg }] : [];
             }
             // 臺灣鐵路跨日與山海線偏移計算
             const segments = [];
@@ -571,9 +590,14 @@ function updateStationGridData() {
     const distances = Array.from(state.stationList).map(name => state.stationDistances[name]);
     gridData.minDistance = Math.min(...distances);
     gridData.maxDistance = Math.max(...distances);
+
+    // 💡 加上 Padding 讓畫面邊緣不要太擠
+    const yPadding = currentRegion === 'JP' ? 100 : state.period;
+    const minY = gridData.minDistance - yPadding;
+    const maxY = gridData.maxDistance + yPadding;
     
     for (let x = 120; x <= 1560; x += 10) {
-        const path = [[x * 3, gridData.minDistance - state.period], [x * 3, gridData.maxDistance + state.period]];
+        const path = [[x * 3, minY], [x * 3, maxY]];
         (x % 60 === 0) ? gridData.thickLines.push({ path }) : gridData.thinLines.push({ path });
     }
 
