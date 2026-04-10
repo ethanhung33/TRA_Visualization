@@ -433,7 +433,9 @@ function renderLayers() {
                 data: state.currentZoom > 0.8 ? gridData.denseLabelData : state.currentZoom > -0.4 ? gridData.normalLabelData : state.currentZoom > -1.8 ? gridData.mainLabelData : [],
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 150],
                 getPosition: d => [d.position[0], d.position[1] + offset], getText: d => d.text,
-                fontFamily: 'inherit', getSize: 16, sizeMaxPixels: 16, sizeMinPixels: 0,
+                fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
+                getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0, getColor: d => d.text === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [80, 80, 80] : [180, 180, 180]),
+                characterSet: 'auto',
                 getColor: isLight ? [60, 60, 60] : [210, 210, 210], characterSet: 'auto', getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
             }),
             new deck.PathLayer({
@@ -456,14 +458,18 @@ function renderLayers() {
                 id: `train-schedule-labels-${offset}`, data: scheduleData, coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
                 getPosition: d => [(d.dep+1.5) * 3, d.yCoord + offset, 0],
                 getText: d => { const f = v => `${Math.floor(v/60).toString().padStart(2,'0')}${(v%60).toString().padStart(2,'0')}`; return `${f(d.arr)} - ${f(d.dep)} ${d.station}`; },
-                fontFamily: 'inherit', getSize: 13, getColor: isLight ? [0, 0, 0] : [255, 255, 255], characterSet: 'auto',
+                fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
+                getSize: 11, sizeMaxPixels: 11, sizeMinPixels: 0, getColor: isLight ? [50, 50, 50] : [220, 220, 220],
+                characterSet: 'auto',
                 getTextAnchor: 'start', getAlignmentBaseline: 'center', pixelOffset: [15, 0], background: true, getBackgroundColor: isLight ? [255, 255, 255, 180] : [0, 0, 0, 180]
             }),
             new deck.TextLayer({
                 id: `station-labels-highlight-${offset}`, data: activeLabelData.filter(d => d.text === state.focusedStation),
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true,
                 getPosition: d => [d.position[0], d.position[1] + offset], getText: d => d.text,
-                fontFamily: 'inherit', getSize: 16, sizeMaxPixels: 16, sizeMinPixels: 0, getColor: isLight ? [189, 146, 8] : [232, 252, 13], characterSet: 'auto',
+                fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
+                getSize: 14, sizeMaxPixels: 14, sizeMinPixels: 0, getColor: isLight ? [189, 146, 8] : [232, 252, 13],
+                characterSet: 'auto',
                 getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10], background: true, getBackgroundColor: isLight ? [235, 235, 235, 180] : [20, 20, 20, 180]
             })
         ];
@@ -472,8 +478,11 @@ function renderLayers() {
     deckInstance.setProps({ layers: [
         new deck.PathLayer({ id: 'thin-time-lines', data: gridData.thinLines, getPath: d => d.path, getColor: isLight ? [200, 200, 200] : [50, 50, 50], getWidth: 1, widthMaxPixels: 2, widthMinPixels: 0 }),
         new deck.PathLayer({ id: 'thick-time-lines', data: gridData.thickLines, getPath: d => d.path, getColor: isLight ? [180, 180, 180] : [80, 80, 80], getWidth: 2, widthMaxPixels: 3, widthMinPixels: 0 }),
-        new deck.TextLayer({ id: 'vertical-labels', data: state.currentZoom > 0.8 ? gridData.denseLabels : state.currentZoom > -0.4 ? gridData.normalLabels : state.currentZoom > -1.6 ? gridData.sparseLabels : state.currentZoom > -2 ? gridData.simpleLabels : [],
-            getPosition: d => d.position, getText: d => d.text, fontFamily: 'inherit', getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0, getColor: isLight ? [80, 80, 80] : [180, 180, 180], characterSet: 'auto', getAlignmentBaseline: 'top', getTextAnchor: 'start', pixelOffset: [5, 5]
+        new deck.TextLayer({ id: 'vertical-labels', 
+            data: state.currentZoom > 0.8 ? gridData.denseLabels : state.currentZoom > -0.4 ? gridData.normalLabels : state.currentZoom > -1.6 ? gridData.sparseLabels : state.currentZoom > -2 ? gridData.simpleLabels : [],
+            getPosition: d => d.position, getText: d => d.text, 
+            fontFamily: 'GlowSansSCCom-Compressed, sans-serif', // 💡 改成明確的字體名稱
+            getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0, getColor: isLight ? [80, 80, 80] : [180, 180, 180], characterSet: 'auto', getAlignmentBaseline: 'top', getTextAnchor: 'start', pixelOffset: [5, 5]
         }),
         new deck.ScatterplotLayer({ id: 'json-layer', data: rawData.flatMap(g => g.data.map(p => ({...p, train: g.train}))), getPosition: d => [d.y*3, state.stationDistances[d.x]], getFillColor: isLight? [50, 50, 50] : [200, 200, 200], getRadius: 0.0001, radiusMaxPixels: 0.001, radiusMinPixels: 0.00001 }),
         ...yOffsets.flatMap(layerBuilder),
