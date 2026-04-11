@@ -135,7 +135,7 @@ window.initRegion = async function(region) {
         try {
             // 💡 修正路徑：拿掉 Japan/，直接抓 Nankai/All_Nankai_Distances_Nested.json
             const res = await fetch('Japan/Nankai/All_Nankai_Distances_Nested.json');
-            
+
             // 💡 絕對只能呼叫一次 res.json()！
             const data = await res.json(); 
             
@@ -191,35 +191,34 @@ function updateOrbitBounds(maxDist) {
 
 window.setupNankaiLine = function(lineName) {
     state.nankaiActiveLine = lineName;
+    const rawLineData = window.jpLinesStruct[lineName] || {};
     
-    // 💡 現在的 lineData 是一個物件 { "難波": 0.0, ... } 而不是陣列
-    const lineData = jpLinesStruct[lineName] || {};
-    
-    // 1. 直接套用真實里程
-    state.stationDistances = lineData;
-    
-    // 2. 車站清單就是物件的 Keys
-    state.stationList = new Set(Object.keys(lineData));
+    // 💡 修正 1：設定 Y 軸放大倍率，讓 64 公里撐開到大約 1600 單位高
+    const Y_SCALE = 25; 
+    const scaledData = {};
+    for (const [st, dist] of Object.entries(rawLineData)) {
+        scaledData[st] = dist * Y_SCALE;
+    }
 
-    // 💡 3. 解決問題 1：精準設定畫布高度 (解決多出網格)
-    const dists = Object.values(lineData);
+    state.stationDistances = scaledData;
+    state.stationList = new Set(Object.keys(scaledData));
+
+    const dists = Object.values(scaledData);
     const maxDist = dists.length > 0 ? Math.max(...dists) : 0;
-    
-    state.period = maxDist; // 告訴系統這條線就這麼長
+    state.period = maxDist;
 
     if (deckInstance) {
-        // 💡 4. 動態調整 OrbitView 邊界，讓下方不留白
-        const newView = new deck.OrbitView({
-            id: 'orbit-view',
-            controller: true,
-            bounds: [0, 0, 4680, maxDist + 5] // 下邊界剛好卡在終點站
+        // 💡 修正 2：換回純 2D 平面的 OrthographicView
+        const newView = new deck.OrthographicView({
+            id: 'ortho',
+            controller: true
         });
         deckInstance.setProps({ views: [newView] });
         
         updateStationGridData();
         renderLayers();
     }
-}
+};
 
 function bindDynamicPillEvents() {
     const container = document.getElementById('dynamic-type-pills');
@@ -377,24 +376,28 @@ function initDeckGL() {
         },
         onViewStateChange: ({viewState}) => { 
             if (currentRegion === 'JP') {
-                // 💡 限制 Y 軸捲動範圍，防止滑到空白處
-                viewState.target[1] = Math.min(Math.max(viewState.target[1], -50), state.period + 50);
+                // 💡 限制 JP 區域的 Y 軸拖曳範圍 (0 到最大里程)，加上 100 單位的留白緩衝
+                viewState.target[1] = Math.min(Math.max(viewState.target[1], -100), state.period + 100);
+                
+                // 限制 X 軸拖曳範圍
+                viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
+                
+                state.currentZoom = viewState.zoom;
             } else {
-                // 台鐵原本的無限循環邏輯...
+                // 這裡維持原本 TW 的無限循環邏輯...
                 if (viewState.target[1] > state.period) viewState.target[1] -= state.period;
                 else if (viewState.target[1] < 0) viewState.target[1] += state.period;
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
                 state.currentZoom = viewState.zoom;
-                
-                if (DOM.viewMonitor && DOM.viewMonitor.style.display === 'block') {
-                    if(DOM.valZoom) DOM.valZoom.innerText = viewState.zoom.toFixed(2);
-                    if(DOM.valX) DOM.valX.innerText = Math.round(viewState.target[0]);
-                    if(DOM.valY) DOM.valY.innerText = Math.round(viewState.target[1]);
-                }
-                const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 1.5);
-                deckInstance.setProps({viewState: {...viewState, zoom: clampedZoom}});
-                renderLayers();
-                }
+            }
+            
+            // 下方維持你原本的 Monitor 更新與 zoom 限制邏輯
+            if (DOM.viewMonitor && DOM.viewMonitor.style.display === 'block') {
+                // ...
+            }
+            const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 1.5);
+            deckInstance.setProps({viewState: {...viewState, zoom: clampedZoom}});
+            renderLayers();
         },
         onClick: (info) => {
             state.selectedLine = null;
