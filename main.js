@@ -364,7 +364,7 @@ function initDeckGL() {
         views: [new deck.OrthographicView({id: 'ortho'})],
         initialViewState: { 
             target: [state.currentTimeMinutes * 3 + 180, state.initialY, 0], 
-            zoom: 0, minZoom: -3.75, maxZoom: 1.5 
+            zoom: 0, minZoom: -3.75, maxZoom: 3 
         },
         controller: true,
         pickingRadius: 10,
@@ -383,11 +383,15 @@ function initDeckGL() {
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
                 
                 state.currentZoom = viewState.zoom;
+                const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 3);
+                deckInstance.setProps({viewState: {...viewState, zoom: clampedZoom}});
             } else {
                 // 這裡維持原本 TW 的無限循環邏輯...
                 if (viewState.target[1] > state.period) viewState.target[1] -= state.period;
                 else if (viewState.target[1] < 0) viewState.target[1] += state.period;
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
+                const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 1.5);
+                deckInstance.setProps({viewState: {...viewState, zoom: clampedZoom}});
                 state.currentZoom = viewState.zoom;
             }
             
