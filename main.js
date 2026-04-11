@@ -133,10 +133,15 @@ window.initRegion = async function(region) {
 
         // 💡 1. 從外部檔案讀取車站結構
         try {
-            const res = await fetch('Japan/Nankai/station.json');
-            jpLinesStruct = await res.json();
-            // 將讀取到的資料存入全域變數或 state 供其他功能使用
-            window.jpLinesStruct = await res.json(); 
+            // 💡 修正路徑：拿掉 Japan/，直接抓 Nankai/station.json
+            const res = await fetch('Nankai/station.json');
+            
+            // 💡 絕對只能呼叫一次 res.json()！
+            const data = await res.json(); 
+            
+            // 把讀取到的資料指派給全域變數
+            jpLinesStruct = data;
+            window.jpLinesStruct = data;
         } catch (e) {
             console.error("無法載入 station.json:", e);
             window.jpLinesStruct = {}; // 防呆
