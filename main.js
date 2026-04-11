@@ -133,8 +133,8 @@ window.initRegion = async function(region) {
 
         // 💡 1. 從外部檔案讀取車站結構
         try {
-            // 💡 修正路徑：拿掉 Japan/，直接抓 Nankai/station.json
-            const res = await fetch('Japan/Nankai/station.json');
+            // 💡 修正路徑：拿掉 Japan/，直接抓 Nankai/All_Nankai_Distances_Nested.json
+            const res = await fetch('Japan/Nankai/All_Nankai_Distances_Nested.json');
             
             // 💡 絕對只能呼叫一次 res.json()！
             const data = await res.json(); 
@@ -174,16 +174,48 @@ window.initRegion = async function(region) {
     if (!deckInstance) initDeckGL();
 };
 
-function setupNankaiLine(lineName) {
-    state.nankaiActiveLine = lineName;
-    const stations = jpLinesStruct[lineName] || [];
-    state.stationList = new Set(stations);
-    state.stationDistances = {};
-    stations.forEach((st, idx) => {
-        state.stationDistances[st] = idx * 35;
+// 新增一個通用的更新 ViewState 的函式
+function updateOrbitBounds(maxDist) {
+    if (!deckInstance) return;
+    
+    const newView = new deck.OrbitView({
+        id: 'orbit-view',
+        controller: true,
+        // 💡 關鍵：將邊界設定為 0 到 maxDist + 一點緩衝 (例如 5km)
+        // 這樣下方就不會出現多餘的空白網格
+        bounds: [0, 0, 4680, maxDist + 5] 
     });
-    state.period = stations.length * 35; 
+
+    deckInstance.setProps({ views: [newView] });
+}
+
+window.setupNankaiLine = function(lineName) {
+    state.nankaiActiveLine = lineName;
+    
+    // 💡 現在的 lineData 是一個物件 { "難波": 0.0, ... } 而不是陣列
+    const lineData = jpLinesStruct[lineName] || {};
+    
+    // 1. 直接套用真實里程
+    state.stationDistances = lineData;
+    
+    // 2. 車站清單就是物件的 Keys
+    state.stationList = new Set(Object.keys(lineData));
+
+    // 💡 3. 解決問題 1：精準設定畫布高度 (解決多出網格)
+    const dists = Object.values(lineData);
+    const maxDist = dists.length > 0 ? Math.max(...dists) : 0;
+    
+    state.period = maxDist; // 告訴系統這條線就這麼長
+
     if (deckInstance) {
+        // 💡 4. 動態調整 OrbitView 邊界，讓下方不留白
+        const newView = new deck.OrbitView({
+            id: 'orbit-view',
+            controller: true,
+            bounds: [0, 0, 4680, maxDist + 5] // 下邊界剛好卡在終點站
+        });
+        deckInstance.setProps({ views: [newView] });
+        
         updateStationGridData();
         renderLayers();
     }
