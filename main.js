@@ -374,7 +374,15 @@ function initDeckGL() {
                 else if (object.text === undefined) return { text: `${String(object).split(',')[0]}` };
             }
         },
-        onViewStateChange: ({viewState}) => { 
+        onViewStateChange: ({viewState, oldViewState}) => { 
+            // 💡 解決平移 Bug：如果滾輪滾超過你設定的極限 (例如 20)，就強制退回上一步，不准滑動！
+            const MAX_ZOOM = currentRegion === 'JP' ? 20 : 1.5;
+            if (viewState.zoom > MAX_ZOOM) {
+                deckInstance.setProps({
+                    viewState: { ...oldViewState } 
+                });
+                return; // 直接中斷
+            } 
             if (currentRegion === 'JP') {
                 // 💡 限制 JP 區域的 Y 軸拖曳範圍 (0 到最大里程)，加上 100 單位的留白緩衝
                 viewState.target[1] = Math.min(Math.max(viewState.target[1], -100), state.period + 100);
@@ -546,7 +554,7 @@ function renderLayers() {
                     const h = colorPalette[d.train] || '#999999';
                     return [parseInt(h.substring(1, 3), 16), parseInt(h.substring(3, 5), 16), parseInt(h.substring(5, 7), 16)]; 
                 },
-                getWidth: 1.5, widthMaxPixels: 50, widthMinPixels: 0
+                getWidth: 2, widthMaxPixels: 4, widthMinPixels: 0
             }),
             new deck.PathLayer({
                 id: `selection-layer-${offset}`, data: state.selectedLine && state.enabledTypes.has(state.selectedLine.train) ? processedSegments.filter(s => s.number === state.selectedLine.number) : [],
