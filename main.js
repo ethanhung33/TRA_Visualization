@@ -265,7 +265,7 @@ function bindDynamicPillEvents() {
     }
 
     // 💡 這裡開始是新增的「全選 / 全部不選」邏輯
-    const selectAllBtn = document.getElementById('select-all-btn'); // 請確認 index.html 裡的 ID 是這個
+    const selectAllBtn = document.getElementById('btn-select-all'); // 請確認 index.html 裡的 ID 是這個
     if (selectAllBtn) {
         selectAllBtn.onclick = () => {
             document.querySelectorAll('.train-type-pill').forEach(pill => {
@@ -278,7 +278,7 @@ function bindDynamicPillEvents() {
         };
     }
 
-    const deselectAllBtn = document.getElementById('deselect-all-btn'); // 請確認 index.html 裡的 ID 是這個
+    const deselectAllBtn = document.getElementById('btn-deselect-all'); // 請確認 index.html 裡的 ID 是這個
     if (deselectAllBtn) {
         deselectAllBtn.onclick = () => {
             state.enabledTypes.clear();
