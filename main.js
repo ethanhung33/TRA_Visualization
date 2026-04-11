@@ -134,7 +134,7 @@ window.initRegion = async function(region) {
         // 💡 1. 從外部檔案讀取車站結構
         try {
             // 💡 修正路徑：拿掉 Japan/，直接抓 Nankai/station.json
-            const res = await fetch('Nankai/station.json');
+            const res = await fetch('Japan/Nankai/station.json');
             
             // 💡 絕對只能呼叫一次 res.json()！
             const data = await res.json(); 
