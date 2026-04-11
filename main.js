@@ -364,7 +364,7 @@ function initDeckGL() {
         views: [new deck.OrthographicView({id: 'ortho'})],
         initialViewState: { 
             target: [state.currentTimeMinutes * 3 + 180, state.initialY, 0], 
-            zoom: 0, minZoom: -3.75, maxZoom: 10
+            zoom: 0, minZoom: -3.75, maxZoom: 30
         },
         controller: true,
         pickingRadius: 10,
@@ -383,7 +383,7 @@ function initDeckGL() {
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
                 
                 state.currentZoom = viewState.zoom;
-                const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 10);
+                const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 30);
                 deckInstance.setProps({viewState: {...viewState, zoom: clampedZoom}});
             } else {
                 // 這裡維持原本 TW 的無限循環邏輯...
@@ -685,14 +685,14 @@ function updateStationGridData() {
     const yStep1 = currentRegion === 'JP' ? 100 : 400;
     const yStep2 = currentRegion === 'JP' ? 200 : 800;
 
-    for (let y = gridData.minDistance - state.period; y <= gridData.maxDistance + state.period; y += yStep1) {
+    for (let y = minY; y <= maxY; y += yStep1) {
         for (let x = 120; x <= 1560; x += 10) {
             const label = { text: `${Math.floor(x/60).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
             gridData.denseLabels.push(label);
             if (x % 30 === 0) gridData.normalLabels.push(label);
         }
     }
-    for (let y = gridData.minDistance - state.period; y <= gridData.maxDistance + state.period; y += yStep2) {
+    for (let y = minY; y <= maxY; y += yStep2) {
         for (let x = 120; x <= 1560; x += 60) {
             const label = { text: `${Math.floor(x/60).toString().padStart(2, '0')}${(x%60).toString().padStart(2, '0')}`, position: [(x*3)+5, y] };
             gridData.sparseLabels.push(label);
