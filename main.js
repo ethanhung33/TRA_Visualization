@@ -364,7 +364,7 @@ function initDeckGL() {
         views: [new deck.OrthographicView({id: 'ortho'})],
         initialViewState: { 
             target: [state.currentTimeMinutes * 3 + 180, state.initialY, 0], 
-            zoom: 0, minZoom: -3.75, maxZoom: 200
+            zoom: 0, minZoom: -3.75, maxZoom: 20
         },
         controller: true,
         pickingRadius: 10,
@@ -383,7 +383,7 @@ function initDeckGL() {
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
                 
                 state.currentZoom = viewState.zoom;
-                const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 200);
+                const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 20);
                 deckInstance.setProps({viewState: {...viewState, zoom: clampedZoom}});
             } else {
                 // 這裡維持原本 TW 的無限循環邏輯...
@@ -534,7 +534,7 @@ function renderLayers() {
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 150],
                 getPosition: d => [d.position[0], d.position[1] + offset], getText: d => d.text,
                 fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
-                getSize: 12, sizeMaxPixels: 12, sizeMinPixels: 0, getColor: d => d.text === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [80, 80, 80] : [180, 180, 180]),
+                getSize: 12, sizeMaxPixels: 100, sizeMinPixels: 0, getColor: d => d.text === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [80, 80, 80] : [180, 180, 180]),
                 characterSet: 'auto',
                 getColor: isLight ? [60, 60, 60] : [210, 210, 210], characterSet: 'auto', getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
             }),
@@ -546,7 +546,7 @@ function renderLayers() {
                     const h = colorPalette[d.train] || '#999999';
                     return [parseInt(h.substring(1, 3), 16), parseInt(h.substring(3, 5), 16), parseInt(h.substring(5, 7), 16)]; 
                 },
-                getWidth: 1.5, widthMaxPixels: 2, widthMinPixels: 0
+                getWidth: 1.5, widthMaxPixels: 50, widthMinPixels: 0
             }),
             new deck.PathLayer({
                 id: `selection-layer-${offset}`, data: state.selectedLine && state.enabledTypes.has(state.selectedLine.train) ? processedSegments.filter(s => s.number === state.selectedLine.number) : [],
