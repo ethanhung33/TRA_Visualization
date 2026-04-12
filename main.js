@@ -990,7 +990,7 @@ window.selectTrain = function(trainNumber) {
     if (selected) { state.selectedLine = selected; state.showSchedule = true; state.focusedStation = null; updateBottomPanel(); renderLayers(); updateInfoBox(); }
 };
 
-// 💡 攝影機導航：無動畫、零延遲，瞬間切換到路線最頂端！(防跳動修復版)
+// 💡 攝影機導航：無動畫、零延遲，瞬間切換到路線最頂端！(完全受控防跳動版)
 window.centerCameraOnLine = function() {
     if (!deckInstance || !state.stationList || !state.stationDistances) return;
 
@@ -1000,11 +1000,10 @@ window.centerCameraOnLine = function() {
     
     if (distances.length === 0) return;
 
-    // 1. 取得這條路線最上方那一站的 Y 座標
     const minY = Math.min(...distances);
 
-    // 2. 抓取目前最真實的狀態 (保留你當下的 zoom 縮放比例)
-    const currentVS = state.viewState || deckInstance.props.initialViewState || deckInstance.props.viewState || {};
+    // 💡 抓取最新狀態 (因為我們剛加了同步，這裡抓到的絕對是最準確的滑鼠位置！)
+    const currentVS = state.viewState || deckInstance.props.viewState || deckInstance.props.initialViewState || {};
     const currentX = currentVS.target?.[0] || (state.currentTimeMinutes * 3 + 180);
 
     const updatedViewState = { 
@@ -1012,11 +1011,12 @@ window.centerCameraOnLine = function() {
         target: [currentX, minY, 0] 
     };
     
+    // 將新座標存入 state
     state.viewState = updatedViewState; 
     
-    // 💡 關鍵修復：改用 initialViewState！
-    // 這樣就不會跟 Deck.gl 內部的滑鼠控制器打架了
-    deckInstance.setProps({ initialViewState: updatedViewState });
+    // 💡 終極修復 2：使用 viewState 強制瞬間移動畫面！
+    // 不用 initialViewState 了，因為我們已經全面接管控制器！
+    deckInstance.setProps({ viewState: updatedViewState });
 };
 
 window.selectStation = function(stationName) {
