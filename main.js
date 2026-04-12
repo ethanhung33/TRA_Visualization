@@ -988,7 +988,7 @@ window.selectTrain = function(trainNumber) {
     if (selected) { state.selectedLine = selected; state.showSchedule = true; state.focusedStation = null; updateBottomPanel(); renderLayers(); updateInfoBox(); }
 };
 
-// 💡 攝影機導航：無動畫、零延遲，瞬間切換到路線最頂端！
+// 💡 攝影機導航：無動畫、零延遲，瞬間切換到路線最頂端！(防跳動修復版)
 window.centerCameraOnLine = function() {
     if (!deckInstance || !state.stationList || !state.stationDistances) return;
 
@@ -1001,17 +1001,20 @@ window.centerCameraOnLine = function() {
     // 1. 取得這條路線最上方那一站的 Y 座標
     const minY = Math.min(...distances);
 
-    const currentVS = deckInstance.props.viewState || state.viewState || {};
+    // 2. 抓取目前最真實的狀態 (保留你當下的 zoom 縮放比例)
+    const currentVS = state.viewState || deckInstance.props.initialViewState || deckInstance.props.viewState || {};
     const currentX = currentVS.target?.[0] || (state.currentTimeMinutes * 3 + 180);
 
-    // 2. 拔掉所有 transition 動畫設定，直接暴力賦予新座標！
     const updatedViewState = { 
         ...currentVS, 
-        target: [currentX, minY, 0] // 💡 直接鎖定 minY，不加任何緩衝
+        target: [currentX, minY, 0] 
     };
     
     state.viewState = updatedViewState; 
-    deckInstance.setProps({ viewState: updatedViewState });
+    
+    // 💡 關鍵修復：改用 initialViewState！
+    // 這樣就不會跟 Deck.gl 內部的滑鼠控制器打架了
+    deckInstance.setProps({ initialViewState: updatedViewState });
 };
 
 window.selectStation = function(stationName) {
