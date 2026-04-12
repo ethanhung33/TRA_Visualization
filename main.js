@@ -342,7 +342,7 @@ function bindDynamicPillEvents() {
                 const type = pill.getAttribute('data-type');
                 state.enabledTypes.add(type);
                 pill.style.background = currentPalette[type];
-                pill.style.color = '#fff';
+                pill.style.color = 'var(--subtext-color)';
             });
             if (deckInstance) renderLayers();
             
