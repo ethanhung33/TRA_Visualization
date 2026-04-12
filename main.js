@@ -645,21 +645,32 @@ function updateInfoBox() {
     const formatTime = (totalMin) => `${String(Math.floor((totalMin % 1440) / 60)).padStart(2, '0')}:${String(Math.floor(totalMin % 60)).padStart(2, '0')}`;
     
     if (state.selectedLine) {
+        // 💡 防彈機制 1：建立安全物件，台日資料結構都能無縫接軌！
+        const infoObj = state.selectedLine.info || {}; 
+        
         const daysLabel = ["加", "一", "二", "三", "四", "五", "六", "日", "例"];
-        const viaText = state.selectedLine.info.via !== '-' ? `(${(state.selectedLine.info.via).replace(/線/g, '')})` : '';
+        
+        // 💡 防彈讀取 via (山海線)
+        const viaRaw = infoObj.via;
+        const viaText = (viaRaw && viaRaw !== '-') ? `(${viaRaw.replace(/線/g, '')})` : '';
         const viaColor = viaText.includes("山") ? "#4CAF50" : viaText.includes("海") ? "#2196F3" : viaText.includes("成追") ? "#FF5722" : "#888";
-        const specialNote = (state.selectedLine.info.note || "").split('。')[0];
+        
+        // 💡 防彈讀取附註 (note)
+        const specialNote = (infoObj.note || state.selectedLine.note || "").split('。')[0];
         
         let boxesHtml = `<div class="day-container" title="${specialNote}">`;
         [0,1,2,3,4,5,6,7,8].forEach(num => {
-            const driveStr = state.selectedLine.info.drive || "平日土休日";
-            const isActive = driveStr.includes(num.toString()) || driveStr.includes("平日") || driveStr.includes("土休");
+            // 💡 防彈讀取行駛日 (drive)
+            const driveStr = infoObj.drive || state.selectedLine.drive || "平日土休";
+            const isActive = driveStr.includes(num.toString()) || driveStr.includes("平日") || driveStr.includes("土休") || driveStr.includes("毎日");
             boxesHtml += `<div class="day-box ${isActive ? 'active' : ''} ${(num===8 && driveStr.includes("9")) ? 'special-rule' : ''}">${daysLabel[num]}</div>`;
         });
         boxesHtml += '</div><div class="service-container">';
         
         Object.entries(serviceIcons).forEach(([name, url]) => {
-            if ((state.selectedLine.info.img || "").includes(name) || (state.selectedLine.info.note || "").includes(name)) {
+            const imgStr = infoObj.img || state.selectedLine.img || "";
+            const noteStr = infoObj.note || state.selectedLine.note || "";
+            if (imgStr.includes(name) || noteStr.includes(name)) {
                 boxesHtml += `<div class="service-box" title="${name}"><img src="${url}" alt="${name}"></div>`;
             }
         });
@@ -679,17 +690,32 @@ function updateInfoBox() {
             return `<span onclick="selectStation('${name}')" style="width: 50px; text-align: center; display: inline-block; white-space: nowrap; ${isFocused} cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity=0.6" onmouseout="this.style.opacity=1"><span style="font-size: 0.8em;">${name}<br><span style="font-size: 0.6em; opacity: 0.7;">${arrStr}<br>${depStr}</span></span></span>`;
         }).join('<b style="opacity: 0.5; align-self: center;">→</b>');
         
-        DOM.infoBox.innerHTML = `<div style="display: flex; align-items: stretch; gap: 15px;"><span class="info-segment train-id" style="color: ${colorPalette[state.selectedLine.train]}; position: sticky; left: -15px; z-index: 25; gap: 15px; background: var(--panel-bg); border-right: 1px solid var(--border-color); padding: 0 20px; height: 15vh; white-space: nowrap; "><strong>${state.selectedLine.train} ${state.selectedLine.number}</strong></span><span style="display: flex; align-items: center;"><span class="info-segment via-label" style="color: ${viaColor}">${viaText}</span><span class="info-segment route-display">${state.selectedLine.info.start} → ${state.selectedLine.info.end}</span>${boxesHtml}</span><span style="display: flex; flex-direction: row; align-items: center; padding-left: 20px; padding-right: 50vw;">${stationsHtml}</span></div>`;
+        // 💡 防彈讀取起終點 (start/end)，若無資料則直接抓軌跡的第一站與最後一站
+        const startStation = infoObj.start || state.selectedLine.start || state.selectedLine.data[0].x;
+        const endStation = infoObj.end || state.selectedLine.end || state.selectedLine.data[state.selectedLine.data.length - 1].x;
+
+        DOM.infoBox.innerHTML = `<div style="display: flex; align-items: stretch; gap: 15px;"><span class="info-segment train-id" style="color: ${colorPalette[state.selectedLine.train] || '#ccc'}; position: sticky; left: -15px; z-index: 25; gap: 15px; background: var(--panel-bg); border-right: 1px solid var(--border-color); padding: 0 20px; height: 15vh; white-space: nowrap; "><strong>${state.selectedLine.train} ${state.selectedLine.number}</strong></span><span style="display: flex; align-items: center;"><span class="info-segment via-label" style="color: ${viaColor}">${viaText}</span><span class="info-segment route-display">${startStation} → ${endStation}</span>${boxesHtml}</span><span style="display: flex; flex-direction: row; align-items: center; padding-left: 20px; padding-right: 50vw;">${stationsHtml}</span></div>`;
     }
     else if (state.focusedStation) {
         const nextTrains = [...todaySegments, ...yesterdaySegments].map(train => {
             const stop = train.data.findLast(p => p.x === state.focusedStation);
             const stopDistances = train.data.map(p => allStationDistances[p.x] || state.stationDistances[p.x]).filter(d => d !== undefined);
-            const isClockwise = currentRegion === 'TW' ? (allStationDistances[train.info.start.slice(6)] > allStationDistances[train.info.end.slice(6)]) ^ (Math.max(...stopDistances) - Math.min(...stopDistances) > 6000) : state.stationDistances[train.data[0].x] < state.stationDistances[train.data[train.data.length-1].x];
-            return stop ? { number: train.number, type: train.train, dest: currentRegion==='TW' ? train.info.end.slice(6) : train.info.end.split(' ')[1], time: stop.y, isClockwise } : null;
+            
+            // 💡 防彈機制 2：保護車站點擊時的 info 讀取
+            const infoSafe = train.info || {};
+            const isClockwise = currentRegion === 'TW' 
+                ? (allStationDistances[infoSafe.start?.slice(6)] > allStationDistances[infoSafe.end?.slice(6)]) ^ (Math.max(...stopDistances) - Math.min(...stopDistances) > 6000) 
+                : state.stationDistances[train.data[0].x] < state.stationDistances[train.data[train.data.length-1].x];
+            
+            // 精準抓取終點站名稱
+            const destName = currentRegion === 'TW' 
+                ? (infoSafe.end || "").slice(6) 
+                : (train.end || infoSafe.end || train.data[train.data.length-1].x).replace(/.* /, ''); 
+            
+            return stop ? { number: train.number, type: train.train, dest: destName, time: stop.y, isClockwise } : null;
         }).filter(t => t !== null && t.time >= state.currentTimeMinutes).sort((a, b) => a.time - b.time);
         
-        const buildInfo = list => list.length ? list.map(t => `<span class="panel-train-info" onclick="selectTrain('${t.number}')" style="cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1"><span style="color: ${colorPalette[t.type]}; opacity: ${t.dest == state.focusedStation ? 0.5 : 1};">${t.type} ${t.number}</span><span style="opacity: ${t.dest == state.focusedStation ? 0.5 : 1};"> ${formatTime(t.time)} 往 ${t.dest}</span></span>`).join(' <b style="opacity: 0.5;">>></b> ') : "無後續車次";
+        const buildInfo = list => list.length ? list.map(t => `<span class="panel-train-info" onclick="selectTrain('${t.number}')" style="cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1"><span style="color: ${colorPalette[t.type] || '#ccc'}; opacity: ${t.dest == state.focusedStation ? 0.5 : 1};">${t.type} ${t.number}</span><span style="opacity: ${t.dest == state.focusedStation ? 0.5 : 1};"> ${formatTime(t.time)} 往 ${t.dest}</span></span>`).join(' <b style="opacity: 0.5;">>></b> ') : "無後續車次";
         const cwtext = buildInfo(nextTrains.filter(t => t.isClockwise));
         const ccwtext = buildInfo(nextTrains.filter(t => !t.isClockwise));
 
