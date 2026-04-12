@@ -958,10 +958,36 @@ function updateBottomPanel() {
 }
 
 function syncAllPalettes() {
+    // 1. 決定資料源
+    const traSource = isLight ? lightcolorPalette : darkcolorPalette; // 這裡用你原本定義的對象
     const jpSource = isLight ? _JP_LIGHT : _JP_DARK;
 
-    // 💡 暴力同步：直接把資料塞進去，這樣 Object.keys() 就能抓到東西了！
+    // 2. 同步資料物件 (讓 deck.gl 畫線時抓到正確顏色)
+    // 註：如果你原本宣告的是 let jpColorPalette = {}，這行才有用
     Object.assign(jpColorPalette, jpSource);
+    // 如果你有一個統一給台鐵用的變數 (例如 TRAColorPalette)，也要 Object.assign 進去
+
+    // 3. 💡 關鍵：更新右側側邊欄按鈕的顏色
+    document.querySelectorAll('.train-type-pill').forEach(pill => {
+        const type = pill.getAttribute('data-type');
+        
+        // 檢查這個車種是否被「啟動」 (選中)
+        if (state.enabledTypes.has(type)) {
+            // 自動偵測顏色：先看日本色票有沒有，沒有再看台鐵色票
+            const newColor = jpSource[type] || traSource[type];
+            
+            if (newColor) {
+                pill.style.background = newColor; // 更新背景色
+                pill.style.color = '#fff';         // 選中時固定白字
+                pill.style.borderColor = 'transparent';
+            }
+        } else {
+            // 未選中狀態：變回透明
+            pill.style.background = 'transparent';
+            pill.style.color = 'var(--text-color)';
+            pill.style.borderColor = 'var(--border-color)';
+        }
+    });
 }
 
 syncAllPalettes();
