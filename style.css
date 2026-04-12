@@ -470,7 +470,7 @@ body {
     opacity: 0.9; 
     padding: 0; 
 }
-#bottompanel .stop-time.sub-time { opacity: 0.5; }
+#bottompanel .stop-time.sub-time { opacity: 0.9; }
 
 /* 箭頭與墊片 */
 #bottompanel .arrow-col { display: flex; flex-direction: column; align-items: center; padding: 0; }

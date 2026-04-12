@@ -280,6 +280,7 @@ function bindDynamicPillEvents() {
                 e.target.classList.add('active');
                 e.target.style.background = '#E91E63'; e.target.style.color = 'white';
                 setupNankaiLine(e.target.getAttribute('data-line'));
+                centerCameraOnLine();
             }
         };
     }
@@ -986,6 +987,43 @@ window.selectTrain = function(trainNumber) {
     const selected = [...rawData, ...yrawData].find( t => t.number == trainNumber );
     if (selected) { state.selectedLine = selected; state.showSchedule = true; state.focusedStation = null; updateBottomPanel(); renderLayers(); updateInfoBox(); }
 };
+
+// 💡 攝影機自動導航函式：每次切換路線時，自動飛回該路線的 Y 軸中心點！
+window.centerCameraOnLine = function() {
+    if (!deckInstance || !state.stationList || !state.stationDistances) return;
+
+    // 1. 找出這條新路線的 Y 軸最高點跟最低點
+    const distances = Array.from(state.stationList)
+                           .map(name => state.stationDistances[name])
+                           .filter(d => d !== undefined);
+    
+    if (distances.length === 0) return;
+
+    const minY = Math.min(...distances);
+    const maxY = Math.max(...distances);
+    
+    // 2. 算出版面的 Y 軸中心點
+    const centerY = (minY + maxY) / 2;
+
+    // 3. 抓取現在的攝影機狀態
+    const currentVS = deckInstance.props.viewState || state.viewState || {};
+    
+    // 保持 X 軸不變 (如果已經有目標就沿用，沒有就抓當前時間)
+    const currentX = currentVS.target?.[0] || (state.currentTimeMinutes * 3 + 180);
+
+    // 4. 設定新座標，並加入平滑飛行轉場 (transitionDuration)
+    const updatedViewState = { 
+        ...currentVS, 
+        target: [currentX, centerY, 0], 
+        transitionDuration: 600, // 💡 0.6 秒的平滑飛行動畫
+        transitionInterpolator: new deck.LinearInterpolator(['target']), 
+        transitionInterruption: 1 
+    };
+    
+    state.viewState = updatedViewState; 
+    deckInstance.setProps({ viewState: updatedViewState });
+};
+
 window.selectStation = function(stationName) {
     if (!stationName) return;
     if (state.stationDistances[stationName] === undefined) {
