@@ -500,19 +500,27 @@ body {
     #bottompanel { font-size: 1.1em; }
 }
 
-/* 專門負責動態按鈕的微調與形狀鎖定 */
+/* 專門負責動態車種按鈕的微調 (瘦身版) */
 .train-type-pill {
     display: inline-flex !important; 
-    align-items: center !important;      /* 💡 垂直置中 */
-    justify-content: center !important;  /* 💡 水平置中 (解決文字偏左) */
-    width: max-content !important;       /* 💡 絕對不拉寬，跟著文字走 */
-    flex: 0 0 auto !important;           /* 💡 絕對不放大 */
-    min-width: 70px !important;          /* 給短字(如普通)一個好看的基本寬度 */
-    padding: 6px 16px !important;        /* 舒服的左右留白 */
+    align-items: center !important;      
+    justify-content: center !important;  
+    
+    width: max-content !important;       
+    flex: 0 0 auto !important;           
+    
+    /* 💡 瘦身關鍵 1：取消最小寬度限制，不要強迫短字變寬 */
+    min-width: 0 !important;          
+    
+    /* 💡 瘦身關鍵 2：縮小左右的留白 (原本可能是 16px 或 20px，現在改成 10px) */
+    padding: 6px 10px !important;        
+    
     margin: 4px !important;
     border-radius: 20px !important;
-    white-space: nowrap !important;      /* 絕對不斷行 */
-    text-align: center;
+    white-space: nowrap !important;      
+    
+    /* 確保字體大小跟全選按鈕一致 */
+    font-size: 13px !important;
 }
 
 /* 膠囊按鈕的容器 */
