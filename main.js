@@ -377,15 +377,22 @@ function initDeckGL() {
         onViewStateChange: ({viewState, oldViewState}) => { 
             const MAX_ZOOM = currentRegion === 'JP' ? 15 : 1.5;
             
-            // 💡 1. 這裡可以自由調整你想要的留白大小 (像素)
-            const VERTICAL_MARGIN = 80; // 上下各留 80px 的舒適空間，確保端點站文字絕對不會被切到
+            // 💡 1. 取得「真正的畫布高度」，避免被瀏覽器工具列干擾導致計算誤差
+            const canvasHeight = deckInstance.height || window.innerHeight;
             
-            // 💡 2. 動態計算最低縮放極限 (改用 gridData.maxDistance，這才是 Y 軸的長度！)
+            // 💡 2. 加大留白空間：150px 足夠容納車站字體與跨日的突出線條
+            const VERTICAL_MARGIN = 150; 
+            
+            // 💡 3. 精準抓取路線的頭尾座標 (防止有些路線起點不是 0)
+            const minD = gridData.minDistance !== undefined ? gridData.minDistance : 0;
+            const maxD = gridData.maxDistance !== undefined ? gridData.maxDistance : 0;
+            const totalD = maxD - minD;
+
+            // 動態極限縮放計算
             let MIN_ZOOM = -3.75; 
-            if (gridData && gridData.maxDistance > 0) {
-                // 計算：(螢幕高度 - 雙倍留白) / 路線總距離
-                MIN_ZOOM = Math.log2((window.innerHeight - VERTICAL_MARGIN * 2) / gridData.maxDistance);
-                MIN_ZOOM = Math.min(MIN_ZOOM, 1.5); // 防呆，避免超短支線算出來太大
+            if (totalD > 0) {
+                MIN_ZOOM = Math.log2((canvasHeight - VERTICAL_MARGIN * 2) / totalD);
+                MIN_ZOOM = Math.min(MIN_ZOOM, 1.5); 
             }
 
             // 防溜冰：控制合法 zoom 範圍
@@ -396,23 +403,20 @@ function initDeckGL() {
             }
 
             if (currentRegion === 'JP') {
-                // 💡 3. 精準的動態邊界與留白計算
                 const scale = Math.pow(2, viewState.zoom);
-                const screenHalfHeight = (window.innerHeight / 2) / scale;
-                
-                // 必須把「螢幕的 80 像素」轉換成「圖表上的距離單位」，留白才會永遠保持等寬！
+                const screenHalfHeight = (canvasHeight / 2) / scale;
                 const marginUnits = VERTICAL_MARGIN / scale; 
                 
                 let minY, maxY;
                 
-                // 如果連同留白都塞得進螢幕 -> 完美置中
-                if (screenHalfHeight * 2 > gridData.maxDistance + marginUnits * 2) {
-                    minY = gridData.maxDistance / 2;
-                    maxY = gridData.maxDistance / 2;
+                // 判斷是否需要置中
+                if (screenHalfHeight * 2 > totalD + marginUnits * 2) {
+                    minY = minD + totalD / 2;
+                    maxY = minD + totalD / 2;
                 } else {
-                    // 正常的上下平移極限 (讓視角頂到留白就會停住，端點站永不切邊)
-                    minY = screenHalfHeight - marginUnits; 
-                    maxY = gridData.maxDistance - screenHalfHeight + marginUnits; 
+                    // 💡 4. 精準的上下平移極限，加上 minD 確保絕對正確
+                    minY = minD + screenHalfHeight - marginUnits; 
+                    maxY = maxD - screenHalfHeight + marginUnits; 
                 }
                 
                 viewState.target[1] = Math.min(Math.max(viewState.target[1], minY), maxY);
