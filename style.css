@@ -502,15 +502,17 @@ body {
 
 /* 專門負責動態按鈕的微調與形狀鎖定 */
 .train-type-pill {
-    margin: 4px !important;    
-    padding: 6px 20px !important; /* 左右稍微拉寬一點，膠囊形狀更好看 */
-    min-width: 60px;          
-    text-align: center;
-    
-    /* 💡 以下是防止按鈕變形、被拉寬的關鍵！ */
     display: inline-flex !important; 
-    flex: 0 0 auto !important;   /* 絕對不放大、不縮小 */
-    width: fit-content !important; /* 寬度只跟著裡面的文字長度走 */
+    align-items: center !important;      /* 💡 垂直置中 */
+    justify-content: center !important;  /* 💡 水平置中 (解決文字偏左) */
+    flex: 0 0 auto !important;           /* 絕對不放大、不縮小 */
+    width: fit-content !important;       /* 寬度只跟著文字走 */
+    min-width: 70px !important;          /* 給短字(如普通)一個好看的基本寬度 */
+    padding: 6px 16px !important;        /* 舒服的左右留白 */
+    margin: 4px !important;
+    border-radius: 20px !important;
+    white-space: nowrap !important;      /* 絕對不斷行 */
+    text-align: center;
 }
 
 /* 膠囊按鈕的容器 */

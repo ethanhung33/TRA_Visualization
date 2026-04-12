@@ -1075,14 +1075,9 @@ function renderTrainTypePills() {
         pill.style.color = isLight ? '#fff' : '#000';
         
         // 💡 6. 確保跟原本按鈕完全一致的微調 (修正變寬的關鍵！)
-        pill.style.border = 'none'; 
+        pill.style.border = '1px solid transparent'; 
         
-        // --- 變更開始：用 inline-flex 與 fit-content 鎖死寬度 ---
-        pill.style.display = 'inline-flex'; 
-        pill.style.flex = '0 0 auto';    // 絕對不放大、不縮小
-        pill.style.width = 'fit-content';// 寬度只跟文字一樣長
-        pill.style.padding = '8px 20px'; // 重新強調內距，確保膠囊形狀完美
-        // --- 變更結束 ---
+        
 
         state.enabledTypes.add(type);
 
