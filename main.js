@@ -744,11 +744,43 @@ function updateInfoBox() {
             return stop ? { number: train.number, type: train.train, dest: destName, time: stop.y, isClockwise } : null;
         }).filter(t => t !== null && t.time >= state.currentTimeMinutes).sort((a, b) => a.time - b.time);
         
-        const buildInfo = list => list.length ? list.map(t => `<span class="panel-train-info" onclick="selectTrain('${t.number}')" style="cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1"><span style="color: ${colorPalette[t.type] || '#ccc'}; opacity: ${t.dest == state.focusedStation ? 0.5 : 1};">${t.type} ${t.number}</span><span style="opacity: ${t.dest == state.focusedStation ? 0.5 : 1};"> ${formatTime(t.time)} 往 ${t.dest}</span></span>`).join(' <b style="opacity: 0.5;">>></b> ') : "無後續車次";
-        const cwtext = buildInfo(nextTrains.filter(t => t.isClockwise));
-        const ccwtext = buildInfo(nextTrains.filter(t => !t.isClockwise));
+        // 💡 關鍵修正 1：改用新的「train-item-badge」類別，徹底擺脫 195px 的束縛！
+        const createTrainBadge = (t) => {
+            const trainColor = colorPalette[t.type] || '#ccc';
+            const opacity = t.dest === state.focusedStation ? 0.5 : 1;
+            return `<span class="train-item-badge" onclick="selectTrain('${t.number}')">
+                        <span style="color: ${trainColor}; opacity: ${opacity}; margin-right: 5px;">${t.type} ${t.number}</span>
+                        <span style="opacity: ${opacity};">${formatTime(t.time)} 往 ${t.dest}</span>
+                    </span>`;
+        };
 
-        DOM.stationBox.innerHTML = `<div style="display: flex; align-items: stretch; gap: 15px;"><div class="info-segment" style="position: sticky; left: -15px; display: flex; align-items: center; z-index: 20; font-size: 1.3em; white-space: nowrap; background: var(--panel-bg); border-right: 1px solid var(--border-color); padding-left: 20px; padding-right: 20px; height: 15vh; "><strong>${state.focusedStation}站</strong></div><div style="display: flex; flex-direction: row; gap: 15px; align-items: center; line-height: 1.4; font-size: 0.95em; padding-right: 30vw"><span>順行 <b style="opacity: 0.5;">>></b> ${cwtext}<br>逆行 <b style="opacity: 0.5;">>></b> ${ccwtext}</span></div></div>`;
+        // 💡 關鍵修正 2：改用新的「separator-arrow」箭頭類別
+        const buildInfoList = (list) => {
+            if (!list.length) return `<span class="direction-label">無後續車次</span>`;
+            return list.map(createTrainBadge).join('<b class="separator-arrow">>></b>');
+        };
+        const cwtext = buildInfoList(nextTrains.filter(t => t.isClockwise));
+        const ccwtext = buildInfoList(nextTrains.filter(t => !t.isClockwise));
+
+        DOM.stationBox.innerHTML = `
+            <div class="station-info-container">
+                <div class="station-name-header">
+                    <strong>${state.focusedStation}站</strong>
+                </div>
+                <div class="train-list-container">
+                    <div class="train-direction-row">
+                        <span class="direction-label">順行</span>
+                        <b class="separator-arrow">>></b>
+                        ${cwtext}
+                    </div>
+                    <div class="train-direction-row">
+                        <span class="direction-label">逆行</span>
+                        <b class="separator-arrow">>></b>
+                        ${ccwtext}
+                    </div>
+                </div>
+            </div>
+        `;
     } else {
         if(DOM.stationBox) DOM.stationBox.innerHTML = '';
         if(DOM.infoBox) DOM.infoBox.innerHTML = '';
