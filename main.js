@@ -990,7 +990,7 @@ window.selectTrain = function(trainNumber) {
     if (selected) { state.selectedLine = selected; state.showSchedule = true; state.focusedStation = null; updateBottomPanel(); renderLayers(); updateInfoBox(); }
 };
 
-// 💡 攝影機導航：無動畫、零延遲，瞬間切換到路線最頂端！(完全受控防跳動版)
+// 💡 攝影機導航：無動畫、零延遲，瞬間切換到合法的路線最頂端！(終極防跳動版)
 window.centerCameraOnLine = function() {
     if (!deckInstance || !state.stationList || !state.stationDistances) return;
 
@@ -1000,22 +1000,38 @@ window.centerCameraOnLine = function() {
     
     if (distances.length === 0) return;
 
-    const minY = Math.min(...distances);
-
-    // 💡 抓取最新狀態 (因為我們剛加了同步，這裡抓到的絕對是最準確的滑鼠位置！)
+    // 抓取當前攝影機狀態與縮放比例
     const currentVS = state.viewState || deckInstance.props.viewState || deckInstance.props.initialViewState || {};
     const currentX = currentVS.target?.[0] || (state.currentTimeMinutes * 3 + 180);
+    const currentZoom = currentVS.zoom !== undefined ? currentVS.zoom : 0;
 
+    // --- 💡 核心修復：預先計算合法的 Y 軸極限，避免被防溜冰機制彈回 ---
+    const canvasHeight = deckInstance.height || window.innerHeight;
+    const scale = Math.pow(2, currentZoom);
+    const screenHalfHeight = (canvasHeight / 2) / scale;
+    const marginUnits = 150 / scale; // 必須與 onViewStateChange 裡的 VERTICAL_MARGIN 150 一致
+
+    const minD = gridData.minDistance !== undefined ? gridData.minDistance : Math.min(...distances);
+    const maxD = gridData.maxDistance !== undefined ? gridData.maxDistance : Math.max(...distances);
+    const totalD = maxD - minD;
+
+    let targetY;
+
+    // 判斷：如果是短路線 (螢幕裝得下整條線)，直接置中
+    if (screenHalfHeight * 2 > totalD + marginUnits * 2) {
+        targetY = minD + totalD / 2;
+    } else {
+        // 判斷：如果是長路線，精準降落在「合法的最上方邊界」
+        targetY = minD + screenHalfHeight - marginUnits;
+    }
+
+    // 賦予新座標
     const updatedViewState = { 
         ...currentVS, 
-        target: [currentX, minY, 0] 
+        target: [currentX, targetY, 0] 
     };
     
-    // 將新座標存入 state
     state.viewState = updatedViewState; 
-    
-    // 💡 終極修復 2：使用 viewState 強制瞬間移動畫面！
-    // 不用 initialViewState 了，因為我們已經全面接管控制器！
     deckInstance.setProps({ viewState: updatedViewState });
 };
 
