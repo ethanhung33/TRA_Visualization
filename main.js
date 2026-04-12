@@ -695,10 +695,10 @@ function updateInfoBox() {
         const targetNum = String(state.selectedLine.number).trim();
         const baseTime = state.selectedLine.data[0].y; 
 
-        // 直接對全域的 rawData 和 yrawData 進行過濾，打破路線邊界！
+        // 這裡直接對全域的 rawData 和 yrawData 進行過濾
         const allTrainFragments = [...rawData, ...yrawData].filter(t => {
             const isSameNumber = String(t.number).trim() === targetNum;
-            // 增加容錯：除了號碼一樣，第一站的時間也要在合理範圍內 (例如相差 10 小時內)，避免縫到昨天的車
+            // 增加容錯：除了號碼一樣，第一站的時間也要在合理範圍內 (例如 10 小時內)
             const isSameRun = Math.abs(t.data[0].y - baseTime) < 600; 
             return isSameNumber && isSameRun;
         });
@@ -711,10 +711,9 @@ function updateInfoBox() {
         // 依照時間排序，確保「難波 -> 泉佐野」接上「泉佐野 -> 關西空港」
         mergedTrainData.sort((a, b) => a.y - b.y);
 
-        // 💡 2. 用「完整拼圖資料 (mergedTrainData)」來計算沿途停靠站
+        // 💡 2. 改用「完整拼圖資料 (mergedTrainData)」來計算沿途停靠站
         const stopsMap = mergedTrainData.reduce((acc, curr) => {
             if (!acc[curr.x]) acc[curr.x] = { arr: null, dep: null };
-            // 因為已經用時間排好序了，同一個車站(例如泉佐野) 第一筆時間當抵達，第二筆時間當發車，完美結合！
             if (acc[curr.x].arr === null) acc[curr.x].arr = Math.ceil(curr.y);
             else acc[curr.x].dep = Math.floor(curr.y);
             return acc;
@@ -735,18 +734,10 @@ function updateInfoBox() {
             `;
         }).join('<b class="separator-arrow">→</b>'); 
         
-        // 💡 3. 直接從「完整軌跡」抓取最真實的起終點！(這解決了你說的終點只顯示到路線最後一站的問題)
-        let trueStartStation = "";
-        let trueEndStation = "";
-        if (mergedTrainData.length > 0) {
-            trueStartStation = mergedTrainData[0].x;
-            trueEndStation = mergedTrainData[mergedTrainData.length - 1].x;
-        } else {
-            // 防呆機制：萬一沒抓到，退回原本的寫法
-            trueStartStation = state.selectedLine.data[0].x;
-            trueEndStation = state.selectedLine.data[state.selectedLine.data.length - 1].x;
-        }
-        
+        // 💡 3. 直接從「完整軌跡」抓取最真實的起終點！
+        // (不需要再寫 if 去攔截泉佐野了，因為系統現在知道它真的開到了關西空港)
+        const trueStartStation = mergedTrainData[0].x;
+        const trueEndStation = mergedTrainData[mergedTrainData.length - 1].x;
         const trainColor = colorPalette[state.selectedLine.train] || '#ccc';
 
         DOM.infoBox.innerHTML = `
@@ -766,49 +757,70 @@ function updateInfoBox() {
                 </div>
             </div>
         `;
-    }
-    else if (state.focusedStation) {
+    } else if (state.focusedStation) {
         const nextTrains = [...todaySegments, ...yesterdaySegments]
-            // 💡 關鍵修復：在抓取車站時間前，先把不該顯示的火車踢掉！
+            // 1. 基本過濾 (車種、平日/假日)
             .filter(train => {
-                // 1. 車種防護：如果右側面板「沒有勾選」這個車種，直接隱藏
                 if (state.enabledTypes && !state.enabledTypes.has(train.train)) return false;
-
-                // 2. 曜日防護：過濾掉不屬於今天的「平日/土休日」班次
                 const driveStr = train.info?.drive || train.drive || "";
-                
-                // ⚠️ 注意：這裡假設你用 state.dayType 來紀錄現在是點選「平日」還是「土休日」
-                // (請根據你實際儲存按鈕狀態的變數名稱修改，例如 state.currentDay 或 state.activeDay)
                 if (state.dayType === '平日' && driveStr.includes('土休') && !driveStr.includes('平日')) return false;
                 if (state.dayType === '土休日' && driveStr.includes('平日') && !driveStr.includes('土休')) return false;
-
                 return true;
             })
-            // --- 下面維持原本的邏輯 ---
+            // 2. 轉換資料，並在這裡啟動「全域直通縫合」尋找真終點！
             .map(train => {
                 const stop = train.data.findLast(p => p.x === state.focusedStation);
-                const stopDistances = train.data.map(p => allStationDistances[p.x] || state.stationDistances[p.x]).filter(d => d !== undefined);
+                if (!stop) return null; // 防呆：這班車如果沒停這站就跳過
                 
+                const stopDistances = train.data.map(p => allStationDistances[p.x] || state.stationDistances[p.x]).filter(d => d !== undefined);
                 const infoSafe = train.info || {};
+                
                 const isClockwise = currentRegion === 'TW' 
                     ? (allStationDistances[infoSafe.start?.slice(6)] > allStationDistances[infoSafe.end?.slice(6)]) ^ (Math.max(...stopDistances) - Math.min(...stopDistances) > 6000) 
                     : state.stationDistances[train.data[0].x] < state.stationDistances[train.data[train.data.length-1].x];
                 
-                const destName = currentRegion === 'TW' 
-                    ? (infoSafe.end || "").slice(6) 
-                    : (train.end || infoSafe.end || train.data[train.data.length-1].x).replace(/.* /, ''); 
+                let destName = "";
+                if (currentRegion === 'TW') {
+                    destName = (infoSafe.end || "").slice(6);
+                } else {
+                    // 💡 跨線直通終極解法：去全域資料庫找這班車真正的終點！
+                    const targetNum = String(train.number).trim();
+                    const baseTime = train.data[0].y;
+                    
+                    const allFragments = [...rawData, ...yrawData].filter(t => 
+                        String(t.number).trim() === targetNum && 
+                        Math.abs(t.data[0].y - baseTime) < 600
+                    );
+                    
+                    let mergedData = [];
+                    allFragments.forEach(f => { mergedData = mergedData.concat(f.data); });
+                    mergedData.sort((a, b) => a.y - b.y);
+                    
+                    // 取得縫合後的真正最後一站 (不用寫死泉佐野了！)
+                    if (mergedData.length > 0) {
+                        destName = mergedData[mergedData.length - 1].x;
+                    } else {
+                        destName = train.data[train.data.length-1].x;
+                    }
+                    destName = destName.replace(/.* /, ''); // 清除可能帶有的前綴
+                }
                 
-                return stop ? { number: train.number, type: train.train, dest: destName, time: stop.y, isClockwise } : null;
+                return { number: train.number, type: train.train, dest: destName, time: stop.y, isClockwise };
             })
             .filter(t => t !== null && t.time >= state.currentTimeMinutes)
             .sort((a, b) => a.time - b.time);
         
-        // 💡 終極防護盾：利用 findIndex 過濾掉「車次號碼相同」的影分身！
+        // 💡 終極物理去重法：直接忽略車次號碼 (解決幽靈雙胞胎)
+        // 只要這班車在「同一個時間」發車、「車種」一樣、且「目的地」一樣，在物理上絕對是同一班車，殺掉分身！
         const uniqueNextTrains = nextTrains.filter((train, index, self) =>
-            index === self.findIndex((t) => t.number === train.number)
+            index === self.findIndex((t) => 
+                t.time === train.time && 
+                t.type === train.type && 
+                t.dest === train.dest 
+            )
         );
-        
-        // 💡 關鍵修正 1：改用新的「train-item-badge」類別，徹底擺脫 195px 的束縛！
+
+        // --- 以下是生成 HTML 畫面的部分 ---
         const createTrainBadge = (t) => {
             const trainColor = colorPalette[t.type] || '#ccc';
             const opacity = t.dest === state.focusedStation ? 0.5 : 1;
@@ -818,12 +830,12 @@ function updateInfoBox() {
                     </span>`;
         };
 
-        // 💡 關鍵修正 2：改用新的「separator-arrow」箭頭類別
         const buildInfoList = (list) => {
             if (!list.length) return `<span class="direction-label">無後續車次</span>`;
             return list.map(createTrainBadge).join('<b class="separator-arrow">>></b>');
         };
-        // ✅ 這樣改：確實把「去重後的陣列」餵給渲染函式
+        
+        // ✅ 確保我們丟給畫面的是過濾後的 uniqueNextTrains
         const cwtext = buildInfoList(uniqueNextTrains.filter(t => t.isClockwise));
         const ccwtext = buildInfoList(uniqueNextTrains.filter(t => !t.isClockwise));
 
