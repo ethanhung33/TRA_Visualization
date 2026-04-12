@@ -435,7 +435,47 @@ body {
     opacity: 0.4;
     font-size: 0.8em;
     margin: 0 2px;
-}s
+}
+
+/* =========================================
+   下方看板專屬樣式 (高權重防護版 - 解決跑位問題)
+   ========================================= */
+
+/* --- 1. 單一列車的時刻表排版 --- */
+#bottompanel .train-detail-layout { display: flex; align-items: stretch; gap: 15px; width: 100%; }
+#bottompanel .sticky-train-header { position: sticky; left: -15px; display: flex; align-items: center; z-index: 25; background: var(--panel-bg); border-right: 1px solid var(--border-color); padding: 0 20px; height: 15vh; font-size: 1.1em; }
+#bottompanel .metadata-group { display: flex; align-items: center; flex-shrink: 0; padding: 0; }
+#bottompanel .stations-track { display: flex; flex-direction: row; align-items: center; padding-left: 20px; padding-right: 50vw; }
+
+/* 完美對齊網格 */
+#bottompanel .timeline-block { display: flex; flex-direction: row; flex-shrink: 0; align-items: stretch; padding: 0; }
+
+/* 直列容器 (成功覆蓋全域的 row 排列) */
+#bottompanel .station-col { display: flex; flex-direction: column; align-items: center; padding: 0 8px; cursor: pointer; transition: opacity 0.2s ease; }
+@media (hover: hover) { #bottompanel .station-col:hover { opacity: 0.6; } }
+#bottompanel .station-col.focused { border-bottom: 2px solid var(--monitor-color); }
+#bottompanel .station-col.focused .stop-name { color: var(--monitor-color); font-weight: normal; }
+
+/* 站名與時間文字 (拔除全域 flex 的干擾) */
+#bottompanel .stop-name { display: block; font-size: 0.95em; height: 22px; line-height: 22px; margin-bottom: 4px; padding: 0; white-space: nowrap; }
+#bottompanel .stop-time { display: block; font-family: "Orbitron", monospace !important; font-size: 0.85em; height: 18px; line-height: 18px; opacity: 0.9; padding: 0; }
+#bottompanel .stop-time.sub-time { opacity: 0.5; }
+
+/* 箭頭與墊片 */
+#bottompanel .arrow-col { display: flex; flex-direction: column; align-items: center; padding: 0; }
+#bottompanel .arrow-spacer { display: block; height: 22px; margin-bottom: 4px; padding: 0; }
+#bottompanel .track-arrow { display: block; height: 18px; line-height: 18px; opacity: 0.4; font-size: 0.8em; margin: 0 2px; padding: 0; }
+
+
+/* --- 2. 點擊車站後的「車次清單」排版 --- */
+#bottompanel .station-info-container { display: flex; align-items: stretch; gap: 15px; overflow: hidden; padding: 0; }
+#bottompanel .station-name-header { position: sticky; left: -15px; display: flex; align-items: center; z-index: 20; font-size: 1.3em; background: var(--panel-bg); border-right: 1px solid var(--border-color); padding: 0 20px; height: 15vh; }
+#bottompanel .train-list-container { display: flex; flex-direction: column; justify-content: center; gap: 10px; font-size: 0.95em; padding-right: 30vw; padding-left: 10px; overflow-x: auto; }
+#bottompanel .train-direction-row { display: flex; align-items: center; white-space: nowrap; padding: 0; }
+#bottompanel .direction-label { min-width: 40px; color: var(--subtext-color); flex-shrink: 0; padding: 0; }
+#bottompanel .train-item-badge { cursor: pointer; transition: opacity 0.2s ease; display: inline-flex; align-items: center; width: auto !important; flex-shrink: 0; padding: 0; margin-right: 5px;}
+@media (hover: hover) { #bottompanel .train-item-badge:hover { opacity: 0.7; } }
+#bottompanel .separator-arrow { opacity: 0.5; margin: 0 10px; flex-shrink: 0; padding: 0;}
 
 @media screen and (max-width: 768px) {
     #sidebar {
