@@ -92,6 +92,16 @@ for line_name, url in WIKI_URLS.items():
             if pd.notna(st_name) and st_name != "nan":
                 if "駅名" in st_name or st_name == "": continue
                 
+                # 💡 新增 1：號誌站殺手 (全線通用)
+                # 只要站名裡面有「信号」兩個字 (例如 梶取信号所)，直接跳過不抓！
+                if "信号" in st_name:
+                    continue
+
+                # 💡 新增 2：加太線專屬過濾器
+                # 把直通運轉的「和歌山市」踢掉，讓里程乖乖從「紀ノ川」的 0.0 開始算
+                if line_name == "加太線" and st_name == "和歌山市":
+                    continue
+
                 # 專屬南海本線的實體過濾器：移除今宮戎、萩ノ茶屋
                 if line_name == "南海本線" and st_name in ["今宮戎", "萩ノ茶屋"]:
                     try:
