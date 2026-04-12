@@ -458,7 +458,18 @@ body {
 
 /* 站名與時間文字 (拔除全域 flex 的干擾) */
 #bottompanel .stop-name { display: block; font-size: 0.95em; height: 22px; line-height: 22px; margin-bottom: 4px; padding: 0; white-space: nowrap; }
-#bottompanel .stop-time { display: block; font-family: "Orbitron", monospace !important; font-size: 0.85em; height: 18px; line-height: 18px; opacity: 0.9; padding: 0; }
+#bottompanel .stop-time { 
+    display: block; 
+    /* 💡 拔掉 Orbitron，換回你原本乾淨的 GlowSans 字體 */
+    font-family: "GlowSansSCCom-Compressed", Arial, sans-serif !important; 
+    /* 💡 魔法屬性：讓普通的字體，數字也能像表格一樣上下完美切齊！ */
+    font-variant-numeric: tabular-nums; 
+    font-size: 0.85em; 
+    height: 18px; 
+    line-height: 18px; 
+    opacity: 0.9; 
+    padding: 0; 
+}
 #bottompanel .stop-time.sub-time { opacity: 0.5; }
 
 /* 箭頭與墊片 */
