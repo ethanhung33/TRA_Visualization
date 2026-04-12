@@ -683,18 +683,47 @@ function updateInfoBox() {
             return acc;
         }, {});
 
+        // ... 前面的 stopsMap 邏輯保留不變 ...
+
+        // 💡 1. 建立「車站停靠點」的 HTML 陣列，不再有一堆 inline-style！
         const stationsHtml = Object.entries(stopsMap).map(([name, times]) => {
             const arrStr = times.arr !== null ? formatTime(times.arr) : "--:--";
             const depStr = times.dep !== null ? formatTime(times.dep) : (times.arr !== null ? formatTime(times.arr) : "--:--");
-            const isFocused = name === state.focusedStation ? 'border-bottom: 2px solid #fff; font-weight: bold;' : '';
-            return `<span onclick="selectStation('${name}')" style="width: 50px; text-align: center; display: inline-block; white-space: nowrap; ${isFocused} cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity=0.6" onmouseout="this.style.opacity=1"><span style="font-size: 0.8em;">${name}<br><span style="font-size: 0.6em; opacity: 0.7;">${arrStr}<br>${depStr}</span></span></span>`;
-        }).join('<b style="opacity: 0.5; align-self: center;">→</b>');
+            const focusedClass = name === state.focusedStation ? 'focused' : '';
+            
+            return `
+                <div class="station-stop-item ${focusedClass}" onclick="selectStation('${name}')">
+                    <div class="stop-name">${name}</div>
+                    <div class="stop-times">
+                        ${arrStr}<br>${depStr}
+                    </div>
+                </div>
+            `;
+        }).join('<b class="separator-arrow">→</b>'); // 沿用我們剛剛在 CSS 寫好的箭頭樣式
         
-        // 💡 防彈讀取起終點 (start/end)，若無資料則直接抓軌跡的第一站與最後一站
+        // 取得起終點站與火車顏色
         const startStation = infoObj.start || state.selectedLine.start || state.selectedLine.data[0].x;
         const endStation = infoObj.end || state.selectedLine.end || state.selectedLine.data[state.selectedLine.data.length - 1].x;
+        const trainColor = colorPalette[state.selectedLine.train] || '#ccc';
 
-        DOM.infoBox.innerHTML = `<div style="display: flex; align-items: stretch; gap: 15px;"><span class="info-segment train-id" style="color: ${colorPalette[state.selectedLine.train] || '#ccc'}; position: sticky; left: -15px; z-index: 25; gap: 15px; background: var(--panel-bg); border-right: 1px solid var(--border-color); padding: 0 20px; height: 15vh; white-space: nowrap; "><strong>${state.selectedLine.train} ${state.selectedLine.number}</strong></span><span style="display: flex; align-items: center;"><span class="info-segment via-label" style="color: ${viaColor}">${viaText}</span><span class="info-segment route-display">${startStation} → ${endStation}</span>${boxesHtml}</span><span style="display: flex; flex-direction: row; align-items: center; padding-left: 20px; padding-right: 50vw;">${stationsHtml}</span></div>`;
+        // 💡 2. 組合最終版面：結構超清晰的 Flex 模板
+        DOM.infoBox.innerHTML = `
+            <div class="train-detail-layout">
+                <div class="sticky-train-header" style="color: ${trainColor};">
+                    <strong>${state.selectedLine.train} ${state.selectedLine.number}</strong>
+                </div>
+                
+                <div class="metadata-group">
+                    <span class="info-segment via-label" style="color: ${viaColor}">${viaText}</span>
+                    <span class="info-segment route-display">${startStation} → ${endStation}</span>
+                    ${boxesHtml}
+                </div>
+                
+                <div class="stations-track">
+                    ${stationsHtml}
+                </div>
+            </div>
+        `;
     }
     else if (state.focusedStation) {
         const nextTrains = [...todaySegments, ...yesterdaySegments].map(train => {

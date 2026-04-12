@@ -256,6 +256,142 @@ body {
     color: var(--text-color) !important;
 }
 
+/* =========================================
+   車站點擊後的資訊面板專屬樣式 (Flexbox 重構版) 
+   ========================================= */
+
+.station-info-container {
+    display: flex;
+    align-items: stretch;
+    gap: 15px;
+    overflow: hidden;
+}
+
+.station-name-header {
+    position: sticky;
+    left: -15px;
+    display: flex;
+    align-items: center;
+    z-index: 20;
+    font-size: 1.3em;
+    white-space: nowrap;
+    background: var(--panel-bg); /* 完美支援你的深淺色切換 */
+    border-right: 1px solid var(--border-color);
+    padding: 0 20px;
+    height: 15vh;
+}
+
+.train-list-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+    font-size: 0.95em;
+    padding-right: 30vw;
+    overflow-x: auto;
+}
+
+.train-direction-row {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.direction-label {
+    min-width: 40px;
+    color: var(--subtext-color); /* 使用你的次要文字顏色變數 */
+}
+
+.train-item-badge {
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    width: auto !important; /* 解決文字重疊的終極關鍵 */
+    white-space: nowrap;
+}
+
+/* 完美延續你原本避免手機誤觸 hover 的寫法 */
+@media (hover: hover) {
+    .train-item-badge:hover {
+        opacity: 0.7;
+    }
+}
+
+.separator-arrow {
+    opacity: 0.5;
+    margin: 0 10px;
+}
+
+/* =========================================
+   單一列車時刻表資訊面板專屬樣式 (DOM.infoBox) 
+   ========================================= */
+
+/* 主排版容器 */
+.train-detail-layout {
+    display: flex;
+    align-items: stretch;
+    gap: 15px;
+    width: 100%;
+}
+
+/* 左側：固定不動的車次名稱 (跟車站名稱有異曲同工之妙) */
+.sticky-train-header {
+    position: sticky;
+    left: -15px;
+    display: flex;
+    align-items: center;
+    z-index: 25;
+    background: var(--panel-bg);
+    border-right: 1px solid var(--border-color);
+    padding: 0 20px;
+    height: 15vh;
+    white-space: nowrap;
+    font-size: 1.1em;
+}
+
+/* 中間：路線與附屬資訊 (山海線、起終點、行駛日方塊) */
+.metadata-group {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* 右側：沿途停靠站的橫向捲動軌道 */
+.stations-track {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 20px;
+    padding-right: 50vw; /* 保留你原本的巧思：讓最後一站可以滑到畫面中間 */
+}
+
+/* 獨立車站停靠點膠囊 */
+.station-stop-item {
+    width: 50px;
+    text-align: center;
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+@media (hover: hover) {
+    .station-stop-item:hover { opacity: 0.6; }
+}
+
+/* 被選中的車站加上底線與粗體 */
+.station-stop-item.focused {
+    border-bottom: 2px solid var(--text-color);
+    font-weight: bold;
+}
+
+/* 停靠站的站名與時間字體微調 */
+.stop-name { font-size: 0.8em; }
+.stop-times { font-size: 0.6em; opacity: 0.7; margin-top: 2px; line-height: 1.2; }
+
 @media screen and (max-width: 768px) {
     #sidebar {
         width: 85vw;
