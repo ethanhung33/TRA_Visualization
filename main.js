@@ -695,10 +695,10 @@ function updateInfoBox() {
         const targetNum = String(state.selectedLine.number).trim();
         const baseTime = state.selectedLine.data[0].y; 
 
-        // 這裡直接對全域的 rawData 和 yrawData 進行過濾
+        // 直接對全域的 rawData 和 yrawData 進行過濾，打破路線邊界！
         const allTrainFragments = [...rawData, ...yrawData].filter(t => {
             const isSameNumber = String(t.number).trim() === targetNum;
-            // 增加容錯：除了號碼一樣，第一站的時間也要在合理範圍內 (例如 10 小時內)
+            // 增加容錯：除了號碼一樣，第一站的時間也要在合理範圍內 (例如相差 10 小時內)，避免縫到昨天的車
             const isSameRun = Math.abs(t.data[0].y - baseTime) < 600; 
             return isSameNumber && isSameRun;
         });
@@ -711,9 +711,10 @@ function updateInfoBox() {
         // 依照時間排序，確保「難波 -> 泉佐野」接上「泉佐野 -> 關西空港」
         mergedTrainData.sort((a, b) => a.y - b.y);
 
-        // 💡 2. 改用「完整拼圖資料 (mergedTrainData)」來計算沿途停靠站
+        // 💡 2. 用「完整拼圖資料 (mergedTrainData)」來計算沿途停靠站
         const stopsMap = mergedTrainData.reduce((acc, curr) => {
             if (!acc[curr.x]) acc[curr.x] = { arr: null, dep: null };
+            // 因為已經用時間排好序了，同一個車站(例如泉佐野) 第一筆時間當抵達，第二筆時間當發車，完美結合！
             if (acc[curr.x].arr === null) acc[curr.x].arr = Math.ceil(curr.y);
             else acc[curr.x].dep = Math.floor(curr.y);
             return acc;
@@ -734,10 +735,18 @@ function updateInfoBox() {
             `;
         }).join('<b class="separator-arrow">→</b>'); 
         
-        // 💡 3. 直接從「完整軌跡」抓取最真實的起終點！
-        // (不需要再寫 if 去攔截泉佐野了，因為系統現在知道它真的開到了關西空港)
-        const trueStartStation = mergedTrainData[0].x;
-        const trueEndStation = mergedTrainData[mergedTrainData.length - 1].x;
+        // 💡 3. 直接從「完整軌跡」抓取最真實的起終點！(這解決了你說的終點只顯示到路線最後一站的問題)
+        let trueStartStation = "";
+        let trueEndStation = "";
+        if (mergedTrainData.length > 0) {
+            trueStartStation = mergedTrainData[0].x;
+            trueEndStation = mergedTrainData[mergedTrainData.length - 1].x;
+        } else {
+            // 防呆機制：萬一沒抓到，退回原本的寫法
+            trueStartStation = state.selectedLine.data[0].x;
+            trueEndStation = state.selectedLine.data[state.selectedLine.data.length - 1].x;
+        }
+        
         const trainColor = colorPalette[state.selectedLine.train] || '#ccc';
 
         DOM.infoBox.innerHTML = `
