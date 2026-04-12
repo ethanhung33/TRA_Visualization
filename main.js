@@ -232,7 +232,7 @@ function bindDynamicPillEvents() {
                     e.target.style.color = 'var(--text-color)';
                     if (state.selectedLine && state.selectedLine.train === type) {
                         state.selectedLine = null;
-                        updateInfoBox();
+                        // 這裡原本有 updateInfoBox()，我們把它移到最下面統一執行
                     }
                 } else {
                     state.enabledTypes.add(type);
@@ -240,6 +240,9 @@ function bindDynamicPillEvents() {
                     e.target.style.color = '#fff';
                 }
                 if (deckInstance) renderLayers();
+                
+                // 💡 1. 補在這裡！點擊單一車種後，讓下方看板立即更新
+                updateInfoBox(); 
             }
         };
     }
@@ -263,8 +266,8 @@ function bindDynamicPillEvents() {
                     else { state.selectedLine = null; state.showSchedule = false; }
                 }
                 updateStationGridData();
-                updateInfoBox();
                 if(deckInstance) renderLayers();
+                updateInfoBox(); // (你原本這裡就有了，讚！)
             }
         };
     }
@@ -288,15 +291,23 @@ function bindDynamicPillEvents() {
                 document.querySelectorAll('#jp-day-container .day-pill').forEach(p => { p.classList.remove('active'); p.style.background = ''; p.style.color=''; });
                 e.target.classList.add('active');
                 state.nankaiActiveDay = e.target.getAttribute('data-day');
+                
+                // ⚠️ 這裡順便幫你抓到一個小問題：把 nankaiActiveDay 同步給 dayType
+                // 因為我們過濾器是用 state.dayType 判斷的！
+                state.dayType = state.nankaiActiveDay; 
+                
                 if(state.nankaiActiveDay === '平日') { e.target.style.background = '#009688'; e.target.style.color = 'white'; }
                 else { e.target.style.background = '#FF9800'; e.target.style.color = 'white'; }
+                
                 if(deckInstance) renderLayers();
+                
+                // 💡 2. 補在這裡！當你切換「平日 / 土休日」時，下方的車站時刻表也會瞬間跟著換！
+                updateInfoBox(); 
             }
         };
     }
 
-    // 💡 這裡開始是新增的「全選 / 全部不選」邏輯
-    const selectAllBtn = document.getElementById('btn-select-all'); // 請確認 index.html 裡的 ID 是這個
+    const selectAllBtn = document.getElementById('btn-select-all'); 
     if (selectAllBtn) {
         selectAllBtn.onclick = () => {
             document.querySelectorAll('.train-type-pill').forEach(pill => {
@@ -306,10 +317,13 @@ function bindDynamicPillEvents() {
                 pill.style.color = '#fff';
             });
             if (deckInstance) renderLayers();
+            
+            // 💡 3. 補在這裡！點擊「全選」後，讓下方看板立即更新
+            updateInfoBox(); 
         };
     }
 
-    const deselectAllBtn = document.getElementById('btn-deselect-all'); // 請確認 index.html 裡的 ID 是這個
+    const deselectAllBtn = document.getElementById('btn-deselect-all'); 
     if (deselectAllBtn) {
         deselectAllBtn.onclick = () => {
             state.enabledTypes.clear();
@@ -318,8 +332,9 @@ function bindDynamicPillEvents() {
                 pill.style.color = 'var(--text-color)';
             });
             state.selectedLine = null; 
-            updateInfoBox();
             if (deckInstance) renderLayers();
+            
+            updateInfoBox(); // (你原本這裡就有了，讚！)
         };
     }
 }
