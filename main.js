@@ -997,26 +997,33 @@ function syncAllPalettes() {
     });
 }
 
-// 💡 新增這個函式：根據 JSON 資料動態畫出右側的車種按鈕
 function renderTrainTypePills() {
     const container = document.getElementById('dynamic-type-pills');
     if (!container) return;
 
-    // 1. 根據目前區域，決定要從哪份資料抓車種
-    // 💡 增加備援機制：如果 yrawData 是空，試著抓 rawData，反之亦然
-    let currentData = (currentRegion === 'JP') ? (yrawData || []) : (rawData || []);
+    // 1. 取得當前區域的全部原始資料
+    let allData = (currentRegion === 'JP') ? (yrawData || []) : (rawData || []);
     
-    // 2. 提取唯一的車種名稱，並過濾掉空值
-    const existingTypes = [...new Set(currentData.map(t => t.train))].filter(Boolean);
+    // 💡 關鍵：更嚴格的過濾邏輯
+    const filteredData = allData.filter(train => {
+        // 條件 A：檢查日期類型 (平日/土休日) 是否符合目前選擇
+        // 假設你的資料裡有 .day 或 .type 欄位標記平日或假日
+        const isCorrectDay = (train.day === state.dayType); 
+        if (!isCorrectDay) return false;
 
-    // 3. 如果完全抓不到資料，先不要清空，或者印出警告
-    if (existingTypes.length === 0) {
-        console.warn("警告：目前路線資料中未發現任何車種，按鈕無法生成。");
-        return; 
-    }
+        // 條件 B：檢查路徑重疊度
+        // 如果這班車只有 1 站（通常是難波）重疊，那它可能是別條線的
+        // 我們要求至少要有 2 站以上重疊，才算是在這條路線上運行
+        const overlapCount = train.data.filter(stop => state.stationList.has(stop.x)).length;
+        
+        return overlapCount >= 2; 
+    });
 
-    container.innerHTML = ''; // 確定有資料後才清空
+    // 2. 提取唯一的車種名稱
+    const existingTypes = [...new Set(filteredData.map(t => t.train))].filter(Boolean);
 
+    // --- 以下生成按鈕的邏輯不變 ---
+    container.innerHTML = ''; 
     const currentPalette = (currentRegion === 'JP') ? jpColorPalette : lightcolorPalette;
 
     existingTypes.forEach(type => {
@@ -1024,15 +1031,15 @@ function renderTrainTypePills() {
         pill.className = 'train-type-pill';
         pill.setAttribute('data-type', type);
         pill.innerText = type;
-
-        // 預設將該車種加入啟用名單
-        state.enabledTypes.add(type);
         
+        state.enabledTypes.add(type);
         pill.style.background = currentPalette[type] || '#969696';
         pill.style.color = '#fff';
-
         container.appendChild(pill);
     });
+
+    // Debug 用：看看過濾後剩下幾個車種
+    console.log(`[精簡測試] 目前路線：${state.currentLineName}，過濾後車種：`, existingTypes);
 }
 
 syncAllPalettes();
