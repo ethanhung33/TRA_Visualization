@@ -374,27 +374,41 @@ function initDeckGL() {
                 else if (object.text === undefined) return { text: `${String(object).split(',')[0]}` };
             }
         },
-        onViewStateChange: ({viewState}) => { 
-            const MAX_ZOOM = currentRegion === 'JP' ? 15 : 1.5;
+        onViewStateChange: ({viewState, oldViewState}) => { 
+            const MAX_ZOOM = currentRegion === 'JP' ? 15 : 1.5; // (依你喜好設為 15 或 20)
             
-            // 💡 1. 攔截並限制 Zoom (確保不會超過極限)
-            viewState.zoom = Math.min(Math.max(viewState.zoom, -3.75), MAX_ZOOM);
+            // 攔截 Zoom 極限，防止平移 bug
+            if (viewState.zoom > MAX_ZOOM) {
+                deckInstance.setProps({ viewState: { ...oldViewState } });
+                return; 
+            }
 
-            // 💡 2. 限制各區的 X 軸與 Y 軸拖曳範圍
             if (currentRegion === 'JP') {
-                viewState.target[1] = Math.min(Math.max(viewState.target[1], 0), state.period);
+                // 💡 神奇公式：動態計算當前縮放比例下，「半個螢幕」等於多少資料距離
+                const screenHalfHeight = (window.innerHeight / 2) / Math.pow(2, viewState.zoom);
+                
+                // 💡 設定防護牆：讓相機中心永遠保持在螢幕半高之下，難波站(0)就不會離開畫面頂端
+                const minY = screenHalfHeight - 20; // 減 20 是為了頂部留一點點舒適的黑邊
+                const maxY = Math.max(minY, state.period - screenHalfHeight + 20); 
+                
+                // 限制 Y 軸拖曳，徹底消滅上方大黑邊
+                viewState.target[1] = Math.min(Math.max(viewState.target[1], minY), maxY);
+                
+                // 限制 X 軸拖曳
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
+                
+                state.currentZoom = viewState.zoom;
+                deckInstance.setProps({viewState});
+
             } else {
-                // 台鐵的無限循環
+                // ... 🇹🇼 台鐵原本的無限循環邏輯維持不變 ...
                 if (viewState.target[1] > state.period) viewState.target[1] -= state.period;
                 else if (viewState.target[1] < 0) viewState.target[1] += state.period;
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
+                state.currentZoom = viewState.zoom;
+                deckInstance.setProps({viewState});
             }
             
-            state.currentZoom = viewState.zoom;
-            
-            // 更新狀態到 Deck.gl
-            deckInstance.setProps({viewState});
             renderLayers();
         },
         onClick: (info) => {
