@@ -376,7 +376,17 @@ function initDeckGL() {
         },
         onViewStateChange: ({viewState, oldViewState}) => { 
             const MAX_ZOOM = currentRegion === 'JP' ? 15 : 1.5;
-            const MIN_ZOOM = -3.75;
+            
+            // 💡 動態計算最低縮放極限 (MIN_ZOOM)
+            let MIN_ZOOM = -3.75; // 預設值
+            if (state.period > 0) {
+                // 利用對數公式 (log2)，推算出「讓路線高度剛好等於螢幕高度」的 Zoom 等級
+                // 減 80 是為了上下各留 40px 的舒服黑邊，才不會太貼齊視窗邊緣
+                MIN_ZOOM = Math.log2((window.innerHeight - 80) / state.period);
+                
+                // 防呆：避免遇到超短支線時，算出來的 MIN_ZOOM 太大反而鎖死畫面
+                MIN_ZOOM = Math.min(MIN_ZOOM, 0); 
+            }
 
             // 💡 解決問題 2：防止達到縮放極限時，滾輪造成的平移
             // 我們先算合法的 zoom 應該是多少
