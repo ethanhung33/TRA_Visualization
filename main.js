@@ -377,56 +377,52 @@ function initDeckGL() {
         onViewStateChange: ({viewState, oldViewState}) => { 
             const MAX_ZOOM = currentRegion === 'JP' ? 15 : 1.5;
             
-            // 💡 動態計算最低縮放極限 (MIN_ZOOM)
-            let MIN_ZOOM = -3.75; // 預設值
-            if (state.period > 0) {
-                // 利用對數公式 (log2)，推算出「讓路線高度剛好等於螢幕高度」的 Zoom 等級
-                // 減 80 是為了上下各留 40px 的舒服黑邊，才不會太貼齊視窗邊緣
-                MIN_ZOOM = Math.log2((window.innerHeight - 80) / state.period);
-                
-                // 防呆：避免遇到超短支線時，算出來的 MIN_ZOOM 太大反而鎖死畫面
-                MIN_ZOOM = Math.min(MIN_ZOOM, 0); 
+            // 💡 1. 這裡可以自由調整你想要的留白大小 (像素)
+            const VERTICAL_MARGIN = 80; // 上下各留 80px 的舒適空間，確保端點站文字絕對不會被切到
+            
+            // 💡 2. 動態計算最低縮放極限 (改用 gridData.maxDistance，這才是 Y 軸的長度！)
+            let MIN_ZOOM = -3.75; 
+            if (gridData && gridData.maxDistance > 0) {
+                // 計算：(螢幕高度 - 雙倍留白) / 路線總距離
+                MIN_ZOOM = Math.log2((window.innerHeight - VERTICAL_MARGIN * 2) / gridData.maxDistance);
+                MIN_ZOOM = Math.min(MIN_ZOOM, 1.5); // 防呆，避免超短支線算出來太大
             }
 
-            // 💡 解決問題 2：防止達到縮放極限時，滾輪造成的平移
-            // 我們先算合法的 zoom 應該是多少
+            // 防溜冰：控制合法 zoom 範圍
             const clampedZoom = Math.min(Math.max(viewState.zoom, MIN_ZOOM), MAX_ZOOM);
-            
-            // 如果 Deck.gl 算出來的 zoom 超過了極限，代表它正在試圖衝破邊界！
             if (viewState.zoom !== clampedZoom) {
-                // 直接把視角的平移目標 (target) 退回上一個影格，徹底拔掉它的溜冰鞋
                 viewState.target = oldViewState.target;
                 viewState.zoom = clampedZoom;
             }
 
             if (currentRegion === 'JP') {
-                // 💡 解決問題 1：修復縮小後的「邊界反轉」Bug
-                const screenHalfHeight = (window.innerHeight / 2) / Math.pow(2, viewState.zoom);
+                // 💡 3. 精準的動態邊界與留白計算
+                const scale = Math.pow(2, viewState.zoom);
+                const screenHalfHeight = (window.innerHeight / 2) / scale;
+                
+                // 必須把「螢幕的 80 像素」轉換成「圖表上的距離單位」，留白才會永遠保持等寬！
+                const marginUnits = VERTICAL_MARGIN / scale; 
                 
                 let minY, maxY;
                 
-                // 判斷：如果目前的螢幕視野高度，已經大於整條路線的長度
-                if (screenHalfHeight * 2 > state.period) {
-                    // 代表整張圖都塞進螢幕了，不需要防護牆，直接把畫面「垂直置中」！
-                    minY = state.period / 2;
-                    maxY = state.period / 2;
+                // 如果連同留白都塞得進螢幕 -> 完美置中
+                if (screenHalfHeight * 2 > gridData.maxDistance + marginUnits * 2) {
+                    minY = gridData.maxDistance / 2;
+                    maxY = gridData.maxDistance / 2;
                 } else {
-                    // 正常狀態：設定上下防護牆
-                    minY = screenHalfHeight - 20; 
-                    maxY = state.period - screenHalfHeight + 20; 
+                    // 正常的上下平移極限 (讓視角頂到留白就會停住，端點站永不切邊)
+                    minY = screenHalfHeight - marginUnits; 
+                    maxY = gridData.maxDistance - screenHalfHeight + marginUnits; 
                 }
                 
-                // 限制 Y 軸拖曳，套用我們算好的安全範圍
                 viewState.target[1] = Math.min(Math.max(viewState.target[1], minY), maxY);
-                
-                // 限制 X 軸拖曳
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
                 
                 state.currentZoom = viewState.zoom;
                 deckInstance.setProps({viewState});
 
             } else {
-                // ... 🇹🇼 台鐵原本的無限循環邏輯維持不變 ...
+                // ... 🇹🇼 台鐵維持原本的無限循環邏輯不變 ...
                 if (viewState.target[1] > state.period) viewState.target[1] -= state.period;
                 else if (viewState.target[1] < 0) viewState.target[1] += state.period;
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
