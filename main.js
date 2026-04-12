@@ -988,11 +988,10 @@ window.selectTrain = function(trainNumber) {
     if (selected) { state.selectedLine = selected; state.showSchedule = true; state.focusedStation = null; updateBottomPanel(); renderLayers(); updateInfoBox(); }
 };
 
-// 💡 攝影機自動導航函式：每次切換路線時，自動飛回該路線的 Y 軸中心點！
+// 💡 攝影機自動導航：每次切換路線時，飛回該路線的「最上方」！
 window.centerCameraOnLine = function() {
     if (!deckInstance || !state.stationList || !state.stationDistances) return;
 
-    // 1. 找出這條新路線的 Y 軸最高點跟最低點
     const distances = Array.from(state.stationList)
                            .map(name => state.stationDistances[name])
                            .filter(d => d !== undefined);
@@ -1002,20 +1001,17 @@ window.centerCameraOnLine = function() {
     const minY = Math.min(...distances);
     const maxY = Math.max(...distances);
     
-    // 2. 算出版面的 Y 軸中心點
-    const centerY = (minY + maxY) / 2;
+    // 💡 關鍵修改：不取正中間，而是取路線「最上方往下約 15%」的位置
+    // 這樣第一站 (minY) 就會剛好出現在畫面偏上方，而不會死死貼著螢幕頂端！
+    const targetY = minY + (maxY - minY) * 0.15;
 
-    // 3. 抓取現在的攝影機狀態
     const currentVS = deckInstance.props.viewState || state.viewState || {};
-    
-    // 保持 X 軸不變 (如果已經有目標就沿用，沒有就抓當前時間)
     const currentX = currentVS.target?.[0] || (state.currentTimeMinutes * 3 + 180);
 
-    // 4. 設定新座標，並加入平滑飛行轉場 (transitionDuration)
     const updatedViewState = { 
         ...currentVS, 
-        target: [currentX, centerY, 0], 
-        transitionDuration: 600, // 💡 0.6 秒的平滑飛行動畫
+        target: [currentX, targetY, 0], // 餵給它新的 targetY
+        transitionDuration: 600, 
         transitionInterpolator: new deck.LinearInterpolator(['target']), 
         transitionInterruption: 1 
     };
