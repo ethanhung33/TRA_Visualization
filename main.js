@@ -757,7 +757,14 @@ function updateInfoBox() {
                     : (train.end || infoSafe.end || train.data[train.data.length-1].x).replace(/.* /, ''); 
                 
                 return stop ? { number: train.number, type: train.train, dest: destName, time: stop.y, isClockwise } : null;
-            }).filter(t => t !== null && t.time >= state.currentTimeMinutes).sort((a, b) => a.time - b.time);
+            })
+            .filter(t => t !== null && t.time >= state.currentTimeMinutes)
+            .sort((a, b) => a.time - b.time);
+        
+        // 💡 終極防護盾：利用 findIndex 過濾掉「車次號碼相同」的影分身！
+        const uniqueNextTrains = nextTrains.filter((train, index, self) =>
+            index === self.findIndex((t) => t.number === train.number)
+        );
         
         // 💡 關鍵修正 1：改用新的「train-item-badge」類別，徹底擺脫 195px 的束縛！
         const createTrainBadge = (t) => {
