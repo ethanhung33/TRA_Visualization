@@ -249,13 +249,10 @@ function bindDynamicPillEvents() {
                 if (state.enabledTypes.has(type)) {
                     // 取消選取
                     state.enabledTypes.delete(type);
-                    e.target.style.background = 'transparent';
-                    e.target.style.color = 'var(--text-color)';
-                    e.target.style.borderColor = 'var(--border-color)'; // 增加邊框感
+                    e.target.style.background = 'var(--panel-bg)';      // 使用跟路線按鈕一樣的背景
+                    e.target.style.color = 'var(--subtext-color)';      // 使用跟路線按鈕一樣的文字顏色
+                    e.target.style.borderColor = 'var(--border-color)'; // 補回邊框
 
-                    if (state.selectedLine && state.selectedLine.train === type) {
-                        state.selectedLine = null;
-                    }
                 } else {
                     // 選取
                     state.enabledTypes.add(type);
@@ -359,8 +356,9 @@ function bindDynamicPillEvents() {
         deselectAllBtn.onclick = () => {
             state.enabledTypes.clear();
             document.querySelectorAll('.train-type-pill').forEach(pill => {
-                pill.style.background = 'transparent';
-                pill.style.color = 'var(--text-color)';
+                pill.style.background = 'var(--panel-bg)';
+                pill.style.color = 'var(--subtext-color)';
+                pill.style.borderColor = 'var(--border-color)';
             });
             state.selectedLine = null; 
             if (deckInstance) renderLayers();

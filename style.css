@@ -507,3 +507,11 @@ body {
     min-width: 60px;          /* 防止太短的文字變圓形 */
     text-align: center;
 }
+
+#dynamic-type-pills {
+    min-height: 80px; /* 💡 預留大約兩排按鈕的高度，防止畫面跳動 */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
