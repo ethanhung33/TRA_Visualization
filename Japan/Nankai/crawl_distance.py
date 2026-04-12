@@ -3,6 +3,7 @@ import requests
 from io import StringIO
 import re
 import json
+from bs4 import BeautifulSoup  # 💡 新增匯入 BeautifulSoup
 
 WIKI_URLS = {
     "南海本線": "https://ja.wikipedia.org/wiki/南海本線",
@@ -13,7 +14,10 @@ WIKI_URLS = {
     "高師浜線": "https://ja.wikipedia.org/wiki/南海高師浜線",
     "高野線": "https://ja.wikipedia.org/wiki/南海高野線",
     "泉北線": "https://ja.wikipedia.org/wiki/泉北高速鉄道線",
-    "高野線（汐見橋方面）": "https://ja.wikipedia.org/wiki/南海汐見橋線",
+    
+    # 💡 修正：換回日文維基百科的網址！(日文版的錨點一樣叫 汐見橋線)
+    "高野線（汐見橋方面）": "https://ja.wikipedia.org/wiki/南海高野線#汐見橋線",
+    
     "高野山ケーブル": "https://ja.wikipedia.org/wiki/南海鋼索線"
 }
 
@@ -26,7 +30,6 @@ def clean_station_name(name):
     name = re.sub(r'\[.*?\]', '', str(name))
     
     # 2. 移除所有類型的括號及其內容 (包含和歌山大學前的「（ふじと台）」)
-    # 這裡同時處理半形 () 與全形 （）
     name = re.sub(r'\(.*?\)', '', name) 
     name = re.sub(r'（.*?）', '', name) 
     
@@ -34,17 +37,29 @@ def clean_station_name(name):
     name = name.replace("駅", "").replace("#", "").strip()
     return name
 
-print("🚀 開始爬取南海全家族里程 (已過濾待避符號與特定站名)...\n")
+print("🚀 開始爬取南海全家族里程 (已整合汐見橋線精準抓取)...\n")
 
 for line_name, url in WIKI_URLS.items():
     print(f"正在掃描: {line_name} ...")
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status() 
-        tables = pd.read_html(StringIO(response.text))
         
+        # 💡 終極解法：放棄尋找 HTML 標籤，直接用「指紋」過濾表格！
+        if line_name == "高野線（汐見橋方面）":
+            try:
+                # 叫 pandas 直接掃描全網頁，只挑出裡面含有「芦原町」這個專屬站名的表格！
+                tables = pd.read_html(StringIO(response.text), match="芦原町")
+            except ValueError:
+                print("  ❌ 找不到包含「芦原町」的專屬表格")
+                tables = []
+        else:
+            # 其他路線維持原本的抓法
+            tables = pd.read_html(StringIO(response.text))
+            
         target_df = None
         for df in tables:
+            # ... (下面維持你原本壓平表頭的邏輯) ...
             # 壓平多層表頭並解決欄位重複問題
             df.columns = ['_'.join(str(c) for c in col).strip() if isinstance(col, tuple) else str(col) for col in df.columns]
             df = df.loc[:, ~df.columns.duplicated()]
@@ -79,9 +94,6 @@ for line_name, url in WIKI_URLS.items():
                 
                 # 專屬南海本線的實體過濾器：移除今宮戎、萩ノ茶屋
                 if line_name == "南海本線" and st_name in ["今宮戎", "萩ノ茶屋"]:
-                    # 注意：雖然不錄入，但如果維基提供的距離是「站間距離」，
-                    # 邏輯上仍需累加該站距離才能讓下一站的里程正確。
-                    # 幸好這兩站在維基的本線表格通常本來就不計入，或以「全線共通」方式呈現。
                     try:
                         val_str = str(dist_val).replace("km", "").strip()
                         if val_str not in ["-", "−", "", "nan"]:
@@ -120,4 +132,4 @@ with open(output_file, "w", encoding="utf-8") as f:
 print(f"\n🎉 處理完畢！")
 print(f"1. 所有的 '#' 已移除。")
 print(f"2. 南海本線已剔除 今宮戎、萩ノ茶屋。")
-print(f"3. 和歌山大学前 已移除副站名內容。")
+print(f"3. 汐見橋線已成功避開本線表格，精準抓取！")
