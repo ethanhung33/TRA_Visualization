@@ -276,6 +276,8 @@ function bindDynamicPillEvents() {
             if (e.target.classList.contains('line-pill')) {
                 document.querySelectorAll('#tw-line-container .line-pill').forEach(p => p.classList.remove('active'));
                 e.target.classList.add('active');
+                
+                currentRegion = 'TW';
                 isMountain = e.target.getAttribute('data-line') === 'mountain';
                 state.stationList = isMountain ? mountStationList : seaStationList;
                 state.stationDistances = isMountain ? mountStationDistances : seaStationDistances;
@@ -302,7 +304,10 @@ function bindDynamicPillEvents() {
                 document.querySelectorAll('#jp-line-container .nankai-line-pill').forEach(p => { p.classList.remove('active'); p.style.background = ''; p.style.color=''; });
                 e.target.classList.add('active');
                 e.target.style.background = '#E91E63'; e.target.style.color = 'white';
+                
+                currentRegion = 'JP';
                 setupNankaiLine(e.target.getAttribute('data-line'));
+                
                 renderTrainTypePills();
                 centerCameraOnLine();
             }
@@ -997,14 +1002,21 @@ function renderTrainTypePills() {
     const container = document.getElementById('dynamic-type-pills');
     if (!container) return;
 
-    // 1. 抓出目前路線「真的有」的車種 (從 yrawData 或 rawData 提取)
-    const currentData = (currentRegion === 'JP') ? yrawData : rawData;
-    const existingTypes = [...new Set(currentData.map(t => t.train))];
+    // 1. 根據目前區域，決定要從哪份資料抓車種
+    // 💡 增加備援機制：如果 yrawData 是空，試著抓 rawData，反之亦然
+    let currentData = (currentRegion === 'JP') ? (yrawData || []) : (rawData || []);
+    
+    // 2. 提取唯一的車種名稱，並過濾掉空值
+    const existingTypes = [...new Set(currentData.map(t => t.train))].filter(Boolean);
 
-    // 2. 清空舊按鈕
-    container.innerHTML = '';
+    // 3. 如果完全抓不到資料，先不要清空，或者印出警告
+    if (existingTypes.length === 0) {
+        console.warn("警告：目前路線資料中未發現任何車種，按鈕無法生成。");
+        return; 
+    }
 
-    // 3. 決定要用哪一國的色票
+    container.innerHTML = ''; // 確定有資料後才清空
+
     const currentPalette = (currentRegion === 'JP') ? jpColorPalette : lightcolorPalette;
 
     existingTypes.forEach(type => {
@@ -1013,10 +1025,9 @@ function renderTrainTypePills() {
         pill.setAttribute('data-type', type);
         pill.innerText = type;
 
-        // 預設全部開啟 (或是根據你的 state.enabledTypes 決定)
+        // 預設將該車種加入啟用名單
         state.enabledTypes.add(type);
         
-        // 💡 這裡會自動吃到你剛才做好的「雙主題」智慧色票顏色！
         pill.style.background = currentPalette[type] || '#969696';
         pill.style.color = '#fff';
 
