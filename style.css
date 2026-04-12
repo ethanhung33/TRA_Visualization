@@ -363,7 +363,10 @@ body {
 }
 
 .station-stop-item {
-    width: 50px;
+    width: auto;
+    padding: 0 8px;
+    flex-shrink: 0;
+
     text-align: center;
     display: inline-flex;
     flex-direction: column;

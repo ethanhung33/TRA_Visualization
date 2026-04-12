@@ -622,7 +622,7 @@ function renderLayers() {
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true,
                 getPosition: d => [d.position[0], d.position[1] + offset], getText: d => d.text,
                 fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
-                getSize: 16, sizeMaxPixels: 14, sizeMinPixels: 0, getColor: isLight ? [189, 146, 8] : [232, 252, 13],
+                getSize: 16, sizeMaxPixels: 16, sizeMinPixels: 0, getColor: isLight ? [189, 146, 8] : [232, 252, 13],
                 characterSet: 'auto',
                 getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10], background: true, getBackgroundColor: isLight ? [235, 235, 235, 180] : [20, 20, 20, 180]
             })
