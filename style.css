@@ -500,20 +500,30 @@ body {
     #bottompanel { font-size: 1.1em; }
 }
 
-/* 專門負責動態按鈕的微調 */
+/* 專門負責動態按鈕的微調與形狀鎖定 */
 .train-type-pill {
-    margin: 4px !important;    /* 確保按鈕之間有縫隙 */
-    padding: 6px 14px !important; /* 確保左右有足夠的留白變膠囊 */
-    min-width: 60px;          /* 防止太短的文字變圓形 */
+    margin: 4px !important;    
+    padding: 6px 20px !important; /* 左右稍微拉寬一點，膠囊形狀更好看 */
+    min-width: 60px;          
     text-align: center;
+    
+    /* 💡 以下是防止按鈕變形、被拉寬的關鍵！ */
+    display: inline-flex !important; 
+    flex: 0 0 auto !important;   /* 絕對不放大、不縮小 */
+    width: fit-content !important; /* 寬度只跟著裡面的文字長度走 */
 }
 
+/* 膠囊按鈕的容器 */
 #dynamic-type-pills {
-    min-height: 80px; /* 💡 預留大約兩排按鈕的高度，防止畫面跳動 */
+    min-height: 80px; /* 💡 預留兩排高度，完美防止載入時畫面跳動 */
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 10px;
+    
+    /* 💡 確保按鈕永遠從左上角開始乖乖排列，不會為了填滿空間而亂跑 */
+    justify-content: flex-start; 
+    align-content: flex-start;   
 }
 
 /* 讓 Loading 字樣有點動態感，看起來更像在讀取 */

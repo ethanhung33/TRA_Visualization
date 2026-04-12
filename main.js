@@ -1072,14 +1072,17 @@ function renderTrainTypePills() {
         pill.style.backgroundColor = color;
         
         // 💡 5. 根據你的需求：在深色背景下，彩色按鈕用黑字 (#000) 會更清晰
-        // 這樣可以避免白色文字在淺色背景 (如黃色、橘色) 上看不清楚
         pill.style.color = isLight ? '#fff' : '#000';
-        pill.style.fontWeight = 'bold'; // 加粗讓黑字更明顯
         
-        // 💡 6. 確保跟原本按鈕完全一致的微調
+        // 💡 6. 確保跟原本按鈕完全一致的微調 (修正變寬的關鍵！)
         pill.style.border = 'none'; 
-        pill.style.display = 'inline-block'; // 確保符合 CSS .pill 的行為
-        pill.style.margin = '4px';
+        
+        // --- 變更開始：用 inline-flex 與 fit-content 鎖死寬度 ---
+        pill.style.display = 'inline-flex'; 
+        pill.style.flex = '0 0 auto';    // 絕對不放大、不縮小
+        pill.style.width = 'fit-content';// 寬度只跟文字一樣長
+        pill.style.padding = '8px 20px'; // 重新強調內距，確保膠囊形狀完美
+        // --- 變更結束 ---
 
         state.enabledTypes.add(type);
 
