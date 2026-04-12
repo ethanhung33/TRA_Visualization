@@ -241,22 +241,30 @@ function bindDynamicPillEvents() {
         container.onclick = (e) => {
             if (e.target.classList.contains('train-type-pill')) {
                 const type = e.target.getAttribute('data-type');
+                
+                // 💡 決定目前應該使用的色票
+                const currentPalette = (currentRegion === 'JP') ? jpColorPalette : lightcolorPalette;
+                const typeColor = currentPalette[type];
+
                 if (state.enabledTypes.has(type)) {
+                    // 取消選取
                     state.enabledTypes.delete(type);
                     e.target.style.background = 'transparent';
                     e.target.style.color = 'var(--text-color)';
+                    e.target.style.borderColor = 'var(--border-color)'; // 增加邊框感
+
                     if (state.selectedLine && state.selectedLine.train === type) {
                         state.selectedLine = null;
-                        // 這裡原本有 updateInfoBox()，我們把它移到最下面統一執行
                     }
                 } else {
+                    // 選取
                     state.enabledTypes.add(type);
-                    e.target.style.background = colorPalette[type];
+                    e.target.style.background = typeColor; // 💡 使用對應色票的顏色
                     e.target.style.color = '#fff';
+                    e.target.style.borderColor = 'transparent';
                 }
-                if (deckInstance) renderLayers();
                 
-                // 💡 1. 補在這裡！點擊單一車種後，讓下方看板立即更新
+                if (deckInstance) renderLayers();
                 updateInfoBox(); 
             }
         };
