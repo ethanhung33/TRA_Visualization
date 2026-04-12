@@ -574,6 +574,7 @@ function renderLayers() {
         ];
     };
 
+    const timeLinePadding = currentRegion === 'JP' ? 0 : state.period;
     deckInstance.setProps({ layers: [
         new deck.PathLayer({ id: 'thin-time-lines', data: gridData.thinLines, getPath: d => d.path, getColor: isLight ? [200, 200, 200] : [50, 50, 50], getWidth: 1, widthMaxPixels: 2, widthMinPixels: 0 }),
         new deck.PathLayer({ id: 'thick-time-lines', data: gridData.thickLines, getPath: d => d.path, getColor: isLight ? [180, 180, 180] : [80, 80, 80], getWidth: 2, widthMaxPixels: 3, widthMinPixels: 0 }),
