@@ -362,31 +362,80 @@ body {
     padding-right: 50vw; 
 }
 
-.station-stop-item {
-    width: auto;
-    padding: 0 8px;
+/* 💡 全新排版網格：包覆站名與箭頭的容器 */
+.timeline-block {
+    display: flex;
     flex-shrink: 0;
+    align-items: stretch;
+}
 
-    text-align: center;
-    display: inline-flex;
+/* 車站與時間的直列容器 */
+.station-col {
+    display: flex;
     flex-direction: column;
-    justify-content: center;
-    white-space: nowrap;
+    align-items: center;
+    padding: 0 12px;
     cursor: pointer;
     transition: opacity 0.2s ease;
 }
 
 @media (hover: hover) {
-    .station-stop-item:hover { opacity: 0.6; }
+    .station-col:hover { opacity: 0.6; }
 }
 
-.station-stop-item.focused {
-    border-bottom: 2px solid var(--text-color);
-    font-weight: bold;
+/* 點擊選中時的底線與文字變色 (解決字體縮水問題) */
+.station-col.focused {
+    border-bottom: 2px solid var(--monitor-color);
+}
+.station-col.focused .stop-name {
+    color: var(--monitor-color);
+    font-weight: normal; /* 強制不使用粗體，防止字體跑位 */
 }
 
-.stop-name { font-size: 0.8em; }
-.stop-times { font-size: 0.6em; opacity: 0.7; margin-top: 2px; line-height: 1.2; }
+/* 站名：鎖定高度，確保跟旁邊的箭頭墊片平齊 */
+.stop-name {
+    font-size: 0.95em;
+    height: 22px; 
+    line-height: 22px;
+    margin-bottom: 6px;
+    white-space: nowrap;
+}
+
+/* 時間數字：使用 Orbitron 等寬字體，讓數字上下絕對對齊 */
+.stop-time {
+    font-family: "Orbitron", monospace;
+    font-size: 0.85em;
+    height: 20px;
+    line-height: 20px;
+    opacity: 0.9;
+}
+
+/* 發車時間稍微變暗，創造資訊的層次感 */
+.stop-time.sub-time {
+    opacity: 0.5; 
+}
+
+/* 箭頭的直列容器 */
+.arrow-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* 隱形的墊片：它的高度跟站名一模一樣，用來把箭頭精準往下擠 */
+.arrow-spacer {
+    height: 22px; 
+    margin-bottom: 6px; 
+}
+
+/* 完美對齊第一排時間的箭頭 */
+.track-arrow {
+    height: 20px; 
+    line-height: 20px;
+    opacity: 0.4;
+    font-size: 0.8em;
+    margin: 0 2px;
+}s
 
 @media screen and (max-width: 768px) {
     #sidebar {

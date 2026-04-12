@@ -719,20 +719,29 @@ function updateInfoBox() {
             return acc;
         }, {});
 
-        const stationsHtml = Object.entries(stopsMap).map(([name, times]) => {
+        // 💡 完美對齊版：將站名、時間、箭頭劃分出精準的「網格區塊」
+        const stationsHtml = Object.entries(stopsMap).map(([name, times], index, arr) => {
             const arrStr = times.arr !== null ? formatTime(times.arr) : "--:--";
             const depStr = times.dep !== null ? formatTime(times.dep) : (times.arr !== null ? formatTime(times.arr) : "--:--");
             const focusedClass = name === state.focusedStation ? 'focused' : '';
+            const isLast = index === arr.length - 1; // 判斷是不是最後一站
             
             return `
-                <div class="station-stop-item ${focusedClass}" onclick="selectStation('${name}')">
-                    <div class="stop-name">${name}</div>
-                    <div class="stop-times">
-                        ${arrStr}<br>${depStr}
+                <div class="timeline-block">
+                    <div class="station-col ${focusedClass}" onclick="selectStation('${name}')">
+                        <div class="stop-name">${name}</div>
+                        <div class="stop-time">${arrStr}</div>
+                        <div class="stop-time sub-time">${depStr}</div>
                     </div>
+                    ${isLast ? '' : `
+                    <div class="arrow-col">
+                        <div class="arrow-spacer"></div>
+                        <div class="track-arrow">➔</div>
+                    </div>
+                    `}
                 </div>
             `;
-        }).join('<b class="separator-arrow">→</b>'); 
+        }).join(''); // 💡 箭頭已經在上面處理了，所以這裡清空 
         
         // 💡 3. 直接從「完整軌跡」抓取最真實的起終點！
         // (不需要再寫 if 去攔截泉佐野了，因為系統現在知道它真的開到了關西空港)
