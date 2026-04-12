@@ -515,3 +515,10 @@ body {
     gap: 8px;
     margin-top: 10px;
 }
+
+/* 讓 Loading 字樣有點動態感，看起來更像在讀取 */
+@keyframes pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}

@@ -369,6 +369,9 @@ function bindDynamicPillEvents() {
 }
 
 async function loadData() {
+    // 💡 關鍵：在抓資料之前，先跑一次，這時 rawData 是空的，會觸發 Loading 字樣
+    renderTrainTypePills();
+
     if (currentRegion === 'TW') {
         const filename = getSelectedDateFilename();
         const yfilename = getYesterdayFilename();
@@ -1003,9 +1006,19 @@ function renderTrainTypePills() {
     // 💡 1. 確保資料來源正確 (日本看 rawData，台灣看 rawData+yrawData)
     let allData = (currentRegion === 'JP') ? (rawData || []) : [...(rawData || []), ...(yrawData || [])];
     
+    // 💡 如果資料是空的 (fetch 還沒跑完)，顯示 Loading
     if (allData.length === 0) {
-        container.innerHTML = '<div style="color:var(--subtext-color); padding: 10px; font-style: italic;">Loading train types...</div>';
-        return;
+        container.innerHTML = `
+            <div class="loading-placeholder" style="
+                color: var(--subtext-color); 
+                padding: 15px; 
+                font-style: italic;
+                letter-spacing: 2px;
+                animation: pulse 1.5s infinite;
+            ">
+                Checking Timetable...
+            </div>`;
+        return; 
     }
 
     // 💡 2. 嚴格過濾邏輯 (修正 s is not defined 錯誤)
