@@ -1002,58 +1002,53 @@ function renderTrainTypePills() {
     const container = document.getElementById('dynamic-type-pills');
     if (!container) return;
 
-    // 💡 修正 1：不管台灣還是日本，都看 rawData (因為 loadData 把資料存在這)
-    // 如果台灣有跨日資料，我們合併 rawData 和 yrawData 一起判斷
-    let allData = [...(rawData || []), ...(yrawData || [])];
+    // 💡 1. 確保資料來源正確 (日本看 rawData，台灣看 rawData+yrawData)
+    let allData = (currentRegion === 'JP') ? (rawData || []) : [...(rawData || []), ...(yrawData || [])];
     
-    if (allData.length === 0) return; // 沒資料就不動
+    if (allData.length === 0) return;
 
-    // 💡 修正 2：嚴格精簡邏輯
+    // 💡 2. 嚴格過濾邏輯 (修正 s is not defined 錯誤)
     const filteredData = allData.filter(train => {
-        // A. 日期篩選 (平日/土休日)
         const trainDay = train.day || train.type;
         if (trainDay && state.dayType && trainDay !== state.dayType) return false;
 
-        // B. 路線篩選 (這班車必須有兩站以上落在目前選中的路線裡)
-        // 這樣可以排除掉「只經過難波」但其實是別條線的車
+        // 這裡修正變數名稱，確保使用的是 stop
         const overlapCount = train.data.filter(stop => state.stationList.has(stop.x)).length;
         return overlapCount >= 2; 
     });
 
-    // 提取不重複車種
     const existingTypes = [...new Set(filteredData.map(t => t.train))].filter(Boolean);
 
-    // 生成 UI
     container.innerHTML = ''; 
     const currentPalette = (currentRegion === 'JP') ? jpColorPalette : lightcolorPalette;
 
     existingTypes.forEach(type => {
         const pill = document.createElement('div');
         
-        // 💡 關鍵 1：同時給它兩個 Class！
-        // 'pill' 負責提供圓角和間距，'train-type-pill' 負責讓你點擊過濾
+        // 💡 3. 解決形狀問題：完全套用你 CSS 裡的 .pill 樣式
         pill.className = 'pill train-type-pill'; 
         
         pill.setAttribute('data-type', type);
         pill.innerText = type;
 
-        const currentPalette = (currentRegion === 'JP') ? jpColorPalette : lightcolorPalette;
         const color = currentPalette[type] || '#969696';
 
-        // 💡 關鍵 2：樣式補強
-        // 如果你的 .pill 預設有背景色，這裡要強制覆蓋它
+        // 💡 4. 解決顏色與字體問題
         pill.style.backgroundColor = color;
-        pill.style.color = '#fff';
-        pill.style.border = 'none'; // 拔掉原本 .pill 的邊框，讓顏色更純粹
         
-        // 💡 關鍵 3：修正長方形的最後一根稻草
-        // 有時候 div 寬度會怪怪的，強制它「依內容縮放」
-        pill.style.display = 'inline-flex';
-        pill.style.alignItems = 'center';
-        pill.style.justifyContent = 'center';
+        // 💡 5. 根據你的需求：在深色背景下，彩色按鈕用黑字 (#000) 會更清晰
+        // 這樣可以避免白色文字在淺色背景 (如黃色、橘色) 上看不清楚
+        pill.style.color = '#000'; 
+        pill.style.fontWeight = 'bold'; // 加粗讓黑字更明顯
+        
+        // 💡 6. 確保跟原本按鈕完全一致的微調
+        pill.style.border = 'none'; 
+        pill.style.display = 'inline-block'; // 確保符合 CSS .pill 的行為
+        pill.style.margin = '4px';
 
+        state.enabledTypes.add(type);
         container.appendChild(pill);
-    });s
+    });
 }
 
 syncAllPalettes();
