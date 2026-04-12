@@ -382,7 +382,7 @@ function initDeckGL() {
 
             // 💡 2. 限制各區的 X 軸與 Y 軸拖曳範圍
             if (currentRegion === 'JP') {
-                viewState.target[1] = Math.min(Math.max(viewState.target[1], -100), state.period + 100);
+                viewState.target[1] = Math.min(Math.max(viewState.target[1], 0), state.period);
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
             } else {
                 // 台鐵的無限循環
@@ -585,7 +585,17 @@ function renderLayers() {
         }),
         new deck.ScatterplotLayer({ id: 'json-layer', data: rawData.flatMap(g => g.data.map(p => ({...p, train: g.train}))), getPosition: d => [d.y*3, state.stationDistances[d.x]], getFillColor: isLight? [50, 50, 50] : [200, 200, 200], getRadius: 0.0001, radiusMaxPixels: 0.001, radiusMinPixels: 0.00001 }),
         ...yOffsets.flatMap(layerBuilder),
-        new deck.PathLayer({ id: 'current-time-line', data: [{ path: [[state.currentTimeMinutes * 3, gridData.minDistance - state.period], [state.currentTimeMinutes * 3, gridData.maxDistance + state.period]] }], getPath: d => d.path, getColor: isLight ? [0, 172, 193] : [0, 225, 255], getWidth: 3.5, widthMaxPixels: 4.5, widthMinPixels: 0 })
+        new deck.PathLayer({ 
+            id: 'current-time-line', 
+            // 💡 修正：把 state.period 換成 timeLinePadding
+            data: [{ path: [[state.currentTimeMinutes * 3, gridData.minDistance - timeLinePadding], [state.currentTimeMinutes * 3, gridData.maxDistance + timeLinePadding]] }], 
+            getPath: d => d.path, 
+            getColor: isLight ? [0, 172, 193] : [0, 225, 255], 
+            
+            // 💡 鎖定像素，讓時間線不會放大後變太粗
+            widthUnits: 'pixels', 
+            getWidth: 3
+        })
     ]});
 }
 
