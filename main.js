@@ -570,7 +570,7 @@ function renderLayers() {
                 getPosition: d => [d.position[0], d.position[1] + offset], getText: d => d.text,
                 fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
                 // 💡 鎖定文字大小為螢幕像素
-                sizeUnits: 'pixels', getSize: 12, 
+                sizeUnits: 'pixels', getSize: 16, 
                 getColor: d => d.text === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [80, 80, 80] : [180, 180, 180]),
                 characterSet: 'auto', getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
             }),
@@ -607,7 +607,7 @@ function renderLayers() {
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true,
                 getPosition: d => [d.position[0], d.position[1] + offset], getText: d => d.text,
                 fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
-                getSize: 14, sizeMaxPixels: 14, sizeMinPixels: 0, getColor: isLight ? [189, 146, 8] : [232, 252, 13],
+                getSize: 16, sizeMaxPixels: 14, sizeMinPixels: 0, getColor: isLight ? [189, 146, 8] : [232, 252, 13],
                 characterSet: 'auto',
                 getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10], background: true, getBackgroundColor: isLight ? [235, 235, 235, 180] : [20, 20, 20, 180]
             })
