@@ -299,7 +299,7 @@ function bindDynamicPillEvents() {
 
     const jpLineContainer = document.getElementById('jp-line-container');
     if (jpLineContainer) {
-        jpLineContainer.onclick = (e) => {
+        jpLineContainer.onclick = async (e) => {
             if (e.target.classList.contains('nankai-line-pill')) {
                 document.querySelectorAll('#jp-line-container .nankai-line-pill').forEach(p => { p.classList.remove('active'); p.style.background = ''; p.style.color=''; });
                 e.target.classList.add('active');
@@ -308,7 +308,7 @@ function bindDynamicPillEvents() {
                 currentRegion = 'JP';
                 setupNankaiLine(e.target.getAttribute('data-line'));
                 
-                renderTrainTypePills();
+                await loadData(); // 確保資料載入完成後再更新圖層
                 centerCameraOnLine();
             }
         };
@@ -396,6 +396,7 @@ async function loadData() {
     }
     
     updateStationGridData();
+    renderTrainTypePills();
     updateInfoBox();
     if(deckInstance) renderLayers();
 }
@@ -1001,52 +1002,38 @@ function renderTrainTypePills() {
     const container = document.getElementById('dynamic-type-pills');
     if (!container) return;
 
-    // 💡 診斷 1：確認資料來源
-    let allData = (currentRegion === 'JP') ? (yrawData || []) : (rawData || []);
-    console.log(`[Debug] 當前區域: ${currentRegion}, 火車總數: ${allData.length}`);
+    // 💡 修正 1：不管台灣還是日本，都看 rawData (因為 loadData 把資料存在這)
+    // 如果台灣有跨日資料，我們合併 rawData 和 yrawData 一起判斷
+    let allData = [...(rawData || []), ...(yrawData || [])];
+    
+    if (allData.length === 0) return; // 沒資料就不動
 
-    if (allData.length === 0) {
-        console.error("❌ 錯誤：allData 是空的！請檢查 yrawData 或 currentRegion 是否正確。");
-        return;
-    }
-
-    // 💡 診斷 2：看看車站清單裡有什麼
-    const currentStations = Array.from(state.stationList);
-    console.log("[Debug] 目前路線的車站清單 (前3站):", currentStations.slice(0, 3));
-
+    // 💡 修正 2：嚴格精簡邏輯
     const filteredData = allData.filter(train => {
-        // 1. 寬鬆的日期檢查
-        const trainDay = train.day || train.type || train.weekday; 
-        const isCorrectDay = trainDay ? (trainDay === state.dayType) : true;
+        // A. 日期篩選 (平日/土休日)
+        const trainDay = train.day || train.type;
+        if (trainDay && state.dayType && trainDay !== state.dayType) return false;
 
-        // 2. 核心檢查：車站名稱比對
-        // 💡 增加 .trim() 移除可能不可見的空白
-        const overlapCount = train.data.filter(stop => {
-            const stopName = String(stop.x).trim();
-            return state.stationList.has(stopName);
-        }).length;
-        
-        return isCorrectDay && (overlapCount >= 1); 
+        // B. 路線篩選 (這班車必須有兩站以上落在目前選中的路線裡)
+        // 這樣可以排除掉「只經過難波」但其實是別條線的車
+        const overlapCount = train.data.filter(stop => state.stationList.has(stop.x)).length;
+        return overlapCount >= 2; 
     });
 
+    // 提取不重複車種
     const existingTypes = [...new Set(filteredData.map(t => t.train))].filter(Boolean);
-    console.log("[Debug] 過濾後剩下的車種：", existingTypes);
 
-    // --- 生成按鈕 (這部分邏輯不變) ---
+    // 生成 UI
     container.innerHTML = ''; 
-    if (existingTypes.length === 0) {
-        container.innerHTML = '<div style="color:gray; padding:10px;">(未找到匹配車種)</div>';
-        // 💡 如果還是 0，印出第一班車的車站名稱來對比
-        console.warn("⚠️ 過濾結果為0。第一班車的車站範例:", allData[0].data.slice(0, 3).map(s => s.x));
-        return;
-    }
-
     const currentPalette = (currentRegion === 'JP') ? jpColorPalette : lightcolorPalette;
+
     existingTypes.forEach(type => {
         const pill = document.createElement('div');
         pill.className = 'train-type-pill';
         pill.setAttribute('data-type', type);
         pill.innerText = type;
+        
+        // 預設開啟該車種
         state.enabledTypes.add(type);
         pill.style.background = currentPalette[type] || '#969696';
         pill.style.color = '#fff';
