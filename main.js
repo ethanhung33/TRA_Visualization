@@ -988,7 +988,7 @@ window.selectTrain = function(trainNumber) {
     if (selected) { state.selectedLine = selected; state.showSchedule = true; state.focusedStation = null; updateBottomPanel(); renderLayers(); updateInfoBox(); }
 };
 
-// 💡 攝影機自動導航：每次切換路線時，飛回該路線的「最上方」！
+// 💡 攝影機導航：無動畫、零延遲，瞬間切換到路線最頂端！
 window.centerCameraOnLine = function() {
     if (!deckInstance || !state.stationList || !state.stationDistances) return;
 
@@ -998,22 +998,16 @@ window.centerCameraOnLine = function() {
     
     if (distances.length === 0) return;
 
+    // 1. 取得這條路線最上方那一站的 Y 座標
     const minY = Math.min(...distances);
-    const maxY = Math.max(...distances);
-    
-    // 💡 關鍵修改：不取正中間，而是取路線「最上方往下約 15%」的位置
-    // 這樣第一站 (minY) 就會剛好出現在畫面偏上方，而不會死死貼著螢幕頂端！
-    const targetY = minY + (maxY - minY) * 0.15;
 
     const currentVS = deckInstance.props.viewState || state.viewState || {};
     const currentX = currentVS.target?.[0] || (state.currentTimeMinutes * 3 + 180);
 
+    // 2. 拔掉所有 transition 動畫設定，直接暴力賦予新座標！
     const updatedViewState = { 
         ...currentVS, 
-        target: [currentX, targetY, 0], // 餵給它新的 targetY
-        transitionDuration: 600, 
-        transitionInterpolator: new deck.LinearInterpolator(['target']), 
-        transitionInterruption: 1 
+        target: [currentX, minY, 0] // 💡 直接鎖定 minY，不加任何緩衝
     };
     
     state.viewState = updatedViewState; 
