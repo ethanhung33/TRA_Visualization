@@ -781,8 +781,9 @@ function updateInfoBox() {
             if (!list.length) return `<span class="direction-label">無後續車次</span>`;
             return list.map(createTrainBadge).join('<b class="separator-arrow">>></b>');
         };
-        const cwtext = buildInfoList(nextTrains.filter(t => t.isClockwise));
-        const ccwtext = buildInfoList(nextTrains.filter(t => !t.isClockwise));
+        // ✅ 這樣改：確實把「去重後的陣列」餵給渲染函式
+        const cwtext = buildInfoList(uniqueNextTrains.filter(t => t.isClockwise));
+        const ccwtext = buildInfoList(uniqueNextTrains.filter(t => !t.isClockwise));
 
         DOM.stationBox.innerHTML = `
             <div class="station-info-container">
