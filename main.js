@@ -374,41 +374,27 @@ function initDeckGL() {
                 else if (object.text === undefined) return { text: `${String(object).split(',')[0]}` };
             }
         },
-        onViewStateChange: ({viewState, oldViewState}) => { 
-            // 💡 解決平移 Bug：如果滾輪滾超過你設定的極限 (例如 20)，就強制退回上一步，不准滑動！
-            const MAX_ZOOM = currentRegion === 'JP' ? 20 : 1.5;
-            if (viewState.zoom > MAX_ZOOM) {
-                deckInstance.setProps({
-                    viewState: { ...oldViewState } 
-                });
-                return; // 直接中斷
-            } 
+        onViewStateChange: ({viewState}) => { 
+            const MAX_ZOOM = currentRegion === 'JP' ? 15 : 1.5;
+            
+            // 💡 1. 攔截並限制 Zoom (確保不會超過極限)
+            viewState.zoom = Math.min(Math.max(viewState.zoom, -3.75), MAX_ZOOM);
+
+            // 💡 2. 限制各區的 X 軸與 Y 軸拖曳範圍
             if (currentRegion === 'JP') {
-                // 💡 限制 JP 區域的 Y 軸拖曳範圍 (0 到最大里程)，加上 100 單位的留白緩衝
                 viewState.target[1] = Math.min(Math.max(viewState.target[1], -100), state.period + 100);
-                
-                // 限制 X 軸拖曳範圍
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
-                
-                state.currentZoom = viewState.zoom;
-                const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 20);
-                deckInstance.setProps({viewState: {...viewState, zoom: clampedZoom}});
             } else {
-                // 這裡維持原本 TW 的無限循環邏輯...
+                // 台鐵的無限循環
                 if (viewState.target[1] > state.period) viewState.target[1] -= state.period;
                 else if (viewState.target[1] < 0) viewState.target[1] += state.period;
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
-                const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 1.5);
-                deckInstance.setProps({viewState: {...viewState, zoom: clampedZoom}});
-                state.currentZoom = viewState.zoom;
             }
             
-            // 下方維持你原本的 Monitor 更新與 zoom 限制邏輯
-            if (DOM.viewMonitor && DOM.viewMonitor.style.display === 'block') {
-                // ...
-            }
-            const clampedZoom = Math.min(Math.max(viewState.zoom, -3.75), 1.5);
-            deckInstance.setProps({viewState: {...viewState, zoom: clampedZoom}});
+            state.currentZoom = viewState.zoom;
+            
+            // 更新狀態到 Deck.gl
+            deckInstance.setProps({viewState});
             renderLayers();
         },
         onClick: (info) => {
@@ -534,7 +520,8 @@ function renderLayers() {
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true, autoHighlight: true, highlightColor: [220, 220, 220, 150],
                 getPath: d => [[270, d[1] + offset], [4770, d[1] + offset]],
                 getColor: d => d[0] === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [180, 180, 180] : [80, 80, 80]),
-                getWidth: d => d[0] === state.focusedStation ? 3 : 1, widthMaxPixels: 2, widthMinPixels: 0
+                // 💡 鎖定車站橫線為螢幕像素
+                widthUnits: 'pixels', getWidth: d => d[0] === state.focusedStation ? 3 : 1
             }),
             new deck.TextLayer({
                 id: `station-labels-${offset}`,
@@ -542,9 +529,10 @@ function renderLayers() {
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 150],
                 getPosition: d => [d.position[0], d.position[1] + offset], getText: d => d.text,
                 fontFamily: 'GlowSansSCCom-Compressed, sans-serif',
-                getSize: 12, sizeMaxPixels: 100, sizeMinPixels: 0, getColor: d => d.text === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [80, 80, 80] : [180, 180, 180]),
-                characterSet: 'auto',
-                getColor: isLight ? [60, 60, 60] : [210, 210, 210], characterSet: 'auto', getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
+                // 💡 鎖定文字大小為螢幕像素
+                sizeUnits: 'pixels', getSize: 12, 
+                getColor: d => d.text === state.focusedStation ? (isLight ? [189, 146, 8] : [232, 252, 13]) : (isLight ? [80, 80, 80] : [180, 180, 180]),
+                characterSet: 'auto', getAlignmentBaseline: 'bottom', getTextAnchor: 'middle', pixelOffset: [0, -10]
             }),
             new deck.PathLayer({
                 id: `main-path-layer-${offset}`, data: processedSegments, coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
@@ -554,13 +542,16 @@ function renderLayers() {
                     const h = colorPalette[d.train] || '#999999';
                     return [parseInt(h.substring(1, 3), 16), parseInt(h.substring(3, 5), 16), parseInt(h.substring(5, 7), 16)]; 
                 },
-                getWidth: 2, widthMaxPixels: 4, widthMinPixels: 0
+                // 💡 鎖定火車斜線永遠是 2 像素寬！
+                widthUnits: 'pixels', getWidth: 2
             }),
             new deck.PathLayer({
                 id: `selection-layer-${offset}`, data: state.selectedLine && state.enabledTypes.has(state.selectedLine.train) ? processedSegments.filter(s => s.number === state.selectedLine.number) : [],
                 coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN, pickable: false,
                 getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
-                getColor: isLight ? [255, 214, 0] : [255, 196, 0], getWidth: 4, widthMaxPixels: 4.5, widthMinPixels: 0
+                getColor: isLight ? [255, 214, 0] : [255, 196, 0], 
+                // 💡 鎖定高亮線為 4 像素寬
+                widthUnits: 'pixels', getWidth: 4
             }),
             new deck.TextLayer({
                 id: `train-schedule-labels-${offset}`, data: scheduleData, coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
