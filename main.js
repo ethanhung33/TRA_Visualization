@@ -582,8 +582,8 @@ function renderLayers() {
                     const h = colorPalette[d.train] || '#999999';
                     return [parseInt(h.substring(1, 3), 16), parseInt(h.substring(3, 5), 16), parseInt(h.substring(5, 7), 16)]; 
                 },
-                // 💡 鎖定火車斜線永遠是 2 像素寬！
-                widthUnits: 'pixels', getWidth: 2
+                // 💡 鎖定火車斜線永遠是 1 像素寬！
+                widthUnits: 'pixels', getWidth: 1
             }),
             new deck.PathLayer({
                 id: `selection-layer-${offset}`, data: state.selectedLine && state.enabledTypes.has(state.selectedLine.train) ? processedSegments.filter(s => s.number === state.selectedLine.number) : [],
@@ -591,7 +591,7 @@ function renderLayers() {
                 getPath: d => d.data.map(p => [p.y * 3, p.adjustedDist + offset]),
                 getColor: isLight ? [255, 214, 0] : [255, 196, 0], 
                 // 💡 鎖定高亮線為 4 像素寬
-                widthUnits: 'pixels', getWidth: 4
+                widthUnits: 'pixels', getWidth: 3
             }),
             new deck.TextLayer({
                 id: `train-schedule-labels-${offset}`, data: scheduleData, coordinateSystem: deck.COORDINATE_SYSTEM.CARTESIAN,
