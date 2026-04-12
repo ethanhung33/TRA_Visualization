@@ -1044,12 +1044,24 @@ function renderTrainTypePills() {
 
     // 💡 2. 嚴格過濾邏輯 (修正 s is not defined 錯誤)
     const filteredData = allData.filter(train => {
+        // 1. 日期過濾
         const trainDay = train.day || train.type;
         if (trainDay && state.dayType && trainDay !== state.dayType) return false;
 
-        // 這裡修正變數名稱，確保使用的是 stop
-        const overlapCount = train.data.filter(stop => state.stationList.has(stop.x)).length;
-        return overlapCount >= 2; 
+        // 💡 2. 關鍵修正：改用 Set 來收集「不重複」的重疊車站
+        const overlappingStations = new Set();
+        
+        train.data.forEach(stop => {
+            const stopName = String(stop.x).trim();
+            if (state.stationList.has(stopName)) {
+                // 把車站名稱丟進 Set 裡。
+                // 如果「泉佐野」出現兩次，Set 裡面還是只會有一個「泉佐野」！
+                overlappingStations.add(stopName); 
+            }
+        });
+
+        // 3. 檢查「不重複」的車站數量是否 >= 2
+        return overlappingStations.size >= 2; 
     });
 
     const existingTypes = [...new Set(filteredData.map(t => t.train))].filter(Boolean);
