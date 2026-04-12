@@ -691,16 +691,26 @@ function updateInfoBox() {
         });
         boxesHtml += '</div>';
 
-        const stopsMap = state.selectedLine.data.reduce((acc, curr) => {
+        // 💡 1. 跨線直通拼圖：去大資料庫裡找出這班車「所有路線的碎片」
+        // (例如：把南海本線的碎片和空港線的碎片一起抓出來)
+        const allTrainFragments = [...todaySegments, ...yesterdaySegments].filter(t => t.number === state.selectedLine.number);
+        
+        let mergedTrainData = [];
+        allTrainFragments.forEach(fragment => {
+            mergedTrainData = mergedTrainData.concat(fragment.data);
+        });
+        
+        // 依照時間 (y 值) 重新排序，把碎片完美無縫接軌成一條完整的時間線！
+        mergedTrainData.sort((a, b) => a.y - b.y);
+
+        // 💡 2. 改用「完整拼圖資料 (mergedTrainData)」來計算沿途停靠站
+        const stopsMap = mergedTrainData.reduce((acc, curr) => {
             if (!acc[curr.x]) acc[curr.x] = { arr: null, dep: null };
             if (acc[curr.x].arr === null) acc[curr.x].arr = Math.ceil(curr.y);
             else acc[curr.x].dep = Math.floor(curr.y);
             return acc;
         }, {});
 
-        // ... 前面的 stopsMap 邏輯保留不變 ...
-
-        // 💡 1. 建立「車站停靠點」的 HTML 陣列，不再有一堆 inline-style！
         const stationsHtml = Object.entries(stopsMap).map(([name, times]) => {
             const arrStr = times.arr !== null ? formatTime(times.arr) : "--:--";
             const depStr = times.dep !== null ? formatTime(times.dep) : (times.arr !== null ? formatTime(times.arr) : "--:--");
@@ -714,14 +724,14 @@ function updateInfoBox() {
                     </div>
                 </div>
             `;
-        }).join('<b class="separator-arrow">→</b>'); // 沿用我們剛剛在 CSS 寫好的箭頭樣式
+        }).join('<b class="separator-arrow">→</b>'); 
         
-        // 取得起終點站與火車顏色
-        const startStation = infoObj.start || state.selectedLine.start || state.selectedLine.data[0].x;
-        const endStation = infoObj.end || state.selectedLine.end || state.selectedLine.data[state.selectedLine.data.length - 1].x;
+        // 💡 3. 直接從「完整軌跡」抓取最真實的起終點！
+        // (不需要再寫 if 去攔截泉佐野了，因為系統現在知道它真的開到了關西空港)
+        const trueStartStation = mergedTrainData[0].x;
+        const trueEndStation = mergedTrainData[mergedTrainData.length - 1].x;
         const trainColor = colorPalette[state.selectedLine.train] || '#ccc';
 
-        // 💡 2. 組合最終版面：結構超清晰的 Flex 模板
         DOM.infoBox.innerHTML = `
             <div class="train-detail-layout">
                 <div class="sticky-train-header" style="color: ${trainColor};">
@@ -730,7 +740,7 @@ function updateInfoBox() {
                 
                 <div class="metadata-group">
                     <span class="info-segment via-label" style="color: ${viaColor}">${viaText}</span>
-                    <span class="info-segment route-display">${startStation} → ${endStation}</span>
+                    <span class="info-segment route-display">${trueStartStation} → ${trueEndStation}</span>
                     ${boxesHtml}
                 </div>
                 
