@@ -505,8 +505,8 @@ body {
     display: inline-flex !important; 
     align-items: center !important;      /* 💡 垂直置中 */
     justify-content: center !important;  /* 💡 水平置中 (解決文字偏左) */
-    flex: 0 0 auto !important;           /* 絕對不放大、不縮小 */
-    width: fit-content !important;       /* 寬度只跟著文字走 */
+    width: max-content !important;       /* 💡 絕對不拉寬，跟著文字走 */
+    flex: 0 0 auto !important;           /* 💡 絕對不放大 */
     min-width: 70px !important;          /* 給短字(如普通)一個好看的基本寬度 */
     padding: 6px 16px !important;        /* 舒服的左右留白 */
     margin: 4px !important;
@@ -524,7 +524,7 @@ body {
     margin-top: 10px;
     
     /* 💡 確保按鈕永遠從左上角開始乖乖排列，不會為了填滿空間而亂跑 */
-    justify-content: flex-start; 
+    justify-content: flex-start !important; /* 💡 從左邊開始排 */
     align-content: flex-start;   
 }
 
