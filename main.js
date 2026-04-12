@@ -369,37 +369,58 @@ function bindDynamicPillEvents() {
 }
 
 async function loadData() {
-    // 💡 關鍵：在抓資料之前，先跑一次，這時 rawData 是空的，會觸發 Loading 字樣
-    renderTrainTypePills();
+    const loader = document.getElementById('global-loading');
+    
+    // 💡 1. 開啟全螢幕載入遮罩，並重置車種按鈕區域避免舊資料干擾
+    if (loader) loader.style.display = 'flex';
+    const container = document.getElementById('dynamic-type-pills');
+    if (container) container.innerHTML = ''; 
 
+    // 💡 2. 開始抓取資料
     if (currentRegion === 'TW') {
         const filename = getSelectedDateFilename();
         const yfilename = getYesterdayFilename();
         try {
-            const response = await fetch(filename);
-            rawData = await response.json();
-        } catch (err) { rawData = []; }
-        try {
-            const yresponse = await fetch(yfilename);
-            yrawData = await yresponse.json();
-        } catch (err) { yrawData = []; }
+            const [res, yres] = await Promise.all([
+                fetch(filename).then(r => r.ok ? r.json() : []),
+                fetch(yfilename).then(r => r.ok ? r.json() : [])
+            ]);
+            rawData = res;
+            yrawData = yres;
+        } catch (err) {
+            console.error("TW Data load error:", err);
+            rawData = []; yrawData = [];
+        }
     } 
     else if (currentRegion === 'JP') {
         try {
             const res = await fetch(`Japan/Nankai/nankai_timetable.json`);
             rawData = await res.json();
-        } catch(e) { rawData = []; }
+        } catch(e) {
+            console.error("JP Data load error:", e);
+            rawData = [];
+        }
         yrawData = []; 
     }
 
+    // 💡 3. 同步當前選中的車次狀態
     if (state.selectedLine) { 
-        state.selectedLine = rawData.find(t => t.number === state.selectedLine.number) || yrawData.find(t => t.number === state.selectedLine.number) || null; 
+        state.selectedLine = rawData.find(t => t.number === state.selectedLine.number) || 
+                             yrawData.find(t => t.number === state.selectedLine.number) || null; 
     }
     
+    // 💡 4. 資料全部就位，統一更新 UI 元件
+    // 這裡順序很重要：先更新站點，再根據站點精簡車種按鈕
     updateStationGridData();
-    renderTrainTypePills();
+    renderTrainTypePills(); // 這裡面已經有你要求的「黑背景配黑字」邏輯
     updateInfoBox();
-    if(deckInstance) renderLayers();
+    
+    if (deckInstance) renderLayers();
+
+    // 💡 5. 關閉遮罩 (給一點點延遲 300ms，讓 UI 渲染完成，視覺更平滑)
+    setTimeout(() => {
+        if (loader) loader.style.display = 'none';
+    }, 300);
 }
 
 function initDeckGL() {
