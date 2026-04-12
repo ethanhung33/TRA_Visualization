@@ -1001,34 +1001,43 @@ function renderTrainTypePills() {
     const container = document.getElementById('dynamic-type-pills');
     if (!container) return;
 
+    // 💡 診斷 1：確認資料來源
     let allData = (currentRegion === 'JP') ? (yrawData || []) : (rawData || []);
-    
-    // 💡 診斷：看看第一班車的資料結構到底長怎樣
-    if (allData.length > 0) {
-        console.log("第一班車的完整資料：", allData[0]);
-        console.log("目前設定的篩選條件 - 日期：", state.dayType, "，車站數：", state.stationList.size);
+    console.log(`[Debug] 當前區域: ${currentRegion}, 火車總數: ${allData.length}`);
+
+    if (allData.length === 0) {
+        console.error("❌ 錯誤：allData 是空的！請檢查 yrawData 或 currentRegion 是否正確。");
+        return;
     }
 
+    // 💡 診斷 2：看看車站清單裡有什麼
+    const currentStations = Array.from(state.stationList);
+    console.log("[Debug] 目前路線的車站清單 (前3站):", currentStations.slice(0, 3));
+
     const filteredData = allData.filter(train => {
-        // 1. 日期檢查 (我們先用最寬鬆的檢查，避免消失)
-        // 💡 請確認你的 JSON 裡是用哪個字： 'day', 'type', 還是 'weekday'？
+        // 1. 寬鬆的日期檢查
         const trainDay = train.day || train.type || train.weekday; 
         const isCorrectDay = trainDay ? (trainDay === state.dayType) : true;
 
-        // 2. 路線重疊檢查
-        // 先改成 >= 1，確保只要有沾到邊的都先出來，我們再慢慢收緊
-        const overlapCount = train.data.filter(stop => state.stationList.has(stop.x)).length;
+        // 2. 核心檢查：車站名稱比對
+        // 💡 增加 .trim() 移除可能不可見的空白
+        const overlapCount = train.data.filter(stop => {
+            const stopName = String(stop.x).trim();
+            return state.stationList.has(stopName);
+        }).length;
         
         return isCorrectDay && (overlapCount >= 1); 
     });
 
     const existingTypes = [...new Set(filteredData.map(t => t.train))].filter(Boolean);
-    console.log("過濾後剩下的車種：", existingTypes);
+    console.log("[Debug] 過濾後剩下的車種：", existingTypes);
 
-    // --- 以下生成 UI ---
+    // --- 生成按鈕 (這部分邏輯不變) ---
     container.innerHTML = ''; 
     if (existingTypes.length === 0) {
-        container.innerHTML = '<div style="color:gray; padding:10px;">(此路線無對應車次)</div>';
+        container.innerHTML = '<div style="color:gray; padding:10px;">(未找到匹配車種)</div>';
+        // 💡 如果還是 0，印出第一班車的車站名稱來對比
+        console.warn("⚠️ 過濾結果為0。第一班車的車站範例:", allData[0].data.slice(0, 3).map(s => s.x));
         return;
     }
 
@@ -1038,8 +1047,6 @@ function renderTrainTypePills() {
         pill.className = 'train-type-pill';
         pill.setAttribute('data-type', type);
         pill.innerText = type;
-        
-        // 保持選中狀態
         state.enabledTypes.add(type);
         pill.style.background = currentPalette[type] || '#969696';
         pill.style.color = '#fff';
