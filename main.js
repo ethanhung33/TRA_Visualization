@@ -990,7 +990,7 @@ window.selectTrain = function(trainNumber) {
     if (selected) { state.selectedLine = selected; state.showSchedule = true; state.focusedStation = null; updateBottomPanel(); renderLayers(); updateInfoBox(); }
 };
 
-// 💡 攝影機導航：無動畫、零延遲，瞬間切換到合法的路線最頂端！(終極防跳動版)
+// 💡 攝影機導航：無動畫、瞬間切換到合法的路線最頂端！(終極防跳動 + 防縮放突變版)
 window.centerCameraOnLine = function() {
     if (!deckInstance || !state.stationList || !state.stationDistances) return;
 
@@ -1000,35 +1000,46 @@ window.centerCameraOnLine = function() {
     
     if (distances.length === 0) return;
 
-    // 抓取當前攝影機狀態與縮放比例
+    // 1. 抓取當前攝影機狀態
     const currentVS = state.viewState || deckInstance.props.viewState || deckInstance.props.initialViewState || {};
     const currentX = currentVS.target?.[0] || (state.currentTimeMinutes * 3 + 180);
-    const currentZoom = currentVS.zoom !== undefined ? currentVS.zoom : 0;
-
-    // --- 💡 核心修復：預先計算合法的 Y 軸極限，避免被防溜冰機制彈回 ---
-    const canvasHeight = deckInstance.height || window.innerHeight;
-    const scale = Math.pow(2, currentZoom);
-    const screenHalfHeight = (canvasHeight / 2) / scale;
-    const marginUnits = 150 / scale; // 必須與 onViewStateChange 裡的 VERTICAL_MARGIN 150 一致
+    let currentZoom = currentVS.zoom !== undefined ? currentVS.zoom : 0;
 
     const minD = gridData.minDistance !== undefined ? gridData.minDistance : Math.min(...distances);
     const maxD = gridData.maxDistance !== undefined ? gridData.maxDistance : Math.max(...distances);
     const totalD = maxD - minD;
 
-    let targetY;
+    const canvasHeight = deckInstance.height || window.innerHeight;
+    const VERTICAL_MARGIN = 150; // 必須與 onViewStateChange 一致
 
-    // 判斷：如果是短路線 (螢幕裝得下整條線)，直接置中
+    // --- 💡 核心修復 1：預先計算新路線的合法 Zoom，避免帶入錯誤的縮放比例 ---
+    let MIN_ZOOM = -3.75;
+    if (totalD > 0) {
+        MIN_ZOOM = Math.log2((canvasHeight - VERTICAL_MARGIN * 2) / totalD);
+        MIN_ZOOM = Math.min(MIN_ZOOM, 1.5);
+    }
+    const MAX_ZOOM = currentRegion === 'JP' ? 15 : 1.5;
+    
+    // 將 currentZoom 強制限制在新路線的合法範圍內
+    currentZoom = Math.min(Math.max(currentZoom, MIN_ZOOM), MAX_ZOOM);
+
+    // --- 💡 核心修復 2：使用修正後的 currentZoom 來計算 Y 軸極限 ---
+    const scale = Math.pow(2, currentZoom);
+    const screenHalfHeight = (canvasHeight / 2) / scale;
+    const marginUnits = VERTICAL_MARGIN / scale;
+
+    let targetY;
     if (screenHalfHeight * 2 > totalD + marginUnits * 2) {
-        targetY = minD + totalD / 2;
+        targetY = minD + totalD / 2; // 短路線置中
     } else {
-        // 判斷：如果是長路線，精準降落在「合法的最上方邊界」
-        targetY = minD + screenHalfHeight - marginUnits;
+        targetY = minD + screenHalfHeight - marginUnits; // 長路線頂端對齊
     }
 
-    // 賦予新座標
+    // 賦予新座標，並把「修正後的 Zoom」一起塞進去！
     const updatedViewState = { 
         ...currentVS, 
-        target: [currentX, targetY, 0] 
+        target: [currentX, targetY, 0],
+        zoom: currentZoom // 💡 確保攝影機帶著正確的縮放比例過去！
     };
     
     state.viewState = updatedViewState; 
