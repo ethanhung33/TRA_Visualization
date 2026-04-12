@@ -990,7 +990,7 @@ window.selectTrain = function(trainNumber) {
     if (selected) { state.selectedLine = selected; state.showSchedule = true; state.focusedStation = null; updateBottomPanel(); renderLayers(); updateInfoBox(); }
 };
 
-// 💡 攝影機導航：無動畫、瞬間切換到合法的路線最頂端！(終極防跳動 + 防縮放突變版)
+// 💡 攝影機導航：無動畫、瞬間切換，並自動縮放至「完美填滿螢幕」的比例！(Auto-Fit 版)
 window.centerCameraOnLine = function() {
     if (!deckInstance || !state.stationList || !state.stationDistances) return;
 
@@ -1000,50 +1000,54 @@ window.centerCameraOnLine = function() {
     
     if (distances.length === 0) return;
 
-    // 1. 抓取當前攝影機狀態
     const currentVS = state.viewState || deckInstance.props.viewState || deckInstance.props.initialViewState || {};
     const currentX = currentVS.target?.[0] || (state.currentTimeMinutes * 3 + 180);
-    let currentZoom = currentVS.zoom !== undefined ? currentVS.zoom : 0;
 
     const minD = gridData.minDistance !== undefined ? gridData.minDistance : Math.min(...distances);
     const maxD = gridData.maxDistance !== undefined ? gridData.maxDistance : Math.max(...distances);
     const totalD = maxD - minD;
 
     const canvasHeight = deckInstance.height || window.innerHeight;
-    const VERTICAL_MARGIN = 150; // 必須與 onViewStateChange 一致
+    const VERTICAL_MARGIN = 150; 
 
-    // --- 💡 核心修復 1：預先計算新路線的合法 Zoom，避免帶入錯誤的縮放比例 ---
-    let MIN_ZOOM = -3.75;
+    // --- 💡 核心修復 1：智慧計算「完美滿版」的 Zoom ---
+    let idealZoom = -3.75;
     if (totalD > 0) {
-        MIN_ZOOM = Math.log2((canvasHeight - VERTICAL_MARGIN * 2) / totalD);
-        MIN_ZOOM = Math.min(MIN_ZOOM, 1.5);
+        // 算出剛好能把整條路線塞進螢幕高度的比例
+        idealZoom = Math.log2((canvasHeight - VERTICAL_MARGIN * 2) / totalD);
+        // 限制極限，避免超短路線(如只有兩站)被放得過大
+        idealZoom = Math.min(idealZoom, 1.5); 
     }
-    const MAX_ZOOM = currentRegion === 'JP' ? 15 : 1.5;
     
-    // 將 currentZoom 強制限制在新路線的合法範圍內
-    currentZoom = Math.min(Math.max(currentZoom, MIN_ZOOM), MAX_ZOOM);
+    // 💡 直接採用這個完美的比例！
+    const currentZoom = idealZoom;
 
-    // --- 💡 核心修復 2：使用修正後的 currentZoom 來計算 Y 軸極限 ---
+    // --- 💡 核心修復 2：用完美的 Zoom 來算置中座標 ---
     const scale = Math.pow(2, currentZoom);
     const screenHalfHeight = (canvasHeight / 2) / scale;
     const marginUnits = VERTICAL_MARGIN / scale;
 
     let targetY;
-    if (screenHalfHeight * 2 > totalD + marginUnits * 2) {
-        targetY = minD + totalD / 2; // 短路線置中
+    // 因為我們已經調成了滿版比例，整條線剛好裝得下，直接給它「置中對齊」最漂亮！
+    if (screenHalfHeight * 2 >= totalD + marginUnits * 2 - 1) { 
+        targetY = minD + totalD / 2;
     } else {
-        targetY = minD + screenHalfHeight - marginUnits; // 長路線頂端對齊
+        targetY = minD + screenHalfHeight - marginUnits; 
     }
 
-    // 賦予新座標，並把「修正後的 Zoom」一起塞進去！
     const updatedViewState = { 
         ...currentVS, 
         target: [currentX, targetY, 0],
-        zoom: currentZoom // 💡 確保攝影機帶著正確的縮放比例過去！
+        zoom: currentZoom // 💡 帶著完美的縮放比例飛過去
     };
     
     state.viewState = updatedViewState; 
+    state.currentZoom = currentZoom; // 💡 同步更新，確保圖層知道現在的比例
+
     deckInstance.setProps({ viewState: updatedViewState });
+    
+    // 💡 強制重繪！確保車站的標籤 (Label) 密度與新的 Zoom 瞬間同步！
+    renderLayers(); 
 };
 
 window.selectStation = function(stationName) {
