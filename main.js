@@ -260,7 +260,7 @@ function bindDynamicPillEvents() {
                     // 選取
                     state.enabledTypes.add(type);
                     e.target.style.background = typeColor; // 💡 使用對應色票的顏色
-                    e.target.style.color = '#fff';
+                    e.target.style.color = isLight ? '#fff' : '#000';
                     e.target.style.borderColor = 'transparent';
                 }
                 
@@ -986,7 +986,7 @@ function syncAllPalettes() {
             
             if (newColor) {
                 pill.style.background = newColor; // 更新背景色
-                pill.style.color = '#fff';         // 選中時固定白字
+                pill.style.color = isLight ? '#fff' : '#000';
                 pill.style.borderColor = 'transparent';
             }
         } else {
@@ -1038,7 +1038,7 @@ function renderTrainTypePills() {
         
         // 💡 5. 根據你的需求：在深色背景下，彩色按鈕用黑字 (#000) 會更清晰
         // 這樣可以避免白色文字在淺色背景 (如黃色、橘色) 上看不清楚
-        pill.style.color = '#000'; 
+        pill.style.color = isLight ? '#fff' : '#000';
         pill.style.fontWeight = 'bold'; // 加粗讓黑字更明顯
         
         // 💡 6. 確保跟原本按鈕完全一致的微調
@@ -1047,6 +1047,7 @@ function renderTrainTypePills() {
         pill.style.margin = '4px';
 
         state.enabledTypes.add(type);
+
         container.appendChild(pill);
     });
 }
