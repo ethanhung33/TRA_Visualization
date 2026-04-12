@@ -1003,7 +1003,10 @@ function renderTrainTypePills() {
     // 💡 1. 確保資料來源正確 (日本看 rawData，台灣看 rawData+yrawData)
     let allData = (currentRegion === 'JP') ? (rawData || []) : [...(rawData || []), ...(yrawData || [])];
     
-    if (allData.length === 0) return;
+    if (allData.length === 0) {
+        container.innerHTML = '<div style="color:var(--subtext-color); padding: 10px; font-style: italic;">Loading train types...</div>';
+        return;
+    }
 
     // 💡 2. 嚴格過濾邏輯 (修正 s is not defined 錯誤)
     const filteredData = allData.filter(train => {
