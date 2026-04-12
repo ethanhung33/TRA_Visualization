@@ -726,23 +726,38 @@ function updateInfoBox() {
         `;
     }
     else if (state.focusedStation) {
-        const nextTrains = [...todaySegments, ...yesterdaySegments].map(train => {
-            const stop = train.data.findLast(p => p.x === state.focusedStation);
-            const stopDistances = train.data.map(p => allStationDistances[p.x] || state.stationDistances[p.x]).filter(d => d !== undefined);
-            
-            // 💡 防彈機制 2：保護車站點擊時的 info 讀取
-            const infoSafe = train.info || {};
-            const isClockwise = currentRegion === 'TW' 
-                ? (allStationDistances[infoSafe.start?.slice(6)] > allStationDistances[infoSafe.end?.slice(6)]) ^ (Math.max(...stopDistances) - Math.min(...stopDistances) > 6000) 
-                : state.stationDistances[train.data[0].x] < state.stationDistances[train.data[train.data.length-1].x];
-            
-            // 精準抓取終點站名稱
-            const destName = currentRegion === 'TW' 
-                ? (infoSafe.end || "").slice(6) 
-                : (train.end || infoSafe.end || train.data[train.data.length-1].x).replace(/.* /, ''); 
-            
-            return stop ? { number: train.number, type: train.train, dest: destName, time: stop.y, isClockwise } : null;
-        }).filter(t => t !== null && t.time >= state.currentTimeMinutes).sort((a, b) => a.time - b.time);
+        const nextTrains = [...todaySegments, ...yesterdaySegments]
+            // 💡 關鍵修復：在抓取車站時間前，先把不該顯示的火車踢掉！
+            .filter(train => {
+                // 1. 車種防護：如果右側面板「沒有勾選」這個車種，直接隱藏
+                if (state.enabledTypes && !state.enabledTypes.has(train.train)) return false;
+
+                // 2. 曜日防護：過濾掉不屬於今天的「平日/土休日」班次
+                const driveStr = train.info?.drive || train.drive || "";
+                
+                // ⚠️ 注意：這裡假設你用 state.dayType 來紀錄現在是點選「平日」還是「土休日」
+                // (請根據你實際儲存按鈕狀態的變數名稱修改，例如 state.currentDay 或 state.activeDay)
+                if (state.dayType === '平日' && driveStr.includes('土休') && !driveStr.includes('平日')) return false;
+                if (state.dayType === '土休日' && driveStr.includes('平日') && !driveStr.includes('土休')) return false;
+
+                return true;
+            })
+            // --- 下面維持原本的邏輯 ---
+            .map(train => {
+                const stop = train.data.findLast(p => p.x === state.focusedStation);
+                const stopDistances = train.data.map(p => allStationDistances[p.x] || state.stationDistances[p.x]).filter(d => d !== undefined);
+                
+                const infoSafe = train.info || {};
+                const isClockwise = currentRegion === 'TW' 
+                    ? (allStationDistances[infoSafe.start?.slice(6)] > allStationDistances[infoSafe.end?.slice(6)]) ^ (Math.max(...stopDistances) - Math.min(...stopDistances) > 6000) 
+                    : state.stationDistances[train.data[0].x] < state.stationDistances[train.data[train.data.length-1].x];
+                
+                const destName = currentRegion === 'TW' 
+                    ? (infoSafe.end || "").slice(6) 
+                    : (train.end || infoSafe.end || train.data[train.data.length-1].x).replace(/.* /, ''); 
+                
+                return stop ? { number: train.number, type: train.train, dest: destName, time: stop.y, isClockwise } : null;
+            }).filter(t => t !== null && t.time >= state.currentTimeMinutes).sort((a, b) => a.time - b.time);
         
         // 💡 關鍵修正 1：改用新的「train-item-badge」類別，徹底擺脫 195px 的束縛！
         const createTrainBadge = (t) => {
