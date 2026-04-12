@@ -950,12 +950,9 @@ function updateBottomPanel() {
 }
 
 function syncAllPalettes() {
-    const traSource = isLight ? _TRA_LIGHT : _TRA_DARK;
     const jpSource = isLight ? _JP_LIGHT : _JP_DARK;
 
     // 💡 暴力同步：直接把資料塞進去，這樣 Object.keys() 就能抓到東西了！
-    Object.assign(lightcolorPalette, traSource);
-    Object.assign(darkcolorPalette, traSource);
     Object.assign(jpColorPalette, jpSource);
 }
 
