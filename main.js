@@ -439,6 +439,7 @@ function initDeckGL() {
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
                 
                 state.currentZoom = viewState.zoom;
+                state.viewState = viewState;
                 deckInstance.setProps({viewState});
 
             } else {
@@ -448,6 +449,7 @@ function initDeckGL() {
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
                 
                 state.currentZoom = viewState.zoom;
+                state.viewState = viewState;
                 deckInstance.setProps({viewState});
             }
             
