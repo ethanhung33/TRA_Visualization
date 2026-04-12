@@ -375,23 +375,38 @@ function initDeckGL() {
             }
         },
         onViewStateChange: ({viewState, oldViewState}) => { 
-            const MAX_ZOOM = currentRegion === 'JP' ? 15 : 1.5; // (依你喜好設為 15 或 20)
+            const MAX_ZOOM = currentRegion === 'JP' ? 15 : 1.5;
+            const MIN_ZOOM = -3.75;
+
+            // 💡 解決問題 2：防止達到縮放極限時，滾輪造成的平移
+            // 我們先算合法的 zoom 應該是多少
+            const clampedZoom = Math.min(Math.max(viewState.zoom, MIN_ZOOM), MAX_ZOOM);
             
-            // 攔截 Zoom 極限，防止平移 bug
-            if (viewState.zoom > MAX_ZOOM) {
-                deckInstance.setProps({ viewState: { ...oldViewState } });
-                return; 
+            // 如果 Deck.gl 算出來的 zoom 超過了極限，代表它正在試圖衝破邊界！
+            if (viewState.zoom !== clampedZoom) {
+                // 直接把視角的平移目標 (target) 退回上一個影格，徹底拔掉它的溜冰鞋
+                viewState.target = oldViewState.target;
+                viewState.zoom = clampedZoom;
             }
 
             if (currentRegion === 'JP') {
-                // 💡 神奇公式：動態計算當前縮放比例下，「半個螢幕」等於多少資料距離
+                // 💡 解決問題 1：修復縮小後的「邊界反轉」Bug
                 const screenHalfHeight = (window.innerHeight / 2) / Math.pow(2, viewState.zoom);
                 
-                // 💡 設定防護牆：讓相機中心永遠保持在螢幕半高之下，難波站(0)就不會離開畫面頂端
-                const minY = screenHalfHeight - 20; // 減 20 是為了頂部留一點點舒適的黑邊
-                const maxY = Math.max(minY, state.period - screenHalfHeight + 20); 
+                let minY, maxY;
                 
-                // 限制 Y 軸拖曳，徹底消滅上方大黑邊
+                // 判斷：如果目前的螢幕視野高度，已經大於整條路線的長度
+                if (screenHalfHeight * 2 > state.period) {
+                    // 代表整張圖都塞進螢幕了，不需要防護牆，直接把畫面「垂直置中」！
+                    minY = state.period / 2;
+                    maxY = state.period / 2;
+                } else {
+                    // 正常狀態：設定上下防護牆
+                    minY = screenHalfHeight - 20; 
+                    maxY = state.period - screenHalfHeight + 20; 
+                }
+                
+                // 限制 Y 軸拖曳，套用我們算好的安全範圍
                 viewState.target[1] = Math.min(Math.max(viewState.target[1], minY), maxY);
                 
                 // 限制 X 軸拖曳
@@ -405,6 +420,7 @@ function initDeckGL() {
                 if (viewState.target[1] > state.period) viewState.target[1] -= state.period;
                 else if (viewState.target[1] < 0) viewState.target[1] += state.period;
                 viewState.target[0] = Math.min(Math.max(viewState.target[0], 20), 5020);
+                
                 state.currentZoom = viewState.zoom;
                 deckInstance.setProps({viewState});
             }
