@@ -691,16 +691,24 @@ function updateInfoBox() {
         });
         boxesHtml += '</div>';
 
-        // 💡 1. 跨線直通拼圖：去大資料庫裡找出這班車「所有路線的碎片」
-        // (例如：把南海本線的碎片和空港線的碎片一起抓出來)
-        const allTrainFragments = [...todaySegments, ...yesterdaySegments].filter(t => t.number === state.selectedLine.number);
+        // 💡 1. 跨線直通拼圖：直接去「原始大資料庫 (rawData)」找，無視當前顯示哪條線
+        const targetNum = String(state.selectedLine.number).trim();
+        const baseTime = state.selectedLine.data[0].y; 
+
+        // 這裡直接對全域的 rawData 和 yrawData 進行過濾
+        const allTrainFragments = [...rawData, ...yrawData].filter(t => {
+            const isSameNumber = String(t.number).trim() === targetNum;
+            // 增加容錯：除了號碼一樣，第一站的時間也要在合理範圍內 (例如 10 小時內)
+            const isSameRun = Math.abs(t.data[0].y - baseTime) < 600; 
+            return isSameNumber && isSameRun;
+        });
         
         let mergedTrainData = [];
         allTrainFragments.forEach(fragment => {
             mergedTrainData = mergedTrainData.concat(fragment.data);
         });
         
-        // 依照時間 (y 值) 重新排序，把碎片完美無縫接軌成一條完整的時間線！
+        // 依照時間排序，確保「難波 -> 泉佐野」接上「泉佐野 -> 關西空港」
         mergedTrainData.sort((a, b) => a.y - b.y);
 
         // 💡 2. 改用「完整拼圖資料 (mergedTrainData)」來計算沿途停靠站
