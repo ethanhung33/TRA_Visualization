@@ -499,3 +499,11 @@ body {
     #main-wrapper.sidebar-collapsed .toggle-btn { right: 0 !important; }
     #bottompanel { font-size: 1.1em; }
 }
+
+/* 專門負責動態按鈕的微調 */
+.train-type-pill {
+    margin: 4px !important;    /* 確保按鈕之間有縫隙 */
+    padding: 6px 14px !important; /* 確保左右有足夠的留白變膠囊 */
+    min-width: 60px;          /* 防止太短的文字變圓形 */
+    text-align: center;
+}

@@ -1029,16 +1029,31 @@ function renderTrainTypePills() {
 
     existingTypes.forEach(type => {
         const pill = document.createElement('div');
-        pill.className = 'train-type-pill';
+        
+        // 💡 關鍵 1：同時給它兩個 Class！
+        // 'pill' 負責提供圓角和間距，'train-type-pill' 負責讓你點擊過濾
+        pill.className = 'pill train-type-pill'; 
+        
         pill.setAttribute('data-type', type);
         pill.innerText = type;
-        
-        // 預設開啟該車種
-        state.enabledTypes.add(type);
-        pill.style.background = currentPalette[type] || '#969696';
+
+        const currentPalette = (currentRegion === 'JP') ? jpColorPalette : lightcolorPalette;
+        const color = currentPalette[type] || '#969696';
+
+        // 💡 關鍵 2：樣式補強
+        // 如果你的 .pill 預設有背景色，這裡要強制覆蓋它
+        pill.style.backgroundColor = color;
         pill.style.color = '#fff';
+        pill.style.border = 'none'; // 拔掉原本 .pill 的邊框，讓顏色更純粹
+        
+        // 💡 關鍵 3：修正長方形的最後一根稻草
+        // 有時候 div 寬度會怪怪的，強制它「依內容縮放」
+        pill.style.display = 'inline-flex';
+        pill.style.alignItems = 'center';
+        pill.style.justifyContent = 'center';
+
         container.appendChild(pill);
-    });
+    });s
 }
 
 syncAllPalettes();
