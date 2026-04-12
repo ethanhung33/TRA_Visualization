@@ -26,9 +26,7 @@ const _JP_DARK = {
     "準急": "#4CAF50", "各駅停車": "#B0B0B0", "普通": "#B0B0B0"
 };
 
-// 2. 💡 黑魔法核心：讓原本的變數名「自動導航」到正確的顏色
-const jpColorPalette    = new Proxy({}, { get: (_, prop) => isLight ? _JP_LIGHT[prop] : _JP_DARK[prop] });
-
+let jpColorPalette = {};
 
 
 // ==========================================
@@ -951,6 +949,18 @@ function updateBottomPanel() {
     else if (document.getElementById('view-null')) document.getElementById('view-null').classList.remove('hidden');
 }
 
+function syncAllPalettes() {
+    const traSource = isLight ? _TRA_LIGHT : _TRA_DARK;
+    const jpSource = isLight ? _JP_LIGHT : _JP_DARK;
+
+    // 💡 暴力同步：直接把資料塞進去，這樣 Object.keys() 就能抓到東西了！
+    Object.assign(lightcolorPalette, traSource);
+    Object.assign(darkcolorPalette, traSource);
+    Object.assign(jpColorPalette, jpSource);
+}
+
+syncAllPalettes();
+
 // ==========================================
 // 全域事件與控制綁定
 // ==========================================
@@ -976,6 +986,7 @@ if (themeToggle) {
         document.getElementById('theme-icon').textContent = isLight ? '🌙' : '☀️';
         localStorage.setItem('theme', isLight ? 'light' : 'dark');
         colorPalette = currentRegion === 'TW' ? (isLight ? lightcolorPalette : darkcolorPalette) : jpColorPalette;
+        syncAllPalettes();
         updateStationGridData(); renderLayers(); updateInfoBox();
     });
 }
