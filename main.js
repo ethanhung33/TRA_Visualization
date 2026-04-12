@@ -303,6 +303,7 @@ function bindDynamicPillEvents() {
                 e.target.classList.add('active');
                 e.target.style.background = '#E91E63'; e.target.style.color = 'white';
                 setupNankaiLine(e.target.getAttribute('data-line'));
+                renderTrainTypePills();
                 centerCameraOnLine();
             }
         };
@@ -334,10 +335,11 @@ function bindDynamicPillEvents() {
     const selectAllBtn = document.getElementById('btn-select-all'); 
     if (selectAllBtn) {
         selectAllBtn.onclick = () => {
+            const currentPalette = (currentRegion === 'JP') ? jpColorPalette : lightcolorPalette;
             document.querySelectorAll('.train-type-pill').forEach(pill => {
                 const type = pill.getAttribute('data-type');
                 state.enabledTypes.add(type);
-                pill.style.background = colorPalette[type];
+                pill.style.background = currentPalette[type];
                 pill.style.color = '#fff';
             });
             if (deckInstance) renderLayers();
@@ -987,6 +989,38 @@ function syncAllPalettes() {
             pill.style.color = 'var(--text-color)';
             pill.style.borderColor = 'var(--border-color)';
         }
+    });
+}
+
+// 💡 新增這個函式：根據 JSON 資料動態畫出右側的車種按鈕
+function renderTrainTypePills() {
+    const container = document.getElementById('dynamic-type-pills');
+    if (!container) return;
+
+    // 1. 抓出目前路線「真的有」的車種 (從 yrawData 或 rawData 提取)
+    const currentData = (currentRegion === 'JP') ? yrawData : rawData;
+    const existingTypes = [...new Set(currentData.map(t => t.train))];
+
+    // 2. 清空舊按鈕
+    container.innerHTML = '';
+
+    // 3. 決定要用哪一國的色票
+    const currentPalette = (currentRegion === 'JP') ? jpColorPalette : lightcolorPalette;
+
+    existingTypes.forEach(type => {
+        const pill = document.createElement('div');
+        pill.className = 'train-type-pill';
+        pill.setAttribute('data-type', type);
+        pill.innerText = type;
+
+        // 預設全部開啟 (或是根據你的 state.enabledTypes 決定)
+        state.enabledTypes.add(type);
+        
+        // 💡 這裡會自動吃到你剛才做好的「雙主題」智慧色票顏色！
+        pill.style.background = currentPalette[type] || '#969696';
+        pill.style.color = '#fff';
+
+        container.appendChild(pill);
     });
 }
 
