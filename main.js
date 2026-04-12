@@ -1001,45 +1001,50 @@ function renderTrainTypePills() {
     const container = document.getElementById('dynamic-type-pills');
     if (!container) return;
 
-    // 1. 取得當前區域的全部原始資料
     let allData = (currentRegion === 'JP') ? (yrawData || []) : (rawData || []);
     
-    // 💡 關鍵：更嚴格的過濾邏輯
-    const filteredData = allData.filter(train => {
-        // 條件 A：檢查日期類型 (平日/土休日) 是否符合目前選擇
-        // 假設你的資料裡有 .day 或 .type 欄位標記平日或假日
-        const isCorrectDay = (train.day === state.dayType); 
-        if (!isCorrectDay) return false;
+    // 💡 診斷：看看第一班車的資料結構到底長怎樣
+    if (allData.length > 0) {
+        console.log("第一班車的完整資料：", allData[0]);
+        console.log("目前設定的篩選條件 - 日期：", state.dayType, "，車站數：", state.stationList.size);
+    }
 
-        // 條件 B：檢查路徑重疊度
-        // 如果這班車只有 1 站（通常是難波）重疊，那它可能是別條線的
-        // 我們要求至少要有 2 站以上重疊，才算是在這條路線上運行
+    const filteredData = allData.filter(train => {
+        // 1. 日期檢查 (我們先用最寬鬆的檢查，避免消失)
+        // 💡 請確認你的 JSON 裡是用哪個字： 'day', 'type', 還是 'weekday'？
+        const trainDay = train.day || train.type || train.weekday; 
+        const isCorrectDay = trainDay ? (trainDay === state.dayType) : true;
+
+        // 2. 路線重疊檢查
+        // 先改成 >= 1，確保只要有沾到邊的都先出來，我們再慢慢收緊
         const overlapCount = train.data.filter(stop => state.stationList.has(stop.x)).length;
         
-        return overlapCount >= 2; 
+        return isCorrectDay && (overlapCount >= 1); 
     });
 
-    // 2. 提取唯一的車種名稱
     const existingTypes = [...new Set(filteredData.map(t => t.train))].filter(Boolean);
+    console.log("過濾後剩下的車種：", existingTypes);
 
-    // --- 以下生成按鈕的邏輯不變 ---
+    // --- 以下生成 UI ---
     container.innerHTML = ''; 
-    const currentPalette = (currentRegion === 'JP') ? jpColorPalette : lightcolorPalette;
+    if (existingTypes.length === 0) {
+        container.innerHTML = '<div style="color:gray; padding:10px;">(此路線無對應車次)</div>';
+        return;
+    }
 
+    const currentPalette = (currentRegion === 'JP') ? jpColorPalette : lightcolorPalette;
     existingTypes.forEach(type => {
         const pill = document.createElement('div');
         pill.className = 'train-type-pill';
         pill.setAttribute('data-type', type);
         pill.innerText = type;
         
+        // 保持選中狀態
         state.enabledTypes.add(type);
         pill.style.background = currentPalette[type] || '#969696';
         pill.style.color = '#fff';
         container.appendChild(pill);
     });
-
-    // Debug 用：看看過濾後剩下幾個車種
-    console.log(`[精簡測試] 目前路線：${state.currentLineName}，過濾後車種：`, existingTypes);
 }
 
 syncAllPalettes();
