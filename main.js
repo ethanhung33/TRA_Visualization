@@ -408,6 +408,11 @@ async function loadData() {
         state.selectedLine = rawData.find(t => t.number === state.selectedLine.number) || 
                              yrawData.find(t => t.number === state.selectedLine.number) || null; 
     }
+
+    // 💡 關鍵補強：在渲染任何畫面之前，先強制讓顏色字典跟目前的 isLight 同步！
+    if (typeof syncAllPalettes === 'function') {
+        syncAllPalettes(); 
+    }
     
     // 💡 4. 資料全部就位，統一更新 UI 元件
     // 這裡順序很重要：先更新站點，再根據站點精簡車種按鈕
