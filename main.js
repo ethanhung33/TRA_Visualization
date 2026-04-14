@@ -148,8 +148,8 @@ window.initRegion = async function(region) {
 
         // 💡 1. 從外部檔案讀取車站結構
         try {
-            // 💡 修正路徑：拿掉 Japan/，直接抓 Nankai/All_Nankai_Distances_Nested.json
-            const res = await fetch('Japan/Nankai/All_Nankai_Distances_Nested.json');
+            // 💡 修正路徑：拿掉 Japan/，直接抓 Nankai/distance.json
+            const res = await fetch('Japan/Nankai/distance.json');
 
             // 💡 絕對只能呼叫一次 res.json()！
             const data = await res.json(); 
@@ -394,7 +394,7 @@ async function loadData() {
     } 
     else if (currentRegion === 'JP') {
         try {
-            const res = await fetch(`Japan/Nankai/nankai_timetable.json`);
+            const res = await fetch(`Japan/Nankai/timetable.json`);
             rawData = await res.json();
         } catch(e) {
             console.error("JP Data load error:", e);

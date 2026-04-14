@@ -135,7 +135,7 @@ for line_name, url in WIKI_URLS.items():
         print(f"  ❌ 請求 {line_name} 失敗: {e}")
 
 # 輸出最終 JSON
-output_file = "Japan/Nankai/All_Nankai_Distances_Nested.json"
+output_file = "Japan/Nankai/distance.json"
 with open(output_file, "w", encoding="utf-8") as f:
     json.dump(global_distances, f, ensure_ascii=False, indent=4)
 
