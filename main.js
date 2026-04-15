@@ -564,6 +564,7 @@ function setupCanvasInteractions() {
             renderFrame = null; 
         });
     }, { passive: false });
+}
 
 // 🌟 新增這個函數，並在 mousemove 和 wheel 結尾呼叫它
 function clampCamera() {
