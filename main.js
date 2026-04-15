@@ -124,17 +124,23 @@ function drawGrid(viewKey) {
                 ctx.lineTo(CONFIG.paddingLeft + (1440 * CONFIG.scaleX), y);
                 ctx.stroke();
 
-                // 🌟 讓站名黏在畫面左側 (完美跟隨攝影機)
-                ctx.fillStyle = isDarkMode ? "#AAAAAA" : "#333333";
-                ctx.fillText(st.name, Math.max(20, viewLeft + 20), y); 
+                
+                // 1. 加深字體：將顏色的 alpha 值提高 (從 0.25/0.35 提高，例如 0.6 / 0.7)
+                ctx.fillStyle = isDarkMode ? "rgba(200, 200, 200, 0.6)" : "rgba(100, 100, 100, 0.7)"; 
 
-                ctx.fillStyle = isDarkMode ? "rgba(170, 170, 170, 0.25)" : "rgba(85, 85, 85, 0.35)";
+                // 2. 增大字體：在渲染水印前，單獨設置一個較大的粗體字體
+                ctx.font = "bold 20px 'Segoe UI', sans-serif"; // 從 12px 增加到 20px，並加粗 bold
+
                 for (let h = 1; h < 24; h += 2) { 
                     let textX = timeToX(h * 60) + 5;
+                    // 只有在可視範圍內的浮水印才執行 fillText
                     if (textX > viewLeft && textX < viewRight) {
                         ctx.fillText(st.name, textX, y - 8); 
                     }
                 }
+
+                // 🌟 [重要] 3. 重要：渲染完浮水印後，必須將字體還原為網格的預設大小
+                ctx.font = "12px 'Segoe UI', sans-serif"; // 還原字體為 12px
             });
         });
     }
