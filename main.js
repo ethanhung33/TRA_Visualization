@@ -616,6 +616,7 @@ function setupCanvasInteractions() {
         clampCamera();
 
         renderFrame = requestAnimationFrame(() => {
+            clampCamera();
             redrawAll();
             checkInfiniteScroll();
             renderFrame = null; 
