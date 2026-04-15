@@ -28,6 +28,8 @@ let lookupY = {};
 let loopKm = 0;      // 台灣環島一圈的總公里數
 let loopHeight = 0;  // 環島一圈在畫布上的像素高度
 
+let stationCoords = [];
+
 // 🌟 還有這兩個主題狀態的變數也要確保有宣告到
 let settings = null;        
 let isDarkMode = true;      
@@ -84,6 +86,8 @@ function drawGrid(viewKey) {
     canvas.height = (loopHeight * 3) + (CONFIG.paddingTop * 2);
     canvas.width = CONFIG.paddingLeft + (1440 * CONFIG.scaleX) + 100;
 
+    stationCoords = [];
+    
     // --- 階段 2：把車站橫線畫 3 份 (上一圈 -1、本圈 0、下一圈 1) ---
     for (let copy = -1; copy <= 1; copy++) {
         // 計算這份複製品的 Y 軸偏移量
@@ -94,6 +98,10 @@ function drawGrid(viewKey) {
             if (!seg) return;
             seg.stations.forEach(st => {
                 let y = lookupY[st.id] + offsetY;
+
+                if (copy === 0) {
+                    stationCoords.push({ name: st.name, y: y });
+                }
                 
                 ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
                 ctx.lineWidth = 1;
