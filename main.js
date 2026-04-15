@@ -20,7 +20,7 @@ const CONFIG = {
     scaleX: 1.0,
     scaleY: 1.0
 };
-const SIDE_MARGIN = 100; // 🌟 這是你想要的「左右留白」寬度，數值越大留白越多
+const SIDE_MARGIN = 150; // 🌟 這是你想要的「左右留白」寬度，數值越大留白越多
 
 let renderFrame = null;
 
@@ -484,21 +484,20 @@ function bindThemeToggle() {
 // ==========================================
 function clampCamera() {
     const wrapper = document.getElementById('canvas-wrapper');
-    if (!wrapper) return;
     const wrapperW = wrapper.clientWidth;
 
-    // 🌟 邏輯：0:00 線座標是 CONFIG.paddingLeft
-    // 我們希望 0:00 距離螢幕左緣固定為 SIDE_MARGIN
+    // 左邊界：讓 0:00 線 (paddingLeft) 距離螢幕左緣剛好是 SIDE_MARGIN
     const minX = CONFIG.paddingLeft - SIDE_MARGIN;
     
-    // 計算右邊界極限
+    // 右邊界：讓 24:00 線距離螢幕右緣也是 SIDE_MARGIN
     const contentWidth = 1440 * CONFIG.scaleX;
     const maxX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN;
 
-    // 🌟 強制執行：如果內容比螢幕窄，就居中；否則鎖定邊界
     if (maxX < minX) {
+        // 如果地圖太小，強制水平居中
         camera.x = (minX + maxX) / 2;
     } else {
+        // 否則，嚴格鎖定在圍籬內
         if (camera.x < minX) camera.x = minX;
         if (camera.x > maxX) camera.x = maxX;
     }
