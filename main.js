@@ -95,9 +95,7 @@ function drawGrid(viewKey) {
     loopKm = currentAccumulatedKm;
     loopHeight = loopKm * CONFIG.scaleY;
 
-    // 🌟 照妖鏡印出座標 (F12 Console 查看)
-    console.table(uniqueStations.filter(s => s.name === "宜蘭" || s.name === "蘇澳新"));
-
+    
     const wrapper = document.getElementById('canvas-wrapper');
     canvas.width = wrapper.clientWidth;
     canvas.height = wrapper.clientHeight;
