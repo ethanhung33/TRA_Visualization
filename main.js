@@ -498,6 +498,35 @@ function clampCamera() {
 }
 
 // ==========================================
+// 瞬移補償：讓攝影機永遠保持在「中間那一圈」
+// ==========================================
+function checkInfiniteScroll() {
+    // 如果 loopHeight 還沒計算出來，或是目前的視角不是循環模式，就跳過
+    if (loopHeight <= 0) return;
+
+    // 取得目前的視圖類型 (判斷是否為 CIRCULAR)
+    let presetKey = currentRouteView + "_view"; 
+    let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+    
+    if (!isCircular) return;
+
+    // 🌟 核心邏輯：
+    // 我們畫了三圈 (copy -1, 0, 1)，我們希望攝影機儘量待在中間那一圈 (copy 0)。
+    // 中間圈的起始 Y 座標是 CONFIG.paddingTop + loopHeight。
+
+    const centerPoint = CONFIG.paddingTop + loopHeight;
+
+    // 如果攝影機往上跑太遠，就把它往下瞬移一整圈
+    if (camera.y < centerPoint - loopHeight * 0.5) {
+        camera.y += loopHeight;
+    } 
+    // 如果攝影機往下跑太遠，就把它往上瞬移一整圈
+    else if (camera.y > centerPoint + loopHeight * 0.5) {
+        camera.y -= loopHeight;
+    }
+}
+
+// ==========================================
 // 設置畫布互動 (已修正 dataX 未定義與黑邊問題)
 // ==========================================
 function setupCanvasInteractions() {
