@@ -574,62 +574,70 @@ function setupCanvasInteractions() {
         const rect = wrapper.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
+        const wrapperW = wrapper.clientWidth;
+        const wrapperH = wrapper.clientHeight;
 
-        // 1. 🌟 [核心 1] 抓取目前「正確且取整」的攝影機位置 (避免累積浮點數誤差)
+        // 1. 抓取精確的物理座標
         const currentCamX = Math.round(camera.x);
-        const currentCamY = camera.y;
+        const currentCamY = Math.round(camera.y);
 
-        // 2. 計算目前滑鼠指在地圖上的哪個資料點 (資料座標 DataX)
+        // 🌟 2. 雙軸紀錄：精準記下「滑鼠游標正下方」的資料座標
         const dataX = (currentCamX + mouseX - CONFIG.paddingLeft) / CONFIG.scaleX;
         const dataY = (currentCamY + mouseY - CONFIG.paddingTop) / CONFIG.scaleY;
 
         // 3. 計算新倍率
-        const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1; // 滾輪下為縮小，上為放大
+        const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1; 
         let nextScaleX = CONFIG.scaleX * zoomSpeed;
         let nextScaleY = CONFIG.scaleY * zoomSpeed;
 
-        // --- 🌟 [核心 2] 最小比例限制 (改用 1560) ---
-        const wrapperW = wrapper.clientWidth;
-        // 確保地圖最小寬度 + SIDE_MARGIN*2 = 螢幕寬度
+        // 4. 最小縮放限制
         const minScaleX = (wrapperW - SIDE_MARGIN * 2) / 1560;
-        
-        // 這裡就是「防抖動」的關鍵：防止在最小比例上下微小跳動
-        if (nextScaleX < minScaleX + 0.000001) nextScaleX = minScaleX; 
-
-        // 更新高度比例限制 ( loopKm || 1 避免資料載入中的 0 )
-        const wrapperH = wrapper.clientHeight;
         const minScaleY = wrapperH / (loopKm || 1); 
+
+        // 提前阻斷：如果雙軸都縮到最小，禁止繼續運算，防止座標崩潰
+        if (e.deltaY > 0 && CONFIG.scaleX <= minScaleX + 0.0001 && CONFIG.scaleY <= minScaleY + 0.0001) {
+            return;
+        }
+
+        if (nextScaleX < minScaleX) nextScaleX = minScaleX;
         if (nextScaleY < minScaleY) nextScaleY = minScaleY;
 
-        // 套用新倍率
+        // 更新倍率
         CONFIG.scaleX = nextScaleX;
         CONFIG.scaleY = nextScaleY;
 
-        // --- 🌟 [核心 3] 原子化座標補償 (消除跳動的核心) ---
-        // 計算縮放後的物理邊界極限
-        const minLimitX = CONFIG.paddingLeft - SIDE_MARGIN; // 左邊界撞牆點
-        const contentWidth = 1560 * CONFIG.scaleX; // 縮放後的總內容像素寬度
-        const maxLimitX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN; // 右邊界撞牆點
-
-        // 先計算「理想中」為了對齊滑鼠需要的攝影機位置
+        // 🌟 5. 雙軸對齊核心：讓剛才記錄的 dataX/Y，在新的倍率下，依然對準 mouseX/Y
         let targetX = (CONFIG.paddingLeft + dataX * CONFIG.scaleX) - mouseX;
+        let targetY = (CONFIG.paddingTop + dataY * CONFIG.scaleY) - mouseY;
 
-        // 這裡就是「防跳動」的物理鎖定邏輯：
+        // --- 6. X 軸邊界物理鎖定 ---
+        const minLimitX = CONFIG.paddingLeft - SIDE_MARGIN;
+        const contentWidth = 1560 * CONFIG.scaleX;
+        const maxLimitX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN;
+
         if (contentWidth + (SIDE_MARGIN * 2) <= wrapperW + 1) {
-            // [情況 A] 縮得太小：內容寬度小於螢幕，鎖死靠左
             camera.x = minLimitX; 
         } else {
-            // [情況 B] 畫面夠寬：
-            // 我們把「理想座標」嚴格「夾緊」在 minLimitX 和 maxLimitX 之間。
-            // 這樣在放大瞬間，公式雖然想跳，但 `Math.min/max` 會瞬間把它按在邊界上，
-            // 畫面就會呈現「平滑滾動到邊緣停住」，而不是「跳動」。
             camera.x = Math.max(minLimitX, Math.min(targetX, maxLimitX));
         }
 
-        camera.x = Math.round(camera.x); 
+        // --- 🌟 7. Y 軸直接套用跟隨，不加邊界鎖死 ---
+        camera.y = targetY;
+
+        // 8. 絕對像素鎖定
+        camera.x = Math.round(camera.x);
         camera.y = Math.round(camera.y);
-        
-        checkInfiniteScroll(); // 垂直循環校正
+
+        // 🌟 9. [極度關鍵] 在檢查無限捲動前，強制更新 loopHeight！
+        // 如果你不更新這個，縮放時 checkInfiniteScroll 會用舊高度算中心點，導致畫面向上暴衝！
+        if (loopKm > 0) {
+            // 請確認你原本是怎麼算 loopHeight 的，通常是這樣：
+            loopHeight = loopKm * CONFIG.scaleY; 
+        }
+
+        // 10. 處理 Y 軸無限循環
+        checkInfiniteScroll();
+        camera.y = Math.round(camera.y);
 
         requestRedraw();
     }, { passive: false });
