@@ -144,13 +144,13 @@ function drawGrid(viewKey) {
             ctx.fillText(st.name, labelXRight, y);
 
             // --- 浮水印 (保持淡色) ---
-            ctx.font = "bold 24px 'GlowSans', sans-serif";
-            ctx.fillStyle = isDarkMode ? "rgba(200, 200, 200, 0.2)" : "rgba(100, 100, 100, 0.15)";
-            ctx.textAlign = "left";
-            for (let h = 1; h < 24; h += 2) { 
-                let textX = timeToX(h * 60) + 5;
-                if (textX > viewLeft && textX < viewRight) ctx.fillText(st.name, textX, y - 8); 
-            }
+            // ctx.font = "bold 24px 'GlowSans', sans-serif";
+            // ctx.fillStyle = isDarkMode ? "rgba(200, 200, 200, 0.2)" : "rgba(100, 100, 100, 0.15)";
+            // ctx.textAlign = "left";
+            // for (let h = 1; h < 24; h += 2) { 
+            //     let textX = timeToX(h * 60) + 5;
+            //     if (textX > viewLeft && textX < viewRight) ctx.fillText(st.name, textX, y - 8); 
+            // }
         });
     }
 
