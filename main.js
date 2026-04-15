@@ -56,21 +56,26 @@ function timeToX(minutes) {
 
 
 // ==========================================
-// 繪製背景網格 (最終完美版：支援模式切換 + 站名浮水印)
+// 繪製背景網格 (結合 3圈架構 + 視圖剔除效能優化)
 // ==========================================
 function drawGrid(viewKey) {
     lookupY = {}; 
     let currentAccumulatedKm = 0; 
     let selectedSegments = VIEW_CONFIGS[viewKey];
 
-    // 🌟 1. 讀取模式 (CIRCULAR 或 LINEAR)
     let presetKey = viewKey + "_view"; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
 
     ctx.font = "12px 'Segoe UI', sans-serif";
     ctx.textBaseline = "middle";
 
-    // 🌟 2. 計算原始相對 Y 座標 (這階段還不需要 offsetY)
+    // 🌟 1. 取得目前螢幕的「真實可視範圍」 (加上 100px 的緩衝區，避免滑動邊緣閃爍)
+    const wrapper = document.getElementById('canvas-wrapper');
+    const viewTop = wrapper.scrollTop - 100;
+    const viewBottom = wrapper.scrollTop + wrapper.clientHeight + 100;
+    const viewLeft = wrapper.scrollLeft - 100;
+    const viewRight = wrapper.scrollLeft + wrapper.clientWidth + 100;
+
     selectedSegments.forEach(segId => {
         let seg = topology.segments.find(s => s.id === segId);
         if (!seg) return;
@@ -86,38 +91,32 @@ function drawGrid(viewKey) {
     loopKm = currentAccumulatedKm;
     loopHeight = loopKm * CONFIG.scaleY;
 
-    // 🌟 3. 根據模式設定畫布總高度
-    if (isCircular) {
-        canvas.height = (loopHeight * 3) + (CONFIG.paddingTop * 2);
-    } else {
-        canvas.height = loopHeight + (CONFIG.paddingTop * 2);
-    }
+    // 限制畫布最大高度 (防白屏保護機制)
+    const MAX_CANVAS_HEIGHT = 18000;
+    let targetHeight = isCircular ? (loopHeight * 3) + (CONFIG.paddingTop * 2) : loopHeight + (CONFIG.paddingTop * 2);
+    canvas.height = Math.min(targetHeight, MAX_CANVAS_HEIGHT);
     canvas.width = CONFIG.paddingLeft + (1440 * CONFIG.scaleX) + 100;
 
-    // 🌟 4. 開始畫線 (offsetY 就是在這裡初始化的！)
     let copyStart = isCircular ? -1 : 0;
     let copyEnd = isCircular ? 1 : 0;
 
-    stationCoords = []; // 清空陣列備用
+    stationCoords = []; 
 
-    // 這裡就是關鍵的迴圈！會跑 1 次 (LINEAR) 或 3 次 (CIRCULAR)
     for (let copy = copyStart; copy <= copyEnd; copy++) {
-        
-        // 👉 在這裡初始化 offsetY，根據當下是第幾圈來決定位移
         let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
 
         selectedSegments.forEach(segId => {
             let seg = topology.segments.find(s => s.id === segId);
             if (!seg) return;
             seg.stations.forEach(st => {
-                // 將原始座標加上位移，算出最終畫布位置
                 let y = lookupY[st.id] + offsetY;
                 
-                if (copy === 0) {
-                    stationCoords.push({ name: st.name, y: y }); 
-                }
+                if (copy === 0) stationCoords.push({ name: st.name, y: y }); 
 
-                // 畫網格橫線
+                // 🌟 2. 垂直剔除 (Y軸)：如果這個車站在畫面外，直接跳過不畫！
+                if (y < viewTop || y > viewBottom) return;
+
+                // 畫橫線
                 ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
                 ctx.lineWidth = 1;
                 ctx.beginPath();
@@ -127,31 +126,37 @@ function drawGrid(viewKey) {
 
                 // 畫最左邊的實體站名
                 ctx.fillStyle = isDarkMode ? "#AAAAAA" : "#333333";
-                ctx.fillText(st.name, 20, y);
+                ctx.fillText(st.name, Math.max(20, viewLeft + 20), y); // 讓最左邊站名可以跟著畫面浮動
 
-                // 畫站名浮水印 (每隔 2 小時印一次)
+                // 🌟 3. 水平剔除 (X軸)：只畫出現在螢幕「左右範圍內」的浮水印
                 ctx.fillStyle = isDarkMode ? "rgba(170, 170, 170, 0.25)" : "rgba(85, 85, 85, 0.35)";
                 for (let h = 1; h < 24; h += 2) { 
                     let textX = timeToX(h * 60) + 5;
-                    ctx.fillText(st.name, textX, y - 8); 
+                    // 只有在可視範圍內的浮水印才執行 fillText
+                    if (textX > viewLeft && textX < viewRight) {
+                        ctx.fillText(st.name, textX, y - 8); 
+                    }
                 }
             });
         });
     }
 
-    // 🌟 5. 畫時間垂直線
+    // 🌟 4. 時間垂直線也加入水平剔除
     for (let h = 0; h <= 24; h++) {
         let x = timeToX(h * 60);
+        if (x < viewLeft || x > viewRight) continue; // 畫面外的時間線不畫
+
         ctx.beginPath();
         ctx.setLineDash([4, 4]); 
         ctx.strokeStyle = isDarkMode ? ((h % 1 === 0) ? "#555555" : "#222222") : ((h % 1 === 0) ? "#CCCCCC" : "#EEEEEE");
         ctx.lineWidth = 1;
-        ctx.moveTo(x, 0);                 
-        ctx.lineTo(x, canvas.height);     
+        ctx.moveTo(x, Math.max(0, viewTop));                 
+        ctx.lineTo(x, Math.min(canvas.height, viewBottom));     
         ctx.stroke();
         ctx.setLineDash([]); 
+        
         ctx.fillStyle = isDarkMode ? "#888888" : "#666666";
-        ctx.fillText(`${h}:00`, x - 15, CONFIG.paddingTop - 15);
+        ctx.fillText(`${h}:00`, x - 15, Math.max(CONFIG.paddingTop - 15, viewTop + 15)); // 讓時間標籤跟著頂部浮動
     }
 }
 
