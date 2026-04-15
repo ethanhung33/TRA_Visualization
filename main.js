@@ -534,6 +534,8 @@ function checkInfiniteScroll() {
     else if (camera.y > centerPoint + loopHeight * 0.5) {
         camera.y -= loopHeight;
     }
+
+    camera.y = Math.round(camera.y);
 }
 
 // ==========================================
@@ -624,11 +626,9 @@ function setupCanvasInteractions() {
             camera.x = Math.max(minLimitX, Math.min(targetX, maxLimitX));
         }
 
-        // 🌟 對齊座標取整，消除 Canvas 抗鋸齒模糊與微小抖動
-        camera.x = Math.round(camera.x);
-
-        // Y 軸縮放對齊與瞬移補償
-        camera.y = (CONFIG.paddingTop + dataY * CONFIG.scaleY) - mouseY;
+        camera.x = Math.round(camera.x); 
+        camera.y = Math.round(camera.y);
+        
         checkInfiniteScroll(); // 垂直循環校正
 
         requestRedraw();
