@@ -131,7 +131,7 @@ function drawGrid(viewKey) {
             ctx.stroke();
 
             // 畫浮水印
-            ctx.font = "bold 24px 'GlowSans', sans-serif";
+            ctx.font = "bold 16px 'GlowSans', sans-serif";
             ctx.fillStyle = isDarkMode ? "rgba(200, 200, 200, 0.6)" : "rgba(100, 100, 100, 0.7)";
             
             for (let h = 1; h < 24; h += 2) { 
