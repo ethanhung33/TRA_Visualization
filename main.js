@@ -499,6 +499,17 @@ function setupCanvasInteractions() {
         e.preventDefault();
         if (renderFrame) return;
 
+        let presetKey = currentRouteView + "_view"; 
+        let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+        
+        if (isCircular && loopHeight > 0) {
+            // 算出目前攝影機距離「世界中心點 (paddingTop + loopHeight)」的偏移
+            let centerOffset = (camera.y - CONFIG.paddingTop) % loopHeight;
+            if (centerOffset < 0) centerOffset += loopHeight;
+            // 強制歸位到第 0 圈的對應位置
+            camera.y = centerOffset + CONFIG.paddingTop + loopHeight;
+        }
+
         const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1; 
         const oldScaleX = CONFIG.scaleX;
         const oldScaleY = CONFIG.scaleY;
