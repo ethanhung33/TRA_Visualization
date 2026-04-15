@@ -226,10 +226,11 @@ function redrawAll() {
 async function init() {
     console.log("正在載入 JSON 資料...");
     try {
-        const topoRes = await fetch('topology.json');
+        dirc_path = "data/Taiwan/TRA/json/";
+        const topoRes = await fetch(dirc_path + 'topology.json');
         topology = await topoRes.json();
 
-        const timeRes = await fetch('timetable.json');
+        const timeRes = await fetch(dirc_path + 'timetable/timetable_20260415.json');
         timetable = await timeRes.json();
 
         console.log("資料載入完成！建構 UI 與渲染畫布...");
