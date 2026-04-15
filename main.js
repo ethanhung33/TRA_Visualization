@@ -25,6 +25,8 @@ const CONFIG = {
 let topology = null;
 let timetable = [];
 let lookupY = {}; 
+let loopKm = 0;      // 台灣環島一圈的總公里數
+let loopHeight = 0;  // 環島一圈在畫布上的像素高度
 
 // 🌟 還有這兩個主題狀態的變數也要確保有宣告到
 let settings = null;        
@@ -34,6 +36,8 @@ let isDarkMode = true;
 // 視角與過濾狀態
 let currentRouteView = "mountain"; 
 let activeTrainTypes = new Set(); 
+
+
 
 // 定義不同視角需要拼接的區段 (這對應 topology.json 裡的 segment_id)
 const VIEW_CONFIGS = {
@@ -49,7 +53,7 @@ function timeToX(minutes) {
 }
 
 // ==========================================
-// 繪製背景網格 (加入日/夜模式動態顏色)
+// 繪製背景網格 (平鋪渲染 3 份，營造無限延伸)
 // ==========================================
 function drawGrid(viewKey) {
     lookupY = {}; 
@@ -59,54 +63,62 @@ function drawGrid(viewKey) {
     ctx.font = "12px 'Segoe UI', sans-serif";
     ctx.textBaseline = "middle";
 
+    // --- 階段 1：計算絕對 Y 座標與環島總長度 ---
     selectedSegments.forEach(segId => {
         let seg = topology.segments.find(s => s.id === segId);
         if (!seg) return;
-
         let segMaxKm = 0;
-
         seg.stations.forEach(st => {
             let absoluteKm = currentAccumulatedKm + st.km;
-            let y = CONFIG.paddingTop + (absoluteKm * CONFIG.scaleY);
-            
-            lookupY[st.id] = y;
+            lookupY[st.id] = absoluteKm * CONFIG.scaleY; // 先不加 paddingTop，純算實體高度
             if (st.km > segMaxKm) segMaxKm = st.km;
-
-            // 🌟 網格橫線：深色模式用深灰，淺色模式用淺灰
-            ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(CONFIG.paddingLeft, y);
-            ctx.lineTo(CONFIG.paddingLeft + (1440 * CONFIG.scaleX), y);
-            ctx.stroke();
-
-            // 🌟 站名字體：深色模式用亮灰，淺色模式用深灰
-            ctx.fillStyle = isDarkMode ? "#AAAAAA" : "#333333";
-            ctx.fillText(st.name, 20, y);
         });
-
         currentAccumulatedKm += segMaxKm; 
     });
 
-    canvas.height = CONFIG.paddingTop + (currentAccumulatedKm * CONFIG.scaleY) + 100;
+    // 🌟 記錄環島一圈的參數
+    loopKm = currentAccumulatedKm;
+    loopHeight = loopKm * CONFIG.scaleY;
+
+    // 將畫布高度設為 3 圈的高度
+    canvas.height = (loopHeight * 3) + (CONFIG.paddingTop * 2);
     canvas.width = CONFIG.paddingLeft + (1440 * CONFIG.scaleX) + 100;
 
-    // 畫時間垂直線
+    // --- 階段 2：把車站橫線畫 3 份 (上一圈 -1、本圈 0、下一圈 1) ---
+    for (let copy = -1; copy <= 1; copy++) {
+        // 計算這份複製品的 Y 軸偏移量
+        let offsetY = (copy * loopHeight) + CONFIG.paddingTop + loopHeight; // +loopHeight 是為了把中心點移到畫布中間
+
+        selectedSegments.forEach(segId => {
+            let seg = topology.segments.find(s => s.id === segId);
+            if (!seg) return;
+            seg.stations.forEach(st => {
+                let y = lookupY[st.id] + offsetY;
+                
+                ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(CONFIG.paddingLeft, y);
+                ctx.lineTo(CONFIG.paddingLeft + (1440 * CONFIG.scaleX), y);
+                ctx.stroke();
+
+                ctx.fillStyle = isDarkMode ? "#AAAAAA" : "#333333";
+                ctx.fillText(st.name, 20, y);
+            });
+        });
+    }
+
+    // --- 階段 3：畫時間垂直線 (貫穿 3 圈) ---
     for (let h = 0; h <= 24; h++) {
         let x = timeToX(h * 60);
         ctx.beginPath();
-        
         ctx.setLineDash([4, 4]); 
-        // 🌟 時間直線顏色動態切換
-        if (isDarkMode) {
-            ctx.strokeStyle = (h % 1 === 0) ? "#555555" : "#222222";
-        } else {
-            ctx.strokeStyle = (h % 1 === 0) ? "#CCCCCC" : "#EEEEEE";
-        }
         
+        ctx.strokeStyle = isDarkMode ? ((h % 1 === 0) ? "#555555" : "#222222") 
+                                     : ((h % 1 === 0) ? "#CCCCCC" : "#EEEEEE");
         ctx.lineWidth = 1;
-        ctx.moveTo(x, CONFIG.paddingTop);
-        ctx.lineTo(x, canvas.height - CONFIG.paddingTop);
+        ctx.moveTo(x, 0);                 // 從最頂端畫到
+        ctx.lineTo(x, canvas.height);     // 最底端
         ctx.stroke();
         ctx.setLineDash([]); 
         
@@ -116,53 +128,85 @@ function drawGrid(viewKey) {
 }
 
 // ==========================================
-// 繪製火車 (讀取 setting.json)
+// 繪製火車 (解捲繞演算法 + 3份渲染)
 // ==========================================
 function drawTrains() {
-    // 決定要讀取陣列的第幾個顏色 (0:深色模式, 1:淺色模式)
     let colorIndex = isDarkMode ? 0 : 1;
     let fallbackColor = isDarkMode ? "#FFFFFF" : "#000000";
 
     timetable.forEach(train => {
         if (!activeTrainTypes.has(train.type)) return;
 
-        // 🌟 從 settings 提取顏色，如果設定檔找不到這個車種，就用 fallbackColor
         let trainColor = fallbackColor;
         if (settings && settings.train_color && settings.train_color[train.type]) {
             trainColor = settings.train_color[train.type][colorIndex];
         }
 
         ctx.strokeStyle = trainColor; 
-        
-        // 判斷粗細：自強、普悠瑪、太魯閣等對號車加粗
         let isExpress = ["新自強", "普悠瑪", "太魯閣", "自強", "莒光"].includes(train.type);
         ctx.lineWidth = train.w || (isExpress ? 1.5 : 1.0);
 
         train.segments.forEach(seg => {
-            ctx.beginPath();
-            let isDrawing = false; 
+            
+            // 🌟 解捲繞 (Unwrapping) 演算法 🌟
+            // 預先計算這台車實際的連續 Y 座標，消滅瞬間跳躍
+            let unwrappedCoords = [];
+            let lastBaseY = null;
+            let wrapOffset = 0; // 用來記錄它跨越了幾圈
 
             for (let i = 0; i < seg.s.length; i++) {
                 let st_id = seg.s[i];
-                let y = lookupY[st_id];
+                let baseY = lookupY[st_id];
                 
-                if (y === undefined) {
-                    isDrawing = false;
+                if (baseY === undefined) {
+                    unwrappedCoords.push(null);
                     continue; 
                 }
 
-                let x_arr = timeToX(seg.t[i * 2]);
-                let x_dep = timeToX(seg.t[i * 2 + 1]);
-
-                if (!isDrawing) { ctx.moveTo(x_arr, y); isDrawing = true; } 
-                else { ctx.lineTo(x_arr, y); }
-
-                if (seg.v[i] !== 2) ctx.lineTo(x_dep, y);
+                if (lastBaseY !== null) {
+                    let dy = baseY - lastBaseY;
+                    // 如果這兩站的距離跳躍超過「半個台灣」(loopHeight / 2)
+                    if (dy > loopHeight / 2) {
+                        wrapOffset -= loopHeight; // 從頭跳到尾，扣掉一圈
+                    } else if (dy < -loopHeight / 2) {
+                        wrapOffset += loopHeight; // 從尾跳到頭，加上一圈
+                    }
+                }
+                
+                // 存入平滑化後的連續座標
+                unwrappedCoords.push(baseY + wrapOffset);
+                lastBaseY = baseY;
             }
-            ctx.stroke();
+
+            // 🌟 平鋪渲染：把這條平滑的線條，複製畫在 3 個區塊上
+            for (let copy = -1; copy <= 1; copy++) {
+                let offsetY = (copy * loopHeight) + CONFIG.paddingTop + loopHeight;
+                ctx.beginPath();
+                let isDrawing = false; 
+
+                for (let i = 0; i < seg.s.length; i++) {
+                    let y_raw = unwrappedCoords[i];
+                    if (y_raw === null) {
+                        isDrawing = false;
+                        continue;
+                    }
+
+                    // 加上該區塊的 Y 軸位移
+                    let y = y_raw + offsetY; 
+                    let x_arr = timeToX(seg.t[i * 2]);
+                    let x_dep = timeToX(seg.t[i * 2 + 1]);
+
+                    if (!isDrawing) { ctx.moveTo(x_arr, y); isDrawing = true; } 
+                    else { ctx.lineTo(x_arr, y); }
+
+                    if (seg.v[i] !== 2) ctx.lineTo(x_dep, y);
+                }
+                ctx.stroke();
+            }
         });
     });
 }
+
 // ==========================================
 // 5. UI 構建與事件綁定 (完美底色版)
 // ==========================================
@@ -455,6 +499,9 @@ async function init() {
 
         setupCanvasInteractions();
         redrawAll();       // 首次渲染畫布
+
+        const wrapper = document.getElementById('canvas-wrapper');
+        wrapper.scrollTop = loopHeight;
 
     } catch (e) {
         console.error("載入失敗:", e);
