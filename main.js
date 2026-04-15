@@ -572,46 +572,54 @@ function setupCanvasInteractions() {
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // 1. 記錄目前的資料位置 (相對比例)
-        const dataX = (camera.x + mouseX - CONFIG.paddingLeft) / CONFIG.scaleX;
-        const dataY = (camera.y + mouseY - CONFIG.paddingTop) / CONFIG.scaleY;
+        // 1. 取得「目前」正確的虛擬座標（必須是經過校正後的）
+        const currentCamX = camera.x;
+        const currentCamY = camera.y;
 
-        // 2. 計算新倍率
+        // 2. 計算目前滑鼠指在地圖上的哪個資料點 (Data Coordinate)
+        const dataX = (currentCamX + mouseX - CONFIG.paddingLeft) / CONFIG.scaleX;
+        const dataY = (currentCamY + mouseY - CONFIG.paddingTop) / CONFIG.scaleY;
+
+        // 3. 計算新倍率
         const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1;
         let nextScaleX = CONFIG.scaleX * zoomSpeed;
         let nextScaleY = CONFIG.scaleY * zoomSpeed;
 
-        // 🌟 3. 精確的最小縮放限制 (26小時 = 1560分鐘)
+        // 🌟 [關鍵 1] 嚴格限制最小縮放，不准超過我們定義的 26 小時邊界
         const wrapperW = wrapper.clientWidth;
         const minScaleX = (wrapperW - SIDE_MARGIN * 2) / 1560;
         if (nextScaleX < minScaleX) nextScaleX = minScaleX;
 
         const wrapperH = wrapper.clientHeight;
-        const minScaleY = wrapperH / (loopKm || 100);
+        const minScaleY = wrapperH / (loopKm || 1);
         if (nextScaleY < minScaleY) nextScaleY = minScaleY;
 
-        // 4. 套用新倍率
+        // 4. 更新倍率
         CONFIG.scaleX = nextScaleX;
         CONFIG.scaleY = nextScaleY;
 
-        // 🌟 5. [解決跳動的核心：動態錨點]
-        // 我們先算「理想中」為了對齊滑鼠需要的攝影機位置
-        let idealCameraX = (CONFIG.paddingLeft + dataX * CONFIG.scaleX) - mouseX;
-        
-        // 立即計算目前縮放倍率下的物理邊界
+        // 🌟 [關鍵 2] 計算縮放後的「物理邊界」
         const minLimitX = CONFIG.paddingLeft - SIDE_MARGIN;
         const contentWidth = 1560 * CONFIG.scaleX;
         const maxLimitX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN;
 
-        // 🌟 如果地圖已經比螢幕窄，或是在邊界之外，我們就不對齊滑鼠，直接鎖定在邊界
-        if (contentWidth + (SIDE_MARGIN * 2) <= wrapperW) {
-            camera.x = minLimitX; // 強制靠左留空
+        // 🌟 [關鍵 3] 原子化座標補償
+        // 我們先算「如果完全對準滑鼠」的座標
+        let targetX = (CONFIG.paddingLeft + dataX * CONFIG.scaleX) - mouseX;
+
+        // 如果地圖寬度已經小於螢幕寬度，強制鎖死在邊界
+        if (contentWidth + (SIDE_MARGIN * 2) <= wrapperW + 1) {
+            camera.x = minLimitX;
         } else {
-            // 這裡就是「絲滑」的關鍵：將理想座標夾在邊界內，而不是畫完才拉回來
-            camera.x = Math.max(minLimitX, Math.min(idealCameraX, maxLimitX));
+            // 如果會跳動，就是因為 targetX 算出來超出了限制，我們在這裡直接「夾住」它
+            camera.x = Math.max(minLimitX, Math.min(targetX, maxLimitX));
         }
 
+        // Y 軸縮放對齊
         camera.y = (CONFIG.paddingTop + dataY * CONFIG.scaleY) - mouseY;
+
+        // 5. 垂直無限捲繞修正 (防止 Y 軸跳動)
+        checkInfiniteScroll(); 
 
         // 6. 渲染
         requestRedraw();
