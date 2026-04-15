@@ -164,10 +164,7 @@ function drawTrains() {
     });
 }
 // ==========================================
-// 5. UI 構建與事件綁定
-// ==========================================
-// ==========================================
-// 5. UI 構建與事件綁定 (動態顏色版)
+// 5. UI 構建與事件綁定 (完美底色版)
 // ==========================================
 function buildUI() {
     // ---- 取得當下主題色碼的輔助函數 ----
@@ -176,21 +173,28 @@ function buildUI() {
         return isDarkMode ? colorsArray[0] : colorsArray[1];
     }
 
-    // ---- A. 路線切換按鈕綁定 (吃 view_presets 顏色) ----
+    // ---- A. 路線切換按鈕綁定 ----
     const updateRouteButtons = () => {
         let mColor = getColor(settings?.view_presets?.mountain_view?.button_color);
         let sColor = getColor(settings?.view_presets?.sea_view?.button_color);
 
+        // 🌟 先把所有路線按鈕清空，退回 CSS 預設的 .pill-btn 底色
+        btnMountain.style.backgroundColor = "";
+        btnMountain.style.borderColor = "";
+        btnMountain.style.color = "";
+        btnSea.style.backgroundColor = "";
+        btnSea.style.borderColor = "";
+        btnSea.style.color = "";
+
+        // 🌟 只針對「被選中」的按鈕，塗上 JSON 設定的顏色
         if (currentRouteView === "mountain") {
             btnMountain.style.backgroundColor = mColor;
             btnMountain.style.borderColor = mColor;
             btnMountain.style.color = "#FFF";
-            btnSea.style.backgroundColor = ""; btnSea.style.borderColor = ""; btnSea.style.color = "";
         } else {
             btnSea.style.backgroundColor = sColor;
             btnSea.style.borderColor = sColor;
             btnSea.style.color = "#FFF";
-            btnMountain.style.backgroundColor = ""; btnMountain.style.borderColor = ""; btnMountain.style.color = "";
         }
     };
 
@@ -206,12 +210,10 @@ function buildUI() {
         redrawAll();
     });
 
-    // 初始化路線按鈕顏色
     updateRouteButtons();
-    // 綁定到 window 讓主題切換時可以呼叫
     window.updateRouteButtons = updateRouteButtons; 
 
-    // ---- B. 動態生成車種篩選按鈕 (吃 train_color 顏色) ----
+    // ---- B. 動態生成車種篩選按鈕 ----
     const types = [...new Set(timetable.map(t => t.type))];
     trainTypeContainer.innerHTML = ''; 
     
@@ -222,27 +224,25 @@ function buildUI() {
         btn.className = 'pill-btn';
         btn.textContent = type;
         
-        // 🌟 定義這個按鈕專屬的顏色更新邏輯
+        // 🌟 車種按鈕的邏輯也一模一樣
         const updateTrainBtnStyle = () => {
             if (activeTrainTypes.has(type)) {
+                // 有勾選：塗上 JSON 顏色
                 let tColor = getColor(settings?.train_color?.[type]);
                 btn.style.backgroundColor = tColor;
                 btn.style.borderColor = tColor;
                 btn.style.color = "#FFF";
             } else {
-                // 未選取時，恢復 CSS 預設樣式 (透明底)
+                // 未勾選：清空 style 退回 CSS 預設底色
                 btn.style.backgroundColor = "";
                 btn.style.borderColor = "";
                 btn.style.color = "";
             }
         };
 
-        // 初始化套用顏色
         updateTrainBtnStyle();
-        // 把函數存到 DOM 元素上，方便日夜切換時一次叫起來更新
         btn._updateStyle = updateTrainBtnStyle; 
 
-        // 點擊事件
         btn.addEventListener('click', () => {
             if (activeTrainTypes.has(type)) activeTrainTypes.delete(type);
             else activeTrainTypes.add(type);
