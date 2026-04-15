@@ -15,11 +15,12 @@ const btnNoTrains = document.getElementById('btn-no-trains');
 const btnTheme = document.getElementById('btn-theme');
 
 const CONFIG = {
-    paddingLeft: 200,   // 🌟 從 100~200 縮減到 60 (剛好夠 0:00 線跟標籤的空間)
+    paddingLeft: 120,   // 🌟 從 100~200 縮減到 60 (剛好夠 0:00 線跟標籤的空間)
     paddingTop: 50,
     scaleX: 1.0,
     scaleY: 1.0
 };
+const SIDE_MARGIN = 100; // 🌟 這是你想要的「左右留白」寬度，數值越大留白越多
 
 let renderFrame = null;
 
