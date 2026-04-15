@@ -394,6 +394,22 @@ function setupCanvasInteractions() {
     // 讓滑鼠在畫布上變成「手掌」圖示
     wrapper.style.cursor = 'grab';
 
+    // 🌟 空間傳送演算法：檢查是否需要無縫跳躍
+    function checkInfiniteScroll() {
+        // 如果往上捲，進入了上一圈 (-1) 的危險區域
+        if (wrapper.scrollTop < loopHeight * 0.5) {
+            wrapper.scrollTop += loopHeight; // 瞬間往下傳送一圈
+            scrollTop += loopHeight;         // 修正拖曳起點
+            startY += loopHeight;            // 修正滑鼠起點
+        }
+        // 如果往下捲，進入了下一圈 (1) 的危險區域
+        else if (wrapper.scrollTop > loopHeight * 1.5) {
+            wrapper.scrollTop -= loopHeight; // 瞬間往上傳送一圈
+            scrollTop -= loopHeight;         
+            startY -= loopHeight;            
+        }
+    }
+
     // ============================
     // 1. 滑鼠拖曳平移 (Pan)
     // ============================
@@ -428,6 +444,8 @@ function setupCanvasInteractions() {
         // 反向移動卷軸，營造出拖曳畫布的感覺
         wrapper.scrollLeft = scrollLeft - walkX;
         wrapper.scrollTop = scrollTop - walkY;
+
+        checkInfiniteScroll();
     });
 
     // ============================
@@ -471,6 +489,8 @@ function setupCanvasInteractions() {
 
         wrapper.scrollLeft = newCanvasX - mouseX;
         wrapper.scrollTop = newCanvasY - mouseY;
+
+        checkInfiniteScroll();
 
     }, { passive: false }); // 必須設為 false 才能使用 e.preventDefault()
 }
