@@ -494,53 +494,48 @@ function setupCanvasInteractions() {
         }
     });
 
-    // --- 滾輪事件 (朝游標位置縮放) ---
+    // --- 滾輪事件 (精準中心點 + 售後歸位版) ---
     wrapper.addEventListener('wheel', (e) => {
         e.preventDefault();
         if (renderFrame) return;
 
-        let presetKey = currentRouteView + "_view"; 
-        let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
-        
-        if (isCircular && loopHeight > 0) {
-            // 算出目前攝影機距離「世界中心點 (paddingTop + loopHeight)」的偏移
-            let centerOffset = (camera.y - CONFIG.paddingTop) % loopHeight;
-            if (centerOffset < 0) centerOffset += loopHeight;
-            // 強制歸位到第 0 圈的對應位置
-            camera.y = centerOffset + CONFIG.paddingTop + loopHeight;
-        }
-
-        const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1; 
-        const oldScaleX = CONFIG.scaleX;
-        const oldScaleY = CONFIG.scaleY;
-        const newScaleX = oldScaleX * zoomSpeed;
-        const newScaleY = oldScaleY * zoomSpeed;
-
-        // 🌟 3. 再也沒有高度極限了！你可以把放大倍率設到超大！
-        if (newScaleX < 0.5 || newScaleX > 100) return; 
-
+        // 1. 🌟 [核心修正] 在動任何變數前，先抓死「目前滑鼠指著世界地圖的哪個點」
         const rect = wrapper.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // 計算游標當下在「虛擬世界」的絕對座標
+        // 算出滑鼠在「3圈地圖」總長度裡的絕對虛擬座標
         const virtualX = camera.x + mouseX;
         const virtualY = camera.y + mouseY;
 
-        // 還原成原始 Data 座標
-        const dataX = (virtualX - CONFIG.paddingLeft) / oldScaleX;
-        const dataY = (virtualY - CONFIG.paddingTop) / oldScaleY;
+        // 算出對應的原始資料座標 (Data Coordinate)
+        const dataX = (virtualX - CONFIG.paddingLeft) / CONFIG.scaleX;
+        const dataY = (virtualY - CONFIG.paddingTop) / CONFIG.scaleY;
+
+        // 2. 執行縮放計算
+        const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1; 
+        const newScaleX = CONFIG.scaleX * zoomSpeed;
+        const newScaleY = CONFIG.scaleY * zoomSpeed;
+
+        // 限制縮放倍率 (現在可以放很大了)
+        if (newScaleX < 0.1 || newScaleX > 150) return; 
 
         CONFIG.scaleX = newScaleX;
         CONFIG.scaleY = newScaleY;
 
-        // 算出縮放後，那個 Data 座標的新位置，並移動攝影機對齊它
+        // 3. 🌟 [核心修正] 重新計算攝影機，讓剛才抓到的 data 座標「嚴格對齊」滑鼠位置
+        // 這樣放大時，車站就會乖乖黏在游標底下，不會平移
         camera.x = (CONFIG.paddingLeft + dataX * newScaleX) - mouseX;
         camera.y = (CONFIG.paddingTop + dataY * newScaleY) - mouseY;
 
         renderFrame = requestAnimationFrame(() => {
-            checkInfiniteScroll();
+            // 4. 先畫圖 (這會更新全域的 loopHeight)
             redrawAll();
+            
+            // 5. 🌟 [售後歸位] 畫完後，如果攝影機跑太遠，再把它彈回中間圈
+            // 因為是「整圈位移」，視覺上是完全無感的，且不會影響縮放中心點
+            checkInfiniteScroll(); 
+            
             renderFrame = null; 
         });
 
