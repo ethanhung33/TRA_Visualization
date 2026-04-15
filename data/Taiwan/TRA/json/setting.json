@@ -1,0 +1,32 @@
+{
+  "system_id": "TRA",
+  "system_name": "台灣鐵路 (台鐵)",
+  
+  "data_fetch_strategy": "DAILY_FILE",
+  
+  "calendar_type": "WEEKDAY_BITMAP",
+
+  "view_presets": {
+    "mountain_view": {
+        "lines": ["north_main", "mountain_line", "south_main", "east_main"],
+        "view_type": "CIRCULAR",
+        "button_color": ["#FF5733", "#C70039"]
+    },
+    "sea_view": {
+        "lines": ["north_main", "sea_line", "south_main", "east_main"],
+        "view_type": "CIRCULAR",
+        "button_color": ["#33C1FF", "#1F4A6E"]
+    }
+  },
+
+  "train_color" : {
+    "普悠瑪": ["#FF5733", "#C70039"],
+    "太魯閣": ["#33C1FF", "#1F4A6E"],
+    "自強": ["#33FF57", "#1F6E4A"],
+    "莒光": ["#FF33A8", "#C70039"],
+    "復興": ["#FFC300", "#C79E00"],
+    "區間車": ["#C70039", "#8B0000"],
+    "區間快": ["#900C3F", "#581845"],
+    "普快": ["#581845", "#2E081F"]
+  }
+}
