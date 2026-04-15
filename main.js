@@ -58,7 +58,7 @@ function timeToX(minutes) {
 
 
 // ==========================================
-// 繪製背景網格 (結合 3圈架構 + 視圖剔除效能優化)
+// 繪製背景網格 (純淨重置版 + 照妖鏡)
 // ==========================================
 function drawGrid(viewKey) {
     lookupY = {}; 
@@ -68,16 +68,25 @@ function drawGrid(viewKey) {
     let presetKey = viewKey + "_view"; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
 
-    ctx.font = "12px 'Segoe UI', sans-serif";
+    ctx.font = "14px 'GlowSans', sans-serif";
     ctx.textBaseline = "middle";
+
+    let uniqueStations = [];
+    let seenIds = new Set();
 
     selectedSegments.forEach(segId => {
         let seg = topology.segments.find(s => s.id === segId);
         if (!seg) return;
         let segMaxKm = 0;
+        
         seg.stations.forEach(st => {
             let absoluteKm = currentAccumulatedKm + st.km;
-            lookupY[st.id] = absoluteKm * CONFIG.scaleY; 
+            
+            if (!seenIds.has(st.id)) {
+                lookupY[st.id] = absoluteKm * CONFIG.scaleY;
+                seenIds.add(st.id);
+                uniqueStations.push({ id: st.id, name: st.name, baseY: lookupY[st.id] });
+            }
             if (st.km > segMaxKm) segMaxKm = st.km;
         });
         currentAccumulatedKm += segMaxKm; 
@@ -86,18 +95,18 @@ function drawGrid(viewKey) {
     loopKm = currentAccumulatedKm;
     loopHeight = loopKm * CONFIG.scaleY;
 
-    // 🌟 1. 畫布大小永遠跟著容器 (再也不會撐破硬體極限)
+    // 🌟 照妖鏡印出座標 (F12 Console 查看)
+    console.table(uniqueStations.filter(s => s.name === "宜蘭" || s.name === "蘇澳新"));
+
     const wrapper = document.getElementById('canvas-wrapper');
     canvas.width = wrapper.clientWidth;
     canvas.height = wrapper.clientHeight;
 
-    // 🌟 2. 根據攝影機座標計算可視範圍
     const viewTop = camera.y - 100;
     const viewBottom = camera.y + canvas.height + 100;
     const viewLeft = camera.x - 100;
     const viewRight = camera.x + canvas.width + 100;
 
-    // 🌟 3. 清空畫布，並套用攝影機偏移
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
@@ -108,43 +117,35 @@ function drawGrid(viewKey) {
     for (let copy = copyStart; copy <= copyEnd; copy++) {
         let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
 
-        selectedSegments.forEach(segId => {
-            let seg = topology.segments.find(s => s.id === segId);
-            if (!seg) return;
-            seg.stations.forEach(st => {
-                let y = lookupY[st.id] + offsetY;
-                
-                // 垂直剔除
-                if (y < viewTop || y > viewBottom) return;
+        uniqueStations.forEach(st => {
+            let y = st.baseY + offsetY;
+            
+            if (y < viewTop || y > viewBottom) return;
 
-                ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(CONFIG.paddingLeft, y);
-                ctx.lineTo(CONFIG.paddingLeft + (1440 * CONFIG.scaleX), y);
-                ctx.stroke();
+            // 畫網格橫線
+            ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(CONFIG.paddingLeft, y);
+            ctx.lineTo(CONFIG.paddingLeft + (1440 * CONFIG.scaleX), y);
+            ctx.stroke();
 
-                
-                // 1. 加深字體：將顏色的 alpha 值提高 (從 0.25/0.35 提高，例如 0.6 / 0.7)
-                ctx.fillStyle = isDarkMode ? "rgba(200, 200, 200, 0.6)" : "rgba(100, 100, 100, 0.7)"; 
-
-                // 2. 增大字體：在渲染水印前，單獨設置一個較大的粗體字體
-                ctx.font = "bold 16px 'Segoe UI', sans-serif"; // 從 12px 增加到 20px，並加粗 bold
-
-                for (let h = 1; h < 24; h += 2) { 
-                    let textX = timeToX(h * 60) + 5;
-                    // 只有在可視範圍內的浮水印才執行 fillText
-                    if (textX > viewLeft && textX < viewRight) {
-                        ctx.fillText(st.name, textX, y - 8); 
-                    }
+            // 畫浮水印
+            ctx.font = "bold 24px 'GlowSans', sans-serif";
+            ctx.fillStyle = isDarkMode ? "rgba(200, 200, 200, 0.6)" : "rgba(100, 100, 100, 0.7)";
+            
+            for (let h = 1; h < 24; h += 2) { 
+                let textX = timeToX(h * 60) + 5;
+                if (textX > viewLeft && textX < viewRight) {
+                    ctx.fillText(st.name, textX, y - 8); 
                 }
-
-                // 🌟 [重要] 3. 重要：渲染完浮水印後，必須將字體還原為網格的預設大小
-                ctx.font = "12px 'Segoe UI', sans-serif"; // 還原字體為 12px
-            });
+            }
+            
+            ctx.font = "14px 'GlowSans', sans-serif"; 
         });
     }
 
+    // 畫時間垂直線
     for (let h = 0; h <= 24; h++) {
         let x = timeToX(h * 60);
         if (x < viewLeft || x > viewRight) continue; 
@@ -162,7 +163,7 @@ function drawGrid(viewKey) {
         ctx.fillText(`${h}:00`, x - 15, Math.max(CONFIG.paddingTop - 15, viewTop + 15)); 
     }
     
-    ctx.restore(); // 畫完網格後歸零
+    ctx.restore(); 
 }
 
 // ==========================================
