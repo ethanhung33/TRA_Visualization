@@ -166,42 +166,87 @@ function drawTrains() {
 // ==========================================
 // 5. UI 構建與事件綁定
 // ==========================================
+// ==========================================
+// 5. UI 構建與事件綁定 (動態顏色版)
+// ==========================================
 function buildUI() {
-    // ---- A. 路線切換按鈕綁定 ----
+    // ---- 取得當下主題色碼的輔助函數 ----
+    function getColor(colorsArray) {
+        if (!colorsArray) return isDarkMode ? "#555" : "#CCC";
+        return isDarkMode ? colorsArray[0] : colorsArray[1];
+    }
+
+    // ---- A. 路線切換按鈕綁定 (吃 view_presets 顏色) ----
+    const updateRouteButtons = () => {
+        let mColor = getColor(settings?.view_presets?.mountain_view?.button_color);
+        let sColor = getColor(settings?.view_presets?.sea_view?.button_color);
+
+        if (currentRouteView === "mountain") {
+            btnMountain.style.backgroundColor = mColor;
+            btnMountain.style.borderColor = mColor;
+            btnMountain.style.color = "#FFF";
+            btnSea.style.backgroundColor = ""; btnSea.style.borderColor = ""; btnSea.style.color = "";
+        } else {
+            btnSea.style.backgroundColor = sColor;
+            btnSea.style.borderColor = sColor;
+            btnSea.style.color = "#FFF";
+            btnMountain.style.backgroundColor = ""; btnMountain.style.borderColor = ""; btnMountain.style.color = "";
+        }
+    };
+
     btnMountain.addEventListener('click', () => {
-        btnMountain.classList.add('active', 'green');
-        btnSea.classList.remove('active', 'green');
         currentRouteView = "mountain";
+        updateRouteButtons();
         redrawAll();
     });
 
     btnSea.addEventListener('click', () => {
-        btnSea.classList.add('active', 'green');
-        btnMountain.classList.remove('active', 'green');
         currentRouteView = "sea";
+        updateRouteButtons();
         redrawAll();
     });
 
-    // ---- B. 動態生成車種篩選按鈕 ----
+    // 初始化路線按鈕顏色
+    updateRouteButtons();
+    // 綁定到 window 讓主題切換時可以呼叫
+    window.updateRouteButtons = updateRouteButtons; 
+
+    // ---- B. 動態生成車種篩選按鈕 (吃 train_color 顏色) ----
     const types = [...new Set(timetable.map(t => t.type))];
     trainTypeContainer.innerHTML = ''; 
     
     types.forEach(type => {
-        activeTrainTypes.add(type); // 預設全部啟用
+        activeTrainTypes.add(type);
 
         const btn = document.createElement('button');
-        btn.className = 'pill-btn active blue';
+        btn.className = 'pill-btn';
         btn.textContent = type;
         
-        // 單一按鈕點擊事件
-        btn.addEventListener('click', () => {
+        // 🌟 定義這個按鈕專屬的顏色更新邏輯
+        const updateTrainBtnStyle = () => {
             if (activeTrainTypes.has(type)) {
-                activeTrainTypes.delete(type);
-                btn.classList.remove('active', 'blue');
+                let tColor = getColor(settings?.train_color?.[type]);
+                btn.style.backgroundColor = tColor;
+                btn.style.borderColor = tColor;
+                btn.style.color = "#FFF";
             } else {
-                activeTrainTypes.add(type);
-                btn.classList.add('active', 'blue');
+                // 未選取時，恢復 CSS 預設樣式 (透明底)
+                btn.style.backgroundColor = "";
+                btn.style.borderColor = "";
+                btn.style.color = "";
             }
+        };
+
+        // 初始化套用顏色
+        updateTrainBtnStyle();
+        // 把函數存到 DOM 元素上，方便日夜切換時一次叫起來更新
+        btn._updateStyle = updateTrainBtnStyle; 
+
+        // 點擊事件
+        btn.addEventListener('click', () => {
+            if (activeTrainTypes.has(type)) activeTrainTypes.delete(type);
+            else activeTrainTypes.add(type);
+            updateTrainBtnStyle();
             redrawAll();
         });
         trainTypeContainer.appendChild(btn);
@@ -210,13 +255,13 @@ function buildUI() {
     // 全選 / 全部不選
     btnAllTrains.addEventListener('click', () => {
         activeTrainTypes = new Set(types);
-        document.querySelectorAll('#train-type-container .pill-btn').forEach(b => b.classList.add('active', 'blue'));
+        document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
         redrawAll();
     });
 
     btnNoTrains.addEventListener('click', () => {
         activeTrainTypes.clear();
-        document.querySelectorAll('#train-type-container .pill-btn').forEach(b => b.classList.remove('active', 'blue'));
+        document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
         redrawAll();
     });
 }
@@ -233,20 +278,29 @@ function redrawAll() {
 // ==========================================
 // 綁定主題切換功能
 // ==========================================
+// ==========================================
+// 綁定主題切換功能
+// ==========================================
 function bindThemeToggle() {
     btnTheme.addEventListener('click', () => {
         isDarkMode = !isDarkMode;
         
-        // 切換按鈕圖示
         btnTheme.textContent = isDarkMode ? "🌞" : "🌙";
         
-        // 切換畫布容器與側邊欄的背景顏色 (可選，讓UI整體更連貫)
+        // 切換背景顏色
         document.getElementById('canvas-wrapper').style.backgroundColor = isDarkMode ? "#000000" : "#FFFFFF";
         document.getElementById('sidebar').style.backgroundColor = isDarkMode ? "#333333" : "#F5F5F5";
         document.getElementById('sidebar').style.color = isDarkMode ? "#FFFFFF" : "#000000";
-        document.querySelector('.control-section h3').style.color = isDarkMode ? "#FFFFFF" : "#000000";
+        document.querySelectorAll('.control-section h3').forEach(h3 => {
+            h3.style.color = isDarkMode ? "#FFFFFF" : "#000000";
+        });
         
-        // 重繪所有畫面
+        // 🌟 觸發所有按鈕重新讀取日/夜色碼
+        if (window.updateRouteButtons) window.updateRouteButtons();
+        document.querySelectorAll('#train-type-container .pill-btn').forEach(btn => {
+            if(btn._updateStyle) btn._updateStyle();
+        });
+        
         redrawAll();
     });
 }
