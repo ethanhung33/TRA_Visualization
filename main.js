@@ -54,56 +54,39 @@ function timeToX(minutes) {
     return CONFIG.paddingLeft + (minutes * CONFIG.scaleX);
 }
 
+
 // ==========================================
-// 繪製背景網格 (支援 CIRCULAR 與 LINEAR)
+// 繪製背景網格 (最終完美版：支援模式切換 + 站名浮水印)
 // ==========================================
 function drawGrid(viewKey) {
     lookupY = {}; 
     let currentAccumulatedKm = 0; 
     let selectedSegments = VIEW_CONFIGS[viewKey];
 
-    // 🌟 1. 從 setting.json 讀取目前的視角模式
+    // 🌟 1. 讀取模式 (CIRCULAR 或 LINEAR)
     let presetKey = viewKey + "_view"; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
 
     ctx.font = "12px 'Segoe UI', sans-serif";
     ctx.textBaseline = "middle";
 
+    // 🌟 2. 計算原始相對 Y 座標 (這階段還不需要 offsetY)
     selectedSegments.forEach(segId => {
         let seg = topology.segments.find(s => s.id === segId);
         if (!seg) return;
+        let segMaxKm = 0;
         seg.stations.forEach(st => {
-            let y = lookupY[st.id] + offsetY;
-            
-            if (copy === 0) {
-                stationCoords.push({ name: st.name, y: y }); // 給無限卷軸備用
-            }
-
-            // 畫橫線
-            ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(CONFIG.paddingLeft, y);
-            ctx.lineTo(CONFIG.paddingLeft + (1440 * CONFIG.scaleX), y);
-            ctx.stroke();
-
-            // 🌟 1. 最左邊的實體站名
-            ctx.fillStyle = isDarkMode ? "#AAAAAA" : "#333333";
-            ctx.fillText(st.name, 20, y);
-
-            // 🌟 2. 站名浮水印 (每隔 2 小時印一次，字體用半透明)
-            ctx.fillStyle = isDarkMode ? "rgba(170, 170, 170, 0.25)" : "rgba(85, 85, 85, 0.35)";
-            for (let h = 1; h < 24; h += 2) { 
-                let textX = timeToX(h * 60) + 5;
-                ctx.fillText(st.name, textX, y - 8); // 畫在橫線的稍微偏上方
-            }
+            let absoluteKm = currentAccumulatedKm + st.km;
+            lookupY[st.id] = absoluteKm * CONFIG.scaleY; 
+            if (st.km > segMaxKm) segMaxKm = st.km;
         });
+        currentAccumulatedKm += segMaxKm; 
     });
 
     loopKm = currentAccumulatedKm;
     loopHeight = loopKm * CONFIG.scaleY;
 
-    // 🌟 2. 根據模式決定畫布總高度
+    // 🌟 3. 根據模式設定畫布總高度
     if (isCircular) {
         canvas.height = (loopHeight * 3) + (CONFIG.paddingTop * 2);
     } else {
@@ -111,26 +94,30 @@ function drawGrid(viewKey) {
     }
     canvas.width = CONFIG.paddingLeft + (1440 * CONFIG.scaleX) + 100;
 
-    // 🌟 3. 根據模式決定要畫幾份 (CIRCULAR 畫 -1~1 共三份，LINEAR 只畫 0 一份)
+    // 🌟 4. 開始畫線 (offsetY 就是在這裡初始化的！)
     let copyStart = isCircular ? -1 : 0;
     let copyEnd = isCircular ? 1 : 0;
 
-    stationCoords = [];
+    stationCoords = []; // 清空陣列備用
 
+    // 這裡就是關鍵的迴圈！會跑 1 次 (LINEAR) 或 3 次 (CIRCULAR)
     for (let copy = copyStart; copy <= copyEnd; copy++) {
-        // LINEAR 不需要把中心點位移
+        
+        // 👉 在這裡初始化 offsetY，根據當下是第幾圈來決定位移
         let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
 
         selectedSegments.forEach(segId => {
             let seg = topology.segments.find(s => s.id === segId);
             if (!seg) return;
             seg.stations.forEach(st => {
+                // 將原始座標加上位移，算出最終畫布位置
                 let y = lookupY[st.id] + offsetY;
-
-                if (copy === 0) {
-                    stationCoords.push({ name: st.name, y: y });
-                }
                 
+                if (copy === 0) {
+                    stationCoords.push({ name: st.name, y: y }); 
+                }
+
+                // 畫網格橫線
                 ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
                 ctx.lineWidth = 1;
                 ctx.beginPath();
@@ -138,13 +125,21 @@ function drawGrid(viewKey) {
                 ctx.lineTo(CONFIG.paddingLeft + (1440 * CONFIG.scaleX), y);
                 ctx.stroke();
 
+                // 畫最左邊的實體站名
                 ctx.fillStyle = isDarkMode ? "#AAAAAA" : "#333333";
                 ctx.fillText(st.name, 20, y);
+
+                // 畫站名浮水印 (每隔 2 小時印一次)
+                ctx.fillStyle = isDarkMode ? "rgba(170, 170, 170, 0.25)" : "rgba(85, 85, 85, 0.35)";
+                for (let h = 1; h < 24; h += 2) { 
+                    let textX = timeToX(h * 60) + 5;
+                    ctx.fillText(st.name, textX, y - 8); 
+                }
             });
         });
     }
 
-    // 時間垂直線
+    // 🌟 5. 畫時間垂直線
     for (let h = 0; h <= 24; h++) {
         let x = timeToX(h * 60);
         ctx.beginPath();
