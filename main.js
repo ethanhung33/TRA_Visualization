@@ -143,22 +143,57 @@ function drawGrid(viewKey) {
         });
     }
 
-    // 畫時間垂直線
-    for (let h = 0; h <= 24; h++) {
-        let x = timeToX(h * 60);
+    // ==========================================
+    // 繪製時間軸 (10分鐘線 + 整點加粗 + 懸浮標籤)
+    // ==========================================
+    // 遍歷 0 到 1440 分鐘，間隔 10 分鐘
+    for (let m = 0; m <= 1440; m += 10) {
+        let x = timeToX(m);
+
+        // 🌟 1. 水平視圖剔除：只畫出現在螢幕左右範圍內的線
         if (x < viewLeft || x > viewRight) continue; 
 
+        let isHourLine = (m % 60 === 0); // 判斷是否為整點線
+
         ctx.beginPath();
-        ctx.setLineDash([4, 4]); 
-        ctx.strokeStyle = isDarkMode ? ((h % 1 === 0) ? "#555555" : "#222222") : ((h % 1 === 0) ? "#CCCCCC" : "#EEEEEE");
-        ctx.lineWidth = 1;
+        
+        if (isHourLine) {
+            // 整點線：加粗、實線或長虛線
+            ctx.setLineDash([]); // 實線
+            ctx.strokeStyle = isDarkMode ? "#555555" : "#BBBBBB";
+            ctx.lineWidth = 1.5; // 🌟 整點加粗
+        } else {
+            // 十分點線：細線、短虛線
+            ctx.setLineDash([2, 4]); 
+            ctx.strokeStyle = isDarkMode ? "#333333" : "#EEEEEE";
+            ctx.lineWidth = 0.8;
+        }
+
+        // 畫垂直線 (從畫面最頂端畫到最底端)
         ctx.moveTo(x, viewTop);                 
         ctx.lineTo(x, viewBottom);     
         ctx.stroke();
-        ctx.setLineDash([]); 
-        
-        ctx.fillStyle = isDarkMode ? "#888888" : "#666666";
-        ctx.fillText(`${h}:00`, x - 15, Math.max(CONFIG.paddingTop - 15, viewTop + 15)); 
+        ctx.setLineDash([]); // 重置虛擬設定
+
+        // 🌟 2. 標註整點時間文字
+        if (isHourLine) {
+            let hour = m / 60;
+            let timeStr = `${hour}:00`;
+            
+            ctx.fillStyle = isDarkMode ? "#AAAAAA" : "#666666";
+            ctx.font = "14px 'GlowSans', sans-serif"; // 🌟 使用 14px 字體
+            ctx.textAlign = "center";
+
+            // 讓時間標籤懸浮在畫面頂部 (加上 20px 偏移避免貼邊)
+            // 如果捲動到了最上方，則固定在 CONFIG.paddingTop 附近
+            let labelY = Math.max(CONFIG.paddingTop - 20, camera.y + 20);
+            
+            ctx.fillText(timeStr, x, labelY);
+
+            // 選擇性：也可以在畫面底部也加一個懸浮時間標籤，方便長距離對照
+            let labelYBottom = Math.min(camera.y + canvas.height - 20, loopHeight * (isCircular ? 3 : 1) + CONFIG.paddingTop);
+            // ctx.fillText(timeStr, x, labelYBottom); // 如果需要底部也標註，可取消註釋
+        }
     }
     
     ctx.restore(); 
