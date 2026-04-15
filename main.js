@@ -96,6 +96,8 @@ function drawGrid(viewKey) {
     let copyStart = isCircular ? -1 : 0;
     let copyEnd = isCircular ? 1 : 0;
 
+    stationCoords = [];
+
     for (let copy = copyStart; copy <= copyEnd; copy++) {
         // LINEAR 不需要把中心點位移
         let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
@@ -105,6 +107,10 @@ function drawGrid(viewKey) {
             if (!seg) return;
             seg.stations.forEach(st => {
                 let y = lookupY[st.id] + offsetY;
+
+                if (copy === 0) {
+                    stationCoords.push({ name: st.name, y: y });
+                }
                 
                 ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
                 ctx.lineWidth = 1;
