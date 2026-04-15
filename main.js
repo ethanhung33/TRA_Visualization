@@ -613,17 +613,28 @@ function requestRedraw() {
 
 // 🌟 新增這個函數，並在 mousemove 和 wheel 結尾呼叫它
 function clampCamera() {
-    const wrapperW = document.getElementById('canvas-wrapper').clientWidth;
+    const wrapper = document.getElementById('canvas-wrapper');
+    if (!wrapper) return;
+    const wrapperW = wrapper.clientWidth;
+
+    // 🌟 1. 定義「理想中」左邊 0:00 線應該待的位置
+    // 座標計算：camera.x = 內容起點 - 想要的螢幕偏移
+    const minX = CONFIG.paddingLeft - SIDE_MARGIN;
     
-    // 限制左邊界：攝影機最左只能看到 0 分鐘的位置
-    // 因為我們想讓 0:00 貼齊左邊，所以 camera.x 最小就是 CONFIG.paddingLeft
-    // 但如果你希望看到標籤，可以再減去一點點
-    const minX = CONFIG.paddingLeft - 20; 
-    
-    // 限制右邊界：不准滑過 24:00
-    const maxX = CONFIG.paddingLeft + (1440 * CONFIG.scaleX) - wrapperW + 20;
-    
-    camera.x = Math.max(minX, Math.min(camera.x, maxX));
+    // 🌟 2. 計算右邊界極限
+    const contentWidth = 1440 * CONFIG.scaleX;
+    const maxX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN;
+
+    // 🌟 3. 核心邏輯修正
+    if (contentWidth + (SIDE_MARGIN * 2) < wrapperW) {
+        // [情況 A]：如果地圖縮得太小，寬度比螢幕還窄
+        // 我們不再強制居中，而是強制讓它「距離左邊 SIDE_MARGIN」
+        camera.x = minX; 
+    } else {
+        // [情況 B]：地圖比螢幕寬，這時才執行「撞牆限制」
+        if (camera.x < minX) camera.x = minX;
+        if (camera.x > maxX) camera.x = maxX;
+    }
 }
 
 // ==========================================
