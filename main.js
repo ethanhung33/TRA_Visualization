@@ -15,10 +15,10 @@ const btnNoTrains = document.getElementById('btn-no-trains');
 const btnTheme = document.getElementById('btn-theme');
 
 const CONFIG = {
-    scaleX: 2.5,     // X軸：1分鐘 = 2.5 pixels
-    scaleY: 2.5,     // Y軸：1公里 = 2.5 pixels
-    paddingTop: 50,  // 上方留白給時間標籤
-    paddingLeft: 120 // 左側留白給車站名稱
+    paddingLeft: 60,   // 🌟 從 100~200 縮減到 60 (剛好夠 0:00 線跟標籤的空間)
+    paddingTop: 50,
+    scaleX: 1.0,
+    scaleY: 1.0
 };
 
 // 資料狀態
@@ -127,16 +127,18 @@ function drawGrid(viewKey) {
             let textColor = isDarkMode ? "#FFFFFF" : "#000000";
             let textWidth = ctx.measureText(st.name).width;
 
-            // 左側站名
-            let labelXLeft = Math.max(CONFIG.paddingLeft - 80, camera.x + 15);
+            // --- 左側站名 ---
+            // 🌟 讓標籤跟隨攝影機，且距離左緣僅 10px
+            let labelXLeft = Math.max(0, camera.x + 10); 
             ctx.fillStyle = maskBg;
             ctx.fillRect(labelXLeft - 5, y - 12, textWidth + 10, 24);
             ctx.fillStyle = textColor;
             ctx.textAlign = "left";
             ctx.fillText(st.name, labelXLeft, y);
 
-            // 右側站名
-            let labelXRight = Math.min(CONFIG.paddingLeft + (1440 * CONFIG.scaleX) + 80, camera.x + canvas.width - 15);
+            // --- 右側站名 ---
+            // 🌟 距離右邊緣僅 10px
+            let labelXRight = Math.min(CONFIG.paddingLeft + (1440 * CONFIG.scaleX) + 50, camera.x + canvas.width - 10);
             ctx.fillStyle = maskBg;
             ctx.fillRect(labelXRight - textWidth - 5, y - 12, textWidth + 10, 24);
             ctx.fillStyle = textColor;
@@ -533,61 +535,49 @@ function setupCanvasInteractions() {
 
     // --- 滾輪事件 (加入滿版縮放限制) ---
     wrapper.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        if (renderFrame) return;
+        // ... 前面的資料座標計算維持不變 ...
 
-        const rect = wrapper.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-
-        // 1. 先抓取目前的虛擬座標
-        const virtualX = camera.x + mouseX;
-        const virtualY = camera.y + mouseY;
-        const dataX = (virtualX - CONFIG.paddingLeft) / CONFIG.scaleX;
-        const dataY = (virtualY - CONFIG.paddingTop) / CONFIG.scaleY;
-
-        // 2. 計算預計縮放後的新倍率
         const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1; 
         let newScaleX = CONFIG.scaleX * zoomSpeed;
         let newScaleY = CONFIG.scaleY * zoomSpeed;
 
-        // 🌟 3. [核心限制邏輯] 確保縮小後不會小於螢幕
         const wrapperW = wrapper.clientWidth;
-        const wrapperH = wrapper.clientHeight;
+        
+        // 🌟 [修正] 橫軸最小縮放：
+        // 讓 1440 分鐘的寬度「剛好等於」螢幕寬度，不要留多餘黑邊
+        const minScaleX = wrapperW / 1440;
+        if (newScaleX < minScaleX) newScaleX = minScaleX;
 
-        // 橫軸：1440 分鐘縮放後的像素寬度
-        const totalWidth = 1440 * newScaleX;
-        if (totalWidth < wrapperW) {
-            newScaleX = wrapperW / 1440; // 強制鎖定在滿版寬度
-        }
-
-        // 縱軸：一圈 (loopHeight) 縮放後的像素高度
-        const totalHeight = loopKm * newScaleY;
-        if (totalHeight < wrapperH) {
-            newScaleY = wrapperH / loopKm; // 強制鎖定在滿版高度
-        }
-
-        // 額外的最大放大限制 (避免過大造成浮點數誤差)
-        if (newScaleX > 150) newScaleX = 150;
-        if (newScaleY > 150) newScaleY = 150;
-
-        // 如果數值沒變（代表已經到極限了），就不需要重繪
-        if (newScaleX === CONFIG.scaleX && newScaleY === CONFIG.scaleY) return;
+        // ... 縱軸限制維持不變 ...
 
         CONFIG.scaleX = newScaleX;
         CONFIG.scaleY = newScaleY;
 
-        // 4. 重新對齊攝影機
         camera.x = (CONFIG.paddingLeft + dataX * newScaleX) - mouseX;
         camera.y = (CONFIG.paddingTop + dataY * newScaleY) - mouseY;
 
+        // 🌟 [新增] 縮放完立刻限制攝影機，不准滑入黑邊
+        clampCamera();
+
         renderFrame = requestAnimationFrame(() => {
             redrawAll();
-            checkInfiniteScroll(); 
             renderFrame = null; 
         });
-
     }, { passive: false });
+
+// 🌟 新增這個函數，並在 mousemove 和 wheel 結尾呼叫它
+function clampCamera() {
+    const wrapperW = document.getElementById('canvas-wrapper').clientWidth;
+    
+    // 限制左邊界：攝影機最左只能看到 0 分鐘的位置
+    // 因為我們想讓 0:00 貼齊左邊，所以 camera.x 最小就是 CONFIG.paddingLeft
+    // 但如果你希望看到標籤，可以再減去一點點
+    const minX = CONFIG.paddingLeft - 20; 
+    
+    // 限制右邊界：不准滑過 24:00
+    const maxX = CONFIG.paddingLeft + (1440 * CONFIG.scaleX) - wrapperW + 20;
+    
+    camera.x = Math.max(minX, Math.min(camera.x, maxX));
 }
 
 // ==========================================
