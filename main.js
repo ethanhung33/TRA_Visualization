@@ -15,7 +15,7 @@ const btnNoTrains = document.getElementById('btn-no-trains');
 const btnTheme = document.getElementById('btn-theme');
 
 const CONFIG = {
-    paddingLeft: 60,   // 🌟 從 100~200 縮減到 60 (剛好夠 0:00 線跟標籤的空間)
+    paddingLeft: 200,   // 🌟 從 100~200 縮減到 60 (剛好夠 0:00 線跟標籤的空間)
     paddingTop: 50,
     scaleX: 1.0,
     scaleY: 1.0
