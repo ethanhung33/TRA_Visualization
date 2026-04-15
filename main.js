@@ -483,17 +483,24 @@ function bindThemeToggle() {
 // ==========================================
 function clampCamera() {
     const wrapper = document.getElementById('canvas-wrapper');
+    if (!wrapper) return;
     const wrapperW = wrapper.clientWidth;
-    
-    // 我們統一定義：左邊界就是想留下的黑邊寬度
-    const minX = 0; // 🌟 讓攝影機座標 0 對應到我們最極限的左邊
-    
-    // 計算右邊界：總寬度 (含 padding) 減去螢幕寬度
-    const totalContentWidth = CONFIG.paddingLeft + (1440 * CONFIG.scaleX) + 100; // 100 是右側預留
-    const maxX = totalContentWidth - wrapperW;
 
-    if (camera.x < minX) camera.x = minX;
-    if (camera.x > maxX && maxX > minX) camera.x = maxX;
+    // 🌟 邏輯：0:00 線座標是 CONFIG.paddingLeft
+    // 我們希望 0:00 距離螢幕左緣固定為 SIDE_MARGIN
+    const minX = CONFIG.paddingLeft - SIDE_MARGIN;
+    
+    // 計算右邊界極限
+    const contentWidth = 1440 * CONFIG.scaleX;
+    const maxX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN;
+
+    // 🌟 強制執行：如果內容比螢幕窄，就居中；否則鎖定邊界
+    if (maxX < minX) {
+        camera.x = (minX + maxX) / 2;
+    } else {
+        if (camera.x < minX) camera.x = minX;
+        if (camera.x > maxX) camera.x = maxX;
+    }
 }
 
 // ==========================================
@@ -534,94 +541,74 @@ function setupCanvasInteractions() {
     let startMouseX = 0, startMouseY = 0;
     let startCameraX = 0, startCameraY = 0;
 
-    // --- 1. 點擊開始 ---
     wrapper.addEventListener('mousedown', (e) => {
         isDragging = true;
-        startMouseX = e.clientX;
-        startMouseY = e.clientY;
-        startCameraX = camera.x;
-        startCameraY = camera.y;
+        startMouseX = e.clientX; startMouseY = e.clientY;
+        startCameraX = camera.x; startCameraY = camera.y;
         wrapper.style.cursor = 'grabbing';
     });
 
-    // --- 2. 拖曳中 ---
     window.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-        
-        // 更新座標
         camera.x = startCameraX - (e.clientX - startMouseX);
         camera.y = startCameraY - (e.clientY - startMouseY);
-        
-        // 🌟 限制攝影機不准出界
-        clampCamera();
-        
-        if (!renderFrame) {
-            renderFrame = requestAnimationFrame(() => {
-                checkInfiniteScroll();
-                redrawAll();
-                renderFrame = null;
-            });
-        }
+        clampCamera(); // 拖曳校正
+        requestRedraw();
     });
 
-    // --- 3. 放開滑鼠 ---
     window.addEventListener('mouseup', () => {
         isDragging = false;
         wrapper.style.cursor = 'grab';
     });
 
-    // --- 4. 滾輪縮放 (修正 dataX 定義) ---
     wrapper.addEventListener('wheel', (e) => {
         e.preventDefault();
-        if (renderFrame) return;
-
+        
         const rect = wrapper.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // 🌟 [關鍵修復] 必須先定義 dataX 和 dataY！
-        const virtualX = camera.x + mouseX;
-        const virtualY = camera.y + mouseY;
-        const dataX = (virtualX - CONFIG.paddingLeft) / CONFIG.scaleX;
-        const dataY = (virtualY - CONFIG.paddingTop) / CONFIG.scaleY;
+        // A. 縮放前記錄：滑鼠指著地圖上的哪個資料點
+        const dataX = (camera.x + mouseX - CONFIG.paddingLeft) / CONFIG.scaleX;
+        const dataY = (camera.y + mouseY - CONFIG.paddingTop) / CONFIG.scaleY;
 
-        const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1; 
+        // B. 計算新倍率
+        const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1;
         let newScaleX = CONFIG.scaleX * zoomSpeed;
         let newScaleY = CONFIG.scaleY * zoomSpeed;
 
-        // 縮小限制：寬度不准小於螢幕
+        // C. 🌟 嚴格限制最小縮放 (考慮到 SIDE_MARGIN)
         const wrapperW = wrapper.clientWidth;
-        const minScaleX = (wrapperW - 20) / 1440; 
+        const minScaleX = (wrapperW - SIDE_MARGIN * 2) / 1440;
         if (newScaleX < minScaleX) newScaleX = minScaleX;
-        
-        // 高度縮小限制
+
         const wrapperH = wrapper.clientHeight;
-        if (loopHeight > 0) {
-            const minScaleY = (wrapperH) / (loopHeight / CONFIG.scaleY); 
-            if (newScaleY < minScaleY) newScaleY = minScaleY;
-        }
+        const minScaleY = wrapperH / loopKm;
+        if (newScaleY < minScaleY) newScaleY = minScaleY;
 
-        // 放大限制
-        if (newScaleX > 150) newScaleX = 150;
-        if (newScaleY > 150) newScaleY = 150;
-
+        // D. 套用新倍率
         CONFIG.scaleX = newScaleX;
         CONFIG.scaleY = newScaleY;
 
-        // 使用剛才定義好的 dataX, dataY 計算新攝影機位置
+        // E. 🌟 重新對齊：讓剛才的資料點回到滑鼠位置
         camera.x = (CONFIG.paddingLeft + dataX * newScaleX) - mouseX;
         camera.y = (CONFIG.paddingTop + dataY * newScaleY) - mouseY;
-        
-        // 🌟 縮放後也要限制出界
-        clampCamera();
 
-        renderFrame = requestAnimationFrame(() => {
-            clampCamera();
-            redrawAll();
-            checkInfiniteScroll();
-            renderFrame = null; 
-        });
+        // F. 🌟 [最重要的一步] 縮放完畢後「立即」暴力校正邊界
+        clampCamera(); 
+
+        requestRedraw();
     }, { passive: false });
+}
+
+function requestRedraw() {
+    if (!renderFrame) {
+        renderFrame = requestAnimationFrame(() => {
+            checkInfiniteScroll();
+            redrawAll();
+            renderFrame = null;
+        });
+    }
 }
 
 // 🌟 新增這個函數，並在 mousemove 和 wheel 結尾呼叫它
