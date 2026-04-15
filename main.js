@@ -28,6 +28,8 @@ let lookupY = {};
 let loopKm = 0;      // 台灣環島一圈的總公里數
 let loopHeight = 0;  // 環島一圈在畫布上的像素高度
 
+let camera = { x: 0, y: 0 };
+
 let stationCoords = [];
 
 // 🌟 還有這兩個主題狀態的變數也要確保有宣告到
@@ -69,13 +71,6 @@ function drawGrid(viewKey) {
     ctx.font = "12px 'Segoe UI', sans-serif";
     ctx.textBaseline = "middle";
 
-    // 🌟 1. 取得目前螢幕的「真實可視範圍」 (加上 100px 的緩衝區，避免滑動邊緣閃爍)
-    const wrapper = document.getElementById('canvas-wrapper');
-    const viewTop = wrapper.scrollTop - 100;
-    const viewBottom = wrapper.scrollTop + wrapper.clientHeight + 100;
-    const viewLeft = wrapper.scrollLeft - 100;
-    const viewRight = wrapper.scrollLeft + wrapper.clientWidth + 100;
-
     selectedSegments.forEach(segId => {
         let seg = topology.segments.find(s => s.id === segId);
         if (!seg) return;
@@ -91,16 +86,24 @@ function drawGrid(viewKey) {
     loopKm = currentAccumulatedKm;
     loopHeight = loopKm * CONFIG.scaleY;
 
-    // 限制畫布最大高度 (防白屏保護機制)
-    const MAX_CANVAS_HEIGHT = 18000;
-    let targetHeight = isCircular ? (loopHeight * 3) + (CONFIG.paddingTop * 2) : loopHeight + (CONFIG.paddingTop * 2);
-    canvas.height = Math.min(targetHeight, MAX_CANVAS_HEIGHT);
-    canvas.width = CONFIG.paddingLeft + (1440 * CONFIG.scaleX) + 100;
+    // 🌟 1. 畫布大小永遠跟著容器 (再也不會撐破硬體極限)
+    const wrapper = document.getElementById('canvas-wrapper');
+    canvas.width = wrapper.clientWidth;
+    canvas.height = wrapper.clientHeight;
+
+    // 🌟 2. 根據攝影機座標計算可視範圍
+    const viewTop = camera.y - 100;
+    const viewBottom = camera.y + canvas.height + 100;
+    const viewLeft = camera.x - 100;
+    const viewRight = camera.x + canvas.width + 100;
+
+    // 🌟 3. 清空畫布，並套用攝影機偏移
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
 
     let copyStart = isCircular ? -1 : 0;
     let copyEnd = isCircular ? 1 : 0;
-
-    stationCoords = []; 
 
     for (let copy = copyStart; copy <= copyEnd; copy++) {
         let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
@@ -111,12 +114,9 @@ function drawGrid(viewKey) {
             seg.stations.forEach(st => {
                 let y = lookupY[st.id] + offsetY;
                 
-                if (copy === 0) stationCoords.push({ name: st.name, y: y }); 
-
-                // 🌟 2. 垂直剔除 (Y軸)：如果這個車站在畫面外，直接跳過不畫！
+                // 垂直剔除
                 if (y < viewTop || y > viewBottom) return;
 
-                // 畫橫線
                 ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
                 ctx.lineWidth = 1;
                 ctx.beginPath();
@@ -124,15 +124,13 @@ function drawGrid(viewKey) {
                 ctx.lineTo(CONFIG.paddingLeft + (1440 * CONFIG.scaleX), y);
                 ctx.stroke();
 
-                // 畫最左邊的實體站名
+                // 🌟 讓站名黏在畫面左側 (完美跟隨攝影機)
                 ctx.fillStyle = isDarkMode ? "#AAAAAA" : "#333333";
-                ctx.fillText(st.name, Math.max(20, viewLeft + 20), y); // 讓最左邊站名可以跟著畫面浮動
+                ctx.fillText(st.name, Math.max(20, viewLeft + 20), y); 
 
-                // 🌟 3. 水平剔除 (X軸)：只畫出現在螢幕「左右範圍內」的浮水印
                 ctx.fillStyle = isDarkMode ? "rgba(170, 170, 170, 0.25)" : "rgba(85, 85, 85, 0.35)";
                 for (let h = 1; h < 24; h += 2) { 
                     let textX = timeToX(h * 60) + 5;
-                    // 只有在可視範圍內的浮水印才執行 fillText
                     if (textX > viewLeft && textX < viewRight) {
                         ctx.fillText(st.name, textX, y - 8); 
                     }
@@ -141,35 +139,36 @@ function drawGrid(viewKey) {
         });
     }
 
-    // 🌟 4. 時間垂直線也加入水平剔除
     for (let h = 0; h <= 24; h++) {
         let x = timeToX(h * 60);
-        if (x < viewLeft || x > viewRight) continue; // 畫面外的時間線不畫
+        if (x < viewLeft || x > viewRight) continue; 
 
         ctx.beginPath();
         ctx.setLineDash([4, 4]); 
         ctx.strokeStyle = isDarkMode ? ((h % 1 === 0) ? "#555555" : "#222222") : ((h % 1 === 0) ? "#CCCCCC" : "#EEEEEE");
         ctx.lineWidth = 1;
-        ctx.moveTo(x, Math.max(0, viewTop));                 
-        ctx.lineTo(x, Math.min(canvas.height, viewBottom));     
+        ctx.moveTo(x, viewTop);                 
+        ctx.lineTo(x, viewBottom);     
         ctx.stroke();
         ctx.setLineDash([]); 
         
         ctx.fillStyle = isDarkMode ? "#888888" : "#666666";
-        ctx.fillText(`${h}:00`, x - 15, Math.max(CONFIG.paddingTop - 15, viewTop + 15)); // 讓時間標籤跟著頂部浮動
+        ctx.fillText(`${h}:00`, x - 15, Math.max(CONFIG.paddingTop - 15, viewTop + 15)); 
     }
+    
+    ctx.restore(); // 畫完網格後歸零
 }
 
 // ==========================================
 // 繪製火車 (加入高速邊界剔除 Bounding Box Culling)
 // ==========================================
 function drawTrains() {
-    // 🌟 1. 取得目前螢幕的真實範圍 (加點緩衝區確保線條不會突然斷掉)
     const wrapper = document.getElementById('canvas-wrapper');
-    const viewTop = wrapper.scrollTop - 200;
-    const viewBottom = wrapper.scrollTop + wrapper.clientHeight + 200;
-    const viewLeft = wrapper.scrollLeft - 200;
-    const viewRight = wrapper.scrollLeft + wrapper.clientWidth + 200;
+    // 取得攝影機範圍
+    const viewTop = camera.y - 200;
+    const viewBottom = camera.y + canvas.height + 200;
+    const viewLeft = camera.x - 200;
+    const viewRight = camera.x + canvas.width + 200;
 
     let presetKey = currentRouteView + "_view"; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
@@ -178,6 +177,10 @@ function drawTrains() {
 
     let colorIndex = isDarkMode ? 0 : 1;
     let fallbackColor = isDarkMode ? "#FFFFFF" : "#000000";
+
+    // 🌟 套用攝影機偏移
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
 
     timetable.forEach(train => {
         if (!activeTrainTypes.has(train.type)) return;
@@ -196,7 +199,6 @@ function drawTrains() {
             let lastBaseY = null;
             let wrapOffset = 0; 
 
-            // 預先計算解捲繞座標
             for (let i = 0; i < seg.s.length; i++) {
                 let st_id = seg.s[i];
                 let baseY = lookupY[st_id];
@@ -211,14 +213,12 @@ function drawTrains() {
                 lastBaseY = baseY;
             }
 
-            // 算出這台車在 X 軸的絕對極值 (首站時間到末站時間)
             let minX = timeToX(seg.t[0]);
             let maxX = timeToX(seg.t[seg.t.length - 1]);
 
             for (let copy = copyStart; copy <= copyEnd; copy++) {
                 let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
                 
-                // 🌟 2. 找出這段火車在這一圈的 Y 軸極值
                 let minY = Infinity, maxY = -Infinity;
                 for (let i = 0; i < unwrappedCoords.length; i++) {
                     if (unwrappedCoords[i] !== null) {
@@ -228,12 +228,11 @@ function drawTrains() {
                     }
                 }
 
-                // 🌟 3. 高速剔除 (如果整台車都在畫面外，直接跳過不畫！)
+                // 高速邊界剔除
                 if (maxX < viewLeft || minX > viewRight || maxY < viewTop || minY > viewBottom) {
                     continue; 
                 }
                 
-                // 在畫面內才執行耗時的繪圖動作
                 ctx.beginPath();
                 let isDrawing = false; 
 
@@ -254,6 +253,8 @@ function drawTrains() {
             }
         });
     });
+
+    ctx.restore(); // 畫完復原
 }
 
 // ==========================================
@@ -431,15 +432,18 @@ function bindThemeToggle() {
 }
 
 // ==========================================
-// 滑鼠互動：拖曳、縮放 (修正硬體極限與防卡頓)
+// 滑鼠互動：虛擬攝影機控制引擎 (無限縮放)
 // ==========================================
 function setupCanvasInteractions() {
     const wrapper = document.getElementById('canvas-wrapper');
+    
+    // 🌟 1. 關閉原生卷軸，由攝影機全面接管
     wrapper.style.position = 'relative';
+    wrapper.style.overflow = 'hidden'; 
     wrapper.style.cursor = 'grab';
 
     let isDragging = false;
-    let startX, startY, scrollLeft, scrollTop;
+    let startMouseX, startMouseY, startCameraX, startCameraY;
     let renderFrame = null; 
 
     function checkInfiniteScroll() {
@@ -447,20 +451,22 @@ function setupCanvasInteractions() {
         let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
         if (!isCircular) return; 
 
-        if (wrapper.scrollTop < loopHeight * 0.5) {
-            wrapper.scrollTop += loopHeight; 
-        } else if (wrapper.scrollTop > loopHeight * 1.5) {
-            wrapper.scrollTop -= loopHeight; 
+        // 判斷攝影機位置進行無縫傳送
+        if (camera.y < loopHeight * 0.5) {
+            camera.y += loopHeight; 
+        } else if (camera.y > loopHeight * 1.5) {
+            camera.y -= loopHeight; 
         }
     }
 
+    // --- 拖曳事件 (平移攝影機) ---
     wrapper.addEventListener('mousedown', (e) => {
         isDragging = true;
         wrapper.style.cursor = 'grabbing';
-        startX = e.pageX - wrapper.offsetLeft;
-        startY = e.pageY - wrapper.offsetTop;
-        scrollLeft = wrapper.scrollLeft;
-        scrollTop = wrapper.scrollTop;
+        startMouseX = e.clientX;
+        startMouseY = e.clientY;
+        startCameraX = camera.x;
+        startCameraY = camera.y;
     });
 
     wrapper.addEventListener('mouseleave', () => { isDragging = false; wrapper.style.cursor = 'grab'; });
@@ -469,54 +475,56 @@ function setupCanvasInteractions() {
     wrapper.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
         e.preventDefault();
-        wrapper.scrollLeft = scrollLeft - (e.pageX - wrapper.offsetLeft - startX);
-        wrapper.scrollTop = scrollTop - (e.pageY - wrapper.offsetTop - startY);
         
-        // 拖曳時也要透過 rAF 來重繪，確保網格剔除能平滑跟上
+        // 🌟 2. 直接改變攝影機座標
+        camera.x = startCameraX - (e.clientX - startMouseX);
+        camera.y = startCameraY - (e.clientY - startMouseY);
+        
         if (!renderFrame) {
             renderFrame = requestAnimationFrame(() => {
-                redrawAll();
                 checkInfiniteScroll();
+                redrawAll();
                 renderFrame = null;
             });
         }
     });
 
+    // --- 滾輪事件 (朝游標位置縮放) ---
     wrapper.addEventListener('wheel', (e) => {
         e.preventDefault();
         if (renderFrame) return;
 
         const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1; 
-        const newScaleX = CONFIG.scaleX * zoomSpeed;
-        const newScaleY = CONFIG.scaleY * zoomSpeed;
+        const oldScaleX = CONFIG.scaleX;
+        const oldScaleY = CONFIG.scaleY;
+        const newScaleX = oldScaleX * zoomSpeed;
+        const newScaleY = oldScaleY * zoomSpeed;
 
-        // 🌟 修正硬體極限：絕不允許畫布高度超過 15,000px (避開內顯的 16384 極限)
-        const MAX_HARDWARE_LIMIT = 15000;
-        let presetKey = currentRouteView + "_view"; 
-        let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
-        let estimatedHeight = isCircular ? (loopKm * newScaleY * 3) : (loopKm * newScaleY);
-        
-        if (newScaleX < 0.5 || newScaleX > 25 || estimatedHeight > MAX_HARDWARE_LIMIT) {
-            return; // 達到極限就停止放大，保護畫布不崩潰
-        }
+        // 🌟 3. 再也沒有高度極限了！你可以把放大倍率設到超大！
+        if (newScaleX < 0.5 || newScaleX > 100) return; 
 
         const rect = wrapper.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        const canvasX = wrapper.scrollLeft + mouseX;
-        const canvasY = wrapper.scrollTop + mouseY;
-        const dataX = (canvasX - CONFIG.paddingLeft) / CONFIG.scaleX;
-        const dataY = (canvasY - CONFIG.paddingTop) / CONFIG.scaleY;
+        // 計算游標當下在「虛擬世界」的絕對座標
+        const virtualX = camera.x + mouseX;
+        const virtualY = camera.y + mouseY;
+
+        // 還原成原始 Data 座標
+        const dataX = (virtualX - CONFIG.paddingLeft) / oldScaleX;
+        const dataY = (virtualY - CONFIG.paddingTop) / oldScaleY;
 
         CONFIG.scaleX = newScaleX;
         CONFIG.scaleY = newScaleY;
 
+        // 算出縮放後，那個 Data 座標的新位置，並移動攝影機對齊它
+        camera.x = (CONFIG.paddingLeft + dataX * newScaleX) - mouseX;
+        camera.y = (CONFIG.paddingTop + dataY * newScaleY) - mouseY;
+
         renderFrame = requestAnimationFrame(() => {
-            redrawAll();
-            wrapper.scrollLeft = CONFIG.paddingLeft + (dataX * CONFIG.scaleX) - mouseX;
-            wrapper.scrollTop = CONFIG.paddingTop + (dataY * CONFIG.scaleY) - mouseY;
             checkInfiniteScroll();
+            redrawAll();
             renderFrame = null; 
         });
 
@@ -549,7 +557,7 @@ async function init() {
         redrawAll();       // 首次渲染畫布
 
         const wrapper = document.getElementById('canvas-wrapper');
-        wrapper.scrollTop = loopHeight;
+        camera.y = loopHeight;
 
     } catch (e) {
         console.error("載入失敗:", e);
