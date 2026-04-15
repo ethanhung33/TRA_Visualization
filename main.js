@@ -252,6 +252,100 @@ function bindThemeToggle() {
 }
 
 // ==========================================
+// 滑鼠互動：拖曳平移 (Pan) 與滾輪縮放 (Zoom)
+// ==========================================
+function setupCanvasInteractions() {
+    const wrapper = document.getElementById('canvas-wrapper');
+    
+    // --- 變數：拖曳狀態 ---
+    let isDragging = false;
+    let startX, startY, scrollLeft, scrollTop;
+
+    // 讓滑鼠在畫布上變成「手掌」圖示
+    wrapper.style.cursor = 'grab';
+
+    // ============================
+    // 1. 滑鼠拖曳平移 (Pan)
+    // ============================
+    wrapper.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        wrapper.style.cursor = 'grabbing'; // 抓取中的圖示
+        // 紀錄按下的起始座標與當前卷軸位置
+        startX = e.pageX - wrapper.offsetLeft;
+        startY = e.pageY - wrapper.offsetTop;
+        scrollLeft = wrapper.scrollLeft;
+        scrollTop = wrapper.scrollTop;
+    });
+
+    wrapper.addEventListener('mouseleave', () => {
+        isDragging = false;
+        wrapper.style.cursor = 'grab';
+    });
+
+    wrapper.addEventListener('mouseup', () => {
+        isDragging = false;
+        wrapper.style.cursor = 'grab';
+    });
+
+    wrapper.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        // 計算滑鼠移動的距離
+        const x = e.pageX - wrapper.offsetLeft;
+        const y = e.pageY - wrapper.offsetTop;
+        const walkX = (x - startX);
+        const walkY = (y - startY);
+        // 反向移動卷軸，營造出拖曳畫布的感覺
+        wrapper.scrollLeft = scrollLeft - walkX;
+        wrapper.scrollTop = scrollTop - walkY;
+    });
+
+    // ============================
+    // 2. 滾輪縮放 (Zoom - 對齊滑鼠游標)
+    // ============================
+    wrapper.addEventListener('wheel', (e) => {
+        e.preventDefault(); // 阻止網頁預設的上下捲動行為
+
+        // 設定縮放速度與方向 (向上滾放大，向下滾縮小)
+        const zoomSpeed = 0.1;
+        const zoomDirection = e.deltaY > 0 ? -1 : 1; 
+        const scaleMultiplier = 1 + (zoomDirection * zoomSpeed);
+
+        // 預判新的比例尺，限制最大與最小縮放極限 (避免當機或看不見)
+        const newScaleX = CONFIG.scaleX * scaleMultiplier;
+        if (newScaleX < 0.5 || newScaleX > 15) return;
+
+        // ---- 核心演算法：游標焦點對齊 ----
+        // 步驟 A：取得滑鼠在 wrapper 視窗內的相對座標
+        const rect = wrapper.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // 步驟 B：推算目前滑鼠指著的「實際數據值 (時間與里程)」
+        // 扣除 padding 後再除以舊的比例尺
+        const canvasX = wrapper.scrollLeft + mouseX;
+        const canvasY = wrapper.scrollTop + mouseY;
+        const dataX = (canvasX - CONFIG.paddingLeft) / CONFIG.scaleX;
+        const dataY = (canvasY - CONFIG.paddingTop) / CONFIG.scaleY;
+
+        // 步驟 C：更新全域比例尺
+        CONFIG.scaleX = newScaleX;
+        CONFIG.scaleY = CONFIG.scaleY * scaleMultiplier;
+
+        // 步驟 D：觸發重新繪圖 (這會連帶改變 canvas.width 和 canvas.height)
+        redrawAll();
+
+        // 步驟 E：反推新的 Canvas 座標，並調整卷軸，確保滑鼠指著的地方不變
+        const newCanvasX = CONFIG.paddingLeft + (dataX * CONFIG.scaleX);
+        const newCanvasY = CONFIG.paddingTop + (dataY * CONFIG.scaleY);
+
+        wrapper.scrollLeft = newCanvasX - mouseX;
+        wrapper.scrollTop = newCanvasY - mouseY;
+
+    }, { passive: false }); // 必須設為 false 才能使用 e.preventDefault()
+}
+
+// ==========================================
 // 系統啟動點 (init)
 // ==========================================
 async function init() {
@@ -272,6 +366,8 @@ async function init() {
         
         buildUI();         // 建立側邊欄按鈕
         bindThemeToggle(); // 🌟 啟動主題切換按鈕
+
+        setupCanvasInteractions();
         redrawAll();       // 首次渲染畫布
 
     } catch (e) {
