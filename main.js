@@ -42,14 +42,13 @@ function timeToX(minutes) {
 }
 
 // ==========================================
-// 3. 繪製背景網格 (動態拼接視角)
+// 繪製背景網格 (加入日/夜模式動態顏色)
 // ==========================================
 function drawGrid(viewKey) {
-    lookupY = {}; // 重置查詢表
+    lookupY = {}; 
     let currentAccumulatedKm = 0; 
     let selectedSegments = VIEW_CONFIGS[viewKey];
 
-    // 暗色模式的字體設定
     ctx.font = "12px 'Segoe UI', sans-serif";
     ctx.textBaseline = "middle";
 
@@ -60,63 +59,77 @@ function drawGrid(viewKey) {
         let segMaxKm = 0;
 
         seg.stations.forEach(st => {
-            // 🌟 將該站的相對里程，加上之前區段累積的里程，算出「絕對 Y 座標」
             let absoluteKm = currentAccumulatedKm + st.km;
             let y = CONFIG.paddingTop + (absoluteKm * CONFIG.scaleY);
             
             lookupY[st.id] = y;
             if (st.km > segMaxKm) segMaxKm = st.km;
 
-            // 畫車站橫線 (暗色模式用深灰色)
-            ctx.strokeStyle = "#333333";
+            // 🌟 網格橫線：深色模式用深灰，淺色模式用淺灰
+            ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(CONFIG.paddingLeft, y);
             ctx.lineTo(CONFIG.paddingLeft + (1440 * CONFIG.scaleX), y);
             ctx.stroke();
 
-            // 畫站名 (淺灰色)
-            ctx.fillStyle = "#AAAAAA";
+            // 🌟 站名字體：深色模式用亮灰，淺色模式用深灰
+            ctx.fillStyle = isDarkMode ? "#AAAAAA" : "#333333";
             ctx.fillText(st.name, 20, y);
         });
 
-        // 將這一段的總長度，加入累加器，給下一段當起點
         currentAccumulatedKm += segMaxKm; 
     });
 
-    // 根據算出來的總長度，動態調整 Canvas 大小
     canvas.height = CONFIG.paddingTop + (currentAccumulatedKm * CONFIG.scaleY) + 100;
     canvas.width = CONFIG.paddingLeft + (1440 * CONFIG.scaleX) + 100;
 
-    // 畫時間垂直線 (0:00 ~ 24:00)
+    // 畫時間垂直線
     for (let h = 0; h <= 24; h++) {
         let x = timeToX(h * 60);
         ctx.beginPath();
-        // 整點線畫稍微亮一點、粗一點
-        ctx.strokeStyle = (h % 1 === 0) ? "#555555" : "#333333";
-        ctx.lineWidth = (h % 1 === 0) ? 1.5 : 0.5;
         
+        ctx.setLineDash([4, 4]); 
+        // 🌟 時間直線顏色動態切換
+        if (isDarkMode) {
+            ctx.strokeStyle = (h % 1 === 0) ? "#555555" : "#222222";
+        } else {
+            ctx.strokeStyle = (h % 1 === 0) ? "#CCCCCC" : "#EEEEEE";
+        }
+        
+        ctx.lineWidth = 1;
         ctx.moveTo(x, CONFIG.paddingTop);
         ctx.lineTo(x, canvas.height - CONFIG.paddingTop);
         ctx.stroke();
+        ctx.setLineDash([]); 
         
-        // 頂部時間標籤
-        ctx.fillStyle = "#888888";
+        ctx.fillStyle = isDarkMode ? "#888888" : "#666666";
         ctx.fillText(`${h}:00`, x - 15, CONFIG.paddingTop - 15);
     }
 }
 
 // ==========================================
-// 4. 繪製火車 (套用過濾器與視角)
+// 繪製火車 (讀取 setting.json)
 // ==========================================
 function drawTrains() {
+    // 決定要讀取陣列的第幾個顏色 (0:深色模式, 1:淺色模式)
+    let colorIndex = isDarkMode ? 0 : 1;
+    let fallbackColor = isDarkMode ? "#FFFFFF" : "#000000";
+
     timetable.forEach(train => {
-        // 🌟 1. 車種過濾：如果這班車的車種沒被勾選，直接跳過
         if (!activeTrainTypes.has(train.type)) return;
 
-        // 🌟 2. 顏色設定：讀取 JSON 裡的 c 參數，若無則預設白色
-        ctx.strokeStyle = train.c || "#FFFFFF"; 
-        ctx.lineWidth = train.w || 1.2;
+        // 🌟 從 settings 提取顏色，如果設定檔找不到這個車種，就用 fallbackColor
+        let trainColor = fallbackColor;
+        if (settings && settings.train_color && settings.train_color[train.type]) {
+            trainColor = settings.train_color[train.type][colorIndex];
+        }
+
+        ctx.strokeStyle = trainColor; 
+        
+        // 判斷粗細：自強、普悠瑪、太魯閣等對號車加粗
+        let isExpress = ["新自強", "普悠瑪", "太魯閣", "自強", "莒光"].includes(train.type);
+        ctx.lineWidth = train.w || (isExpress ? 1.5 : 1.0);
 
         train.segments.forEach(seg => {
             ctx.beginPath();
@@ -126,7 +139,6 @@ function drawTrains() {
                 let st_id = seg.s[i];
                 let y = lookupY[st_id];
                 
-                // 🌟 3. 視角過濾：如果現在是山線視角，海線車站會查不到 Y 座標，在此斷開連線
                 if (y === undefined) {
                     isDrawing = false;
                     continue; 
@@ -134,25 +146,16 @@ function drawTrains() {
 
                 let x_arr = timeToX(seg.t[i * 2]);
                 let x_dep = timeToX(seg.t[i * 2 + 1]);
-                let status = seg.v[i];
 
-                if (!isDrawing) {
-                    ctx.moveTo(x_arr, y); 
-                    isDrawing = true;
-                } else {
-                    ctx.lineTo(x_arr, y); 
-                }
+                if (!isDrawing) { ctx.moveTo(x_arr, y); isDrawing = true; } 
+                else { ctx.lineTo(x_arr, y); }
 
-                // 狀態 2 是 PASS，不用畫水平停靠線
-                if (status !== 2) {
-                    ctx.lineTo(x_dep, y);
-                }
+                if (seg.v[i] !== 2) ctx.lineTo(x_dep, y);
             }
             ctx.stroke();
         });
     });
 }
-
 // ==========================================
 // 5. UI 構建與事件綁定
 // ==========================================
@@ -221,12 +224,37 @@ function redrawAll() {
 }
 
 // ==========================================
-// 6. 系統啟動點 (init)
+// 綁定主題切換功能
+// ==========================================
+function bindThemeToggle() {
+    btnTheme.addEventListener('click', () => {
+        isDarkMode = !isDarkMode;
+        
+        // 切換按鈕圖示
+        btnTheme.textContent = isDarkMode ? "🌞" : "🌙";
+        
+        // 切換畫布容器與側邊欄的背景顏色 (可選，讓UI整體更連貫)
+        document.getElementById('canvas-wrapper').style.backgroundColor = isDarkMode ? "#000000" : "#FFFFFF";
+        document.getElementById('sidebar').style.backgroundColor = isDarkMode ? "#333333" : "#F5F5F5";
+        document.getElementById('sidebar').style.color = isDarkMode ? "#FFFFFF" : "#000000";
+        document.querySelector('.control-section h3').style.color = isDarkMode ? "#FFFFFF" : "#000000";
+        
+        // 重繪所有畫面
+        redrawAll();
+    });
+}
+
+// ==========================================
+// 系統啟動點 (init)
 // ==========================================
 async function init() {
-    console.log("正在載入 JSON 資料...");
     try {
-        dirc_path = "data/Taiwan/TRA/json/";
+        let dirc_path = "data/Taiwan/TRA/json/";
+        
+        // 🌟 1. 多載入一個 setting.json
+        const setRes = await fetch(dirc_path + 'setting.json');
+        settings = await setRes.json();
+
         const topoRes = await fetch(dirc_path + 'topology.json');
         topology = await topoRes.json();
 
@@ -235,12 +263,12 @@ async function init() {
 
         console.log("資料載入完成！建構 UI 與渲染畫布...");
         
-        buildUI();    // 建立側邊欄按鈕
-        redrawAll();  // 首次渲染畫布
+        buildUI();         // 建立側邊欄按鈕
+        bindThemeToggle(); // 🌟 啟動主題切換按鈕
+        redrawAll();       // 首次渲染畫布
 
     } catch (e) {
         console.error("載入失敗:", e);
-        alert("資料載入失敗！請確認 topology.json 與 timetable.json 是否在同一目錄下，並使用 Local Server 開啟。");
     }
 }
 
