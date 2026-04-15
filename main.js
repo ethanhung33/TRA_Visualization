@@ -304,20 +304,35 @@ function bindThemeToggle() {
         
         btnTheme.textContent = isDarkMode ? "🌞" : "🌙";
         
-        // 切換背景顏色
+        // 1. 切換畫布容器與側邊欄的背景顏色
         document.getElementById('canvas-wrapper').style.backgroundColor = isDarkMode ? "#000000" : "#FFFFFF";
         document.getElementById('sidebar').style.backgroundColor = isDarkMode ? "#333333" : "#F5F5F5";
         document.getElementById('sidebar').style.color = isDarkMode ? "#FFFFFF" : "#000000";
         document.querySelectorAll('.control-section h3').forEach(h3 => {
             h3.style.color = isDarkMode ? "#FFFFFF" : "#000000";
         });
+
+        // 🌟 2. 統一更新那 5 顆「靜態工具按鈕」的底色
+        let defaultBg = isDarkMode ? "#444444" : "#E0E0E0";
+        let defaultBorder = isDarkMode ? "#555555" : "#CCCCCC";
+        let defaultText = isDarkMode ? "#CCCCCC" : "#000000";
+
+        document.querySelectorAll('#sidebar .pill-btn').forEach(btn => {
+            // 排除路線按鈕與車種按鈕 (車種按鈕有綁定 _updateStyle)，剩下的就是那 5 顆！
+            if (btn.id !== 'btn-mountain' && btn.id !== 'btn-sea' && !btn._updateStyle) {
+                btn.style.backgroundColor = defaultBg;
+                btn.style.borderColor = defaultBorder;
+                btn.style.color = defaultText;
+            }
+        });
         
-        // 🌟 觸發所有按鈕重新讀取日/夜色碼
+        // 3. 觸發所有「動態按鈕」重新讀取日/夜色碼
         if (window.updateRouteButtons) window.updateRouteButtons();
         document.querySelectorAll('#train-type-container .pill-btn').forEach(btn => {
             if(btn._updateStyle) btn._updateStyle();
         });
         
+        // 4. 重繪畫布
         redrawAll();
     });
 }
