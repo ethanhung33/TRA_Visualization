@@ -484,25 +484,26 @@ function bindThemeToggle() {
 // ==========================================
 function clampCamera() {
     const wrapper = document.getElementById('canvas-wrapper');
+    if (!wrapper) return;
     const wrapperW = wrapper.clientWidth;
 
-    // 左邊界：讓 0:00 線 (paddingLeft) 距離螢幕左緣剛好是 SIDE_MARGIN
+    // 🌟 核心參數：0:00 線距離左緣的像素
     const minX = CONFIG.paddingLeft - SIDE_MARGIN;
     
-    // 右邊界：讓 26:00 線距離螢幕右緣也是 SIDE_MARGIN
-    const contentWidth = 1560 * CONFIG.scaleX;
-    const maxX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN;
+    // 計算目前的總內容寬度 (改用 1560)
+    const totalContentWidth = 1560 * CONFIG.scaleX;
+    const maxX = CONFIG.paddingLeft + totalContentWidth - wrapperW + SIDE_MARGIN;
 
-    if (maxX < minX) {
-        // 如果地圖太小，強制水平居中
-        camera.x = (minX + maxX) / 2;
+    // 🌟 防抖動邏輯
+    if (totalContentWidth + (SIDE_MARGIN * 2) <= wrapperW) {
+        // 畫面太小時：強制鎖定在左側 SIDE_MARGIN 位置，不准移動
+        camera.x = minX;
     } else {
-        // 否則，嚴格鎖定在圍籬內
+        // 畫面夠大時：執行邊界限制
         if (camera.x < minX) camera.x = minX;
         if (camera.x > maxX) camera.x = maxX;
     }
 }
-
 // ==========================================
 // 瞬移補償：讓攝影機永遠保持在「中間那一圈」
 // ==========================================
@@ -568,33 +569,33 @@ function setupCanvasInteractions() {
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // A. 縮放前記錄：滑鼠指著地圖上的哪個資料點
+        // 1. 記錄縮放前的資料位置 (相對比例)
         const dataX = (camera.x + mouseX - CONFIG.paddingLeft) / CONFIG.scaleX;
         const dataY = (camera.y + mouseY - CONFIG.paddingTop) / CONFIG.scaleY;
 
-        // B. 計算新倍率
+        // 2. 計算新倍率
         const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1;
-        let newScaleX = CONFIG.scaleX * zoomSpeed;
-        let newScaleY = CONFIG.scaleY * zoomSpeed;
+        let nextScaleX = CONFIG.scaleX * zoomSpeed;
+        let nextScaleY = CONFIG.scaleY * zoomSpeed;
 
-        // C. 🌟 嚴格限制最小縮放 (考慮到 SIDE_MARGIN)
+        // 🌟 3. 強制最小比例限制 (改用 1560)
         const wrapperW = wrapper.clientWidth;
         const minScaleX = (wrapperW - SIDE_MARGIN * 2) / 1560;
-        if (newScaleX < minScaleX) newScaleX = minScaleX;
+        if (nextScaleX < minScaleX) nextScaleX = minScaleX;
 
         const wrapperH = wrapper.clientHeight;
-        const minScaleY = wrapperH / loopKm;
-        if (newScaleY < minScaleY) newScaleY = minScaleY;
+        const minScaleY = wrapperH / (loopKm || 100); 
+        if (nextScaleY < minScaleY) nextScaleY = minScaleY;
 
-        // D. 套用新倍率
-        CONFIG.scaleX = newScaleX;
-        CONFIG.scaleY = newScaleY;
+        // 4. 套用倍率
+        CONFIG.scaleX = nextScaleX;
+        CONFIG.scaleY = nextScaleY;
 
-        // E. 🌟 重新對齊：讓剛才的資料點回到滑鼠位置
-        camera.x = (CONFIG.paddingLeft + dataX * newScaleX) - mouseX;
-        camera.y = (CONFIG.paddingTop + dataY * newScaleY) - mouseY;
+        // 5. 重新對齊：讓資料點回到滑鼠位置
+        camera.x = (CONFIG.paddingLeft + dataX * CONFIG.scaleX) - mouseX;
+        camera.y = (CONFIG.paddingTop + dataY * CONFIG.scaleY) - mouseY;
 
-        // F. 🌟 [最重要的一步] 縮放完畢後「立即」暴力校正邊界
+        // 🌟 6. [重點] 這裡必須立刻跑一遍，確保下一幀畫出來之前座標已經正確
         clampCamera(); 
 
         requestRedraw();
