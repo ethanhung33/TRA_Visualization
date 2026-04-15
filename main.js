@@ -427,6 +427,7 @@ function buildUI() {
 function redrawAll() {
     // 由於我們動態改變 canvas.height，這本身就會清空畫布，
     // 但為保險起見還是加上 clearRect
+    clampCamera();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid(currentRouteView); 
     drawTrains();               
@@ -482,19 +483,17 @@ function bindThemeToggle() {
 // ==========================================
 function clampCamera() {
     const wrapper = document.getElementById('canvas-wrapper');
-    if (!wrapper) return;
     const wrapperW = wrapper.clientWidth;
     
-    // 🌟 X 軸限制：鎖定在 0:00 到 24:00 之間
-    const minX = CONFIG.paddingLeft - 20; 
-    const maxX = CONFIG.paddingLeft + (1440 * CONFIG.scaleX) - wrapperW + 20;
+    // 我們統一定義：左邊界就是想留下的黑邊寬度
+    const minX = 0; // 🌟 讓攝影機座標 0 對應到我們最極限的左邊
+    
+    // 計算右邊界：總寬度 (含 padding) 減去螢幕寬度
+    const totalContentWidth = CONFIG.paddingLeft + (1440 * CONFIG.scaleX) + 100; // 100 是右側預留
+    const maxX = totalContentWidth - wrapperW;
 
-    if (maxX < minX) {
-        camera.x = minX;
-    } else {
-        camera.x = Math.max(minX, Math.min(camera.x, maxX));
-    }
-    // Y 軸是無限捲繞，不需 clamp
+    if (camera.x < minX) camera.x = minX;
+    if (camera.x > maxX && maxX > minX) camera.x = maxX;
 }
 
 // ==========================================
@@ -662,6 +661,7 @@ async function init() {
         bindThemeToggle(); // 🌟 啟動主題切換按鈕
 
         setupCanvasInteractions();
+        clampCamera();
         redrawAll();       // 首次渲染畫布
 
         const wrapper = document.getElementById('canvas-wrapper');
