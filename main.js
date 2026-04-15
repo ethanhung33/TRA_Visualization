@@ -64,24 +64,18 @@ function drawGrid(viewKey) {
     lookupY = {}; 
     let currentAccumulatedKm = 0; 
     let selectedSegments = VIEW_CONFIGS[viewKey];
-
     let presetKey = viewKey + "_view"; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
 
-    ctx.font = "14px 'GlowSans', sans-serif";
-    ctx.textBaseline = "middle";
-
+    // 1. 整理唯一車站
     let uniqueStations = [];
     let seenIds = new Set();
-
     selectedSegments.forEach(segId => {
         let seg = topology.segments.find(s => s.id === segId);
         if (!seg) return;
         let segMaxKm = 0;
-        
         seg.stations.forEach(st => {
             let absoluteKm = currentAccumulatedKm + st.km;
-            
             if (!seenIds.has(st.id)) {
                 lookupY[st.id] = absoluteKm * CONFIG.scaleY;
                 seenIds.add(st.id);
@@ -95,7 +89,6 @@ function drawGrid(viewKey) {
     loopKm = currentAccumulatedKm;
     loopHeight = loopKm * CONFIG.scaleY;
 
-    
     const wrapper = document.getElementById('canvas-wrapper');
     canvas.width = wrapper.clientWidth;
     canvas.height = wrapper.clientHeight;
@@ -117,10 +110,9 @@ function drawGrid(viewKey) {
 
         uniqueStations.forEach(st => {
             let y = st.baseY + offsetY;
-            
             if (y < viewTop || y > viewBottom) return;
 
-            // 畫網格橫線
+            // --- 畫背景橫線 ---
             ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
             ctx.lineWidth = 1;
             ctx.beginPath();
@@ -128,77 +120,84 @@ function drawGrid(viewKey) {
             ctx.lineTo(CONFIG.paddingLeft + (1440 * CONFIG.scaleX), y);
             ctx.stroke();
 
-            // 畫浮水印
+            // --- 🌟 左右雙向懸浮站名 ---
             ctx.font = "bold 16px 'GlowSans', sans-serif";
-            ctx.fillStyle = isDarkMode ? "rgba(200, 200, 200, 0.6)" : "rgba(100, 100, 100, 0.7)";
-            
+            ctx.textBaseline = "middle";
+            let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
+            let textColor = isDarkMode ? "#FFFFFF" : "#000000";
+            let textWidth = ctx.measureText(st.name).width;
+
+            // 左側站名
+            let labelXLeft = Math.max(CONFIG.paddingLeft - 80, camera.x + 15);
+            ctx.fillStyle = maskBg;
+            ctx.fillRect(labelXLeft - 5, y - 12, textWidth + 10, 24);
+            ctx.fillStyle = textColor;
+            ctx.textAlign = "left";
+            ctx.fillText(st.name, labelXLeft, y);
+
+            // 右側站名
+            let labelXRight = Math.min(CONFIG.paddingLeft + (1440 * CONFIG.scaleX) + 80, camera.x + canvas.width - 15);
+            ctx.fillStyle = maskBg;
+            ctx.fillRect(labelXRight - textWidth - 5, y - 12, textWidth + 10, 24);
+            ctx.fillStyle = textColor;
+            ctx.textAlign = "right";
+            ctx.fillText(st.name, labelXRight, y);
+
+            // --- 浮水印 (保持淡色) ---
+            ctx.font = "bold 24px 'GlowSans', sans-serif";
+            ctx.fillStyle = isDarkMode ? "rgba(200, 200, 200, 0.2)" : "rgba(100, 100, 100, 0.15)";
+            ctx.textAlign = "left";
             for (let h = 1; h < 24; h += 2) { 
                 let textX = timeToX(h * 60) + 5;
-                if (textX > viewLeft && textX < viewRight) {
-                    ctx.fillText(st.name, textX, y - 8); 
-                }
+                if (textX > viewLeft && textX < viewRight) ctx.fillText(st.name, textX, y - 8); 
             }
-            
-            ctx.font = "14px 'GlowSans', sans-serif"; 
         });
     }
 
-    // ==========================================
-    // 繪製時間軸 (10分鐘線 + 整點加粗 + 懸浮標籤)
-    // ==========================================
-    // 遍歷 0 到 1440 分鐘，間隔 10 分鐘
+    // --- 🌟 上下雙向懸浮時間軸 ---
     for (let m = 0; m <= 1440; m += 10) {
         let x = timeToX(m);
+        if (x < viewLeft - 50 || x > viewRight + 50) continue; 
 
-        // 🌟 1. 水平視圖剔除：只畫出現在螢幕左右範圍內的線
-        if (x < viewLeft || x > viewRight) continue; 
-
-        let isHourLine = (m % 60 === 0); // 判斷是否為整點線
-
+        let isHourLine = (m % 60 === 0);
         ctx.beginPath();
-        
         if (isHourLine) {
-            // 🌟 整點線：更深、更粗 (2.0px)
-            ctx.setLineDash([]); 
-            ctx.strokeStyle = isDarkMode ? "#888888" : "#777777"; // 提高對比度
-            ctx.lineWidth = 2.0; 
+            ctx.strokeStyle = isDarkMode ? "#888888" : "#777777";
+            ctx.lineWidth = 2.0;
         } else {
-            // 🌟 十分鐘線：稍微加深加粗 (1.2px)
-            ctx.setLineDash([3, 5]); 
+            ctx.setLineDash([3, 5]);
             ctx.strokeStyle = isDarkMode ? "#444444" : "#DDDDDD";
             ctx.lineWidth = 1.2;
         }
-
-        // 畫垂直線 (從畫面最頂端畫到最底端)
         ctx.moveTo(x, viewTop);                 
         ctx.lineTo(x, viewBottom);     
         ctx.stroke();
-        ctx.setLineDash([]); // 重置虛擬設定
+        ctx.setLineDash([]); 
 
-        // 🌟 2. 標註整點時間文字
         if (isHourLine) {
             let hour = m / 60;
             let timeStr = `${hour}:00`;
-            
-            // 讓文字更亮一點
-            ctx.fillStyle = isDarkMode ? "#FFFFFF" : "#333333"; 
-            ctx.font = "bold 18px 'GlowSans', sans-serif"; // 🌟 字體放大到 18px 並加粗
+            ctx.font = "bold 18px 'GlowSans', sans-serif";
             ctx.textAlign = "center";
-
-            // 懸浮標籤位置邏輯
-            let labelY = Math.max(CONFIG.paddingTop - 25, camera.y + 30);
-            
-            // 畫一個微小的半透明背景框，讓時間文字在複雜線條中更清晰 (選配)
             let textWidth = ctx.measureText(timeStr).width;
-            ctx.fillStyle = isDarkMode ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.6)";
-            ctx.fillRect(x - textWidth/2 - 5, labelY - 15, textWidth + 10, 20);
+            let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
+            let textColor = isDarkMode ? "#FFFFFF" : "#000000";
 
-            // 重新填入文字顏色繪製
-            ctx.fillStyle = isDarkMode ? "#FFFFFF" : "#000000";
-            ctx.fillText(timeStr, x, labelY);
+            // 頂部時間
+            let labelYTop = Math.max(CONFIG.paddingTop - 25, camera.y + 30);
+            ctx.fillStyle = maskBg;
+            ctx.fillRect(x - textWidth/2 - 5, labelYTop - 15, textWidth + 10, 22);
+            ctx.fillStyle = textColor;
+            ctx.fillText(timeStr, x, labelYTop + 2);
+
+            // 底部時間
+            let labelYBottom = camera.y + canvas.height - 30;
+            ctx.fillStyle = maskBg;
+            ctx.fillRect(x - textWidth/2 - 5, labelYBottom - 15, textWidth + 10, 22);
+            ctx.fillStyle = textColor;
+            ctx.fillText(timeStr, x, labelYBottom + 2);
         }
     }
-    
     ctx.restore(); 
 }
 
