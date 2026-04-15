@@ -476,53 +476,54 @@ function bindThemeToggle() {
 }
 
 // ==========================================
-// 滑鼠互動：虛擬攝影機控制引擎 (無限縮放)
+// 核心限制函數：禁止攝影機滑出邊界
+// ==========================================
+function clampCamera() {
+    const wrapper = document.getElementById('canvas-wrapper');
+    if (!wrapper) return;
+    const wrapperW = wrapper.clientWidth;
+    
+    // 🌟 X 軸限制：鎖定在 0:00 到 24:00 之間
+    const minX = CONFIG.paddingLeft - 20; 
+    const maxX = CONFIG.paddingLeft + (1440 * CONFIG.scaleX) - wrapperW + 20;
+
+    if (maxX < minX) {
+        camera.x = minX;
+    } else {
+        camera.x = Math.max(minX, Math.min(camera.x, maxX));
+    }
+    // Y 軸是無限捲繞，不需 clamp
+}
+
+// ==========================================
+// 設置畫布互動 (已修正 dataX 未定義與黑邊問題)
 // ==========================================
 function setupCanvasInteractions() {
     const wrapper = document.getElementById('canvas-wrapper');
-    
-    // 🌟 1. 關閉原生卷軸，由攝影機全面接管
-    wrapper.style.position = 'relative';
-    wrapper.style.overflow = 'hidden'; 
-    wrapper.style.cursor = 'grab';
-
     let isDragging = false;
-    let startMouseX, startMouseY, startCameraX, startCameraY;
-    let renderFrame = null; 
+    let startMouseX = 0, startMouseY = 0;
+    let startCameraX = 0, startCameraY = 0;
 
-    function checkInfiniteScroll() {
-        let presetKey = currentRouteView + "_view"; 
-        let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
-        if (!isCircular) return; 
-
-        // 判斷攝影機位置進行無縫傳送
-        if (camera.y < loopHeight * 0.5) {
-            camera.y += loopHeight; 
-        } else if (camera.y > loopHeight * 1.5) {
-            camera.y -= loopHeight; 
-        }
-    }
-
-    // --- 拖曳事件 (平移攝影機) ---
+    // --- 1. 點擊開始 ---
     wrapper.addEventListener('mousedown', (e) => {
         isDragging = true;
-        wrapper.style.cursor = 'grabbing';
         startMouseX = e.clientX;
         startMouseY = e.clientY;
         startCameraX = camera.x;
         startCameraY = camera.y;
+        wrapper.style.cursor = 'grabbing';
     });
 
-    wrapper.addEventListener('mouseleave', () => { isDragging = false; wrapper.style.cursor = 'grab'; });
-    wrapper.addEventListener('mouseup', () => { isDragging = false; wrapper.style.cursor = 'grab'; });
-
-    wrapper.addEventListener('mousemove', (e) => {
+    // --- 2. 拖曳中 ---
+    window.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-        e.preventDefault();
         
-        // 🌟 2. 直接改變攝影機座標
+        // 更新座標
         camera.x = startCameraX - (e.clientX - startMouseX);
         camera.y = startCameraY - (e.clientY - startMouseY);
+        
+        // 🌟 限制攝影機不准出界
+        clampCamera();
         
         if (!renderFrame) {
             renderFrame = requestAnimationFrame(() => {
@@ -533,34 +534,60 @@ function setupCanvasInteractions() {
         }
     });
 
-    // --- 滾輪事件 (加入滿版縮放限制) ---
+    // --- 3. 放開滑鼠 ---
+    window.addEventListener('mouseup', () => {
+        isDragging = false;
+        wrapper.style.cursor = 'grab';
+    });
+
+    // --- 4. 滾輪縮放 (修正 dataX 定義) ---
     wrapper.addEventListener('wheel', (e) => {
-        // ... 前面的資料座標計算維持不變 ...
+        e.preventDefault();
+        if (renderFrame) return;
+
+        const rect = wrapper.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // 🌟 [關鍵修復] 必須先定義 dataX 和 dataY！
+        const virtualX = camera.x + mouseX;
+        const virtualY = camera.y + mouseY;
+        const dataX = (virtualX - CONFIG.paddingLeft) / CONFIG.scaleX;
+        const dataY = (virtualY - CONFIG.paddingTop) / CONFIG.scaleY;
 
         const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1; 
         let newScaleX = CONFIG.scaleX * zoomSpeed;
         let newScaleY = CONFIG.scaleY * zoomSpeed;
 
+        // 縮小限制：寬度不准小於螢幕
         const wrapperW = wrapper.clientWidth;
-        
-        // 🌟 [修正] 橫軸最小縮放：
-        // 讓 1440 分鐘的寬度「剛好等於」螢幕寬度，不要留多餘黑邊
-        const minScaleX = wrapperW / 1440;
+        const minScaleX = (wrapperW - 20) / 1440; 
         if (newScaleX < minScaleX) newScaleX = minScaleX;
+        
+        // 高度縮小限制
+        const wrapperH = wrapper.clientHeight;
+        if (loopHeight > 0) {
+            const minScaleY = (wrapperH) / (loopHeight / CONFIG.scaleY); 
+            if (newScaleY < minScaleY) newScaleY = minScaleY;
+        }
 
-        // ... 縱軸限制維持不變 ...
+        // 放大限制
+        if (newScaleX > 150) newScaleX = 150;
+        if (newScaleY > 150) newScaleY = 150;
 
         CONFIG.scaleX = newScaleX;
         CONFIG.scaleY = newScaleY;
 
+        // 使用剛才定義好的 dataX, dataY 計算新攝影機位置
         camera.x = (CONFIG.paddingLeft + dataX * newScaleX) - mouseX;
         camera.y = (CONFIG.paddingTop + dataY * newScaleY) - mouseY;
-
-        // 🌟 [新增] 縮放完立刻限制攝影機，不准滑入黑邊
+        
+        // 🌟 縮放後也要限制出界
         clampCamera();
 
         renderFrame = requestAnimationFrame(() => {
             redrawAll();
+            checkInfiniteScroll();
             renderFrame = null; 
         });
     }, { passive: false });
