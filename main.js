@@ -129,7 +129,7 @@ function drawGrid(viewKey) {
                 ctx.fillStyle = isDarkMode ? "rgba(200, 200, 200, 0.6)" : "rgba(100, 100, 100, 0.7)"; 
 
                 // 2. 增大字體：在渲染水印前，單獨設置一個較大的粗體字體
-                ctx.font = "bold 20px 'Segoe UI', sans-serif"; // 從 12px 增加到 20px，並加粗 bold
+                ctx.font = "bold 16px 'Segoe UI', sans-serif"; // 從 12px 增加到 20px，並加粗 bold
 
                 for (let h = 1; h < 24; h += 2) { 
                     let textX = timeToX(h * 60) + 5;
