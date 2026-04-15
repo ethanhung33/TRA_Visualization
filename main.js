@@ -72,13 +72,32 @@ function drawGrid(viewKey) {
     selectedSegments.forEach(segId => {
         let seg = topology.segments.find(s => s.id === segId);
         if (!seg) return;
-        let segMaxKm = 0;
         seg.stations.forEach(st => {
-            let absoluteKm = currentAccumulatedKm + st.km;
-            lookupY[st.id] = absoluteKm * CONFIG.scaleY; 
-            if (st.km > segMaxKm) segMaxKm = st.km;
+            let y = lookupY[st.id] + offsetY;
+            
+            if (copy === 0) {
+                stationCoords.push({ name: st.name, y: y }); // 給無限卷軸備用
+            }
+
+            // 畫橫線
+            ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(CONFIG.paddingLeft, y);
+            ctx.lineTo(CONFIG.paddingLeft + (1440 * CONFIG.scaleX), y);
+            ctx.stroke();
+
+            // 🌟 1. 最左邊的實體站名
+            ctx.fillStyle = isDarkMode ? "#AAAAAA" : "#333333";
+            ctx.fillText(st.name, 20, y);
+
+            // 🌟 2. 站名浮水印 (每隔 2 小時印一次，字體用半透明)
+            ctx.fillStyle = isDarkMode ? "rgba(170, 170, 170, 0.25)" : "rgba(85, 85, 85, 0.35)";
+            for (let h = 1; h < 24; h += 2) { 
+                let textX = timeToX(h * 60) + 5;
+                ctx.fillText(st.name, textX, y - 8); // 畫在橫線的稍微偏上方
+            }
         });
-        currentAccumulatedKm += segMaxKm; 
     });
 
     loopKm = currentAccumulatedKm;
@@ -392,122 +411,88 @@ function bindThemeToggle() {
 }
 
 // ==========================================
-// 滑鼠互動：拖曳平移 (Pan) 與滾輪縮放 (Zoom)
+// 滑鼠互動：拖曳、縮放 (純淨無十字線版)
 // ==========================================
 function setupCanvasInteractions() {
     const wrapper = document.getElementById('canvas-wrapper');
     
-    // --- 變數：拖曳狀態 ---
+    wrapper.style.position = 'relative';
+    wrapper.style.cursor = 'grab';
+
     let isDragging = false;
     let startX, startY, scrollLeft, scrollTop;
 
-    // 讓滑鼠在畫布上變成「手掌」圖示
-    wrapper.style.cursor = 'grab';
-
     // 🌟 空間傳送演算法：檢查是否需要無縫跳躍
     function checkInfiniteScroll() {
-        // 判斷目前模式
         let presetKey = currentRouteView + "_view"; 
         let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
-        
-        // 🌟 如果是 LINEAR 模式，直接 return，關閉無縫傳送魔法
         if (!isCircular) return; 
 
         if (wrapper.scrollTop < loopHeight * 0.5) {
             wrapper.scrollTop += loopHeight; 
             scrollTop += loopHeight;         
             startY += loopHeight;            
-        }
-        else if (wrapper.scrollTop > loopHeight * 1.5) {
+        } else if (wrapper.scrollTop > loopHeight * 1.5) {
             wrapper.scrollTop -= loopHeight; 
             scrollTop -= loopHeight;         
             startY -= loopHeight;            
         }
     }
 
-    // ============================
-    // 1. 滑鼠拖曳平移 (Pan)
-    // ============================
+    // --- 拖曳事件綁定 ---
     wrapper.addEventListener('mousedown', (e) => {
         isDragging = true;
-        wrapper.style.cursor = 'grabbing'; // 抓取中的圖示
-        // 紀錄按下的起始座標與當前卷軸位置
+        wrapper.style.cursor = 'grabbing';
         startX = e.pageX - wrapper.offsetLeft;
         startY = e.pageY - wrapper.offsetTop;
         scrollLeft = wrapper.scrollLeft;
         scrollTop = wrapper.scrollTop;
     });
 
-    wrapper.addEventListener('mouseleave', () => {
-        isDragging = false;
-        wrapper.style.cursor = 'grab';
+    wrapper.addEventListener('mouseleave', () => { 
+        isDragging = false; 
+        wrapper.style.cursor = 'grab'; 
     });
 
-    wrapper.addEventListener('mouseup', () => {
-        isDragging = false;
-        wrapper.style.cursor = 'grab';
+    wrapper.addEventListener('mouseup', () => { 
+        isDragging = false; 
+        wrapper.style.cursor = 'grab'; 
     });
 
+    // --- 滑鼠移動 (純平移，移除十字線) ---
     wrapper.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
+        if (!isDragging) return; // 沒有按住就不做任何事
         e.preventDefault();
-        // 計算滑鼠移動的距離
-        const x = e.pageX - wrapper.offsetLeft;
-        const y = e.pageY - wrapper.offsetTop;
-        const walkX = (x - startX);
-        const walkY = (y - startY);
-        // 反向移動卷軸，營造出拖曳畫布的感覺
-        wrapper.scrollLeft = scrollLeft - walkX;
-        wrapper.scrollTop = scrollTop - walkY;
-
+        wrapper.scrollLeft = scrollLeft - (e.pageX - wrapper.offsetLeft - startX);
+        wrapper.scrollTop = scrollTop - (e.pageY - wrapper.offsetTop - startY);
         checkInfiniteScroll();
     });
 
-    // ============================
-    // 2. 滾輪縮放 (Zoom - 對齊滑鼠游標)
-    // ============================
+    // --- 滾輪縮放 ---
     wrapper.addEventListener('wheel', (e) => {
-        e.preventDefault(); // 阻止網頁預設的上下捲動行為
-
-        // 設定縮放速度與方向 (向上滾放大，向下滾縮小)
+        e.preventDefault();
         const zoomSpeed = 0.1;
-        const zoomDirection = e.deltaY > 0 ? -1 : 1; 
-        const scaleMultiplier = 1 + (zoomDirection * zoomSpeed);
-
-        // 預判新的比例尺，限制最大與最小縮放極限 (避免當機或看不見)
+        const scaleMultiplier = 1 + ((e.deltaY > 0 ? -1 : 1) * zoomSpeed);
         const newScaleX = CONFIG.scaleX * scaleMultiplier;
         if (newScaleX < 0.5 || newScaleX > 15) return;
 
-        // ---- 核心演算法：游標焦點對齊 ----
-        // 步驟 A：取得滑鼠在 wrapper 視窗內的相對座標
         const rect = wrapper.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // 步驟 B：推算目前滑鼠指著的「實際數據值 (時間與里程)」
-        // 扣除 padding 後再除以舊的比例尺
         const canvasX = wrapper.scrollLeft + mouseX;
         const canvasY = wrapper.scrollTop + mouseY;
         const dataX = (canvasX - CONFIG.paddingLeft) / CONFIG.scaleX;
         const dataY = (canvasY - CONFIG.paddingTop) / CONFIG.scaleY;
 
-        // 步驟 C：更新全域比例尺
         CONFIG.scaleX = newScaleX;
         CONFIG.scaleY = CONFIG.scaleY * scaleMultiplier;
-
-        // 步驟 D：觸發重新繪圖 (這會連帶改變 canvas.width 和 canvas.height)
         redrawAll();
 
-        // 步驟 E：反推新的 Canvas 座標，並調整卷軸，確保滑鼠指著的地方不變
-        const newCanvasX = CONFIG.paddingLeft + (dataX * CONFIG.scaleX);
-        const newCanvasY = CONFIG.paddingTop + (dataY * CONFIG.scaleY);
-
-        wrapper.scrollLeft = newCanvasX - mouseX;
-        wrapper.scrollTop = newCanvasY - mouseY;
-
+        wrapper.scrollLeft = CONFIG.paddingLeft + (dataX * CONFIG.scaleX) - mouseX;
+        wrapper.scrollTop = CONFIG.paddingTop + (dataY * CONFIG.scaleY) - mouseY;
         checkInfiniteScroll();
-
-    }, { passive: false }); // 必須設為 false 才能使用 e.preventDefault()
+    }, { passive: false });
 }
 
 // ==========================================
