@@ -55,53 +55,56 @@ function timeToX(minutes) {
 }
 
 // ==========================================
-// 繪製背景網格 (平鋪渲染 3 份，營造無限延伸)
+// 繪製背景網格 (支援 CIRCULAR 與 LINEAR)
 // ==========================================
 function drawGrid(viewKey) {
     lookupY = {}; 
     let currentAccumulatedKm = 0; 
     let selectedSegments = VIEW_CONFIGS[viewKey];
 
+    // 🌟 1. 從 setting.json 讀取目前的視角模式
+    let presetKey = viewKey + "_view"; 
+    let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+
     ctx.font = "12px 'Segoe UI', sans-serif";
     ctx.textBaseline = "middle";
 
-    // --- 階段 1：計算絕對 Y 座標與環島總長度 ---
     selectedSegments.forEach(segId => {
         let seg = topology.segments.find(s => s.id === segId);
         if (!seg) return;
         let segMaxKm = 0;
         seg.stations.forEach(st => {
             let absoluteKm = currentAccumulatedKm + st.km;
-            lookupY[st.id] = absoluteKm * CONFIG.scaleY; // 先不加 paddingTop，純算實體高度
+            lookupY[st.id] = absoluteKm * CONFIG.scaleY; 
             if (st.km > segMaxKm) segMaxKm = st.km;
         });
         currentAccumulatedKm += segMaxKm; 
     });
 
-    // 🌟 記錄環島一圈的參數
     loopKm = currentAccumulatedKm;
     loopHeight = loopKm * CONFIG.scaleY;
 
-    // 將畫布高度設為 3 圈的高度
-    canvas.height = (loopHeight * 3) + (CONFIG.paddingTop * 2);
+    // 🌟 2. 根據模式決定畫布總高度
+    if (isCircular) {
+        canvas.height = (loopHeight * 3) + (CONFIG.paddingTop * 2);
+    } else {
+        canvas.height = loopHeight + (CONFIG.paddingTop * 2);
+    }
     canvas.width = CONFIG.paddingLeft + (1440 * CONFIG.scaleX) + 100;
 
-    stationCoords = [];
-    
-    // --- 階段 2：把車站橫線畫 3 份 (上一圈 -1、本圈 0、下一圈 1) ---
-    for (let copy = -1; copy <= 1; copy++) {
-        // 計算這份複製品的 Y 軸偏移量
-        let offsetY = (copy * loopHeight) + CONFIG.paddingTop + loopHeight; // +loopHeight 是為了把中心點移到畫布中間
+    // 🌟 3. 根據模式決定要畫幾份 (CIRCULAR 畫 -1~1 共三份，LINEAR 只畫 0 一份)
+    let copyStart = isCircular ? -1 : 0;
+    let copyEnd = isCircular ? 1 : 0;
+
+    for (let copy = copyStart; copy <= copyEnd; copy++) {
+        // LINEAR 不需要把中心點位移
+        let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
 
         selectedSegments.forEach(segId => {
             let seg = topology.segments.find(s => s.id === segId);
             if (!seg) return;
             seg.stations.forEach(st => {
                 let y = lookupY[st.id] + offsetY;
-
-                if (copy === 0) {
-                    stationCoords.push({ name: st.name, y: y });
-                }
                 
                 ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
                 ctx.lineWidth = 1;
@@ -116,31 +119,34 @@ function drawGrid(viewKey) {
         });
     }
 
-    // --- 階段 3：畫時間垂直線 (貫穿 3 圈) ---
+    // 時間垂直線
     for (let h = 0; h <= 24; h++) {
         let x = timeToX(h * 60);
         ctx.beginPath();
         ctx.setLineDash([4, 4]); 
-        
-        ctx.strokeStyle = isDarkMode ? ((h % 1 === 0) ? "#555555" : "#222222") 
-                                     : ((h % 1 === 0) ? "#CCCCCC" : "#EEEEEE");
+        ctx.strokeStyle = isDarkMode ? ((h % 1 === 0) ? "#555555" : "#222222") : ((h % 1 === 0) ? "#CCCCCC" : "#EEEEEE");
         ctx.lineWidth = 1;
-        ctx.moveTo(x, 0);                 // 從最頂端畫到
-        ctx.lineTo(x, canvas.height);     // 最底端
+        ctx.moveTo(x, 0);                 
+        ctx.lineTo(x, canvas.height);     
         ctx.stroke();
         ctx.setLineDash([]); 
-        
         ctx.fillStyle = isDarkMode ? "#888888" : "#666666";
         ctx.fillText(`${h}:00`, x - 15, CONFIG.paddingTop - 15);
     }
 }
 
 // ==========================================
-// 繪製火車 (解捲繞演算法 + 3份渲染)
+// 繪製火車 (支援 CIRCULAR 與 LINEAR)
 // ==========================================
 function drawTrains() {
     let colorIndex = isDarkMode ? 0 : 1;
     let fallbackColor = isDarkMode ? "#FFFFFF" : "#000000";
+
+    // 🌟 1. 判斷目前的視角模式
+    let presetKey = currentRouteView + "_view"; 
+    let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+    let copyStart = isCircular ? -1 : 0;
+    let copyEnd = isCircular ? 1 : 0;
 
     timetable.forEach(train => {
         if (!activeTrainTypes.has(train.type)) return;
@@ -155,12 +161,9 @@ function drawTrains() {
         ctx.lineWidth = train.w || (isExpress ? 1.5 : 1.0);
 
         train.segments.forEach(seg => {
-            
-            // 🌟 解捲繞 (Unwrapping) 演算法 🌟
-            // 預先計算這台車實際的連續 Y 座標，消滅瞬間跳躍
             let unwrappedCoords = [];
             let lastBaseY = null;
-            let wrapOffset = 0; // 用來記錄它跨越了幾圈
+            let wrapOffset = 0; 
 
             for (let i = 0; i < seg.s.length; i++) {
                 let st_id = seg.s[i];
@@ -171,35 +174,28 @@ function drawTrains() {
                     continue; 
                 }
 
-                if (lastBaseY !== null) {
+                // 🌟 2. 只有 CIRCULAR 模式才執行跨越邊界的修正
+                if (lastBaseY !== null && isCircular) {
                     let dy = baseY - lastBaseY;
-                    // 如果這兩站的距離跳躍超過「半個台灣」(loopHeight / 2)
-                    if (dy > loopHeight / 2) {
-                        wrapOffset -= loopHeight; // 從頭跳到尾，扣掉一圈
-                    } else if (dy < -loopHeight / 2) {
-                        wrapOffset += loopHeight; // 從尾跳到頭，加上一圈
-                    }
+                    if (dy > loopHeight / 2) wrapOffset -= loopHeight; 
+                    else if (dy < -loopHeight / 2) wrapOffset += loopHeight; 
                 }
                 
-                // 存入平滑化後的連續座標
                 unwrappedCoords.push(baseY + wrapOffset);
                 lastBaseY = baseY;
             }
 
-            // 🌟 平鋪渲染：把這條平滑的線條，複製畫在 3 個區塊上
-            for (let copy = -1; copy <= 1; copy++) {
-                let offsetY = (copy * loopHeight) + CONFIG.paddingTop + loopHeight;
+            // 🌟 3. 根據模式決定畫幾份
+            for (let copy = copyStart; copy <= copyEnd; copy++) {
+                let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
+                
                 ctx.beginPath();
                 let isDrawing = false; 
 
                 for (let i = 0; i < seg.s.length; i++) {
                     let y_raw = unwrappedCoords[i];
-                    if (y_raw === null) {
-                        isDrawing = false;
-                        continue;
-                    }
+                    if (y_raw === null) { isDrawing = false; continue; }
 
-                    // 加上該區塊的 Y 軸位移
                     let y = y_raw + offsetY; 
                     let x_arr = timeToX(seg.t[i * 2]);
                     let x_dep = timeToX(seg.t[i * 2 + 1]);
@@ -404,15 +400,20 @@ function setupCanvasInteractions() {
 
     // 🌟 空間傳送演算法：檢查是否需要無縫跳躍
     function checkInfiniteScroll() {
-        // 如果往上捲，進入了上一圈 (-1) 的危險區域
+        // 判斷目前模式
+        let presetKey = currentRouteView + "_view"; 
+        let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+        
+        // 🌟 如果是 LINEAR 模式，直接 return，關閉無縫傳送魔法
+        if (!isCircular) return; 
+
         if (wrapper.scrollTop < loopHeight * 0.5) {
-            wrapper.scrollTop += loopHeight; // 瞬間往下傳送一圈
-            scrollTop += loopHeight;         // 修正拖曳起點
-            startY += loopHeight;            // 修正滑鼠起點
+            wrapper.scrollTop += loopHeight; 
+            scrollTop += loopHeight;         
+            startY += loopHeight;            
         }
-        // 如果往下捲，進入了下一圈 (1) 的危險區域
         else if (wrapper.scrollTop > loopHeight * 1.5) {
-            wrapper.scrollTop -= loopHeight; // 瞬間往上傳送一圈
+            wrapper.scrollTop -= loopHeight; 
             scrollTop -= loopHeight;         
             startY -= loopHeight;            
         }
