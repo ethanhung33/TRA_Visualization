@@ -21,6 +21,7 @@ const CONFIG = {
     scaleY: 1.0
 };
 const SIDE_MARGIN = 150; // 🌟 這是你想要的「左右留白」寬度，數值越大留白越多
+const TOTAL_MINUTES = 1560; // 26 小時
 
 let renderFrame = null;
 
@@ -487,23 +488,25 @@ function clampCamera() {
     if (!wrapper) return;
     const wrapperW = wrapper.clientWidth;
 
-    // 🌟 核心參數：0:00 線距離左緣的像素
+    // 計算目前的總地圖寬度
+    const contentWidth = TOTAL_MINUTES * CONFIG.scaleX;
+    
+    // 左邊界極限：讓 0:00 距離螢幕左緣固定為 SIDE_MARGIN
     const minX = CONFIG.paddingLeft - SIDE_MARGIN;
     
-    // 計算目前的總內容寬度 (改用 1560)
-    const totalContentWidth = 1560 * CONFIG.scaleX;
-    const maxX = CONFIG.paddingLeft + totalContentWidth - wrapperW + SIDE_MARGIN;
+    // 右邊界極限：地圖尾端距離螢幕右緣固定為 SIDE_MARGIN
+    const maxX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN;
 
-    // 🌟 防抖動邏輯
-    if (totalContentWidth + (SIDE_MARGIN * 2) <= wrapperW) {
-        // 畫面太小時：強制鎖定在左側 SIDE_MARGIN 位置，不准移動
+    // 🌟 邏輯：如果地圖寬度 + 兩邊留白 < 螢幕寬度，則強制鎖死在 minX，不准置中
+    if (contentWidth + (SIDE_MARGIN * 2) <= wrapperW + 1) { // +1 是為了防止浮點數誤差
         camera.x = minX;
     } else {
-        // 畫面夠大時：執行邊界限制
+        // 只有在地圖比螢幕寬時，才允許在 minX 與 maxX 之間滑動
         if (camera.x < minX) camera.x = minX;
         if (camera.x > maxX) camera.x = maxX;
     }
 }
+
 // ==========================================
 // 瞬移補償：讓攝影機永遠保持在「中間那一圈」
 // ==========================================
@@ -569,7 +572,7 @@ function setupCanvasInteractions() {
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // 1. 記錄縮放前的資料位置 (相對比例)
+        // 1. 記錄縮放前的資料點位置
         const dataX = (camera.x + mouseX - CONFIG.paddingLeft) / CONFIG.scaleX;
         const dataY = (camera.y + mouseY - CONFIG.paddingTop) / CONFIG.scaleY;
 
@@ -578,26 +581,32 @@ function setupCanvasInteractions() {
         let nextScaleX = CONFIG.scaleX * zoomSpeed;
         let nextScaleY = CONFIG.scaleY * zoomSpeed;
 
-        // 🌟 3. 強制最小比例限制 (改用 1560)
+        // 3. 嚴格限制最小比例
         const wrapperW = wrapper.clientWidth;
-        const minScaleX = (wrapperW - SIDE_MARGIN * 2) / 1560;
-        if (nextScaleX < minScaleX) nextScaleX = minScaleX;
-
         const wrapperH = wrapper.clientHeight;
-        const minScaleY = wrapperH / (loopKm || 100); 
+        const minScaleX = (wrapperW - SIDE_MARGIN * 2) / TOTAL_MINUTES;
+        const minScaleY = wrapperH / (loopKm || 100);
+
+        if (nextScaleX < minScaleX) nextScaleX = minScaleX;
         if (nextScaleY < minScaleY) nextScaleY = minScaleY;
 
-        // 4. 套用倍率
+        // 4. 更新倍率
         CONFIG.scaleX = nextScaleX;
         CONFIG.scaleY = nextScaleY;
 
-        // 5. 重新對齊：讓資料點回到滑鼠位置
-        camera.x = (CONFIG.paddingLeft + dataX * CONFIG.scaleX) - mouseX;
+        // 🌟 5. [解決跳動的關鍵]：
+        // 如果目前處於「最小縮放」狀態，我們就不執行對齊計算，直接把 camera.x 鎖死在起始點
+        if (CONFIG.scaleX <= minScaleX + 0.00001) {
+            camera.x = CONFIG.paddingLeft - SIDE_MARGIN;
+        } else {
+            // 只有在可以縮放的空間內，才計算對齊滑鼠的位移
+            camera.x = (CONFIG.paddingLeft + dataX * CONFIG.scaleX) - mouseX;
+        }
+
         camera.y = (CONFIG.paddingTop + dataY * CONFIG.scaleY) - mouseY;
 
-        // 🌟 6. [重點] 這裡必須立刻跑一遍，確保下一幀畫出來之前座標已經正確
+        // 6. 最後校正與渲染
         clampCamera(); 
-
         requestRedraw();
     }, { passive: false });
 }
