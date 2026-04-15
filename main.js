@@ -161,17 +161,23 @@ function drawGrid(viewKey) {
 }
 
 // ==========================================
-// 繪製火車 (支援 CIRCULAR 與 LINEAR)
+// 繪製火車 (加入高速邊界剔除 Bounding Box Culling)
 // ==========================================
 function drawTrains() {
-    let colorIndex = isDarkMode ? 0 : 1;
-    let fallbackColor = isDarkMode ? "#FFFFFF" : "#000000";
+    // 🌟 1. 取得目前螢幕的真實範圍 (加點緩衝區確保線條不會突然斷掉)
+    const wrapper = document.getElementById('canvas-wrapper');
+    const viewTop = wrapper.scrollTop - 200;
+    const viewBottom = wrapper.scrollTop + wrapper.clientHeight + 200;
+    const viewLeft = wrapper.scrollLeft - 200;
+    const viewRight = wrapper.scrollLeft + wrapper.clientWidth + 200;
 
-    // 🌟 1. 判斷目前的視角模式
     let presetKey = currentRouteView + "_view"; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
     let copyStart = isCircular ? -1 : 0;
     let copyEnd = isCircular ? 1 : 0;
+
+    let colorIndex = isDarkMode ? 0 : 1;
+    let fallbackColor = isDarkMode ? "#FFFFFF" : "#000000";
 
     timetable.forEach(train => {
         if (!activeTrainTypes.has(train.type)) return;
@@ -190,30 +196,44 @@ function drawTrains() {
             let lastBaseY = null;
             let wrapOffset = 0; 
 
+            // 預先計算解捲繞座標
             for (let i = 0; i < seg.s.length; i++) {
                 let st_id = seg.s[i];
                 let baseY = lookupY[st_id];
-                
-                if (baseY === undefined) {
-                    unwrappedCoords.push(null);
-                    continue; 
-                }
+                if (baseY === undefined) { unwrappedCoords.push(null); continue; }
 
-                // 🌟 2. 只有 CIRCULAR 模式才執行跨越邊界的修正
                 if (lastBaseY !== null && isCircular) {
                     let dy = baseY - lastBaseY;
                     if (dy > loopHeight / 2) wrapOffset -= loopHeight; 
                     else if (dy < -loopHeight / 2) wrapOffset += loopHeight; 
                 }
-                
                 unwrappedCoords.push(baseY + wrapOffset);
                 lastBaseY = baseY;
             }
 
-            // 🌟 3. 根據模式決定畫幾份
+            // 算出這台車在 X 軸的絕對極值 (首站時間到末站時間)
+            let minX = timeToX(seg.t[0]);
+            let maxX = timeToX(seg.t[seg.t.length - 1]);
+
             for (let copy = copyStart; copy <= copyEnd; copy++) {
                 let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
                 
+                // 🌟 2. 找出這段火車在這一圈的 Y 軸極值
+                let minY = Infinity, maxY = -Infinity;
+                for (let i = 0; i < unwrappedCoords.length; i++) {
+                    if (unwrappedCoords[i] !== null) {
+                        let y = unwrappedCoords[i] + offsetY;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+
+                // 🌟 3. 高速剔除 (如果整台車都在畫面外，直接跳過不畫！)
+                if (maxX < viewLeft || minX > viewRight || maxY < viewTop || minY > viewBottom) {
+                    continue; 
+                }
+                
+                // 在畫面內才執行耗時的繪圖動作
                 ctx.beginPath();
                 let isDrawing = false; 
 
@@ -411,18 +431,17 @@ function bindThemeToggle() {
 }
 
 // ==========================================
-// 滑鼠互動：拖曳、縮放 (純淨無十字線版)
+// 滑鼠互動：拖曳、縮放 (修正硬體極限與防卡頓)
 // ==========================================
 function setupCanvasInteractions() {
     const wrapper = document.getElementById('canvas-wrapper');
-    
     wrapper.style.position = 'relative';
     wrapper.style.cursor = 'grab';
 
     let isDragging = false;
     let startX, startY, scrollLeft, scrollTop;
+    let renderFrame = null; 
 
-    // 🌟 空間傳送演算法：檢查是否需要無縫跳躍
     function checkInfiniteScroll() {
         let presetKey = currentRouteView + "_view"; 
         let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
@@ -430,16 +449,11 @@ function setupCanvasInteractions() {
 
         if (wrapper.scrollTop < loopHeight * 0.5) {
             wrapper.scrollTop += loopHeight; 
-            scrollTop += loopHeight;         
-            startY += loopHeight;            
         } else if (wrapper.scrollTop > loopHeight * 1.5) {
             wrapper.scrollTop -= loopHeight; 
-            scrollTop -= loopHeight;         
-            startY -= loopHeight;            
         }
     }
 
-    // --- 拖曳事件綁定 ---
     wrapper.addEventListener('mousedown', (e) => {
         isDragging = true;
         wrapper.style.cursor = 'grabbing';
@@ -449,32 +463,42 @@ function setupCanvasInteractions() {
         scrollTop = wrapper.scrollTop;
     });
 
-    wrapper.addEventListener('mouseleave', () => { 
-        isDragging = false; 
-        wrapper.style.cursor = 'grab'; 
-    });
+    wrapper.addEventListener('mouseleave', () => { isDragging = false; wrapper.style.cursor = 'grab'; });
+    wrapper.addEventListener('mouseup', () => { isDragging = false; wrapper.style.cursor = 'grab'; });
 
-    wrapper.addEventListener('mouseup', () => { 
-        isDragging = false; 
-        wrapper.style.cursor = 'grab'; 
-    });
-
-    // --- 滑鼠移動 (純平移，移除十字線) ---
     wrapper.addEventListener('mousemove', (e) => {
-        if (!isDragging) return; // 沒有按住就不做任何事
+        if (!isDragging) return;
         e.preventDefault();
         wrapper.scrollLeft = scrollLeft - (e.pageX - wrapper.offsetLeft - startX);
         wrapper.scrollTop = scrollTop - (e.pageY - wrapper.offsetTop - startY);
-        checkInfiniteScroll();
+        
+        // 拖曳時也要透過 rAF 來重繪，確保網格剔除能平滑跟上
+        if (!renderFrame) {
+            renderFrame = requestAnimationFrame(() => {
+                redrawAll();
+                checkInfiniteScroll();
+                renderFrame = null;
+            });
+        }
     });
 
-    // --- 滾輪縮放 ---
     wrapper.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const zoomSpeed = 0.1;
-        const scaleMultiplier = 1 + ((e.deltaY > 0 ? -1 : 1) * zoomSpeed);
-        const newScaleX = CONFIG.scaleX * scaleMultiplier;
-        if (newScaleX < 0.5 || newScaleX > 15) return;
+        if (renderFrame) return;
+
+        const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1; 
+        const newScaleX = CONFIG.scaleX * zoomSpeed;
+        const newScaleY = CONFIG.scaleY * zoomSpeed;
+
+        // 🌟 修正硬體極限：絕不允許畫布高度超過 15,000px (避開內顯的 16384 極限)
+        const MAX_HARDWARE_LIMIT = 15000;
+        let presetKey = currentRouteView + "_view"; 
+        let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+        let estimatedHeight = isCircular ? (loopKm * newScaleY * 3) : (loopKm * newScaleY);
+        
+        if (newScaleX < 0.5 || newScaleX > 25 || estimatedHeight > MAX_HARDWARE_LIMIT) {
+            return; // 達到極限就停止放大，保護畫布不崩潰
+        }
 
         const rect = wrapper.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
@@ -486,12 +510,16 @@ function setupCanvasInteractions() {
         const dataY = (canvasY - CONFIG.paddingTop) / CONFIG.scaleY;
 
         CONFIG.scaleX = newScaleX;
-        CONFIG.scaleY = CONFIG.scaleY * scaleMultiplier;
-        redrawAll();
+        CONFIG.scaleY = newScaleY;
 
-        wrapper.scrollLeft = CONFIG.paddingLeft + (dataX * CONFIG.scaleX) - mouseX;
-        wrapper.scrollTop = CONFIG.paddingTop + (dataY * CONFIG.scaleY) - mouseY;
-        checkInfiniteScroll();
+        renderFrame = requestAnimationFrame(() => {
+            redrawAll();
+            wrapper.scrollLeft = CONFIG.paddingLeft + (dataX * CONFIG.scaleX) - mouseX;
+            wrapper.scrollTop = CONFIG.paddingTop + (dataY * CONFIG.scaleY) - mouseY;
+            checkInfiniteScroll();
+            renderFrame = null; 
+        });
+
     }, { passive: false });
 }
 
