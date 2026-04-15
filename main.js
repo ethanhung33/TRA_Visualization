@@ -572,7 +572,7 @@ function setupCanvasInteractions() {
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // 1. 記錄縮放前的資料點位置
+        // 1. 記錄目前的資料位置 (相對比例)
         const dataX = (camera.x + mouseX - CONFIG.paddingLeft) / CONFIG.scaleX;
         const dataY = (camera.y + mouseY - CONFIG.paddingTop) / CONFIG.scaleY;
 
@@ -581,32 +581,39 @@ function setupCanvasInteractions() {
         let nextScaleX = CONFIG.scaleX * zoomSpeed;
         let nextScaleY = CONFIG.scaleY * zoomSpeed;
 
-        // 3. 嚴格限制最小比例
+        // 🌟 3. 精確的最小縮放限制 (26小時 = 1560分鐘)
         const wrapperW = wrapper.clientWidth;
-        const wrapperH = wrapper.clientHeight;
-        const minScaleX = (wrapperW - SIDE_MARGIN * 2) / TOTAL_MINUTES;
-        const minScaleY = wrapperH / (loopKm || 100);
-
+        const minScaleX = (wrapperW - SIDE_MARGIN * 2) / 1560;
         if (nextScaleX < minScaleX) nextScaleX = minScaleX;
+
+        const wrapperH = wrapper.clientHeight;
+        const minScaleY = wrapperH / (loopKm || 100);
         if (nextScaleY < minScaleY) nextScaleY = minScaleY;
 
-        // 4. 更新倍率
+        // 4. 套用新倍率
         CONFIG.scaleX = nextScaleX;
         CONFIG.scaleY = nextScaleY;
 
-        // 🌟 5. [解決跳動的關鍵]：
-        // 如果目前處於「最小縮放」狀態，我們就不執行對齊計算，直接把 camera.x 鎖死在起始點
-        if (CONFIG.scaleX <= minScaleX + 0.00001) {
-            camera.x = CONFIG.paddingLeft - SIDE_MARGIN;
+        // 🌟 5. [解決跳動的核心：動態錨點]
+        // 我們先算「理想中」為了對齊滑鼠需要的攝影機位置
+        let idealCameraX = (CONFIG.paddingLeft + dataX * CONFIG.scaleX) - mouseX;
+        
+        // 立即計算目前縮放倍率下的物理邊界
+        const minLimitX = CONFIG.paddingLeft - SIDE_MARGIN;
+        const contentWidth = 1560 * CONFIG.scaleX;
+        const maxLimitX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN;
+
+        // 🌟 如果地圖已經比螢幕窄，或是在邊界之外，我們就不對齊滑鼠，直接鎖定在邊界
+        if (contentWidth + (SIDE_MARGIN * 2) <= wrapperW) {
+            camera.x = minLimitX; // 強制靠左留空
         } else {
-            // 只有在可以縮放的空間內，才計算對齊滑鼠的位移
-            camera.x = (CONFIG.paddingLeft + dataX * CONFIG.scaleX) - mouseX;
+            // 這裡就是「絲滑」的關鍵：將理想座標夾在邊界內，而不是畫完才拉回來
+            camera.x = Math.max(minLimitX, Math.min(idealCameraX, maxLimitX));
         }
 
         camera.y = (CONFIG.paddingTop + dataY * CONFIG.scaleY) - mouseY;
 
-        // 6. 最後校正與渲染
-        clampCamera(); 
+        // 6. 渲染
         requestRedraw();
     }, { passive: false });
 }
