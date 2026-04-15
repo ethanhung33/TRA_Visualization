@@ -21,6 +21,8 @@ const CONFIG = {
     scaleY: 1.0
 };
 
+let renderFrame = null;
+
 // 資料狀態
 let topology = null;
 let timetable = [];
