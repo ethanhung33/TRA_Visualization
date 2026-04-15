@@ -10,7 +10,7 @@
     "mountain_view": {
         "lines": ["north_main", "mountain_line", "south_main", "east_main"],
         "view_type": "CIRCULAR",
-        "button_color": ["#FF5733", "#C70039"]
+        "button_color": ["#33FF57", "#1F6E4A"]
     },
     "sea_view": {
         "lines": ["north_main", "sea_line", "south_main", "east_main"],

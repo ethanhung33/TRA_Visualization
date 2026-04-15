@@ -178,7 +178,11 @@ function buildUI() {
         let mColor = getColor(settings?.view_presets?.mountain_view?.button_color);
         let sColor = getColor(settings?.view_presets?.sea_view?.button_color);
 
-        // 🌟 先把所有路線按鈕清空，退回 CSS 預設的 .pill-btn 底色
+        // 🌟 1. 徹底清除舊的 CSS class (把原本寫死在 HTML 的 active 和 green 拔掉)
+        btnMountain.className = 'pill-btn';
+        btnSea.className = 'pill-btn';
+
+        // 🌟 2. 清空 inline style，讓它吃最純淨的預設深灰底色
         btnMountain.style.backgroundColor = "";
         btnMountain.style.borderColor = "";
         btnMountain.style.color = "";
@@ -186,7 +190,7 @@ function buildUI() {
         btnSea.style.borderColor = "";
         btnSea.style.color = "";
 
-        // 🌟 只針對「被選中」的按鈕，塗上 JSON 設定的顏色
+        // 🌟 3. 只針對「被選中」的按鈕，塗上 JSON 設定的顏色
         if (currentRouteView === "mountain") {
             btnMountain.style.backgroundColor = mColor;
             btnMountain.style.borderColor = mColor;
@@ -197,7 +201,7 @@ function buildUI() {
             btnSea.style.color = "#FFF";
         }
     };
-
+    
     btnMountain.addEventListener('click', () => {
         currentRouteView = "mountain";
         updateRouteButtons();
