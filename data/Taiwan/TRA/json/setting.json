@@ -10,23 +10,24 @@
     "mountain_view": {
         "lines": ["north_main", "mountain_line", "south_main", "east_main"],
         "view_type": "CIRCULAR",
-        "button_color": ["#33FF57", "#1F6E4A"]
+        "button_color": ["#4CAF50", "#2E7D32"]
     },
     "sea_view": {
         "lines": ["north_main", "sea_line", "south_main", "east_main"],
         "view_type": "CIRCULAR",
-        "button_color": ["#33C1FF", "#1F4A6E"]
+        "button_color": ["#2196F3", "#1565C0"]
     }
   },
 
   "train_color" : {
-    "普悠瑪": ["#FF5733", "#C70039"],
-    "太魯閣": ["#33C1FF", "#1F4A6E"],
-    "自強": ["#33FF57", "#1F6E4A"],
-    "莒光": ["#FF33A8", "#C70039"],
+    "普悠瑪": ["#FF5252", "#F12F2F"],
+    "太魯閣": ["#FF9800", "#F57C00"],
+    "新自強": ["#BB99FF", "#7B1FA2"],
+    "自強": ["#66FF6A", "#00994D"],
+    "莒光": ["#FDD835", "#FBC02D"],
     "復興": ["#FFC300", "#C79E00"],
-    "區間車": ["#C70039", "#8B0000"],
-    "區間快": ["#900C3F", "#581845"],
+    "區間": ["#E6E6E6", "#262626"],
+    "區間快": ["#33CCFF", "#1A1AFF"],
     "普快": ["#581845", "#2E081F"]
   }
 }
