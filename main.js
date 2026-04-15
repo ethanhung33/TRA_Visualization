@@ -11,19 +11,19 @@ const trainTypeContainer = document.getElementById('train-type-container');
 const btnAllTrains = document.getElementById('btn-all-trains');
 const btnNoTrains = document.getElementById('btn-no-trains');
 
-// 渲染參數 (可根據螢幕大小自行微調)
-const CONFIG = {
-    scaleX: 2.5,     // X軸：1分鐘 = 2.5 pixels (拉寬一點比較好看)
-    scaleY: 2.5,     // Y軸：1公里 = 2.5 pixels
-    paddingTop: 50,
-    paddingLeft: 120 // 留給站名的空間
-};
+// 🌟 就是漏了這一行！用來抓取 HTML 裡的太陽按鈕
+const btnTheme = document.getElementById('btn-theme');
 
 // 資料狀態
 let topology = null;
 let timetable = [];
 let lookupY = {}; 
 
+// 🌟 還有這兩個主題狀態的變數也要確保有宣告到
+let settings = null;        
+let isDarkMode = true;      
+
+// ... (往下繼續是你原本的程式碼) ...
 // 視角與過濾狀態
 let currentRouteView = "mountain"; 
 let activeTrainTypes = new Set(); 
