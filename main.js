@@ -178,30 +178,34 @@ function buildUI() {
         let mColor = getColor(settings?.view_presets?.mountain_view?.button_color);
         let sColor = getColor(settings?.view_presets?.sea_view?.button_color);
 
-        // 🌟 1. 徹底清除舊的 CSS class (把原本寫死在 HTML 的 active 和 green 拔掉)
-        btnMountain.className = 'pill-btn';
-        btnSea.className = 'pill-btn';
+        // 🌟 定義未選取時的基礎底色 (深色模式用深灰，淺色模式用淺灰底黑字)
+        let defaultBg = isDarkMode ? "#444444" : "#E0E0E0";
+        let defaultBorder = isDarkMode ? "#555555" : "#CCCCCC";
+        let defaultText = isDarkMode ? "#CCCCCC" : "#000000";
 
-        // 🌟 2. 清空 inline style，讓它吃最純淨的預設深灰底色
-        btnMountain.style.backgroundColor = "";
-        btnMountain.style.borderColor = "";
-        btnMountain.style.color = "";
-        btnSea.style.backgroundColor = "";
-        btnSea.style.borderColor = "";
-        btnSea.style.color = "";
+        // 🌟 定義彩色按鈕上面的字體顏色 (深色模式配黑字，淺色模式配白字)
+        let selectedText = isDarkMode ? "#000000" : "#FFFFFF";
 
-        // 🌟 3. 只針對「被選中」的按鈕，塗上 JSON 設定的顏色
+        // 判斷並上色
         if (currentRouteView === "mountain") {
             btnMountain.style.backgroundColor = mColor;
             btnMountain.style.borderColor = mColor;
-            btnMountain.style.color = "#FFF";
+            btnMountain.style.color = selectedText;
+            
+            btnSea.style.backgroundColor = defaultBg;
+            btnSea.style.borderColor = defaultBorder;
+            btnSea.style.color = defaultText;
         } else {
             btnSea.style.backgroundColor = sColor;
             btnSea.style.borderColor = sColor;
-            btnSea.style.color = "#FFF";
+            btnSea.style.color = selectedText;
+
+            btnMountain.style.backgroundColor = defaultBg;
+            btnMountain.style.borderColor = defaultBorder;
+            btnMountain.style.color = defaultText;
         }
     };
-    
+
     btnMountain.addEventListener('click', () => {
         currentRouteView = "mountain";
         updateRouteButtons();
@@ -229,18 +233,27 @@ function buildUI() {
         btn.textContent = type;
         
         // 🌟 車種按鈕的邏輯也一模一樣
+        // 🌟 車種按鈕的邏輯
         const updateTrainBtnStyle = () => {
+            // 定義未選取時的基礎底色
+            let defaultBg = isDarkMode ? "#444444" : "#E0E0E0";
+            let defaultBorder = isDarkMode ? "#555555" : "#CCCCCC";
+            let defaultText = isDarkMode ? "#CCCCCC" : "#000000";
+
+            // 定義彩色按鈕上面的字體顏色
+            let selectedText = isDarkMode ? "#000000" : "#FFFFFF";
+
             if (activeTrainTypes.has(type)) {
-                // 有勾選：塗上 JSON 顏色
+                // 有勾選：塗上 JSON 顏色 + 動態字體色
                 let tColor = getColor(settings?.train_color?.[type]);
                 btn.style.backgroundColor = tColor;
                 btn.style.borderColor = tColor;
-                btn.style.color = "#FFF";
+                btn.style.color = selectedText;
             } else {
-                // 未勾選：清空 style 退回 CSS 預設底色
-                btn.style.backgroundColor = "";
-                btn.style.borderColor = "";
-                btn.style.color = "";
+                // 未勾選：套用對應主題的灰底
+                btn.style.backgroundColor = defaultBg;
+                btn.style.borderColor = defaultBorder;
+                btn.style.color = defaultText;
             }
         };
 
