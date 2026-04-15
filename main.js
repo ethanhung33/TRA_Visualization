@@ -120,7 +120,7 @@ function drawGrid(viewKey) {
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(CONFIG.paddingLeft, y);
-            ctx.lineTo(CONFIG.paddingLeft + (1440 * CONFIG.scaleX), y);
+            ctx.lineTo(CONFIG.paddingLeft + (1560 * CONFIG.scaleX), y);
             ctx.stroke();
 
             // --- 🌟 左右雙向懸浮站名 ---
@@ -141,7 +141,7 @@ function drawGrid(viewKey) {
 
             // --- 右側站名 ---
             // 🌟 距離右邊緣僅 10px
-            let labelXRight = Math.min(CONFIG.paddingLeft + (1440 * CONFIG.scaleX) + 50, camera.x + canvas.width - 10);
+            let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + canvas.width - 10);
             ctx.fillStyle = maskBg;
             ctx.fillRect(labelXRight - textWidth - 5, y - 12, textWidth + 10, 24);
             ctx.fillStyle = textColor;
@@ -160,7 +160,7 @@ function drawGrid(viewKey) {
     }
 
     // --- 🌟 上下雙向懸浮時間軸 ---
-    for (let m = 0; m <= 1440; m += 10) {
+    for (let m = 0; m <= 1560; m += 10) {
         let x = timeToX(m);
         if (x < viewLeft - 50 || x > viewRight + 50) continue; 
 
@@ -489,8 +489,8 @@ function clampCamera() {
     // 左邊界：讓 0:00 線 (paddingLeft) 距離螢幕左緣剛好是 SIDE_MARGIN
     const minX = CONFIG.paddingLeft - SIDE_MARGIN;
     
-    // 右邊界：讓 24:00 線距離螢幕右緣也是 SIDE_MARGIN
-    const contentWidth = 1440 * CONFIG.scaleX;
+    // 右邊界：讓 26:00 線距離螢幕右緣也是 SIDE_MARGIN
+    const contentWidth = 1560 * CONFIG.scaleX;
     const maxX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN;
 
     if (maxX < minX) {
@@ -579,7 +579,7 @@ function setupCanvasInteractions() {
 
         // C. 🌟 嚴格限制最小縮放 (考慮到 SIDE_MARGIN)
         const wrapperW = wrapper.clientWidth;
-        const minScaleX = (wrapperW - SIDE_MARGIN * 2) / 1440;
+        const minScaleX = (wrapperW - SIDE_MARGIN * 2) / 1560;
         if (newScaleX < minScaleX) newScaleX = minScaleX;
 
         const wrapperH = wrapper.clientHeight;
@@ -622,7 +622,7 @@ function clampCamera() {
     const minX = CONFIG.paddingLeft - SIDE_MARGIN;
     
     // 🌟 2. 計算右邊界極限
-    const contentWidth = 1440 * CONFIG.scaleX;
+    const contentWidth = 1560 * CONFIG.scaleX;
     const maxX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN;
 
     // 🌟 3. 核心邏輯修正
