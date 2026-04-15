@@ -14,6 +14,13 @@ const btnNoTrains = document.getElementById('btn-no-trains');
 // 🌟 就是漏了這一行！用來抓取 HTML 裡的太陽按鈕
 const btnTheme = document.getElementById('btn-theme');
 
+const CONFIG = {
+    scaleX: 2.5,     // X軸：1分鐘 = 2.5 pixels
+    scaleY: 2.5,     // Y軸：1公里 = 2.5 pixels
+    paddingTop: 50,  // 上方留白給時間標籤
+    paddingLeft: 120 // 左側留白給車站名稱
+};
+
 // 資料狀態
 let topology = null;
 let timetable = [];
