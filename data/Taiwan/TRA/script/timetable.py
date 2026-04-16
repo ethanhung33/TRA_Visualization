@@ -52,7 +52,7 @@ def compile_train_data(raw_stops, is_mountain):
     compiled_segments = []
     TYPE_MAP = {"START": 0, "STOP": 1, "PASS": 2, "END": 3}
 
-    # 1. 預先過濾與特判
+    # 1. 預先過濾
     valid_stops = []
     for st in raw_stops:
         name = st['name']
@@ -60,7 +60,6 @@ def compile_train_data(raw_stops, is_mountain):
             st_info = STATION_INFO[name]
             segs = list(st_info["segments"]) 
 
-            # 🌟 台鐵特判：強制過濾山海線
             if "mountain_line" in segs and not is_mountain: segs.remove("mountain_line")
             if "sea_line" in segs and is_mountain: segs.remove("sea_line")
 
@@ -69,7 +68,8 @@ def compile_train_data(raw_stops, is_mountain):
                     "id": st_info["id"],
                     "arr": st['arr'],
                     "dep": st['dep'],
-                    "segs": segs
+                    "segs": segs,
+                    "km_map": st_info["km_map"]
                 })
 
     if not valid_stops: return []
@@ -79,51 +79,83 @@ def compile_train_data(raw_stops, is_mountain):
         if idx == total - 1: return TYPE_MAP["END"]
         if valid_stops[idx]['arr'] == valid_stops[idx]['dep']: return TYPE_MAP["PASS"]
         return TYPE_MAP["STOP"]
+    
+    # 🌟 找尋地理交會站
+    def get_junction(seg1, seg2):
+        for name, info in STATION_INFO.items():
+            if seg1 in info["segments"] and seg2 in info["segments"]:
+                return info
+        return None
 
-    # 2. 狀態機初始化
     current_seg_id = valid_stops[0]["segs"][0]
     s_ids, t_times, v_types = [], [], []
 
-    # 3. 核心分段迴圈 (🌟 已拔除所有擴充/咬住邏輯，保持資料絕對純淨)
+    # 2. 核心分段迴圈
     for i in range(len(valid_stops)):
         st = valid_stops[i]
         v_type = get_v_type(i, len(valid_stops))
 
-        # 🚨 【跨線判定】：如果目前的區段已經不適用於這個車站，直接切斷
         if current_seg_id not in st["segs"]:
+            new_seg_id = st["segs"][0]
+            prev_st = valid_stops[i-1]
             
-            # 封裝舊路線 (完全不偷塞下一站)
-            if len(s_ids) > 1:
-                compiled_segments.append({
-                    "id": current_seg_id, 
-                    "s": s_ids, 
-                    "t": t_times, 
-                    "v": v_types
-                })
+            junc = get_junction(current_seg_id, new_seg_id)
+            
+            if junc:
+                if junc["id"] == prev_st["id"]:
+                    # 情況 A：上一站就是交會站 (正常停靠)
+                    if len(s_ids) > 1:
+                        compiled_segments.append({"id": current_seg_id, "s": s_ids, "t": t_times, "v": v_types})
+                    current_seg_id = new_seg_id
+                    # 🌟 完美咬住：新路線直接從交會站無縫接軌
+                    s_ids = [prev_st["id"]]
+                    t_times = [prev_st["arr"], prev_st["dep"]]
+                    v_types = [TYPE_MAP["PASS"]]
+                    
+                else:
+                    # 情況 B：跳過交會站 (例如新竹直達苗栗)，進行精確距離內插
+                    km1 = prev_st["km_map"].get(current_seg_id, 0)
+                    km2 = st["km_map"].get(new_seg_id, 0)
+                    kmJ1 = junc["km_map"].get(current_seg_id, 0)
+                    kmJ2 = junc["km_map"].get(new_seg_id, 0)
+                    
+                    # 跨路線不能直接相減，必須算兩端距離比例
+                    d1 = abs(kmJ1 - km1)
+                    d2 = abs(km2 - kmJ2)
+                    total_d = d1 + d2
+                    ratio = d1 / total_d if total_d > 0 else 0
+                    
+                    t_junc = int(prev_st["dep"] + (st["arr"] - prev_st["dep"]) * ratio)
+                    
+                    # 結束舊區段 (補上算出來的交會站)
+                    s_ids.append(junc["id"])
+                    t_times.extend([t_junc, t_junc])
+                    v_types.append(TYPE_MAP["PASS"])
+                    
+                    if len(s_ids) > 1:
+                        compiled_segments.append({"id": current_seg_id, "s": s_ids, "t": t_times, "v": v_types})
+                    
+                    # 開啟新區段 (從交會站出發)
+                    current_seg_id = new_seg_id
+                    s_ids = [junc["id"]]
+                    t_times = [t_junc, t_junc]
+                    v_types = [TYPE_MAP["PASS"]]
+            else:
+                # 無交會站直接切斷
+                if len(s_ids) > 1:
+                    compiled_segments.append({"id": current_seg_id, "s": s_ids, "t": t_times, "v": v_types})
+                current_seg_id = new_seg_id
+                s_ids, t_times, v_types = [], [], []
 
-            # 切換新路線
-            current_seg_id = st["segs"][0]
-
-            # 🌟 清空陣列，這站就是新路線乾乾淨淨的第一站
-            s_ids = []
-            t_times = []
-            v_types = []
-
-        # 將目前車站正常加入目前區段
         s_ids.append(st["id"])
         t_times.extend([st["arr"], st["dep"]])
         v_types.append(v_type)
 
-    # 迴圈結束，儲存最後一段
     if len(s_ids) > 1:
-        compiled_segments.append({
-            "id": current_seg_id, 
-            "s": s_ids, 
-            "t": t_times, 
-            "v": v_types
-        })
+        compiled_segments.append({"id": current_seg_id, "s": s_ids, "t": t_times, "v": v_types})
 
     return compiled_segments
+
 # ==========================================
 # 3. 執行緒工作任務 (維持不變)
 # ==========================================

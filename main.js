@@ -31,6 +31,8 @@ let timetable = [];
 let lookupY = {}; 
 let loopKm = 0;      // 台灣環島一圈的總公里數
 let loopHeight = 0;  // 環島一圈在畫布上的像素高度
+let globalStationMap = {};
+let junctionCache = {};
 
 let camera = { x: 0, y: 0 };
 
@@ -207,12 +209,35 @@ function drawGrid(viewKey) {
     ctx.restore(); 
 }
 
+function getJunction(st1_id, st2_id) {
+    if (!st1_id || !st2_id || st1_id === st2_id) return null;
+    let cacheKey = st1_id + "-" + st2_id;
+    if (junctionCache[cacheKey] !== undefined) return junctionCache[cacheKey];
+
+    // 找出包含這兩個站的路線段
+    let segs1 = topology.segments.filter(s => s.stations.some(st => st.id === st1_id));
+    let segs2 = topology.segments.filter(s => s.stations.some(st => st.id === st2_id));
+
+    for (let s1 of segs1) {
+        for (let s2 of segs2) {
+            if (s1.id === s2.id) continue;
+            let ids1 = s1.stations.map(st => st.id);
+            let junc = s2.stations.find(st => ids1.includes(st.id));
+            if (junc) {
+                junctionCache[cacheKey] = junc.id;
+                return junc.id;
+            }
+        }
+    }
+    junctionCache[cacheKey] = null;
+    return null;
+}
+
 // ==========================================
-// 繪製火車 (加入高速邊界剔除 Bounding Box Culling)
+// 繪製火車 (純粹極速渲染版)
 // ==========================================
 function drawTrains() {
     const wrapper = document.getElementById('canvas-wrapper');
-    // 取得攝影機範圍
     const viewTop = camera.y - 200;
     const viewBottom = camera.y + canvas.height + 200;
     const viewLeft = camera.x - 200;
@@ -226,7 +251,6 @@ function drawTrains() {
     let colorIndex = isDarkMode ? 0 : 1;
     let fallbackColor = isDarkMode ? "#FFFFFF" : "#000000";
 
-    // 🌟 套用攝影機偏移
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
 
@@ -242,7 +266,7 @@ function drawTrains() {
         let isExpress = ["新自強", "普悠瑪", "太魯閣", "自強", "莒光"].includes(train.type);
         ctx.lineWidth = train.w || (isExpress ? 1.5 : 1.0);
 
-        train.segments.forEach(seg => {
+        train.segments.forEach((seg, segIdx) => {
             let unwrappedCoords = [];
             let lastBaseY = null;
             let wrapOffset = 0; 
@@ -276,10 +300,8 @@ function drawTrains() {
                     }
                 }
 
-                // 高速邊界剔除
-                if (maxX < viewLeft || minX > viewRight || maxY < viewTop || minY > viewBottom) {
-                    continue; 
-                }
+                // 邊界剔除
+                if (maxX < viewLeft || minX > viewRight || maxY < viewTop || minY > viewBottom) continue; 
                 
                 ctx.beginPath();
                 let isDrawing = false; 
@@ -289,20 +311,37 @@ function drawTrains() {
                     if (y_raw === null) { isDrawing = false; continue; }
 
                     let y = y_raw + offsetY; 
-                    let x_arr = timeToX(seg.t[i * 2]);
-                    let x_dep = timeToX(seg.t[i * 2 + 1]);
+                    let x_arr = timeToX(seg.t[i * 2]);     // 進站時間
+                    let x_dep = timeToX(seg.t[i * 2 + 1]); // 出站時間
 
-                    if (!isDrawing) { ctx.moveTo(x_arr, y); isDrawing = true; } 
-                    else { ctx.lineTo(x_arr, y); }
+                    if (!isDrawing) { 
+                        // 🌟 修正點 A：如果是接續段落的第一站，直接從出站點開始，避免重複畫橫線
+                        if (i === 0 && segIdx > 0) {
+                            ctx.moveTo(x_dep, y); 
+                        } else {
+                            ctx.moveTo(x_arr, y); 
+                        }
+                        isDrawing = true; 
+                    } else { 
+                        // 正常連到進站點
+                        ctx.lineTo(x_arr, y); 
+                    }
 
-                    if (seg.v[i] !== 2) ctx.lineTo(x_dep, y);
+                    // 🌟 修正點 B：確保路徑終點始終在「出站點」
+                    if (seg.v[i] !== 2) {
+                        // 停靠站：畫出站橫線
+                        ctx.lineTo(x_dep, y);
+                    } else {
+                        // 通過站：筆尖直接跳到出站點（雖然座標通常一樣，但這是保險措施）
+                        ctx.moveTo(x_dep, y);
+                    }
                 }
-                ctx.stroke();
+                ctx.stroke(); 
             }
         });
     });
 
-    ctx.restore(); // 畫完復原
+    ctx.restore();
 }
 
 // ==========================================
