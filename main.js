@@ -314,7 +314,16 @@ function drawTrains() {
                     let x_arr = timeToX(seg.t[i * 2]);
                     let x_dep = timeToX(seg.t[i * 2 + 1]);
 
-                    if (!isDrawing) { ctx.moveTo(x_arr, y); isDrawing = true; } 
+                    if (!isDrawing) {
+                        // 🌟 核心修正 1：如果是接續段落的第一站 (例如從北段進來的竹南)
+                        // 我們直接把筆尖「移動」到出站點，確保下一條斜線從這裡開始
+                        if (i === 0 && segIdx > 0) {
+                            ctx.moveTo(x_dep, y); 
+                        } else {
+                            ctx.moveTo(x_arr, y); 
+                        }
+                        isDrawing = true;
+                    }
                     else { ctx.lineTo(x_arr, y); }
 
                     if (seg.v[i] !== 2) ctx.lineTo(x_dep, y);
