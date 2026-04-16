@@ -308,6 +308,30 @@ function drawTrains() {
 // ==========================================
 // 5. UI 構建與事件綁定 (完美底色版)
 // ==========================================
+
+// 🌟 新增的「防跳動」換線處理函數
+function handleRouteSwitch(newRoute) {
+    // 如果點擊的是目前的路線，就不做任何事
+    if (currentRouteView === newRoute) return; 
+
+    // 1. 換線前：記錄目前畫面「最頂端」對應的資料里程
+    const currentCamY = Math.round(camera.y);
+    const anchorDataY = (currentCamY - CONFIG.paddingTop) / CONFIG.scaleY;
+
+    // 2. 切換路線狀態與 UI
+    currentRouteView = newRoute;
+    updateRouteButtons();
+
+    // 3. 座標補償：換線後，強迫攝影機回到剛才記錄的里程位置
+    camera.y = Math.round(CONFIG.paddingTop + anchorDataY * CONFIG.scaleY);
+
+    // 4. 防禦性檢查無限捲動與最終渲染
+    checkInfiniteScroll();
+    camera.y = Math.round(camera.y);
+    
+    redrawAll();
+}
+
 function buildUI() {
     // ---- 取得當下主題色碼的輔助函數 ----
     function getColor(colorsArray) {
@@ -348,17 +372,9 @@ function buildUI() {
         }
     };
 
-    btnMountain.addEventListener('click', () => {
-        currentRouteView = "mountain";
-        updateRouteButtons();
-        redrawAll();
-    });
-
-    btnSea.addEventListener('click', () => {
-        currentRouteView = "sea";
-        updateRouteButtons();
-        redrawAll();
-    });
+    // 🌟 綁定按鈕事件 (取代原本那兩大段)
+    btnMountain.addEventListener('click', () => handleRouteSwitch("mountain"));
+    btnSea.addEventListener('click', () => handleRouteSwitch("sea"));
 
     updateRouteButtons();
     window.updateRouteButtons = updateRouteButtons; 
