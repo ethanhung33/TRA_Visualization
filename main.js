@@ -309,27 +309,37 @@ function drawTrains() {
 // 5. UI 構建與事件綁定 (完美底色版)
 // ==========================================
 
-// 🌟 新增的「防跳動」換線處理函數
+// 🌟 終極防跳動換線處理 (修正無限捲動錯位問題)
 function handleRouteSwitch(newRoute) {
-    // 如果點擊的是目前的路線，就不做任何事
     if (currentRouteView === newRoute) return; 
 
-    // 1. 換線前：記錄目前畫面「最頂端」對應的資料里程
-    const currentCamY = Math.round(camera.y);
-    const anchorDataY = (currentCamY - CONFIG.paddingTop) / CONFIG.scaleY;
+    // 1. 取得目前的總高度 (換線前的 loopHeight)
+    const currentLoopHeight = loopKm * CONFIG.scaleY;
 
-    // 2. 切換路線狀態與 UI
+    // 🌟 2. 降維運算：把目前巨大的 Y 座標，強制轉換回「第 0 圈」的相對位置
+    let relativeY = (camera.y - CONFIG.paddingTop) % currentLoopHeight;
+    if (relativeY < 0) relativeY += currentLoopHeight; // 處理往上捲的負數情況
+
+    // 記錄這個「絕對安全」的相對里程
+    const anchorDataY = relativeY / CONFIG.scaleY;
+
+    // 3. 切換路線狀態與 UI
     currentRouteView = newRoute;
     updateRouteButtons();
 
-    // 3. 座標補償：換線後，強迫攝影機回到剛才記錄的里程位置
-    camera.y = Math.round(CONFIG.paddingTop + anchorDataY * CONFIG.scaleY);
+    // 🚨 4. 先執行你的資料更新 (很重要：這會讓 loopKm 更新為新路線的長度)
+    // 假設你的 redrawAll 裡面會重新整理 uniqueStations 和 loopKm
+    redrawAll();
 
-    // 4. 防禦性檢查無限捲動與最終渲染
+    // 🌟 5. 座標補償：無視之前的圈數，把攝影機強制降落在「第 0 圈」的同一個位置
+    camera.y = Math.round(CONFIG.paddingTop + (anchorDataY * CONFIG.scaleY));
+
+    // 6. 防禦性檢查無限捲動
     checkInfiniteScroll();
     camera.y = Math.round(camera.y);
     
-    redrawAll();
+    // 7. 為了防閃爍，用 requestAnimationFrame 再畫一次最終結果
+    requestAnimationFrame(redrawAll);
 }
 
 function buildUI() {
