@@ -45,67 +45,93 @@ def time_to_min(time_str):
 # ==========================================
 # 2. 核心編譯邏輯 (拔除 UNKNOWN 版本)
 # ==========================================
+# ==========================================
+# 2. 核心編譯邏輯 (終極雙向交疊分段版)
+# ==========================================
 def compile_train_data(raw_stops, is_mountain):
     compiled_segments = []
-    current_seg_id = None
-    
-    s_ids, t_times, v_types = [], [], []
     TYPE_MAP = {"START": 0, "STOP": 1, "PASS": 2, "END": 3}
 
-    # 🌟 1. 預先過濾：只保留我們在 Topology 中認識的車站
+    # 1. 預先過濾與特判
     valid_stops = []
     for st in raw_stops:
-        if st['name'] in STATION_INFO:
-            valid_stops.append(st)
+        name = st['name']
+        if name in STATION_INFO:
+            st_info = STATION_INFO[name]
+            segs = list(st_info["segments"]) 
 
-    # 如果這班車(例如平溪線)全部都不認識，直接回傳空陣列
-    if not valid_stops:
-        return []
+            # 🌟 台鐵特判：強制過濾山海線
+            if "mountain_line" in segs and not is_mountain: segs.remove("mountain_line")
+            if "sea_line" in segs and is_mountain: segs.remove("sea_line")
 
+            if segs:
+                valid_stops.append({
+                    "id": st_info["id"],
+                    "arr": st['arr'],
+                    "dep": st['dep'],
+                    "segs": segs
+                })
+
+    if not valid_stops: return []
+
+    def get_v_type(idx, total):
+        if idx == 0: return TYPE_MAP["START"]
+        if idx == total - 1: return TYPE_MAP["END"]
+        if valid_stops[idx]['arr'] == valid_stops[idx]['dep']: return TYPE_MAP["PASS"]
+        return TYPE_MAP["STOP"]
+
+    # 2. 狀態機初始化
+    current_seg_id = valid_stops[0]["segs"][0]
+    s_ids, t_times, v_types = [], [], []
+
+    # 3. 核心分段與橋接迴圈
     for i in range(len(valid_stops)):
-        st_now = valid_stops[i]
-        name_now = st_now['name']
-        
-        st_info = STATION_INFO.get(name_now, {})
-        possible_segs = st_info.get("segments", [])
-        st_id = st_info.get("id", "UNKNOWN")
+        st = valid_stops[i]
+        v_type = get_v_type(i, len(valid_stops))
 
-        if "mountain_line" in possible_segs and is_mountain:
-            best_seg = "mountain_line"
-        elif "sea_line" in possible_segs and not is_mountain:
-            best_seg = "sea_line"
-        else:
-            best_seg = possible_segs[0] if possible_segs else "UNKNOWN"
-
-        if current_seg_id is None:
-            current_seg_id = best_seg
-
-        if i > 0 and current_seg_id != best_seg and name_now in JUNCTIONS:
-            s_ids.append(st_id) 
-            t_times.extend([st_now['arr'], st_now['dep']])
-            v_types.append(TYPE_MAP["STOP"] if st_now['arr'] != st_now['dep'] else TYPE_MAP["PASS"])
+        # 🚨 【跨線判定】：如果目前的區段已經不適用於這個車站
+        if current_seg_id not in st["segs"]:
             
-            # 🌟 2. 確保不是 UNKNOWN 區段才寫入
-            if current_seg_id != "UNKNOWN" and s_ids:
-                compiled_segments.append({"id": current_seg_id, "s": s_ids, "t": t_times, "v": v_types})
-            
-            current_seg_id = best_seg
-            s_ids, t_times, v_types = [st_id], [st_now['arr'], st_now['dep']], [TYPE_MAP["STOP"] if st_now['arr'] != st_now['dep'] else TYPE_MAP["PASS"]]
-            continue
+            # 🌟 動作 A：封裝舊路線，並「往前咬住下一站」
+            # 將出界的車站一起打包，讓前端知道這條線要往哪裡畫出去
+            temp_s_ids = s_ids + [st["id"]]
+            temp_t_times = t_times + [st["arr"], st["dep"]]
+            temp_v_types = v_types + [v_type]
 
-        s_ids.append(st_id) 
-        t_times.extend([st_now['arr'], st_now['dep']])
-        
-        st_type = "STOP"
-        if i == 0: st_type = "START"
-        elif i == len(valid_stops) - 1: st_type = "END"
-        elif st_now['arr'] == st_now['dep']: st_type = "PASS"
-        v_types.append(TYPE_MAP[st_type])
+            if len(temp_s_ids) > 1:
+                compiled_segments.append({
+                    "id": current_seg_id, 
+                    "s": temp_s_ids, 
+                    "t": temp_t_times, 
+                    "v": temp_v_types
+                })
 
-    # 🌟 3. 最後結尾也要防堵 UNKNOWN
-    if s_ids and current_seg_id != "UNKNOWN":
-        compiled_segments.append({"id": current_seg_id, "s": s_ids, "t": t_times, "v": v_types})
-        
+            # 🌟 動作 B：切換新路線
+            current_seg_id = st["segs"][0]
+
+            # 🌟 動作 C：新路線「回頭咬住上一站」當作起點
+            # 讓前端知道這條線是從哪裡冒出來的
+            prev_st = valid_stops[i-1]
+            prev_v_type = get_v_type(i-1, len(valid_stops))
+
+            s_ids = [prev_st["id"]]
+            t_times = [prev_st["arr"], prev_st["dep"]]
+            v_types = [prev_v_type]
+
+        # 將目前車站正常加入目前區段
+        s_ids.append(st["id"])
+        t_times.extend([st["arr"], st["dep"]])
+        v_types.append(v_type)
+
+    # 迴圈結束，儲存最後一段
+    if len(s_ids) > 1:
+        compiled_segments.append({
+            "id": current_seg_id, 
+            "s": s_ids, 
+            "t": t_times, 
+            "v": v_types
+        })
+
     return compiled_segments
 
 # ==========================================
@@ -150,8 +176,13 @@ def fetch_worker(t_type, t_no, date):
 # ==========================================
 def main():
     # 🌟 這裡放你的完整車站清單
-    station_list = ['1000-臺北', '1250-竹南', '3360-彰化', '4400-高雄', '6000-臺東', '7000-花蓮'] 
-    
+    # 🌟 擴充版：涵蓋全台主要運轉端點站，確保抓到所有區間車
+    station_list = [
+        '0900-基隆', '0920-七堵', '1000-臺北', '1070-樹林', 
+        '1210-新竹', '1250-竹南', '3360-彰化', '3190-嘉義', 
+        '4220-臺南', '4400-高雄', '5050-潮州', '5120-枋寮', 
+        '6000-臺東', '7000-花蓮', '7190-宜蘭', '7360-瑞芳'
+    ]
     date = datetime.today().strftime("%Y/%m/%d")
     train_list = set()
     print(f"📡 正在獲取 {date} 的車次名單...")

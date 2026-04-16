@@ -744,7 +744,7 @@ async function init() {
         const topoRes = await fetch(dirc_path + 'topology.json');
         topology = await topoRes.json();
 
-        const timeRes = await fetch(dirc_path + 'timetable/timetable_20260415.json');
+        const timeRes = await fetch(dirc_path + 'timetable/timetable_20260416.json');
         timetable = await timeRes.json();
 
         console.log("資料載入完成！建構 UI 與渲染畫布...");

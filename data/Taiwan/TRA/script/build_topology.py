@@ -49,7 +49,8 @@ def fetch_official_ids():
         name, code = name_el.text.strip(), code_el.text.strip()
         if code.isdigit() and len(code) == 4:
             name_to_id[name] = name_to_id[name.replace("臺", "台")] = name_to_id[name.replace("台", "臺")] = code
-    name_to_id["蘇澳新"] = name_to_id.get("蘇澳新", "7190") 
+    name_to_id["蘇澳新"] = name_to_id.get("蘇澳新", "7130") 
+    name_to_id["鳳鳴"] = name_to_id.get("鳳鳴", "1075")
     return name_to_id
 
 def main():
