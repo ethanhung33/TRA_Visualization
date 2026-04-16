@@ -84,39 +84,30 @@ def compile_train_data(raw_stops, is_mountain):
     current_seg_id = valid_stops[0]["segs"][0]
     s_ids, t_times, v_types = [], [], []
 
-    # 3. 核心分段與橋接迴圈
+    # 3. 核心分段迴圈 (🌟 已拔除所有擴充/咬住邏輯，保持資料絕對純淨)
     for i in range(len(valid_stops)):
         st = valid_stops[i]
         v_type = get_v_type(i, len(valid_stops))
 
-        # 🚨 【跨線判定】：如果目前的區段已經不適用於這個車站
+        # 🚨 【跨線判定】：如果目前的區段已經不適用於這個車站，直接切斷
         if current_seg_id not in st["segs"]:
             
-            # 🌟 動作 A：封裝舊路線，並「往前咬住下一站」
-            # 將出界的車站一起打包，讓前端知道這條線要往哪裡畫出去
-            temp_s_ids = s_ids + [st["id"]]
-            temp_t_times = t_times + [st["arr"], st["dep"]]
-            temp_v_types = v_types + [v_type]
-
-            if len(temp_s_ids) > 1:
+            # 封裝舊路線 (完全不偷塞下一站)
+            if len(s_ids) > 1:
                 compiled_segments.append({
                     "id": current_seg_id, 
-                    "s": temp_s_ids, 
-                    "t": temp_t_times, 
-                    "v": temp_v_types
+                    "s": s_ids, 
+                    "t": t_times, 
+                    "v": v_types
                 })
 
-            # 🌟 動作 B：切換新路線
+            # 切換新路線
             current_seg_id = st["segs"][0]
 
-            # 🌟 動作 C：新路線「回頭咬住上一站」當作起點
-            # 讓前端知道這條線是從哪裡冒出來的
-            prev_st = valid_stops[i-1]
-            prev_v_type = get_v_type(i-1, len(valid_stops))
-
-            s_ids = [prev_st["id"]]
-            t_times = [prev_st["arr"], prev_st["dep"]]
-            v_types = [prev_v_type]
+            # 🌟 清空陣列，這站就是新路線乾乾淨淨的第一站
+            s_ids = []
+            t_times = []
+            v_types = []
 
         # 將目前車站正常加入目前區段
         s_ids.append(st["id"])
@@ -133,7 +124,6 @@ def compile_train_data(raw_stops, is_mountain):
         })
 
     return compiled_segments
-
 # ==========================================
 # 3. 執行緒工作任務 (維持不變)
 # ==========================================
