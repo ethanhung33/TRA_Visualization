@@ -31,7 +31,7 @@ let timetable = [];
 let lookupY = {}; 
 let loopKm = 0;      // 台灣環島一圈的總公里數
 let loopHeight = 0;  // 環島一圈在畫布上的像素高度
-
+let globalStationMap = {};
 let junctionCache = {};
 
 let camera = { x: 0, y: 0 };
