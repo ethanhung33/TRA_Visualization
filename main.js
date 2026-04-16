@@ -32,6 +32,8 @@ let lookupY = {};
 let loopKm = 0;      // 台灣環島一圈的總公里數
 let loopHeight = 0;  // 環島一圈在畫布上的像素高度
 
+let junctionCache = {};
+
 let camera = { x: 0, y: 0 };
 
 let stationCoords = [];
@@ -207,6 +209,30 @@ function drawGrid(viewKey) {
     ctx.restore(); 
 }
 
+function getJunction(st1_id, st2_id) {
+    if (!st1_id || !st2_id || st1_id === st2_id) return null;
+    let cacheKey = st1_id + "-" + st2_id;
+    if (junctionCache[cacheKey] !== undefined) return junctionCache[cacheKey];
+
+    // 找出包含這兩個站的路線段
+    let segs1 = topology.segments.filter(s => s.stations.some(st => st.id === st1_id));
+    let segs2 = topology.segments.filter(s => s.stations.some(st => st.id === st2_id));
+
+    for (let s1 of segs1) {
+        for (let s2 of segs2) {
+            if (s1.id === s2.id) continue;
+            let ids1 = s1.stations.map(st => st.id);
+            let junc = s2.stations.find(st => ids1.includes(st.id));
+            if (junc) {
+                junctionCache[cacheKey] = junc.id;
+                return junc.id;
+            }
+        }
+    }
+    junctionCache[cacheKey] = null;
+    return null;
+}
+
 // ==========================================
 // 繪製火車 (加入高速邊界剔除 Bounding Box Culling)
 // ==========================================
@@ -242,7 +268,7 @@ function drawTrains() {
         let isExpress = ["新自強", "普悠瑪", "太魯閣", "自強", "莒光"].includes(train.type);
         ctx.lineWidth = train.w || (isExpress ? 1.5 : 1.0);
 
-        train.segments.forEach(seg => {
+        train.segments.forEach((seg, segIdx) => {
             let unwrappedCoords = [];
             let lastBaseY = null;
             let wrapOffset = 0; 
@@ -298,6 +324,62 @@ function drawTrains() {
                     if (seg.v[i] !== 2) ctx.lineTo(x_dep, y);
                 }
                 ctx.stroke();
+                let nextSeg = train.segments[segIdx + 1];
+                if (nextSeg && seg.s.length > 0 && nextSeg.s.length > 0) {
+                    let st1_id = seg.s[seg.s.length - 1]; // 這段的最後一站 (例如: 新竹)
+                    let st2_id = nextSeg.s[0];            // 下一段的第一站 (例如: 大甲)
+                    
+                    // 取得時間 (容錯處理，萬一發車時間沒有就拿抵達時間)
+                    let t1_dep = seg.t[seg.s.length * 2 - 1] ?? seg.t[seg.s.length * 2 - 2];
+                    let t2_arr = nextSeg.t[0] ?? nextSeg.t[1];
+
+                    // 自動找交會站 (例如: 找到竹南)
+                    let juncId = getJunction(st1_id, st2_id);
+
+                    if (juncId && t1_dep !== undefined && t2_arr !== undefined) {
+                        let y1_base = lookupY[st1_id];
+                        let y2_base = lookupY[st2_id];
+                        let jY_base = lookupY[juncId];
+
+                        let y1 = (y1_base !== undefined) ? y1_base + wrapOffset + offsetY : null;
+                        let y2 = (y2_base !== undefined) ? y2_base + wrapOffset + offsetY : null; 
+                        let jY = (jY_base !== undefined) ? jY_base + wrapOffset + offsetY : null;
+
+                        let x1 = timeToX(t1_dep);
+                        let x2 = timeToX(t2_arr);
+
+                        let m1 = globalStationMap[st1_id];
+                        let m2 = globalStationMap[st2_id];
+                        let mJ = globalStationMap[juncId];
+
+                        // 如果里程數都有抓到，且不是同一個站 (避免除以 0)
+                        if (m1 && m2 && mJ && m2.km !== m1.km) {
+                            // 🌟 數學內插核心：算出交會站的 X 軸時間比例
+                            let ratio = Math.abs((mJ.km - m1.km) / (m2.km - m1.km));
+                            let vX = x1 + (x2 - x1) * ratio;
+
+                            ctx.beginPath();
+                            // 情況 A：駛離畫面 (這段在畫面內，下一段出界) -> 射向交會點
+                            if (y1 !== null && y2 === null && jY !== null) {
+                                ctx.moveTo(x1, y1);
+                                ctx.lineTo(vX, jY);
+                                ctx.stroke();
+                            }
+                            // 情況 B：駛入畫面 (這段出界，下一段在畫面內) -> 從交會點接回來
+                            else if (y1 === null && y2 !== null && jY !== null) {
+                                ctx.moveTo(vX, jY);
+                                ctx.lineTo(x2, y2);
+                                ctx.stroke();
+                            }
+                            // 情況 C：兩站都在畫面上 -> 直接把兩站連起來
+                            else if (y1 !== null && y2 !== null) {
+                                ctx.moveTo(x1, y1);
+                                ctx.lineTo(x2, y2);
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                }
             }
         });
     });
