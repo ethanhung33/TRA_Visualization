@@ -779,6 +779,7 @@ async function init() {
         // 🌟 1. 多載入一個 setting.json
         const setRes = await fetch(dirc_path + 'setting.json');
         settings = await setRes.json();
+        document.title = settings.system_name;
 
         const topoRes = await fetch(dirc_path + 'topology.json');
         topology = await topoRes.json();
