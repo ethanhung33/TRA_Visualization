@@ -69,7 +69,7 @@ function timeToX(minutes) {
 function drawGrid(viewKey) {
     lookupY = {}; 
     let currentAccumulatedKm = 0; 
-    let selectedSegments = VIEW_CONFIGS[viewKey];
+    let selectedSegments = settings.view_presets[viewKey + "_view"]?.lines || [];
     let presetKey = viewKey + "_view"; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
 
