@@ -266,7 +266,7 @@ function drawTrains() {
         let isExpress = ["新自強", "普悠瑪", "太魯閣", "自強", "莒光"].includes(train.type);
         ctx.lineWidth = train.w || (isExpress ? 1.5 : 1.0);
 
-        train.segments.forEach(seg => {
+        train.segments.forEach((seg, segIdx) => {
             let unwrappedCoords = [];
             let lastBaseY = null;
             let wrapOffset = 0; 
@@ -311,22 +311,30 @@ function drawTrains() {
                     if (y_raw === null) { isDrawing = false; continue; }
 
                     let y = y_raw + offsetY; 
-                    let x_arr = timeToX(seg.t[i * 2]);
-                    let x_dep = timeToX(seg.t[i * 2 + 1]);
+                    let x_arr = timeToX(seg.t[i * 2]);     // 進站時間
+                    let x_dep = timeToX(seg.t[i * 2 + 1]); // 出站時間
 
-                    if (!isDrawing) {
-                        // 🌟 核心修正 1：如果是接續段落的第一站 (例如從北段進來的竹南)
-                        // 我們直接把筆尖「移動」到出站點，確保下一條斜線從這裡開始
+                    if (!isDrawing) { 
+                        // 🌟 修正點 A：如果是接續段落的第一站，直接從出站點開始，避免重複畫橫線
                         if (i === 0 && segIdx > 0) {
                             ctx.moveTo(x_dep, y); 
                         } else {
                             ctx.moveTo(x_arr, y); 
                         }
-                        isDrawing = true;
+                        isDrawing = true; 
+                    } else { 
+                        // 正常連到進站點
+                        ctx.lineTo(x_arr, y); 
                     }
-                    else { ctx.lineTo(x_arr, y); }
 
-                    if (seg.v[i] !== 2) ctx.lineTo(x_dep, y);
+                    // 🌟 修正點 B：確保路徑終點始終在「出站點」
+                    if (seg.v[i] !== 2) {
+                        // 停靠站：畫出站橫線
+                        ctx.lineTo(x_dep, y);
+                    } else {
+                        // 通過站：筆尖直接跳到出站點（雖然座標通常一樣，但這是保險措施）
+                        ctx.moveTo(x_dep, y);
+                    }
                 }
                 ctx.stroke(); 
             }
