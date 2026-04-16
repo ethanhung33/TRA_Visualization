@@ -9,6 +9,15 @@
     font-style: normal;
 }
 
+/* 🌟 補上 html，徹底鎖死整個視窗，防止 Mac 或觸控板的邊緣回彈特效 */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden; /* 絕對禁止瀏覽器原生卷軸 */
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -20,9 +29,6 @@ body {
     font-family: 'GlowSans', 'Segoe UI', sans-serif;
     display: flex;
     flex-direction: row; /* 左邊畫布，右邊側邊欄 */
-    height: 100vh;
-    width: 100vw;
-    overflow: hidden; /* 🌟 絕對禁止瀏覽器原生卷軸，交給虛擬攝影機 */
     background-color: #000000;
     color: #ffffff;
 }
@@ -45,6 +51,14 @@ body {
 
 canvas {
     display: block;
+    /* 🌟 讓畫布絕對貼合容器，避免 inline 元素的幽靈間距引發版面重算 */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* 🌟 極度重要：封印瀏覽器原生的雙指縮放與滑動手勢，全權交給我們的 JS */
+    touch-action: none; 
 }
 
 /* ==========================================
@@ -58,7 +72,7 @@ canvas {
     background-color: #333333; /* JS 日夜切換會覆寫此屬性 */
     border-left: 1px solid rgba(128, 128, 128, 0.2);
     z-index: 10;
-    overflow-y: auto;
+    overflow-y: auto; /* 允許側邊欄獨立捲動 */
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 

@@ -441,6 +441,31 @@ function buildUI() {
     });
 }
 
+// ==========================================
+// 視窗大小改變處理 (Resize)
+// ==========================================
+let resizeTimeout;
+
+window.addEventListener('resize', () => {
+    // 使用防抖動 (Debounce)：避免拖拉視窗時瘋狂重繪導致卡頓
+    clearTimeout(resizeTimeout);
+    
+    resizeTimeout = setTimeout(() => {
+        const wrapper = document.getElementById('canvas-wrapper');
+        if (!wrapper) return;
+
+        // 1. 重新設定 canvas 的「真實物理解析度」
+        canvas.width = wrapper.clientWidth;
+        canvas.height = wrapper.clientHeight;
+
+        // 2. 視窗改變後，螢幕寬度變了，必須強制校正邊界
+        clampCamera(); 
+        
+        // 3. 重新畫圖
+        redrawAll();
+    }, 100); // 等使用者停止拉動視窗 100 毫秒後才執行
+});
+
 // 統整重繪動作 (清空 -> 畫網格 -> 畫火車)
 function redrawAll() {
     // 由於我們動態改變 canvas.height，這本身就會清空畫布，
