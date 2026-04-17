@@ -37,8 +37,10 @@ body {
    2. 核心版面配置 (Layout)
    ========================================== */
 #canvas-wrapper {
-    flex: 1; /* 佔滿剩餘空間 */
+    flex: 1; /* 🌟 讓畫布具備自動吸收剩餘空間的能力 */
     position: relative;
+    width: 100%;
+    height: 100%;
     overflow: hidden; /* 確保畫布不會撐破容器 */
     cursor: grab;
     background-color: #000000; /* JS 日夜切換會覆寫此屬性 */
@@ -51,34 +53,32 @@ body {
 
 canvas {
     display: block;
-    /* 🌟 讓畫布絕對貼合容器，避免 inline 元素的幽靈間距引發版面重算 */
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    /* 🌟 極度重要：封印瀏覽器原生的雙指縮放與滑動手勢，全權交給我們的 JS */
-    touch-action: none; 
+    touch-action: none; /* 封印瀏覽器原生手勢 */
 }
 
 /* ==========================================
    3. 側邊欄設計 (Sidebar)
    ========================================== */
 #sidebar {
-    position: relative; /* 🌟 必須加上這個，收合按鈕才能準確黏在左邊緣 */
+    position: relative; /* 🌟 讓按鈕可以黏在邊緣 */
     width: 280px;
     display: flex;
     flex-direction: column;
     padding: 20px;
-    background-color: #333333; /* JS 日夜切換會覆寫此屬性 */
+    background-color: #333333;
     border-left: 1px solid rgba(128, 128, 128, 0.2);
     z-index: 10;
-    overflow-y: auto; 
-    /* 🌟 把 width 和 padding 加入 transition，讓收縮變滑順 */
+    overflow-y: auto;
+    overflow-x: visible; /* 🌟 允許按鈕凸出去，絕對不能用 hidden */
     transition: width 0.3s ease, padding 0.3s ease, background-color 0.3s ease, color 0.3s ease;
 }
 
-/* 隱藏側邊欄的醜醜卷軸，保持畫面乾淨 */
+/* 隱藏側邊欄卷軸 */
 #sidebar::-webkit-scrollbar {
     width: 6px;
 }
@@ -87,23 +87,7 @@ canvas {
     border-radius: 10px;
 }
 
-/* ==========================================
-   3. 側邊欄設計 (Sidebar)
-   ========================================== */
-#sidebar {
-    width: 280px;
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-    background-color: #333333;
-    border-left: 1px solid rgba(128, 128, 128, 0.2);
-    z-index: 10;
-    overflow-y: auto;
-    overflow-x: hidden; /* 🌟 核心：確保縮小時內容不會擠出來 */
-    transition: width 0.3s ease, padding 0.3s ease; /* 🌟 讓寬度和內距一起動畫 */
-}
-
-/* 🌟 收合狀態：完全歸零 */
+/* 🌟 收合狀態：寬度與內距完全歸零 */
 #sidebar.collapsed {
     width: 0 !important;
     padding-left: 0 !important;
@@ -111,48 +95,7 @@ canvas {
     border-left: none !important;
 }
 
-/* 讓裡面的內容在縮小過程變透明，避免文字擠成一坨 */
-#sidebar.collapsed > * {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.1s;
-}
-
-/* 🌟 關鍵修復 1：讓畫布外框具備「自動吸收剩餘空間」的能力 */
-#canvas-wrapper {
-    flex: 1;
-    width: 100%;
-    height: 100%;
-    overflow: hidden; /* 防止畫布跑出去 */
-}
-
-/* ==========================================
-   3. 側邊欄設計 (Sidebar)
-   ========================================== */
-#sidebar {
-    position: relative; /* 讓按鈕可以黏在邊緣 */
-    width: 280px;
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-    background-color: #333333;
-    border-left: 1px solid rgba(128, 128, 128, 0.2);
-    z-index: 10;
-    
-    /* 🌟 關鍵修復 2：允許按鈕凸出去 (visible)，不要隱藏它 */
-    overflow-y: auto;
-    overflow-x: visible; 
-    transition: width 0.3s ease, padding 0.3s ease;
-}
-
-#sidebar.collapsed {
-    width: 0 !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-    border-left: none !important;
-}
-
-/* 🌟 控制內部內容的淡出，完美隱藏文字 */
+/* 🌟 控制內部選單內容的淡出，完美隱藏文字 */
 .sidebar-inner {
     width: 240px; /* 固定內部寬度，縮小時才不會擠壓變形 */
     transition: opacity 0.2s ease;
