@@ -596,23 +596,37 @@ function clampCamera() {
     const wrapper = document.getElementById('canvas-wrapper');
     if (!wrapper) return;
     const wrapperW = wrapper.clientWidth;
+    const wrapperH = wrapper.clientHeight; // 🌟 記得抓取螢幕高度
 
-    // 計算目前的總地圖寬度
-    const contentWidth = TOTAL_MINUTES * CONFIG.scaleX;
-    
-    // 左邊界極限：讓 0:00 距離螢幕左緣固定為 SIDE_MARGIN
+    // --- X 軸限制 (左右) ---
+    const contentWidth = 1560 * CONFIG.scaleX;
     const minX = CONFIG.paddingLeft - SIDE_MARGIN;
-    
-    // 右邊界極限：地圖尾端距離螢幕右緣固定為 SIDE_MARGIN
     const maxX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN;
 
-    // 🌟 邏輯：如果地圖寬度 + 兩邊留白 < 螢幕寬度，則強制鎖死在 minX，不准置中
-    if (contentWidth + (SIDE_MARGIN * 2) <= wrapperW + 1) { // +1 是為了防止浮點數誤差
-        camera.x = minX;
+    if (contentWidth + (SIDE_MARGIN * 2) < wrapperW) {
+        camera.x = minX; 
     } else {
-        // 只有在地圖比螢幕寬時，才允許在 minX 與 maxX 之間滑動
         if (camera.x < minX) camera.x = minX;
         if (camera.x > maxX) camera.x = maxX;
+    }
+
+    // --- 🌟 Y 軸限制 (上下，僅限 LINEAR 線性模式) ---
+    let presetKey = currentRouteView + "_view"; 
+    let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+    
+    if (!isCircular) {
+        const contentHeight = loopKm * CONFIG.scaleY;
+        const minY = -50; // 允許畫布頂端多 50px 留白
+        const maxY = CONFIG.paddingTop + contentHeight - wrapperH + 50;
+
+        // 如果地圖的高度比你的螢幕還要矮
+        if (contentHeight + 100 < wrapperH) {
+            camera.y = minY; // 強制貼齊上方
+        } else {
+            // 如果地圖很高，就執行上下撞牆限制
+            if (camera.y < minY) camera.y = minY;
+            if (camera.y > maxY) camera.y = maxY;
+        }
     }
 }
 
@@ -817,8 +831,18 @@ async function init() {
         clampCamera();
         redrawAll();       // 首次渲染畫布
 
-        const wrapper = document.getElementById('canvas-wrapper');
-        camera.y = loopHeight;
+        // 🌟 依據不同模式決定初始 Y 座標
+        let presetKey = currentRouteView + "_view"; 
+        let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+        
+        if (isCircular) {
+            camera.y = loopHeight; // 環狀模式看中間那圈
+        } else {
+            camera.y = -50;        // 線性模式從最頂部開始看
+        }
+        
+        clampCamera(); // 呼叫一次邊界校正
+        redrawAll();   // 確保畫面正確對齊
 
     } catch (e) {
         console.error("載入失敗:", e);
