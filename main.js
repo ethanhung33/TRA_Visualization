@@ -428,19 +428,36 @@ function buildUI() {
     updateRouteButtons();
     window.updateRouteButtons = updateRouteButtons; 
 
-    // ---- B. 動態生成車種篩選按鈕 ----
-    const types = [...new Set(timetable.map(t => t.type))];
+    // ---- B. 動態生成車種篩選按鈕 (同步 setting.json 順序) ----
+    
+    // 1. 抓出時刻表內實際有出現的車種集合
+    const dataTypes = new Set(timetable.map(t => t.type));
+    
+    // 2. 優先依照 settings.train_color 定義的順序排隊
+    let sortedTypes = [];
+    if (settings && settings.train_color) {
+        // 只留下時刻表裡確實有出現的車種，避免產生幽靈按鈕 (例如今天沒復興號就不顯示)
+        sortedTypes = Object.keys(settings.train_color).filter(type => dataTypes.has(type));
+    }
+
+    // 3. 把資料有出現，但 setting.json 沒設定到的額外車種補在最後面
+    dataTypes.forEach(type => {
+        if (!sortedTypes.includes(type)) {
+            sortedTypes.push(type);
+        }
+    });
+
     trainTypeContainer.innerHTML = ''; 
     
-    types.forEach(type => {
+    // 4. 使用排好序的 sortedTypes 來生成按鈕
+    sortedTypes.forEach(type => {
         activeTrainTypes.add(type);
 
         const btn = document.createElement('button');
         btn.className = 'pill-btn';
         btn.textContent = type;
         
-        // 🌟 車種按鈕的邏輯也一模一樣
-        // 🌟 車種按鈕的邏輯
+        // 🌟 車種按鈕的配色邏輯
         const updateTrainBtnStyle = () => {
             // 定義未選取時的基礎底色
             let defaultBg = isDarkMode ? "#444444" : "#E0E0E0";
@@ -476,9 +493,9 @@ function buildUI() {
         trainTypeContainer.appendChild(btn);
     });
 
-    // 全選 / 全部不選
+    // 全選 / 全部不選 (這裡也要記得改成 sortedTypes)
     btnAllTrains.addEventListener('click', () => {
-        activeTrainTypes = new Set(types);
+        activeTrainTypes = new Set(sortedTypes);
         document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
         redrawAll();
     });
