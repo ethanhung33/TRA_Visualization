@@ -804,21 +804,35 @@ async function init() {
         bindThemeToggle(); // 🌟 啟動主題切換按鈕
 
         setupCanvasInteractions();
-        clampCamera();
-        redrawAll();       // 首次渲染畫布
 
-        // 🌟 依據不同模式決定初始 Y 座標
+        // 🌟 1. 先偷偷畫一次，為了讓系統算出正確的 loopKm (總里程數)
+        redrawAll();       
+
+        // 🌟 2. 啟動 Auto Fit (自動計算完美比例)
+        const wrapper = document.getElementById('canvas-wrapper');
+        const minScaleX = (wrapper.clientWidth - SIDE_MARGIN * 2) / 1560;
+        const minScaleY = wrapper.clientHeight / (loopKm || 1);
+
+        // 將算出的完美比例覆寫回設定中
+        CONFIG.scaleX = minScaleX; 
+        CONFIG.scaleY = minScaleY; 
+
+        // 更新比例後，重新計算正確的像素總高度
+        loopHeight = loopKm * CONFIG.scaleY;
+
+        // 🌟 3. 依據不同模式決定初始攝影機降落點
         let presetKey = currentRouteView + "_view"; 
         let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
         
         if (isCircular) {
-            camera.y = loopHeight; // 環狀模式看中間那圈
+            camera.y = loopHeight; // 環狀模式看中間圈
         } else {
-            camera.y = -50;        // 線性模式從最頂部開始看
+            camera.y = -50;        // 線性模式貼齊上方
         }
         
-        clampCamera(); // 呼叫一次邊界校正
-        redrawAll();   // 確保畫面正確對齊
+        // 🌟 4. 最終邊界校正與完美渲染
+        clampCamera(); 
+        redrawAll();   
 
     } catch (e) {
         console.error("載入失敗:", e);
