@@ -34,6 +34,47 @@ body {
 }
 
 /* ==========================================
+   1.5 主佈局與底部資訊列 (補回遺失的地基)
+   ========================================== */
+#app { 
+    display: flex; 
+    height: 100vh; 
+    width: 100vw; 
+    overflow: hidden; /* 防止整個網頁出現卷軸 */
+}
+
+#left-panel { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; 
+}
+
+/* 底部資訊列 */
+#bottom-bar { 
+    height: 60px; 
+    background-color: #2d2d2d; /* 預設深色，JS日夜切換會蓋掉 */
+    border-top: 1px solid #444; 
+    display: flex; 
+    align-items: center; 
+    padding: 0 20px; 
+    gap: 15px; 
+    z-index: 20;
+}
+
+#bottom-bar h2 { 
+    margin: 0; 
+    font-size: 20px; 
+    color: #ffffff; 
+}
+
+#bottom-bar span { 
+    font-size: 14px; 
+    color: #888888; 
+    font-style: italic; 
+}
+
+/* ==========================================
    2. 核心版面配置 (Layout)
    ========================================== */
 #canvas-wrapper {
