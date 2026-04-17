@@ -78,13 +78,13 @@ function drawGrid(viewKey) {
             let absoluteKm = currentAccumulatedKm + st.km;
             let yPos = absoluteKm * CONFIG.scaleY;
 
-            // 🌟 將 lookupY 改為陣列，容納多個 Y 座標
+            // 🌟 將 lookupY 改為陣列，容納座標與對應的「路線 ID」
             if (!lookupY[st.id]) lookupY[st.id] = [];
             
-            // 避免同一個交會站被存兩次 (距離大於 1 才存)
-            let lastY = lookupY[st.id][lookupY[st.id].length - 1];
-            if (lastY === undefined || Math.abs(lastY - yPos) > 1.0) {
-                lookupY[st.id].push(yPos);
+            // 避免同一個交會站在同一條路線被存兩次
+            let lastOpt = lookupY[st.id][lookupY[st.id].length - 1];
+            if (!lastOpt || Math.abs(lastOpt.y - yPos) > 1.0) {
+                lookupY[st.id].push({ y: yPos, segId: segId }); // 紀錄它是哪條線的座標
                 uniqueStations.push({ id: st.id, name: st.name, baseY: yPos });
             }
             if (st.km > segMaxKm) segMaxKm = st.km;
@@ -267,29 +267,31 @@ function drawTrains() {
         let isExpress = ["新自強", "普悠瑪", "太魯閣", "自強", "莒光"].includes(train.type);
         ctx.lineWidth = train.w || (isExpress ? 1.5 : 1.0);
 
-        // 🌟 把記憶變數拉到「整班車」的層級，確保跨線路徑連續
+        // 🌟 把記憶變數拉到「整班車」的層級
         let trainLastBaseY = null;
         let wrapOffset = 0; 
 
         train.segments.forEach((seg, segIdx) => {
             let unwrappedCoords = [];
 
+            // --- A. 精準尋找座標 ---
             for (let i = 0; i < seg.s.length; i++) {
                 let st_id = seg.s[i];
-                let baseY_options = lookupY[st_id];
-                if (!baseY_options || baseY_options.length === 0) { unwrappedCoords.push(null); continue; }
+                let options = lookupY[st_id];
+                if (!options || options.length === 0) { unwrappedCoords.push(null); continue; }
 
-                let baseY = baseY_options[0]; 
+                // 🌟 終極精準選點：直接找尋「屬於當下路線段 (seg.id)」的座標
+                let matchedOpt = options.find(opt => opt.segId === seg.id);
                 
-                // 🌟 智慧選點：如果這站有兩個座標 (如台北在最上也在最下)，選離上一站最近的那個
-                if (trainLastBaseY !== null && baseY_options.length > 1) {
+                // 防呆：如果找不到完全吻合的路線，再退回找距離最近的
+                let baseY = options[0].y; 
+                if (matchedOpt) {
+                    baseY = matchedOpt.y;
+                } else if (trainLastBaseY !== null && options.length > 1) {
                     let minDist = Infinity;
-                    baseY_options.forEach(y => {
-                        let dist = Math.abs(y - trainLastBaseY);
-                        if (dist < minDist) {
-                            minDist = dist;
-                            baseY = y;
-                        }
+                    options.forEach(opt => {
+                        let dist = Math.abs(opt.y - trainLastBaseY);
+                        if (dist < minDist) { minDist = dist; baseY = opt.y; }
                     });
                 }
 
@@ -306,6 +308,7 @@ function drawTrains() {
             let minX = timeToX(seg.t[0]);
             let maxX = timeToX(seg.t[seg.t.length - 1]);
 
+            // --- B. 執行繪圖 ---
             for (let copy = copyStart; copy <= copyEnd; copy++) {
                 let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
                 
@@ -331,7 +334,7 @@ function drawTrains() {
                     let x_arr = timeToX(seg.t[i * 2]);
                     let x_dep = timeToX(seg.t[i * 2 + 1]);
 
-                    // 🌟 拔除跳躍斷線特判，回歸純淨繪圖
+                    // 乾淨俐落的連線，不再需要跳躍特判
                     if (!isDrawing) { 
                         if (i === 0 && segIdx > 0) {
                             ctx.moveTo(x_dep, y); 
