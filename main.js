@@ -48,13 +48,6 @@ let currentRouteView = "mountain";
 let activeTrainTypes = new Set(); 
 
 
-
-// 定義不同視角需要拼接的區段 (這對應 topology.json 裡的 segment_id)
-const VIEW_CONFIGS = {
-    "mountain": ["north_main", "mountain_line", "south_main", "eastern_trunk"],
-    "sea":      ["north_main", "sea_line",      "south_main", "eastern_trunk"]
-};
-
 // ==========================================
 // 2. 核心換算函式
 // ==========================================
@@ -69,7 +62,17 @@ function timeToX(minutes) {
 function drawGrid(viewKey) {
     lookupY = {}; 
     let currentAccumulatedKm = 0; 
-    let selectedSegments = settings.view_presets[viewKey + "_view"]?.lines || [];
+
+    // 🌟 從 setting.json 讀取該視角應該包含哪些路線
+    let presetKey = viewKey + "_view"; 
+    let selectedSegments = settings?.view_presets?.[presetKey]?.lines || [];
+    
+    // 如果 JSON 沒設定好，給個防呆機制
+    if (selectedSegments.length === 0) {
+        console.warn(`找不到 ${presetKey} 的路線設定！`);
+        return; 
+    }
+
     let presetKey = viewKey + "_view"; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
 
@@ -796,7 +799,9 @@ async function init() {
         // 🌟 1. 多載入一個 setting.json
         const setRes = await fetch(dirc_path + 'setting.json');
         settings = await setRes.json();
-        document.title = settings.system_name;
+        if (settings.system_name) {
+            document.title = settings.system_name + " - 運行圖";
+        }
 
         const topoRes = await fetch(dirc_path + 'topology.json');
         topology = await topoRes.json();
