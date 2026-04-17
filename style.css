@@ -118,21 +118,65 @@ canvas {
     transition: opacity 0.1s;
 }
 
+/* 🌟 關鍵修復 1：讓畫布外框具備「自動吸收剩餘空間」的能力 */
+#canvas-wrapper {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* 防止畫布跑出去 */
+}
+
 /* ==========================================
-   🌟 獨立漂浮的收合按鈕 (黑底、圓角、凸出)
+   3. 側邊欄設計 (Sidebar)
    ========================================== */
+#sidebar {
+    position: relative; /* 讓按鈕可以黏在邊緣 */
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    background-color: #333333;
+    border-left: 1px solid rgba(128, 128, 128, 0.2);
+    z-index: 10;
+    
+    /* 🌟 關鍵修復 2：允許按鈕凸出去 (visible)，不要隱藏它 */
+    overflow-y: auto;
+    overflow-x: visible; 
+    transition: width 0.3s ease, padding 0.3s ease;
+}
+
+#sidebar.collapsed {
+    width: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    border-left: none !important;
+}
+
+/* 🌟 控制內部內容的淡出，完美隱藏文字 */
+.sidebar-inner {
+    width: 240px; /* 固定內部寬度，縮小時才不會擠壓變形 */
+    transition: opacity 0.2s ease;
+}
+
+#sidebar.collapsed .sidebar-inner {
+    opacity: 0;
+    pointer-events: none;
+    position: absolute; /* 縮起時脫離排版，徹底釋放空間給畫布 */
+}
+
+/* 🌟 懸浮凸出的帥氣按鈕 */
 .sidebar-toggle-btn {
-    position: absolute; 
-    right: 280px;       /* 預設貼齊展開時的側邊欄 (280px) */
-    top: 50%;           /* 垂直置中，比較好按 */
+    position: absolute;
+    left: -30px; /* 往左凸出 30px */
+    top: 50%;
     transform: translateY(-50%);
-    width: 25px;
+    width: 30px;
     height: 60px;
-    background-color: #222222; /* 帥氣深黑色 */
+    background-color: #222222;
     color: #FFFFFF;
     border: 1px solid #444;
     border-right: none;
-    border-radius: 8px 0 0 8px; /* 只有左側有圓角 */
+    border-radius: 8px 0 0 8px; /* 左側圓角 */
     cursor: pointer;
     z-index: 1000;
     display: flex;
@@ -140,16 +184,10 @@ canvas {
     justify-content: center;
     font-size: 20px;
     box-shadow: -3px 0 5px rgba(0,0,0,0.3);
-    transition: right 0.3s ease, background-color 0.2s; /* 🌟 按鈕也要跟著動畫 */
 }
 
 .sidebar-toggle-btn:hover {
     background-color: #555555;
-}
-
-/* 🌟 當側邊欄收縮時，按鈕也要跟著退到最右邊 (0px) */
-.sidebar-toggle-btn.collapsed {
-    right: 0 !important;
 }
 
 .control-section {

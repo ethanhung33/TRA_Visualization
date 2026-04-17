@@ -518,6 +518,7 @@ function buildUI() {
         document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
         redrawAll();
     });
+    
     // ==========================================
     // 🌟 側邊欄收合功能綁定
     // ==========================================
@@ -526,14 +527,12 @@ function buildUI() {
 
     if (sidebar && toggleBtn) {
         toggleBtn.addEventListener('click', () => {
-            // 1. 同時切換側邊欄和按鈕的 class
             sidebar.classList.toggle('collapsed');
-            toggleBtn.classList.toggle('collapsed');
             
-            // 2. 切換箭頭方向 (縮起時顯示 '<' 提示可展開)
+            // 切換箭頭方向
             toggleBtn.textContent = sidebar.classList.contains('collapsed') ? '‹' : '›';
 
-            // 3. 🌟 等待 0.3 秒 (配合 CSS 動畫時間)，然後重新計算並放大畫布！
+            // 等待動畫跑完 (0.3秒)，重新測量並放大畫布
             setTimeout(() => {
                 const wrapper = document.getElementById('canvas-wrapper');
                 if (wrapper) {
