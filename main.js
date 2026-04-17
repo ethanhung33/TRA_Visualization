@@ -73,7 +73,6 @@ function drawGrid(viewKey) {
         return; 
     }
 
-    let presetKey = viewKey + "_view"; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
 
     // 1. 整理唯一車站
