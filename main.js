@@ -57,37 +57,35 @@ function timeToX(minutes) {
 
 
 // ==========================================
-// 繪製背景網格 (純淨重置版 + 照妖鏡)
+// 繪製背景網格 (攤平展開版)
 // ==========================================
 function drawGrid(viewKey) {
     lookupY = {}; 
     let currentAccumulatedKm = 0; 
-
-    // 🌟 從 setting.json 讀取該視角應該包含哪些路線
     let presetKey = viewKey + "_view"; 
     let selectedSegments = settings?.view_presets?.[presetKey]?.lines || [];
-    
-    // 如果 JSON 沒設定好，給個防呆機制
-    if (selectedSegments.length === 0) {
-        console.warn(`找不到 ${presetKey} 的路線設定！`);
-        return; 
-    }
-
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
 
-    // 1. 整理唯一車站
+    if (selectedSegments.length === 0) return; 
+
+    // 🌟 1. 整理唯一車站 (線性模式下容許頭尾重複)
     let uniqueStations = [];
-    let seenIds = new Set();
     selectedSegments.forEach(segId => {
         let seg = topology.segments.find(s => s.id === segId);
         if (!seg) return;
         let segMaxKm = 0;
         seg.stations.forEach(st => {
             let absoluteKm = currentAccumulatedKm + st.km;
-            if (!seenIds.has(st.id)) {
-                lookupY[st.id] = absoluteKm * CONFIG.scaleY;
-                seenIds.add(st.id);
-                uniqueStations.push({ id: st.id, name: st.name, baseY: lookupY[st.id] });
+            let yPos = absoluteKm * CONFIG.scaleY;
+
+            // 🌟 將 lookupY 改為陣列，容納多個 Y 座標
+            if (!lookupY[st.id]) lookupY[st.id] = [];
+            
+            // 避免同一個交會站被存兩次 (距離大於 1 才存)
+            let lastY = lookupY[st.id][lookupY[st.id].length - 1];
+            if (lastY === undefined || Math.abs(lastY - yPos) > 1.0) {
+                lookupY[st.id].push(yPos);
+                uniqueStations.push({ id: st.id, name: st.name, baseY: yPos });
             }
             if (st.km > segMaxKm) segMaxKm = st.km;
         });
@@ -97,6 +95,7 @@ function drawGrid(viewKey) {
     loopKm = currentAccumulatedKm;
     loopHeight = loopKm * CONFIG.scaleY;
 
+    // ... (底下的 canvas.width = wrapper.clientWidth... 等畫線邏輯皆維持不變)
     const wrapper = document.getElementById('canvas-wrapper');
     canvas.width = wrapper.clientWidth;
     canvas.height = wrapper.clientHeight;
@@ -236,7 +235,7 @@ function getJunction(st1_id, st2_id) {
 }
 
 // ==========================================
-// 繪製火車 (純粹極速渲染版)
+// 繪製火車 (全域智慧連線版)
 // ==========================================
 function drawTrains() {
     const wrapper = document.getElementById('canvas-wrapper');
@@ -268,23 +267,40 @@ function drawTrains() {
         let isExpress = ["新自強", "普悠瑪", "太魯閣", "自強", "莒光"].includes(train.type);
         ctx.lineWidth = train.w || (isExpress ? 1.5 : 1.0);
 
+        // 🌟 把記憶變數拉到「整班車」的層級，確保跨線路徑連續
+        let trainLastBaseY = null;
+        let wrapOffset = 0; 
+
         train.segments.forEach((seg, segIdx) => {
             let unwrappedCoords = [];
-            let lastBaseY = null;
-            let wrapOffset = 0; 
 
             for (let i = 0; i < seg.s.length; i++) {
                 let st_id = seg.s[i];
-                let baseY = lookupY[st_id];
-                if (baseY === undefined) { unwrappedCoords.push(null); continue; }
+                let baseY_options = lookupY[st_id];
+                if (!baseY_options || baseY_options.length === 0) { unwrappedCoords.push(null); continue; }
 
-                if (lastBaseY !== null && isCircular) {
-                    let dy = baseY - lastBaseY;
+                let baseY = baseY_options[0]; 
+                
+                // 🌟 智慧選點：如果這站有兩個座標 (如台北在最上也在最下)，選離上一站最近的那個
+                if (trainLastBaseY !== null && baseY_options.length > 1) {
+                    let minDist = Infinity;
+                    baseY_options.forEach(y => {
+                        let dist = Math.abs(y - trainLastBaseY);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            baseY = y;
+                        }
+                    });
+                }
+
+                if (trainLastBaseY !== null && isCircular) {
+                    let dy = baseY - trainLastBaseY;
                     if (dy > loopHeight / 2) wrapOffset -= loopHeight; 
                     else if (dy < -loopHeight / 2) wrapOffset += loopHeight; 
                 }
+                
                 unwrappedCoords.push(baseY + wrapOffset);
-                lastBaseY = baseY;
+                trainLastBaseY = baseY;
             }
 
             let minX = timeToX(seg.t[0]);
@@ -302,7 +318,6 @@ function drawTrains() {
                     }
                 }
 
-                // 邊界剔除
                 if (maxX < viewLeft || minX > viewRight || maxY < viewTop || minY > viewBottom) continue; 
                 
                 ctx.beginPath();
@@ -313,11 +328,11 @@ function drawTrains() {
                     if (y_raw === null) { isDrawing = false; continue; }
 
                     let y = y_raw + offsetY; 
-                    let x_arr = timeToX(seg.t[i * 2]);     // 進站時間
-                    let x_dep = timeToX(seg.t[i * 2 + 1]); // 出站時間
+                    let x_arr = timeToX(seg.t[i * 2]);
+                    let x_dep = timeToX(seg.t[i * 2 + 1]);
 
+                    // 🌟 拔除跳躍斷線特判，回歸純淨繪圖
                     if (!isDrawing) { 
-                        // 🌟 修正點 A：如果是接續段落的第一站，直接從出站點開始，避免重複畫橫線
                         if (i === 0 && segIdx > 0) {
                             ctx.moveTo(x_dep, y); 
                         } else {
@@ -325,20 +340,13 @@ function drawTrains() {
                         }
                         isDrawing = true; 
                     } else { 
-                        // 正常連到進站點
                         ctx.lineTo(x_arr, y); 
                     }
 
-                    // 🌟 修正點 B：確保路徑終點始終在「出站點」
-                    if (seg.v[i] !== 2) {
-                        // 停靠站：畫出站橫線
-                        ctx.lineTo(x_dep, y);
-                    } else {
-                        // 通過站：筆尖直接跳到出站點（雖然座標通常一樣，但這是保險措施）
-                        ctx.moveTo(x_dep, y);
-                    }
+                    if (seg.v[i] !== 2) ctx.lineTo(x_dep, y);
+                    else ctx.moveTo(x_dep, y); 
                 }
-                ctx.stroke(); 
+                ctx.stroke();
             }
         });
     });
