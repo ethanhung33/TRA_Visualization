@@ -88,48 +88,68 @@ canvas {
 }
 
 /* ==========================================
-   🌟 新增：側邊欄收合相關狀態與按鈕
+   3. 側邊欄設計 (Sidebar)
    ========================================== */
-/* 收合時的狀態 */
+#sidebar {
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    background-color: #333333;
+    border-left: 1px solid rgba(128, 128, 128, 0.2);
+    z-index: 10;
+    overflow-y: auto;
+    overflow-x: hidden; /* 🌟 核心：確保縮小時內容不會擠出來 */
+    transition: width 0.3s ease, padding 0.3s ease; /* 🌟 讓寬度和內距一起動畫 */
+}
+
+/* 🌟 收合狀態：完全歸零 */
 #sidebar.collapsed {
     width: 0 !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
     border-left: none !important;
-    overflow: hidden; /* 防止內容在縮小過程中爆出來 */
 }
 
-/* 收合時，把裡面的選單內容變透明，以免文字擠成一團 (但不要隱藏那顆按鈕) */
-#sidebar.collapsed > *:not(#sidebar-toggle) {
+/* 讓裡面的內容在縮小過程變透明，避免文字擠成一坨 */
+#sidebar.collapsed > * {
     opacity: 0;
     pointer-events: none;
-    white-space: nowrap;
-    transition: opacity 0.1s ease; /* 讓文字消失得快一點 */
+    transition: opacity 0.1s;
 }
 
-/* 收合按鈕的漂亮外觀 */
+/* ==========================================
+   🌟 獨立漂浮的收合按鈕 (黑底、圓角、凸出)
+   ========================================== */
 .sidebar-toggle-btn {
-    position: absolute;
-    left: -30px;        /* 往左凸出去 */
-    top: 20px;          /* 距離上方的位移 */
-    width: 30px;
-    height: 40px;
-    background-color: #444; /* 深灰色底 */
-    color: white;
-    border: none;
-    border-radius: 6px 0 0 6px; /* 只有左邊有圓角 */
+    position: absolute; 
+    right: 280px;       /* 預設貼齊展開時的側邊欄 (280px) */
+    top: 50%;           /* 垂直置中，比較好按 */
+    transform: translateY(-50%);
+    width: 25px;
+    height: 60px;
+    background-color: #222222; /* 帥氣深黑色 */
+    color: #FFFFFF;
+    border: 1px solid #444;
+    border-right: none;
+    border-radius: 8px 0 0 8px; /* 只有左側有圓角 */
     cursor: pointer;
     z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
-    box-shadow: -2px 0 5px rgba(0,0,0,0.3); /* 加一點陰影更有立體感 */
-    transition: background-color 0.2s;
+    font-size: 20px;
+    box-shadow: -3px 0 5px rgba(0,0,0,0.3);
+    transition: right 0.3s ease, background-color 0.2s; /* 🌟 按鈕也要跟著動畫 */
 }
 
 .sidebar-toggle-btn:hover {
-    background-color: #666;
+    background-color: #555555;
+}
+
+/* 🌟 當側邊欄收縮時，按鈕也要跟著退到最右邊 (0px) */
+.sidebar-toggle-btn.collapsed {
+    right: 0 !important;
 }
 
 .control-section {

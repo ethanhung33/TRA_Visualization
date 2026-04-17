@@ -519,34 +519,30 @@ function buildUI() {
         redrawAll();
     });
     // ==========================================
-    // 🌟 側邊欄收合功能
+    // 🌟 側邊欄收合功能綁定
     // ==========================================
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('sidebar-toggle');
 
     if (sidebar && toggleBtn) {
         toggleBtn.addEventListener('click', () => {
-            // 1. 切換收合狀態的 CSS class
+            // 1. 同時切換側邊欄和按鈕的 class
             sidebar.classList.toggle('collapsed');
+            toggleBtn.classList.toggle('collapsed');
             
-            // 2. 改變箭頭方向
-            if (sidebar.classList.contains('collapsed')) {
-                toggleBtn.textContent = '‹'; // 側邊欄關閉時，箭頭朝左提示可展開
-            } else {
-                toggleBtn.textContent = '›'; // 側邊欄展開時，箭頭朝右提示可收合
-            }
+            // 2. 切換箭頭方向 (縮起時顯示 '<' 提示可展開)
+            toggleBtn.textContent = sidebar.classList.contains('collapsed') ? '‹' : '›';
 
-            // 3. 🌟 最重要的一步：等待 CSS 動畫(0.3秒)跑完後，重新調整畫布大小！
+            // 3. 🌟 等待 0.3 秒 (配合 CSS 動畫時間)，然後重新計算並放大畫布！
             setTimeout(() => {
                 const wrapper = document.getElementById('canvas-wrapper');
-                // 讓畫布吸收側邊欄空出來的空間
-                canvas.width = wrapper.clientWidth;  
-                canvas.height = wrapper.clientHeight;
-                
-                // 強制檢查一次攝影機邊界並重繪
-                clampCamera();
-                redrawAll();
-            }, 300); // 這個 300 毫秒對應 CSS 的 transition 0.3s
+                if (wrapper) {
+                    canvas.width = wrapper.clientWidth;  
+                    canvas.height = wrapper.clientHeight;
+                    clampCamera();
+                    redrawAll();
+                }
+            }, 300); 
         });
     }
 }
