@@ -90,6 +90,7 @@ canvas {
 /* 🌟 收合狀態：寬度與內距完全歸零 */
 #sidebar.collapsed {
     width: 0 !important;
+    min-width: 0 !important; /* 👈 🌟 加上這行！打破 Flexbox 的最低寬度限制 */
     padding-left: 0 !important;
     padding-right: 0 !important;
     border-left: none !important;
