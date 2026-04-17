@@ -518,6 +518,37 @@ function buildUI() {
         document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
         redrawAll();
     });
+    // ==========================================
+    // 🌟 側邊欄收合功能
+    // ==========================================
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('sidebar-toggle');
+
+    if (sidebar && toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            // 1. 切換收合狀態的 CSS class
+            sidebar.classList.toggle('collapsed');
+            
+            // 2. 改變箭頭方向
+            if (sidebar.classList.contains('collapsed')) {
+                toggleBtn.textContent = '‹'; // 側邊欄關閉時，箭頭朝左提示可展開
+            } else {
+                toggleBtn.textContent = '›'; // 側邊欄展開時，箭頭朝右提示可收合
+            }
+
+            // 3. 🌟 最重要的一步：等待 CSS 動畫(0.3秒)跑完後，重新調整畫布大小！
+            setTimeout(() => {
+                const wrapper = document.getElementById('canvas-wrapper');
+                // 讓畫布吸收側邊欄空出來的空間
+                canvas.width = wrapper.clientWidth;  
+                canvas.height = wrapper.clientHeight;
+                
+                // 強制檢查一次攝影機邊界並重繪
+                clampCamera();
+                redrawAll();
+            }, 300); // 這個 300 毫秒對應 CSS 的 transition 0.3s
+        });
+    }
 }
 
 // ==========================================

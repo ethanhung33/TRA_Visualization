@@ -65,6 +65,7 @@ canvas {
    3. 側邊欄設計 (Sidebar)
    ========================================== */
 #sidebar {
+    position: relative; /* 🌟 必須加上這個，收合按鈕才能準確黏在左邊緣 */
     width: 280px;
     display: flex;
     flex-direction: column;
@@ -72,8 +73,9 @@ canvas {
     background-color: #333333; /* JS 日夜切換會覆寫此屬性 */
     border-left: 1px solid rgba(128, 128, 128, 0.2);
     z-index: 10;
-    overflow-y: auto; /* 允許側邊欄獨立捲動 */
-    transition: background-color 0.3s ease, color 0.3s ease;
+    overflow-y: auto; 
+    /* 🌟 把 width 和 padding 加入 transition，讓收縮變滑順 */
+    transition: width 0.3s ease, padding 0.3s ease, background-color 0.3s ease, color 0.3s ease;
 }
 
 /* 隱藏側邊欄的醜醜卷軸，保持畫面乾淨 */
@@ -83,6 +85,51 @@ canvas {
 #sidebar::-webkit-scrollbar-thumb {
     background-color: rgba(128, 128, 128, 0.5);
     border-radius: 10px;
+}
+
+/* ==========================================
+   🌟 新增：側邊欄收合相關狀態與按鈕
+   ========================================== */
+/* 收合時的狀態 */
+#sidebar.collapsed {
+    width: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    border-left: none !important;
+    overflow: hidden; /* 防止內容在縮小過程中爆出來 */
+}
+
+/* 收合時，把裡面的選單內容變透明，以免文字擠成一團 (但不要隱藏那顆按鈕) */
+#sidebar.collapsed > *:not(#sidebar-toggle) {
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: opacity 0.1s ease; /* 讓文字消失得快一點 */
+}
+
+/* 收合按鈕的漂亮外觀 */
+.sidebar-toggle-btn {
+    position: absolute;
+    left: -30px;        /* 往左凸出去 */
+    top: 20px;          /* 距離上方的位移 */
+    width: 30px;
+    height: 40px;
+    background-color: #444; /* 深灰色底 */
+    color: white;
+    border: none;
+    border-radius: 6px 0 0 6px; /* 只有左邊有圓角 */
+    cursor: pointer;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.3); /* 加一點陰影更有立體感 */
+    transition: background-color 0.2s;
+}
+
+.sidebar-toggle-btn:hover {
+    background-color: #666;
 }
 
 .control-section {
