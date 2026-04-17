@@ -4,74 +4,8 @@
     <meta charset="UTF-8">
     <title>台鐵運行圖渲染引擎</title>
     <link rel="icon" href="data:,">
-    <style>
-        /* 全域重置與暗色主題設定 */
-        * { box-sizing: border-box; font-family: "Segoe UI", "Microsoft JhengHei", sans-serif; }
-        body, html { margin: 0; padding: 0; height: 100%; background-color: #1e1e1e; color: #e0e0e0; overflow: hidden; }
 
-        /* 主佈局：左右分割 */
-        #app { display: flex; height: 100vh; width: 100vw; }
-
-        /* 左側：畫布 + 底部資訊 */
-        #left-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        
-        /* 畫布容器：允許內部捲動，背景全黑 */
-        #canvas-wrapper { flex: 1; overflow: auto; background-color: #000000; position: relative; }
-        canvas { display: block; }
-
-        /* 底部資訊列 */
-        #bottom-bar { 
-            height: 60px; 
-            background-color: #2d2d2d; 
-            border-top: 1px solid #444; 
-            display: flex; 
-            align-items: center; 
-            padding: 0 20px; 
-            gap: 15px; 
-        }
-        #bottom-bar h2 { margin: 0; font-size: 20px; color: #ffffff; }
-        #bottom-bar span { font-size: 14px; color: #888888; font-style: italic; }
-
-        /* 右側：側邊控制欄 */
-        #sidebar { 
-            width: 320px; 
-            background-color: #333333; 
-            border-left: 1px solid #444; 
-            padding: 20px; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 25px; 
-            overflow-y: auto;
-        }
-
-        /* 側邊欄區塊標題 */
-        .control-section h3 { margin: 0 0 15px 0; font-size: 18px; color: #ffffff; border-bottom: 1px solid #555; padding-bottom: 5px; }
-
-        /* 日期選擇器 */
-        input[type="date"] {
-            width: 100%; padding: 8px; background-color: #222; color: #fff;
-            border: 1px solid #555; border-radius: 4px; color-scheme: dark;
-        }
-
-        /* 按鈕群組 (膠囊按鈕) */
-        .btn-group { display: flex; flex-wrap: wrap; gap: 10px; }
-        .pill-btn {
-            background-color: #444; border: 1px solid #555; color: #ccc;
-            padding: 6px 16px; border-radius: 20px; cursor: pointer;
-            font-size: 14px; transition: all 0.2s;
-        }
-        .pill-btn:hover { background-color: #555; }
-        
-        /* 啟動狀態的按鈕 */
-        .pill-btn.active.green { background-color: #4caf50; color: white; border-color: #4caf50; }
-        .pill-btn.active.blue { background-color: #2196f3; color: white; border-color: #2196f3; }
-        
-        /* 隱藏/展開側邊欄的按鈕 (模擬你截圖中的小箭頭) */
-        #toggle-sidebar {
-            position: absolute; right: 320px; top: 10px; z-index: 10;
-            background: #444; border: none; color: white; padding: 5px 10px; cursor: pointer;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
