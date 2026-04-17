@@ -590,7 +590,7 @@ function bindThemeToggle() {
 }
 
 // ==========================================
-// 核心限制函數：禁止攝影機滑出邊界
+// 核心限制函數：禁止攝影機滑出邊界 (包含上下黑洞防護)
 // ==========================================
 function clampCamera() {
     const wrapper = document.getElementById('canvas-wrapper');
@@ -610,18 +610,18 @@ function clampCamera() {
         if (camera.x > maxX) camera.x = maxX;
     }
 
-    // --- 🌟 Y 軸限制 (上下，僅限 LINEAR 線性模式) ---
+    // --- 🌟 Y 軸限制 (上下，防止出現巨大留空) ---
     let presetKey = currentRouteView + "_view"; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
     
     if (!isCircular) {
         const contentHeight = loopKm * CONFIG.scaleY;
-        const minY = -50; // 允許畫布頂端多 50px 留白
+        const minY = -50; // 允許畫布頂端多 50px 留白 (剛好放時間標籤)
         const maxY = CONFIG.paddingTop + contentHeight - wrapperH + 50;
 
         // 如果地圖的高度比你的螢幕還要矮
         if (contentHeight + 100 < wrapperH) {
-            camera.y = minY; // 強制貼齊上方
+            camera.y = minY; // 強制貼齊上方，不准亂跑
         } else {
             // 如果地圖很高，就執行上下撞牆限制
             if (camera.y < minY) camera.y = minY;
@@ -776,31 +776,7 @@ function requestRedraw() {
     }
 }
 
-// 🌟 新增這個函數，並在 mousemove 和 wheel 結尾呼叫它
-function clampCamera() {
-    const wrapper = document.getElementById('canvas-wrapper');
-    if (!wrapper) return;
-    const wrapperW = wrapper.clientWidth;
 
-    // 🌟 1. 定義「理想中」左邊 0:00 線應該待的位置
-    // 座標計算：camera.x = 內容起點 - 想要的螢幕偏移
-    const minX = CONFIG.paddingLeft - SIDE_MARGIN;
-    
-    // 🌟 2. 計算右邊界極限
-    const contentWidth = 1560 * CONFIG.scaleX;
-    const maxX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN;
-
-    // 🌟 3. 核心邏輯修正
-    if (contentWidth + (SIDE_MARGIN * 2) < wrapperW) {
-        // [情況 A]：如果地圖縮得太小，寬度比螢幕還窄
-        // 我們不再強制居中，而是強制讓它「距離左邊 SIDE_MARGIN」
-        camera.x = minX; 
-    } else {
-        // [情況 B]：地圖比螢幕寬，這時才執行「撞牆限制」
-        if (camera.x < minX) camera.x = minX;
-        if (camera.x > maxX) camera.x = maxX;
-    }
-}
 
 // ==========================================
 // 系統啟動點 (init)
