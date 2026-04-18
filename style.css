@@ -296,3 +296,38 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     padding: 4px 10px;
     font-size: 14px;
 }
+
+/* ==========================================
+   🌟 浮動提示框 (Tooltip)
+   ========================================== */
+#train-tooltip {
+    position: absolute; /* 絕對定位，飄在 Canvas 上面 */
+    background-color: rgba(30, 30, 30, 0.95); /* 深灰微透明底色 */
+    color: #FFFFFF;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'GlowSans', 'Segoe UI', sans-serif;
+    line-height: 1.6;
+    z-index: 100;
+    
+    /* 🌟 超級關鍵：讓滑鼠「穿透」這個浮動層！
+       如果不加這個，當滑鼠移到框框上時，Canvas 就收不到拖曳和滾輪事件了！ */
+    pointer-events: none; 
+    
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    
+    /* 預設隱藏 */
+    opacity: 0;
+    visibility: hidden;
+    transform: translate(15px, 15px); /* 預設往右下角稍微偏移 */
+    transition: opacity 0.2s ease, visibility 0.2s ease; /* 淡入淡出動畫 */
+    white-space: nowrap; /* 讓站名和時間不要亂換行 */
+}
+
+/* 當 JS 幫它加上 show 標籤時，就會浮現出來 */
+#train-tooltip.show {
+    opacity: 1;
+    visibility: visible;
+}

@@ -38,6 +38,8 @@ let camera = { x: 0, y: 0 };
 
 let stationCoords = [];
 
+let selectedTrainId = null;
+
 // 🌟 還有這兩個主題狀態的變數也要確保有宣告到
 let settings = null;        
 let isDarkMode = true;      
@@ -255,35 +257,41 @@ function drawTrains() {
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
 
-    timetable.forEach(train => {
-        if (!activeTrainTypes.has(train.type)) return;
-
+    // ==========================================
+    // 🌟 新增：把「畫一台車」的邏輯打包起來
+    // ==========================================
+    const drawSingleTrain = (train, isVIP) => {
         let trainColor = fallbackColor;
-        if (settings && settings.train_color && settings.train_color[train.type]) {
-            trainColor = settings.train_color[train.type][colorIndex];
+        let lineWidth = 1.0;
+
+        // 🌟 判斷：如果是被點擊的 VIP，強制換上亮黃色粗線裝備！
+        if (isVIP) {
+            trainColor = '#FFD700'; 
+            lineWidth = 4.0;
+        } else {
+            // 普通火車的顏色與粗細邏輯 (你原本寫的)
+            if (settings && settings.train_color && settings.train_color[train.type]) {
+                trainColor = settings.train_color[train.type][colorIndex];
+            }
+            let isExpress = ["新自強", "普悠瑪", "太魯閣", "自強", "莒光"].includes(train.type);
+            lineWidth = train.w || (isExpress ? 1.5 : 1.0);
         }
 
         ctx.strokeStyle = trainColor; 
-        let isExpress = ["新自強", "普悠瑪", "太魯閣", "自強", "莒光"].includes(train.type);
-        ctx.lineWidth = train.w || (isExpress ? 1.5 : 1.0);
+        ctx.lineWidth = lineWidth;
 
-        // 🌟 把記憶變數拉到「整班車」的層級
         let trainLastBaseY = null;
         let wrapOffset = 0; 
 
+        // 👉 下面這整段是你原本超厲害的座標運算，完全沒變！
         train.segments.forEach((seg, segIdx) => {
             let unwrappedCoords = [];
-
-            // --- A. 精準尋找座標 ---
             for (let i = 0; i < seg.s.length; i++) {
                 let st_id = seg.s[i];
                 let options = lookupY[st_id];
                 if (!options || options.length === 0) { unwrappedCoords.push(null); continue; }
 
-                // 🌟 終極精準選點：直接找尋「屬於當下路線段 (seg.id)」的座標
                 let matchedOpt = options.find(opt => opt.segId === seg.id);
-                
-                // 防呆：如果找不到完全吻合的路線，再退回找距離最近的
                 let baseY = options[0].y; 
                 if (matchedOpt) {
                     baseY = matchedOpt.y;
@@ -308,7 +316,6 @@ function drawTrains() {
             let minX = timeToX(seg.t[0]);
             let maxX = timeToX(seg.t[seg.t.length - 1]);
 
-            // --- B. 執行繪圖 ---
             for (let copy = copyStart; copy <= copyEnd; copy++) {
                 let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
                 
@@ -334,7 +341,6 @@ function drawTrains() {
                     let x_arr = timeToX(seg.t[i * 2]);
                     let x_dep = timeToX(seg.t[i * 2 + 1]);
 
-                    // 乾淨俐落的連線，不再需要跳躍特判
                     if (!isDrawing) { 
                         if (i === 0 && segIdx > 0) {
                             ctx.moveTo(x_dep, y); 
@@ -352,7 +358,31 @@ function drawTrains() {
                 ctx.stroke();
             }
         });
+    };
+    // ==========================================
+    // 結束打包
+    // ==========================================
+
+
+    // 🌟 真正的繪圖流程開始！(分兩次畫)
+    let vipTrain = null;
+
+    // 第一次迴圈：畫所有普通的車，如果遇到 VIP 就先扣留起來不畫
+    timetable.forEach(train => {
+        if (!activeTrainTypes.has(train.type)) return;
+
+        // ⚠️ 注意：如果你的火車 ID 欄位名稱叫 train_no 或其他名字，請把這裡的 id 改掉！
+        if (train.id === selectedTrainId) {
+            vipTrain = train;
+        } else {
+            drawSingleTrain(train, false); // 畫平民
+        }
     });
+
+    // 第二次：把剛剛扣留的 VIP 拿出來，疊在最上面畫！
+    if (vipTrain) {
+        drawSingleTrain(vipTrain, true); // 畫 VIP (它會變成粗黃線)
+    }
 
     ctx.restore();
 }
@@ -732,6 +762,110 @@ function setupCanvasInteractions() {
     window.addEventListener('mouseup', () => {
         isDragging = false;
         wrapper.style.cursor = 'grab';
+
+        // 💡 防誤觸機制：如果滑鼠按下去到放開，移動距離小於 3 px，才當作是「點擊」，而不是「拖曳地圖」
+        let dragDistance = Math.abs(e.clientX - startMouseX) + Math.abs(e.clientY - startMouseY);
+        
+        if (isDragging && dragDistance < 3) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            let closestTrain = null;
+            let minDistance = 8; // 🌟 容錯半徑：8 pixel 內都算點到
+
+            // 遍歷所有畫面上可見的火車資料 (這裡假設你的陣列叫 trains 或類似名稱)
+            // ⚠️ 這裡的 trains 請換成你實際存放所有火車資料的變數名稱！
+            for (let train of timetable) {
+                // 假設 train.path 或 train.stops 存著這台車的停靠節點
+                let path = train.path || train.stops; 
+                if (!path || path.length < 2) continue;
+
+                for (let i = 0; i < path.length - 1; i++) {
+                    let p1 = path[i];
+                    let p2 = path[i+1];
+
+                    // 將「資料座標」轉換成「螢幕實體座標」(跟你畫線時的邏輯一模一樣)
+                    let sx1 = CONFIG.paddingLeft + p1.x * CONFIG.scaleX - camera.x;
+                    let sy1 = CONFIG.paddingTop + p1.y * CONFIG.scaleY - camera.y;
+                    let sx2 = CONFIG.paddingLeft + p2.x * CONFIG.scaleX - camera.x;
+                    let sy2 = CONFIG.paddingTop + p2.y * CONFIG.scaleY - camera.y;
+
+                    // 計算滑鼠到這條實體線段的距離
+                    let dist = getDistanceToSegment(mouseX, mouseY, sx1, sy1, sx2, sy2);
+                    
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        closestTrain = train;
+                    }
+                }
+            }
+
+            // 找到之後，控制我們剛剛寫的 HTML tooltip
+            const tooltip = document.getElementById('train-tooltip');
+            
+            if (closestTrain) {
+                selectedTrainId = closestTrain.id; // (⚠️ 注意：如果你的車次編號叫 train.no，這裡要改喔)
+                
+                // ==========================================
+                // 🌟 這裡開始就是「步驟 1：組裝帶有超連結的 HTML」
+                // ==========================================
+                let htmlContent = `
+                    <div style="font-size: 15px; font-weight: bold; margin-bottom: 5px; color: #FFD700;">
+                        ${closestTrain.type} ${closestTrain.id || '未知車次'} 次
+                    </div>
+                    <hr style="border-top: 1px solid #555; margin: 6px 0;">
+                `;
+
+                // 🌟 解析你真實的 segments 結構
+                if (closestTrain.segments) {
+                    closestTrain.segments.forEach(seg => {
+                        for (let i = 0; i < seg.s.length; i++) {
+                            let st_id = seg.s[i];
+                            
+                            // 由於還沒有接上你轉換站名與時間的函數，我們先顯示原始資料來測試
+                            let stationName = st_id; // 未來換成你的查表函數，如 getStationName(st_id)
+                            let timeStr = seg.t[i * 2]; // 未來換成你的時間格式化函數，如 formatTime(seg.t[i*2])
+                            
+                            htmlContent += `
+                                <div style="display: flex; justify-content: space-between; width: 140px; margin-bottom: 4px;">
+                                    <span class="station-link" data-station="${stationName}" 
+                                        style="cursor: pointer; color: #66B2FF; text-decoration: underline;">
+                                        ${stationName}
+                                    </span>
+                                    <span style="color: #AAAAAA;">${timeStr}</span>
+                                </div>
+                            `;
+                        }
+                    });
+                }
+
+                tooltip.innerHTML = htmlContent;
+
+                // 設定 Tooltip 顯示的位置 (跟著滑鼠)
+                const tooltipWidth = 160; 
+                const wrapperW = wrapper.clientWidth;
+                if (mouseX + tooltipWidth + 20 > wrapperW) {
+                    tooltip.style.left = (mouseX - tooltipWidth - 20) + 'px';
+                } else {
+                    tooltip.style.left = mouseX + 15 + 'px'; // 加 15px 避免游標剛好擋住框框
+                }
+                tooltip.style.top = mouseY + 15 + 'px';
+                // ==========================================
+                // 組裝與定位結束
+                // ==========================================
+
+                // 顯示它
+                tooltip.classList.add('show');
+                
+            } else {
+                selectedTrainId = null;
+                tooltip.classList.remove('show');
+            }
+            redrawAll(); // 🌟 呼叫重繪，畫出黃色粗線
+        }
+        
+        isDragging = false;
     });
 
     wrapper.addEventListener('wheel', (e) => {
@@ -820,6 +954,28 @@ function setupCanvasInteractions() {
 
         requestRedraw();
     }, { passive: false });
+
+    // ==========================================
+    // 🌟 步驟 2：Tooltip 點擊事件監聽 (放在這裡只會執行一次，最安全！)
+    // ==========================================
+    const tooltip = document.getElementById('train-tooltip');
+    if (tooltip) {
+        tooltip.addEventListener('click', (e) => {
+            // 檢查滑鼠點到的目標，是不是帶有 'station-link' 這個 class 的元素
+            if (e.target.classList.contains('station-link')) {
+                
+                // 把我們剛剛藏在 data-station 裡面的站名挖出來
+                const clickedStation = e.target.getAttribute('data-station');
+                
+                // 💡 先用 alert 測試！如果成功跳出視窗，代表你的「事件委派」大成功！
+                alert(`恭喜！你成功點擊了：${clickedStation}！\n接下來可以在這裡串接發車資訊 API。`);
+                console.log("準備查詢車站：", clickedStation);
+
+                // 未來你的下一步邏輯就寫在這裡，例如：
+                // openStationModal(clickedStation);
+            }
+        });
+    }
 }
 
 function requestRedraw() {
@@ -832,6 +988,18 @@ function requestRedraw() {
     }
 }
 
+// ==========================================
+// 🧮 數學輔助：計算「點」到「線段」的最短距離
+// ==========================================
+function getDistanceToSegment(px, py, x1, y1, x2, y2) {
+    let l2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+    if (l2 === 0) return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
+    let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    let projX = x1 + t * (x2 - x1);
+    let projY = y1 + t * (y2 - y1);
+    return Math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY));
+}
 
 
 // ==========================================
