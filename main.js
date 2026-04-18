@@ -759,7 +759,7 @@ function setupCanvasInteractions() {
         requestRedraw();
     });
 
-    window.addEventListener('mouseup', () => {
+    window.addEventListener('mouseup', (e) => {
         isDragging = false;
         wrapper.style.cursor = 'grab';
 
