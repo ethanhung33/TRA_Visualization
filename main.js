@@ -592,6 +592,13 @@ function bindThemeToggle() {
         isDarkMode = !isDarkMode;
         
         btnTheme.textContent = isDarkMode ? "🌞" : "🌙";
+
+        // 🌟 核心新增：給 body 貼上/撕下 light-mode 標籤，讓 CSS 裡的毛玻璃按鈕變色！
+        if (isDarkMode) {
+            document.body.classList.remove('light-mode'); // 撕下標籤 (恢復深色模式)
+        } else {
+            document.body.classList.add('light-mode');    // 貼上標籤 (觸發淺色模式)
+        }
         
         // 1. 切換畫布容器與側邊欄的背景顏色
         document.getElementById('canvas-wrapper').style.backgroundColor = isDarkMode ? "#000000" : "#FFFFFF";
