@@ -147,18 +147,23 @@ canvas {
 }
 
 /* ==========================================
-   🌟 獨立漂浮的收合按鈕 (強制凸出版)
+   🌟 獨立漂浮的收合按鈕 (毛玻璃半透明防遮擋版)
    ========================================== */
 .sidebar-toggle-btn {
     position: absolute !important;
-    left: -30px !important; /* 🌟 關鍵：強制往左邊凸出 30px */
-    top: 50% !important;    /* 垂直置中 */
+    left: -25px !important; /* 🌟 稍微縮小凸出範圍 (從30改25)，減少遮擋 */
+    top: 50% !important;
     transform: translateY(-50%) !important;
-    width: 30px !important;
+    width: 25px !important; /* 🌟 按鈕稍微變窄 */
     height: 60px !important;
-    background-color: #222222 !important;
-    color: #FFFFFF !important;
-    border: 1px solid #444 !important;
+    
+    /* 🌟 核心魔法：半透明底色 + 毛玻璃模糊效果 */
+    background-color: rgba(34, 34, 34, 0.5) !important; 
+    backdrop-filter: blur(3px) !important; 
+    -webkit-backdrop-filter: blur(3px) !important; /* 支援 Safari 瀏覽器 */
+    
+    color: rgba(255, 255, 255, 0.8) !important; /* 箭頭顏色稍微柔和一點 */
+    border: 1px solid rgba(255, 255, 255, 0.1) !important; /* 邊框改成細微的半透明白邊 */
     border-right: none !important;
     border-radius: 8px 0 0 8px !important;
     cursor: pointer !important;
@@ -166,13 +171,17 @@ canvas {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 20px !important;
+    font-size: 18px !important;
+    box-shadow: -3px 0 5px rgba(0,0,0,0.2) !important;
     padding: 0 !important;
     margin: 0 !important;
+    transition: background-color 0.2s, color 0.2s !important; /* 加上漸變動畫 */
 }
 
+/* 滑鼠游標移過去時，恢復成實心深色，讓使用者清楚知道「這是一個可以按的按鈕」 */
 .sidebar-toggle-btn:hover {
-    background-color: #555555 !important;
+    background-color: rgba(68, 68, 68, 0.95) !important; 
+    color: #FFFFFF !important;
 }
 
 .control-section {
