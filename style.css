@@ -272,3 +272,25 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     padding: 4px 10px;
     font-size: 14px;
 }
+
+/* ==========================================
+   🌟 淺色模式專屬覆寫 (白底/淺灰色系)
+   當 JS 給 body 貼上 light-mode 標籤時，下面這段就會自動發動！
+   ========================================== */
+body.light-mode .sidebar-toggle-btn {
+    /* 🌟 變成帶有 85% 不透明度的「淺灰色」毛玻璃 */
+    background-color: rgba(226, 226, 226, 0.85) !important; 
+    color: #333333 !important; /* 箭頭變成深黑色 */
+    
+    /* 邊框改成淡淡的深色，搭配粗細 2px */
+    border: 2px solid rgba(0, 0, 0, 0.08) !important; 
+    border-right: none !important;
+    
+    /* 陰影也放輕，比較有淺色系的清爽感 */
+    box-shadow: -3px 0 5px rgba(0,0,0,0.05) !important; 
+}
+
+body.light-mode .sidebar-toggle-btn:hover {
+    /* 游標移過去時變成稍微深一點的灰色 */
+    background-color: rgba(200, 200, 200, 0.95) !important;
+}
