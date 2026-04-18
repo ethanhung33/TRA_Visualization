@@ -372,8 +372,6 @@ function drawTrains() {
                     // 如果這站有停 (v !== 2)，代表進出站會是一條水平線，也要記錄出站點
                     if (seg.v[i] !== 2) {
                         train._hitPoints.push({ x: x_dep, y: y });
-                    } else {
-                        train._hitPoints.push(null); // 不停的話就斷開
                     }
                     
 
