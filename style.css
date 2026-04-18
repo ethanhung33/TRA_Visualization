@@ -97,8 +97,6 @@ canvas {
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
     touch-action: none; /* 封印瀏覽器原生手勢 */
 }
 
