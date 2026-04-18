@@ -264,6 +264,9 @@ function drawTrains() {
         let trainColor = fallbackColor;
         let lineWidth = 1.0;
 
+        // 🌟 【新增 1】：每次畫平民車之前，準備一個空袋子裝麵包屑
+        if (!isVIP) train._hitPoints = [];
+
         // 🌟 判斷：如果是被點擊的 VIP，強制換上亮黃色粗線裝備！
         if (isVIP) {
             trainColor = '#FFD700'; 
@@ -335,11 +338,27 @@ function drawTrains() {
 
                 for (let i = 0; i < seg.s.length; i++) {
                     let y_raw = unwrappedCoords[i];
-                    if (y_raw === null) { isDrawing = false; continue; }
+                    if (y_raw === null) { 
+                        isDrawing = false; 
+                        // 🌟 【新增 2】：如果線條中斷，塞入 null 斷開麵包屑
+                        if (!isVIP) train._hitPoints.push(null); 
+                        continue; 
+                    }
 
                     let y = y_raw + offsetY; 
                     let x_arr = timeToX(seg.t[i * 2]);
                     let x_dep = timeToX(seg.t[i * 2 + 1]);
+
+                    // 🌟 【新增 3】：把算好的真實座標存起來 (這就是麵包屑！)
+                    if (!isVIP) {
+                        train._hitPoints.push({ x: x_arr, y: y });
+                        // 如果這站有停 (v !== 2)，代表進出站會是一條水平線，也要記錄出站點
+                        if (seg.v[i] !== 2) {
+                            train._hitPoints.push({ x: x_dep, y: y });
+                        } else {
+                            train._hitPoints.push(null); // 不停的話就斷開
+                        }
+                    }
 
                     if (!isDrawing) { 
                         if (i === 0 && segIdx > 0) {
@@ -772,25 +791,27 @@ function setupCanvasInteractions() {
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
 
+            // 🌟 將滑鼠的「螢幕座標」加上鏡頭偏移，轉換成「世界座標」
+            const worldX = mouseX + camera.x;
+            const worldY = mouseY + camera.y;
+
             let closestTrain = null;
-            let minDistance = 8; 
+            let minDistance = 8; // 容錯距離 8 pixel
 
-            // ⚠️ 記得上一篇提醒的！如果你系統裡存火車的變數叫 timetable，這裡要改過來！
-            // 如果是叫 trains，就維持 trains。
+            // 🌟 沿著麵包屑尋找最近的火車！
             for (let train of timetable) { 
-                let path = train.path || train.stops; 
-                if (!path || path.length < 2) continue;
+                if (!train._hitPoints) continue; // 如果沒有麵包屑就跳過
 
-                for (let i = 0; i < path.length - 1; i++) {
-                    let p1 = path[i];
-                    let p2 = path[i+1];
+                // 兩兩一組，連成線段來計算滑鼠距離
+                for (let i = 0; i < train._hitPoints.length - 1; i++) {
+                    let p1 = train._hitPoints[i];
+                    let p2 = train._hitPoints[i+1];
 
-                    let sx1 = CONFIG.paddingLeft + p1.x * CONFIG.scaleX - camera.x;
-                    let sy1 = CONFIG.paddingTop + p1.y * CONFIG.scaleY - camera.y;
-                    let sx2 = CONFIG.paddingLeft + p2.x * CONFIG.scaleX - camera.x;
-                    let sy2 = CONFIG.paddingTop + p2.y * CONFIG.scaleY - camera.y;
+                    // 如果遇到 null (斷點)，這兩個點就不能連線，直接跳過
+                    if (!p1 || !p2) continue;
 
-                    let dist = getDistanceToSegment(mouseX, mouseY, sx1, sy1, sx2, sy2);
+                    // 計算距離 (因為麵包屑已經是世界座標了，直接算就好)
+                    let dist = getDistanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
                     
                     if (dist < minDistance) {
                         minDistance = dist;
@@ -798,6 +819,7 @@ function setupCanvasInteractions() {
                     }
                 }
             }
+            
 
             // 找到之後，控制我們剛剛寫的 HTML tooltip
             const tooltip = document.getElementById('train-tooltip');
