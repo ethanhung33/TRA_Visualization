@@ -353,6 +353,11 @@ function drawTrains() {
                 ctx.beginPath();
                 let isDrawing = false; 
 
+                // ==========================================
+                // 🌟🌟🌟 新增這行：只要畫布起了一個新的頭，麵包屑就強制斷開！避免產生隱形連線！
+                // ==========================================
+                train._hitPoints.push(null);
+
                 for (let i = 0; i < seg.s.length; i++) {
                     let y_raw = unwrappedCoords[i];
                     if (y_raw === null) { 
