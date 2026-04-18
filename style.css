@@ -148,6 +148,35 @@ canvas {
     border-radius: 10px;
 }
 
+/* ==========================================
+   🌟 獨立漂浮的收合按鈕 (強制凸出版)
+   ========================================== */
+.sidebar-toggle-btn {
+    position: absolute !important;
+    left: -30px !important; /* 🌟 關鍵：強制往左邊凸出 30px */
+    top: 50% !important;    /* 垂直置中 */
+    transform: translateY(-50%) !important;
+    width: 30px !important;
+    height: 60px !important;
+    background-color: #222222 !important;
+    color: #FFFFFF !important;
+    border: 1px solid #444 !important;
+    border-right: none !important;
+    border-radius: 8px 0 0 8px !important;
+    cursor: pointer !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 20px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.sidebar-toggle-btn:hover {
+    background-color: #555555 !important;
+}
+
 .control-section {
     margin-bottom: 25px;
 }
