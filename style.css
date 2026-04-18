@@ -105,78 +105,47 @@ canvas {
 /* ==========================================
    3. 側邊欄設計 (Sidebar)
    ========================================== */
+/* 🌟 外層容器：只負責寬度動畫，絕對不加 overflow 和 padding */
 #sidebar {
-    position: relative; /* 🌟 讓按鈕可以黏在邊緣 */
-    width: 280px;
+    position: relative; /* 讓按鈕可以黏在邊緣 */
+    width: 320px; 
     display: flex;
     flex-direction: column;
-    padding: 20px;
     background-color: #333333;
     border-left: 1px solid rgba(128, 128, 128, 0.2);
     z-index: 10;
-    overflow-y: auto;
-    overflow-x: visible; /* 🌟 允許按鈕凸出去，絕對不能用 hidden */
-    transition: width 0.3s ease, padding 0.3s ease, background-color 0.3s ease, color 0.3s ease;
+    transition: width 0.3s ease, min-width 0.3s ease;
 }
 
-/* 隱藏側邊欄卷軸 */
-#sidebar::-webkit-scrollbar {
-    width: 6px;
-}
-#sidebar::-webkit-scrollbar-thumb {
-    background-color: rgba(128, 128, 128, 0.5);
-    border-radius: 10px;
-}
-
-/* 🌟 收合狀態：寬度與內距完全歸零 */
 #sidebar.collapsed {
     width: 0 !important;
-    min-width: 0 !important; /* 👈 🌟 加上這行！打破 Flexbox 的最低寬度限制 */
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+    min-width: 0 !important;
     border-left: none !important;
 }
 
-/* 🌟 控制內部選單內容的淡出，完美隱藏文字 */
+/* 🌟 內層容器：負責 Padding 與上下捲動 */
 .sidebar-inner {
-    width: 240px; /* 固定內部寬度，縮小時才不會擠壓變形 */
+    width: 320px; /* 鎖死寬度，收合時內容才不會被擠壓 */
+    height: 100%;
+    padding: 20px; /* 從外層搬過來的 */
+    overflow-y: auto; /* 捲動條放在這裡，就不會切到外面的按鈕了！ */
+    overflow-x: hidden;
     transition: opacity 0.2s ease;
 }
 
 #sidebar.collapsed .sidebar-inner {
     opacity: 0;
     pointer-events: none;
-    position: absolute; /* 縮起時脫離排版，徹底釋放空間給畫布 */
+    position: absolute; /* 縮合時拔除排版空間 */
 }
 
-/* ==========================================
-   🌟 獨立漂浮的收合按鈕 (增強權重版，保證不被覆蓋)
-   ========================================== */
-#sidebar #sidebar-toggle {
-    position: absolute !important;
-    left: -30px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    width: 30px !important;
-    height: 60px !important;
-    background-color: #222222 !important;
-    color: #FFFFFF !important;
-    border: 1px solid #444 !important;
-    border-right: none !important;
-    border-radius: 8px 0 0 8px !important;
-    cursor: pointer !important;
-    z-index: 1000 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-size: 20px !important;
-    box-shadow: -3px 0 5px rgba(0,0,0,0.3) !important;
-    padding: 0 !important;
-    margin: 0 !important;
+/* 隱藏側邊欄卷軸 (記得改綁定到 inner 身上) */
+.sidebar-inner::-webkit-scrollbar {
+    width: 6px;
 }
-
-#sidebar #sidebar-toggle:hover {
-    background-color: #555555 !important;
+.sidebar-inner::-webkit-scrollbar-thumb {
+    background-color: rgba(128, 128, 128, 0.5);
+    border-radius: 10px;
 }
 
 .control-section {
