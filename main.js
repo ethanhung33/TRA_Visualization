@@ -745,37 +745,42 @@ function setupCanvasInteractions() {
         const dataX = (currentCamX + mouseX - CONFIG.paddingLeft) / CONFIG.scaleX;
         const dataY = (currentCamY + mouseY - CONFIG.paddingTop) / CONFIG.scaleY;
 
-        // 3. 計算新倍率
+        // 3. 先計算等比例的新倍率
         const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1; 
         let nextScaleX = CONFIG.scaleX * zoomSpeed;
         let nextScaleY = CONFIG.scaleY * zoomSpeed;
 
-        // 4. 計算最小縮放限制
+        // 4. 計算當下視窗的「最小縮放極限」
         const minScaleX = (wrapperW - SIDE_MARGIN * 2) / 1560;
         const minScaleY = wrapperH / (loopKm || 1); 
 
-        // 🌟 5. 終極連動防護 (Lock Aspect Ratio)
-        if (zoomSpeed < 1) { // 只有在「縮小」時才需要檢查撞牆
-            if (nextScaleX < minScaleX || nextScaleY < minScaleY) {
-                // 分別計算 X 和 Y 軸距離極限還有多少「扣打」
-                const limitX = minScaleX / CONFIG.scaleX;
-                const limitY = minScaleY / CONFIG.scaleY;
-                
-                // 取比較大的那個限制（代表最先撞到的那面牆）
-                const actualZoom = Math.max(limitX, limitY);
-                
-                // 強制 X 和 Y 乘上同一個終極倍率，絕對不讓任何一方單獨變形！
-                nextScaleX = CONFIG.scaleX * actualZoom;
-                nextScaleY = CONFIG.scaleY * actualZoom;
-            }
+        // 🌟 5. 終極等比例鎖定防護 (Aspect Ratio Lock)
+        // 計算 X 和 Y 距離撞牆還差多少比例
+        let correctionRatio = 1;
+        if (nextScaleX < minScaleX) {
+            correctionRatio = Math.max(correctionRatio, minScaleX / nextScaleX);
+        }
+        if (nextScaleY < minScaleY) {
+            correctionRatio = Math.max(correctionRatio, minScaleY / nextScaleY);
         }
 
-        // 更新倍率
+        // 把修正比例「同時」乘回 X 和 Y！
+        // 這樣只要有一方撞牆，另一方也會按照完全一樣的比例被修正，絕對不會變形！
+        nextScaleX = nextScaleX * correctionRatio;
+        nextScaleY = nextScaleY * correctionRatio;
+
+        // 提前阻斷：如果已經縮到最小，且使用者還在往下滾，直接中斷以節省效能
+        if (e.deltaY > 0 && Math.abs(CONFIG.scaleX - nextScaleX) < 0.0001) {
+            return;
+        }
+
+        // 6. 正式更新倍率
         CONFIG.scaleX = nextScaleX;
         CONFIG.scaleY = nextScaleY;
 
-        // --- 以下接續你原本的 // 5. 雙軸對齊核心 ---
+        // --- 下面接續你原本的 // 5. 雙軸對齊核心 ---
         let targetX = (CONFIG.paddingLeft + dataX * CONFIG.scaleX) - mouseX;
+        // ... (保持不變) ...
         let targetY = (CONFIG.paddingTop + dataY * CONFIG.scaleY) - mouseY;
 
         // --- 6. X 軸邊界物理鎖定 ---
