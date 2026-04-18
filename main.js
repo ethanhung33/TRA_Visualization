@@ -760,24 +760,24 @@ function setupCanvasInteractions() {
     });
 
     window.addEventListener('mouseup', (e) => {
-        isDragging = false;
+        // 1. 恢復游標狀態
         wrapper.style.cursor = 'grab';
 
-        // 💡 防誤觸機制：如果滑鼠按下去到放開，移動距離小於 3 px，才當作是「點擊」，而不是「拖曳地圖」
+        // 2. 計算拖曳距離
         let dragDistance = Math.abs(e.clientX - startMouseX) + Math.abs(e.clientY - startMouseY);
         
+        // 🌟 3. 判斷點擊！(此時 isDragging 還是 true 喔！)
         if (isDragging && dragDistance < 3) {
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
 
             let closestTrain = null;
-            let minDistance = 8; // 🌟 容錯半徑：8 pixel 內都算點到
+            let minDistance = 8; 
 
-            // 遍歷所有畫面上可見的火車資料 (這裡假設你的陣列叫 trains 或類似名稱)
-            // ⚠️ 這裡的 trains 請換成你實際存放所有火車資料的變數名稱！
-            for (let train of timetable) {
-                // 假設 train.path 或 train.stops 存著這台車的停靠節點
+            // ⚠️ 記得上一篇提醒的！如果你系統裡存火車的變數叫 timetable，這裡要改過來！
+            // 如果是叫 trains，就維持 trains。
+            for (let train of timetable) { 
                 let path = train.path || train.stops; 
                 if (!path || path.length < 2) continue;
 
@@ -785,13 +785,11 @@ function setupCanvasInteractions() {
                     let p1 = path[i];
                     let p2 = path[i+1];
 
-                    // 將「資料座標」轉換成「螢幕實體座標」(跟你畫線時的邏輯一模一樣)
                     let sx1 = CONFIG.paddingLeft + p1.x * CONFIG.scaleX - camera.x;
                     let sy1 = CONFIG.paddingTop + p1.y * CONFIG.scaleY - camera.y;
                     let sx2 = CONFIG.paddingLeft + p2.x * CONFIG.scaleX - camera.x;
                     let sy2 = CONFIG.paddingTop + p2.y * CONFIG.scaleY - camera.y;
 
-                    // 計算滑鼠到這條實體線段的距離
                     let dist = getDistanceToSegment(mouseX, mouseY, sx1, sy1, sx2, sy2);
                     
                     if (dist < minDistance) {
@@ -805,66 +803,19 @@ function setupCanvasInteractions() {
             const tooltip = document.getElementById('train-tooltip');
             
             if (closestTrain) {
-                selectedTrainId = closestTrain.id; // (⚠️ 注意：如果你的車次編號叫 train.no，這裡要改喔)
+                selectedTrainId = closestTrain.id; // (⚠️ 若你車次變數叫 train_no 請修改)
                 
-                // ==========================================
-                // 🌟 這裡開始就是「步驟 1：組裝帶有超連結的 HTML」
-                // ==========================================
-                let htmlContent = `
-                    <div style="font-size: 15px; font-weight: bold; margin-bottom: 5px; color: #FFD700;">
-                        ${closestTrain.type} ${closestTrain.id || '未知車次'} 次
-                    </div>
-                    <hr style="border-top: 1px solid #555; margin: 6px 0;">
-                `;
-
-                // 🌟 解析你真實的 segments 結構
-                if (closestTrain.segments) {
-                    closestTrain.segments.forEach(seg => {
-                        for (let i = 0; i < seg.s.length; i++) {
-                            let st_id = seg.s[i];
-                            
-                            // 由於還沒有接上你轉換站名與時間的函數，我們先顯示原始資料來測試
-                            let stationName = st_id; // 未來換成你的查表函數，如 getStationName(st_id)
-                            let timeStr = seg.t[i * 2]; // 未來換成你的時間格式化函數，如 formatTime(seg.t[i*2])
-                            
-                            htmlContent += `
-                                <div style="display: flex; justify-content: space-between; width: 140px; margin-bottom: 4px;">
-                                    <span class="station-link" data-station="${stationName}" 
-                                        style="cursor: pointer; color: #66B2FF; text-decoration: underline;">
-                                        ${stationName}
-                                    </span>
-                                    <span style="color: #AAAAAA;">${timeStr}</span>
-                                </div>
-                            `;
-                        }
-                    });
-                }
-
-                tooltip.innerHTML = htmlContent;
-
-                // 設定 Tooltip 顯示的位置 (跟著滑鼠)
-                const tooltipWidth = 160; 
-                const wrapperW = wrapper.clientWidth;
-                if (mouseX + tooltipWidth + 20 > wrapperW) {
-                    tooltip.style.left = (mouseX - tooltipWidth - 20) + 'px';
-                } else {
-                    tooltip.style.left = mouseX + 15 + 'px'; // 加 15px 避免游標剛好擋住框框
-                }
-                tooltip.style.top = mouseY + 15 + 'px';
-                // ==========================================
-                // 組裝與定位結束
-                // ==========================================
-
-                // 顯示它
+                // ... (你寫好的 Tooltip HTML 組裝邏輯) ...
+                
                 tooltip.classList.add('show');
-                
             } else {
                 selectedTrainId = null;
                 tooltip.classList.remove('show');
             }
-            redrawAll(); // 🌟 呼叫重繪，畫出黃色粗線
+            redrawAll(); // 呼叫重繪，畫出黃色粗線
         }
         
+        // 🌟 4. 最後的最後，才把 isDragging 關掉！
         isDragging = false;
     });
 
