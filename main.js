@@ -38,7 +38,7 @@ let camera = { x: 0, y: 0 };
 
 let stationCoords = [];
 
-let selectedTrainId = null;
+let selectedTrain = null;
 
 // 🌟 還有這兩個主題狀態的變數也要確保有宣告到
 let settings = null;        
@@ -383,22 +383,20 @@ function drawTrains() {
     // ==========================================
 
 
-    // 🌟 真正的繪圖流程開始！(分兩次畫)
+    // 🌟 真正的繪圖流程開始！
     let vipTrain = null;
 
-    // 第一次迴圈：畫所有普通的車，如果遇到 VIP 就先扣留起來不畫
     timetable.forEach(train => {
         if (!activeTrainTypes.has(train.type)) return;
 
-        // ⚠️ 注意：如果你的火車 ID 欄位名稱叫 train_no 或其他名字，請把這裡的 id 改掉！
-        if (train.id === selectedTrainId) {
+        // 🌟 終極殺招：直接比對物件！不用管它 ID 叫什麼了！
+        if (train === selectedTrain) {
             vipTrain = train;
         } else {
-            drawSingleTrain(train, false); // 畫平民
+            drawSingleTrain(train, false); // 畫普通的車
         }
     });
 
-    // 第二次：把剛剛扣留的 VIP 拿出來，疊在最上面畫！
     if (vipTrain) {
         drawSingleTrain(vipTrain, true); // 畫 VIP (它會變成粗黃線)
     }
@@ -825,16 +823,26 @@ function setupCanvasInteractions() {
             const tooltip = document.getElementById('train-tooltip');
             
             if (closestTrain) {
-                selectedTrainId = closestTrain.id; // (⚠️ 若你車次變數叫 train_no 請修改)
+                // 🌟 直接把這台車的物件存起來！
+                selectedTrain = closestTrain; 
                 
-                // ... (你寫好的 Tooltip HTML 組裝邏輯) ...
+                // 抓取車次號碼 (自動嘗試找 train_no 或 no，如果都沒有就顯示未知)
+                let trainNo = closestTrain.train_no || closestTrain.no || "未知";
+                
+                let htmlContent = `
+                    <div style="font-size: 15px; font-weight: bold; margin-bottom: 5px; color: #FFD700;">
+                        ${closestTrain.type} ${trainNo} 次
+                    </div>
+                    <hr style="border-top: 1px solid #555; margin: 6px 0;">
+                `;
+                // ... 下面組裝車站的迴圈不用動 ...
                 
                 tooltip.classList.add('show');
             } else {
-                selectedTrainId = null;
+                selectedTrain = null; // 點到空白處就清空
                 tooltip.classList.remove('show');
             }
-            redrawAll(); // 呼叫重繪，畫出黃色粗線
+            redrawAll();
         }
         
         // 🌟 4. 最後的最後，才把 isDragging 關掉！
