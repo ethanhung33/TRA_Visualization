@@ -745,38 +745,37 @@ function setupCanvasInteractions() {
         const dataX = (currentCamX + mouseX - CONFIG.paddingLeft) / CONFIG.scaleX;
         const dataY = (currentCamY + mouseY - CONFIG.paddingTop) / CONFIG.scaleY;
 
-        // 3. 先計算等比例的新倍率
-        const zoomSpeed = e.deltaY > 0 ? 0.9 : 1.1; 
-        let nextScaleX = CONFIG.scaleX * zoomSpeed;
-        let nextScaleY = CONFIG.scaleY * zoomSpeed;
+        // 3. 基礎縮放倍率
+        let zoom = e.deltaY > 0 ? 0.9 : 1.1; 
 
-        // 4. 計算當下視窗的「最小縮放極限」
+        // 4. 計算"如果要把寬度或高度塞滿"所需要的最低倍率
         const minScaleX = (wrapperW - SIDE_MARGIN * 2) / 1560;
         const minScaleY = wrapperH / (loopKm || 1); 
 
         // 🌟 5. 終極等比例鎖定防護 (Aspect Ratio Lock)
-        // 計算 X 和 Y 距離撞牆還差多少比例
-        let correctionRatio = 1;
-        if (nextScaleX < minScaleX) {
-            correctionRatio = Math.max(correctionRatio, minScaleX / nextScaleX);
-        }
-        if (nextScaleY < minScaleY) {
-            correctionRatio = Math.max(correctionRatio, minScaleY / nextScaleY);
-        }
+        if (zoom < 1) { // 只有在「縮小」時才需要防撞牆
+            // 計算 X 和 Y 各自還能容忍多小的縮放倍率
+            const allowedZoomX = minScaleX / CONFIG.scaleX;
+            const allowedZoomY = minScaleY / CONFIG.scaleY;
 
-        // 把修正比例「同時」乘回 X 和 Y！
-        // 這樣只要有一方撞牆，另一方也會按照完全一樣的比例被修正，絕對不會變形！
-        nextScaleX = nextScaleX * correctionRatio;
-        nextScaleY = nextScaleY * correctionRatio;
+            // 取比較「寬鬆」的極限 (Math.min)，這會允許畫面單邊留黑邊 (完美維持比例)
+            let minAllowedZoom = Math.min(allowedZoomX, allowedZoomY);
+            
+            // 防止反彈：如果極限大於 1，代表畫面已經比螢幕小了，最多鎖死在 1 不准再縮
+            if (minAllowedZoom > 1) minAllowedZoom = 1;
 
-        // 提前阻斷：如果已經縮到最小，且使用者還在往下滾，直接中斷以節省效能
-        if (e.deltaY > 0 && Math.abs(CONFIG.scaleX - nextScaleX) < 0.0001) {
-            return;
+            // 撞牆判定：如果這次縮小的幅度超過了極限，就強制踩煞車
+            if (zoom < minAllowedZoom) {
+                zoom = minAllowedZoom;
+            }
         }
 
-        // 6. 正式更新倍率
-        CONFIG.scaleX = nextScaleX;
-        CONFIG.scaleY = nextScaleY;
+        // 提前阻斷：如果已經縮到極限，且使用者還在往下滾，直接中斷以節省效能
+        if (zoom === 1 && e.deltaY > 0) return;
+
+        // 6. 將同一個 zoom 完美且平等地套用到 X 和 Y！(保證斜率絕對不變)
+        CONFIG.scaleX *= zoom;
+        CONFIG.scaleY *= zoom;
 
         // --- 下面接續你原本的 // 5. 雙軸對齊核心 ---
         let targetX = (CONFIG.paddingLeft + dataX * CONFIG.scaleX) - mouseX;
