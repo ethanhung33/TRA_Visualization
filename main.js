@@ -288,7 +288,7 @@ function drawTrains() {
             let adjustAmount = isDarkMode ? 70 : -50; 
             // 這裡就不會再報 baseColor is not defined 囉！
             trainColor = adjustBrightness(baseColor, adjustAmount); 
-            lineWidth = baseWidth + 2.0; 
+            lineWidth = basewidth; 
         }
 
         // 3. 把算好的顏色交給畫筆
