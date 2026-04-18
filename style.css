@@ -163,7 +163,7 @@ canvas {
     -webkit-backdrop-filter: blur(1px) !important; /* 支援 Safari 瀏覽器 */
     
     color: rgba(255, 255, 255, 0.8) !important; /* 箭頭顏色稍微柔和一點 */
-    border: 1px solid rgba(255, 255, 255, 0.1) !important; /* 邊框改成細微的半透明白邊 */
+    border: 3px solid rgba(255, 255, 255, 0.1) !important; /* 邊框改成細微的半透明白邊 */
     border-right: none !important;
     border-radius: 8px 0 0 8px !important;
     cursor: pointer !important;
@@ -283,7 +283,7 @@ body.light-mode .sidebar-toggle-btn {
     color: #333333 !important; /* 箭頭變成深黑色 */
     
     /* 邊框改成淡淡的深色，搭配粗細 2px */
-    border: 2px solid rgba(0, 0, 0, 0.08) !important; 
+    border: 3px solid rgba(0, 0, 0, 0.08) !important; 
     border-right: none !important;
     
     /* 陰影也放輕，比較有淺色系的清爽感 */
