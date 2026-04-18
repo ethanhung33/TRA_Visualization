@@ -1,4 +1,25 @@
 /* ==========================================
+   🎨 系統全域變數 (調色盤)
+   ========================================== */
+/* 預設：深色模式的顏色 */
+:root {
+    --btn-bg: rgba(34, 34, 34, 0.5);
+    --btn-color: rgba(255, 255, 255, 0.8);
+    --btn-border: rgba(255, 255, 255, 0.2);
+    --btn-hover: rgba(68, 68, 68, 0.95);
+    --btn-shadow: rgba(0, 0, 0, 0.2);
+}
+
+/* 當 body 被貼上 light-mode 標籤時，這組顏色會「自動覆蓋」上面的顏色！ */
+body.light-mode {
+    --btn-bg: rgba(226, 226, 226, 0.85);
+    --btn-color: #333333;
+    --btn-border: rgba(0, 0, 0, 0.15);
+    --btn-hover: rgba(200, 200, 200, 0.95);
+    --btn-shadow: rgba(0, 0, 0, 0.05);
+}
+
+/* ==========================================
    1. 字體註冊與全域重置 (Reset)
    ========================================== */
 @font-face {
@@ -147,41 +168,44 @@ canvas {
 }
 
 /* ==========================================
-   🌟 獨立漂浮的收合按鈕 (毛玻璃半透明防遮擋版)
+   🌟 獨立漂浮的收合按鈕 (變數共用版)
    ========================================== */
 .sidebar-toggle-btn {
+    /* 1. 排版與形狀 (永遠不變，只需寫一次) */
     position: absolute !important;
-    left: -25px !important; /* 🌟 稍微縮小凸出範圍 (從30改25)，減少遮擋 */
+    left: -25px !important; 
     top: 50% !important;
     transform: translateY(-50%) !important;
-    width: 25px !important; /* 🌟 按鈕稍微變窄 */
+    width: 25px !important; 
     height: 60px !important;
-    
-    /* 🌟 核心魔法：半透明底色 + 毛玻璃模糊效果 */
-    background-color: rgba(34, 34, 34, 0.5) !important; 
-    backdrop-filter: blur(1px) !important; 
-    -webkit-backdrop-filter: blur(1px) !important; /* 支援 Safari 瀏覽器 */
-    
-    color: rgba(255, 255, 255, 0.8) !important; /* 箭頭顏色稍微柔和一點 */
-    border: 3px solid rgba(255, 255, 255, 0.1) !important; /* 邊框改成細微的半透明白邊 */
     border-right: none !important;
     border-radius: 8px 0 0 8px !important;
-    cursor: pointer !important;
-    z-index: 1000 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     font-size: 18px !important;
-    box-shadow: -3px 0 5px rgba(0,0,0,0.2) !important;
     padding: 0 !important;
     margin: 0 !important;
-    transition: background-color 0.2s, color 0.2s !important; /* 加上漸變動畫 */
+    z-index: 1000 !important;
+    cursor: pointer !important;
+    
+    /* 2. 毛玻璃魔法 (永遠不變) */
+    backdrop-filter: blur(1px) !important; 
+    -webkit-backdrop-filter: blur(1px) !important;
+    
+    /* 🌟 3. 顏色：去讀取調色盤裡的 var() 變數！ */
+    background-color: var(--btn-bg) !important; 
+    color: var(--btn-color) !important; 
+    border: 2px solid var(--btn-border) !important; 
+    box-shadow: -3px 0 5px var(--btn-shadow) !important;
+    
+    /* 4. 動畫過渡 */
+    transition: background-color 0.3s, border-color 0.3s, color 0.3s !important; 
 }
 
-/* 滑鼠游標移過去時，恢復成實心深色，讓使用者清楚知道「這是一個可以按的按鈕」 */
+/* Hover 狀態也只要寫一次，讀取變數即可 */
 .sidebar-toggle-btn:hover {
-    background-color: rgba(68, 68, 68, 0.95) !important; 
-    color: #FFFFFF !important;
+    background-color: var(--btn-hover) !important; 
 }
 
 .control-section {
@@ -271,26 +295,4 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .utility-bar .pill-btn {
     padding: 4px 10px;
     font-size: 14px;
-}
-
-/* ==========================================
-   🌟 淺色模式專屬覆寫 (白底/淺灰色系)
-   當 JS 給 body 貼上 light-mode 標籤時，下面這段就會自動發動！
-   ========================================== */
-body.light-mode .sidebar-toggle-btn {
-    /* 🌟 變成帶有 85% 不透明度的「淺灰色」毛玻璃 */
-    background-color: rgba(226, 226, 226, 0.85) !important; 
-    color: #333333 !important; /* 箭頭變成深黑色 */
-    
-    /* 邊框改成淡淡的深色，搭配粗細 2px */
-    border: 3px solid rgba(0, 0, 0, 0.08) !important; 
-    border-right: none !important;
-    
-    /* 陰影也放輕，比較有淺色系的清爽感 */
-    box-shadow: -3px 0 5px rgba(0,0,0,0.05) !important; 
-}
-
-body.light-mode .sidebar-toggle-btn:hover {
-    /* 游標移過去時變成稍微深一點的灰色 */
-    background-color: rgba(200, 200, 200, 0.95) !important;
 }
