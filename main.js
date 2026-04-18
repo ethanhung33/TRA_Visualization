@@ -286,6 +286,8 @@ function drawTrains() {
 
         ctx.strokeStyle = trainColor; 
         ctx.lineWidth = lineWidth;
+
+        train._hitPoints = [];
         
         // ... (下面的座標計算跟撒麵包屑邏輯完全不用動) ...
 
@@ -347,7 +349,7 @@ function drawTrains() {
                     if (y_raw === null) { 
                         isDrawing = false; 
                         // 🌟 【新增 2】：如果線條中斷，塞入 null 斷開麵包屑
-                        if (!isVIP) train._hitPoints.push(null); 
+                        train._hitPoints.push(null); 
                         continue; 
                     }
 
@@ -356,15 +358,15 @@ function drawTrains() {
                     let x_dep = timeToX(seg.t[i * 2 + 1]);
 
                     // 🌟 【新增 3】：把算好的真實座標存起來 (這就是麵包屑！)
-                    if (!isVIP) {
-                        train._hitPoints.push({ x: x_arr, y: y });
-                        // 如果這站有停 (v !== 2)，代表進出站會是一條水平線，也要記錄出站點
-                        if (seg.v[i] !== 2) {
-                            train._hitPoints.push({ x: x_dep, y: y });
-                        } else {
-                            train._hitPoints.push(null); // 不停的話就斷開
-                        }
+                   
+                    train._hitPoints.push({ x: x_arr, y: y });
+                    // 如果這站有停 (v !== 2)，代表進出站會是一條水平線，也要記錄出站點
+                    if (seg.v[i] !== 2) {
+                        train._hitPoints.push({ x: x_dep, y: y });
+                    } else {
+                        train._hitPoints.push(null); // 不停的話就斷開
                     }
+                    
 
                     if (!isDrawing) { 
                         if (i === 0 && segIdx > 0) {
