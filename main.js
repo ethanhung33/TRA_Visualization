@@ -39,6 +39,7 @@ let camera = { x: 0, y: 0 };
 let stationCoords = [];
 
 let selectedTrain = null;
+let hoveredTrain = null;
 
 // 🌟 還有這兩個主題狀態的變數也要確保有宣告到
 let settings = null;        
@@ -260,19 +261,22 @@ function drawTrains() {
     // ==========================================
     // 🌟 新增：把「畫一台車」的邏輯打包起來
     // ==========================================
-    const drawSingleTrain = (train, isVIP) => {
+    // 🌟 在小括號裡面多加一個 isHovered 參數
+    const drawSingleTrain = (train, isVIP, isHovered) => {
         let trainColor = fallbackColor;
         let lineWidth = 1.0;
 
-        // 🌟 【新增 1】：每次畫平民車之前，準備一個空袋子裝麵包屑
-        if (!isVIP) train._hitPoints = [];
-
-        // 🌟 判斷：如果是被點擊的 VIP，強制換上亮黃色粗線裝備！
         if (isVIP) {
-            trainColor = '#FFD700'; 
+            trainColor = '#FFD700'; // 點擊：亮黃色粗線
             lineWidth = 4.0;
+        } else if (isHovered) {
+            // 🌟 新增懸停狀態：給它一個帥氣的亮青色！
+            let adjustAmount = isDarkMode ? 70 : -50; // 晚上變亮，白天變深
+            
+            trainColor = adjustBrightness(baseColor, adjustAmount); 
+            lineWidth = baseWidth + 2.0; // 懸停時比平常粗 2px
         } else {
-            // 普通火車的顏色與粗細邏輯 (你原本寫的)
+            // 普通火車的邏輯不變...
             if (settings && settings.train_color && settings.train_color[train.type]) {
                 trainColor = settings.train_color[train.type][colorIndex];
             }
@@ -282,6 +286,8 @@ function drawTrains() {
 
         ctx.strokeStyle = trainColor; 
         ctx.lineWidth = lineWidth;
+        
+        // ... (下面的座標計算跟撒麵包屑邏輯完全不用動) ...
 
         let trainLastBaseY = null;
         let wrapOffset = 0; 
@@ -383,22 +389,32 @@ function drawTrains() {
     // ==========================================
 
 
-    // 🌟 真正的繪圖流程開始！
+    // 🌟 真正的繪圖流程開始！(分三層畫)
     let vipTrain = null;
+    let hoverTrainDraw = null;
 
+    // 第一次迴圈：畫普通車，把 VIP 和 Hover 扣留起來
     timetable.forEach(train => {
         if (!activeTrainTypes.has(train.type)) return;
 
-        // 🌟 終極殺招：直接比對物件！不用管它 ID 叫什麼了！
         if (train === selectedTrain) {
             vipTrain = train;
+        } else if (train === hoveredTrain) {
+            hoverTrainDraw = train;
         } else {
-            drawSingleTrain(train, false); // 畫普通的車
+            // 畫普通車 (isVIP=false, isHovered=false)
+            drawSingleTrain(train, false, false); 
         }
     });
 
+    // 第二次：畫懸停的車 (壓在普通車上面)
+    if (hoverTrainDraw) {
+        drawSingleTrain(hoverTrainDraw, false, true); 
+    }
+
+    // 第三次：畫點擊的 VIP 車 (永遠壓在最上面)
     if (vipTrain) {
-        drawSingleTrain(vipTrain, true); // 畫 VIP (它會變成粗黃線)
+        drawSingleTrain(vipTrain, true, false); 
     }
 
     ctx.restore();
@@ -769,11 +785,63 @@ function setupCanvasInteractions() {
     });
 
     window.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        camera.x = startCameraX - (e.clientX - startMouseX);
-        camera.y = startCameraY - (e.clientY - startMouseY);
-        clampCamera(); // 拖曳校正
-        requestRedraw();
+        // 1. 如果正在按著滑鼠拖曳，就執行原本的地圖平移邏輯
+        if (isDragging) {
+            camera.x = startCameraX - (e.clientX - startMouseX);
+            camera.y = startCameraY - (e.clientY - startMouseY);
+            clampCamera(); // 拖曳校正
+            requestRedraw();
+            return; // 🌟 拖曳時不處理懸停變色，直接結束！
+        }
+
+        // 2. 如果沒有在拖曳，就啟動「懸停偵測」邏輯
+        const rect = canvas.getBoundingClientRect();
+        
+        // 防呆：確保滑鼠真的在畫布範圍內
+        if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+            if (hoveredTrain !== null) {
+                hoveredTrain = null;
+                wrapper.style.cursor = 'grab';
+                redrawAll();
+            }
+            return;
+        }
+
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const worldX = mouseX + camera.x;
+        const worldY = mouseY + camera.y;
+
+        let closestTrain = null;
+        let minDistance = 8; // 容錯距離 8 pixel
+
+        // 🌟 沿著麵包屑尋找滑鼠下方的火車
+        for (let train of timetable) { 
+            if (!train._hitPoints) continue;
+
+            for (let i = 0; i < train._hitPoints.length - 1; i++) {
+                let p1 = train._hitPoints[i];
+                let p2 = train._hitPoints[i+1];
+                if (!p1 || !p2) continue;
+
+                let dist = getDistanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
+                
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closestTrain = train;
+                }
+            }
+        }
+
+        // 🌟 效能優化核心：只有當「懸停的火車發生改變時」，才重新繪製！
+        if (hoveredTrain !== closestTrain) {
+            hoveredTrain = closestTrain;
+            
+            // 改變滑鼠游標：有碰到火車就變成「手指頭 (pointer)」，沒有就恢復「手掌 (grab)」
+            wrapper.style.cursor = hoveredTrain ? 'pointer' : 'grab';
+            
+            redrawAll(); // 觸發重繪
+        }
     });
 
     window.addEventListener('mouseup', (e) => {
@@ -967,6 +1035,33 @@ function requestRedraw() {
             renderFrame = null;
         });
     }
+}
+
+// ==========================================
+// 🎨 色彩輔助：根據給定的數值調亮或調暗 Hex 色碼
+// amount 為正數 (例如 50) 變淺/變亮，負數 (例如 -50) 變深/變暗
+// ==========================================
+function adjustBrightness(hex, amount) {
+    // 防呆：如果是 undefined 或不是字串，直接回傳預設色
+    if (!hex || typeof hex !== 'string') return '#FFFFFF';
+    
+    // 去掉 # 字號
+    hex = hex.replace(/^#/, '');
+    // 支援簡寫型色碼 (例如 #FFF 轉 #FFFFFF)
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+
+    // 將 Hex 轉換為 10 進位的 R, G, B
+    let r = parseInt(hex.substring(0, 2), 16);
+    let g = parseInt(hex.substring(2, 4), 16);
+    let b = parseInt(hex.substring(4, 6), 16);
+
+    // 🌟 核心數學：加上你的「數字」，並限制在 0 ~ 255 之間
+    r = Math.max(0, Math.min(255, r + amount));
+    g = Math.max(0, Math.min(255, g + amount));
+    b = Math.max(0, Math.min(255, b + amount));
+
+    // 再轉回 16 進位字串並補零，最後加回 #
+    return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase();
 }
 
 // ==========================================
