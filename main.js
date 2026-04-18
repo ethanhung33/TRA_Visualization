@@ -602,7 +602,7 @@ function bindThemeToggle() {
         
         // 1. 切換畫布容器與側邊欄的背景顏色
         document.getElementById('canvas-wrapper').style.backgroundColor = isDarkMode ? "#000000" : "#FFFFFF";
-        document.getElementById('sidebar').style.backgroundColor = isDarkMode ? "#333333" : "#E2E2E2";
+        document.getElementById('sidebar').style.backgroundColor = isDarkMode ? "#333333" : "#D2D2D2";
         document.getElementById('sidebar').style.color = isDarkMode ? "#FFFFFF" : "#000000";
         document.querySelectorAll('.control-section h3').forEach(h3 => {
             h3.style.color = isDarkMode ? "#FFFFFF" : "#000000";
