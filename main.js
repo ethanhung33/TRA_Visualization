@@ -263,36 +263,45 @@ function drawTrains() {
     // ==========================================
     // 🌟 在小括號裡面多加一個 isHovered 參數
     const drawSingleTrain = (train, isVIP, isHovered) => {
-        let trainColor = fallbackColor;
-        let lineWidth = 1.0;
+        // ==========================================
+        // 🌟 1. 先決定這台車「原本的」顏色和粗細
+        // ==========================================
+        let baseColor = fallbackColor;
+        if (settings && settings.train_color && settings.train_color[train.type]) {
+            baseColor = settings.train_color[train.type][colorIndex];
+        }
 
+        let isExpress = ["新自強", "普悠瑪", "太魯閣", "自強", "莒光"].includes(train.type);
+        let baseWidth = train.w || (isExpress ? 1.5 : 1.0);
+
+        // 先把畫筆設定成預設狀態
+        let trainColor = baseColor;
+        let lineWidth = baseWidth;
+
+        // ==========================================
+        // 🌟 2. 再根據狀態換衣服 (這時候 baseColor 已經準備好了)
+        // ==========================================
         if (isVIP) {
             trainColor = '#FFD700'; // 點擊：亮黃色粗線
             lineWidth = 4.0;
         } else if (isHovered) {
-            // 🌟 新增懸停狀態：給它一個帥氣的亮青色！
-            let adjustAmount = isDarkMode ? 70 : -50; // 晚上變亮，白天變深
-            
+            let adjustAmount = isDarkMode ? 70 : -50; 
+            // 這裡就不會再報 baseColor is not defined 囉！
             trainColor = adjustBrightness(baseColor, adjustAmount); 
-            lineWidth = baseWidth + 2.0; // 懸停時比平常粗 2px
-        } else {
-            // 普通火車的邏輯不變...
-            if (settings && settings.train_color && settings.train_color[train.type]) {
-                trainColor = settings.train_color[train.type][colorIndex];
-            }
-            let isExpress = ["新自強", "普悠瑪", "太魯閣", "自強", "莒光"].includes(train.type);
-            lineWidth = train.w || (isExpress ? 1.5 : 1.0);
+            lineWidth = baseWidth + 2.0; 
         }
 
+        // 3. 把算好的顏色交給畫筆
         ctx.strokeStyle = trainColor; 
         ctx.lineWidth = lineWidth;
 
-        train._hitPoints = [];
-        
-        // ... (下面的座標計算跟撒麵包屑邏輯完全不用動) ...
+        // 4. 無條件清空麵包屑袋子
+        train._hitPoints = []; 
 
         let trainLastBaseY = null;
         let wrapOffset = 0; 
+        
+        // ... (下面接續你原本的座標計算跟撒麵包屑邏輯) ...
 
         // 👉 下面這整段是你原本超厲害的座標運算，完全沒變！
         train.segments.forEach((seg, segIdx) => {
