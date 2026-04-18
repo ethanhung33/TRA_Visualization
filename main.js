@@ -750,23 +750,31 @@ function setupCanvasInteractions() {
         let nextScaleX = CONFIG.scaleX * zoomSpeed;
         let nextScaleY = CONFIG.scaleY * zoomSpeed;
 
-        // 4. 最小縮放限制
+        // 4. 計算最小縮放限制
         const minScaleX = (wrapperW - SIDE_MARGIN * 2) / 1560;
         const minScaleY = wrapperH / (loopKm || 1); 
 
-        // 提前阻斷：如果雙軸都縮到最小，禁止繼續運算，防止座標崩潰
-        if (e.deltaY > 0 && CONFIG.scaleX <= minScaleX + 0.0001 && CONFIG.scaleY <= minScaleY + 0.0001) {
-            return;
+        // 🌟 5. 終極連動防護 (Lock Aspect Ratio)
+        if (zoomSpeed < 1) { // 只有在「縮小」時才需要檢查撞牆
+            if (nextScaleX < minScaleX || nextScaleY < minScaleY) {
+                // 分別計算 X 和 Y 軸距離極限還有多少「扣打」
+                const limitX = minScaleX / CONFIG.scaleX;
+                const limitY = minScaleY / CONFIG.scaleY;
+                
+                // 取比較大的那個限制（代表最先撞到的那面牆）
+                const actualZoom = Math.max(limitX, limitY);
+                
+                // 強制 X 和 Y 乘上同一個終極倍率，絕對不讓任何一方單獨變形！
+                nextScaleX = CONFIG.scaleX * actualZoom;
+                nextScaleY = CONFIG.scaleY * actualZoom;
+            }
         }
-
-        if (nextScaleX < minScaleX) nextScaleX = minScaleX;
-        if (nextScaleY < minScaleY) nextScaleY = minScaleY;
 
         // 更新倍率
         CONFIG.scaleX = nextScaleX;
         CONFIG.scaleY = nextScaleY;
 
-        // 🌟 5. 雙軸對齊核心：讓剛才記錄的 dataX/Y，在新的倍率下，依然對準 mouseX/Y
+        // --- 以下接續你原本的 // 5. 雙軸對齊核心 ---
         let targetX = (CONFIG.paddingLeft + dataX * CONFIG.scaleX) - mouseX;
         let targetY = (CONFIG.paddingTop + dataY * CONFIG.scaleY) - mouseY;
 
