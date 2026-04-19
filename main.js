@@ -418,7 +418,7 @@ function drawTrains() {
 
                         // --- 2. 準備文字：站名與時間 ---
                         // ⚠️ A. 取得站名 (請替換成你系統中將 ID 轉成中文的函數)
-                        let stationName = seg.s[i]; // 暫時先顯示 ID
+                        let stationName = getStationName(seg.s[i]);
                         
                         // ⚠️ B. 取得時間 (請替換成你系統中將數字轉成 HH:MM 的函數)
                         // 如果你沒有，請把它丟進下面我附贈的 formatTimeDisplay 函數
@@ -434,7 +434,7 @@ function drawTrains() {
                         }
 
                         // --- 3. 畫出文字 ---
-                        ctx.font = '11px "GlowSans", "Segoe UI", sans-serif'; 
+                        ctx.font = '14px "GlowSans", "Segoe UI", sans-serif'; 
                         ctx.fillStyle = isDarkMode ? '#FFFFFF' : '#000000'; // 白字或黑字
                         ctx.textAlign = 'left';
                         ctx.textBaseline = 'middle';
@@ -1161,6 +1161,29 @@ function getDistanceToSegment(px, py, x1, y1, x2, y2) {
     let projX = x1 + t * (x2 - x1);
     let projY = y1 + t * (y2 - y1);
     return Math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY));
+}
+
+// ==========================================
+// 📖 專屬查字典工具：用 ID 去 segments 裡面挖出 st.name
+// ==========================================
+function getStationName(st_id) {
+    if (!topology || !topology.segments) return st_id; 
+
+    // 翻遍所有的路線段 (segments)
+    for (let seg of topology.segments) {
+        if (!seg.stations) continue;
+        
+        // 在這條路線的車站名單中，尋找 ID 相符的車站
+        let foundStation = seg.stations.find(st => st.id === st_id);
+        
+        // 🌟 如果找到了，而且它有 name，就回傳中文站名！
+        if (foundStation && foundStation.name) {
+            return foundStation.name; 
+        }
+    }
+
+    // 如果整本字典都翻遍了還是找不到，就退回原本的數字代碼
+    return st_id; 
 }
 
 
