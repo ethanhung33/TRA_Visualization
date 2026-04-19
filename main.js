@@ -423,12 +423,7 @@ function drawTrains() {
                         let depTimeStr = formatTimeDisplay(depT); 
 
                         // 組裝字串：如果到站=離站(通過/首尾站)，就只顯示一個時間
-                        let displayText = "";
-                        if (arrTimeStr === depTimeStr) {
-                            displayText = `${arrTimeStr} ${stationName}`;
-                        } else {
-                            displayText = `${arrTimeStr} - ${depTimeStr} ${stationName}`;
-                        }
+                        let displayText = `${arrTimeStr} - ${depTimeStr} ${stationName}`;
 
                         // --- 3. 畫出文字 ---
                         ctx.font = '14px "GlowSans", "Segoe UI", sans-serif'; 
