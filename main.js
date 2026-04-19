@@ -395,6 +395,60 @@ function drawTrains() {
                     else ctx.moveTo(x_dep, y); 
                 }
                 ctx.stroke();
+                // ==========================================
+                // 🌟 新增：線畫完後，如果是 VIP，就在旁邊加上站名與時間！
+                // ==========================================
+                if (isVIP) {
+                    ctx.save(); // 保護畫筆狀態，不要干擾到其他車
+
+                    for (let i = 0; i < seg.s.length; i++) {
+                        let y_raw = unwrappedCoords[i];
+                        if (y_raw === null) continue; // 遇到斷點跳過
+                        
+                        let y = y_raw + offsetY;
+                        let arrT = seg.t[i * 2];
+                        let depT = seg.t[i * 2 + 1];
+                        let x_dep = timeToX(depT); // 文字要對齊出站的 X 座標
+
+                        // --- 1. 畫黃色小圓點 (標示停靠站) ---
+                        ctx.beginPath();
+                        ctx.arc(x_dep, y, 3, 0, Math.PI * 2);
+                        ctx.fillStyle = '#FFD700'; // 亮黃色
+                        ctx.fill();
+
+                        // --- 2. 準備文字：站名與時間 ---
+                        // ⚠️ A. 取得站名 (請替換成你系統中將 ID 轉成中文的函數)
+                        let stationName = seg.s[i]; // 暫時先顯示 ID
+                        
+                        // ⚠️ B. 取得時間 (請替換成你系統中將數字轉成 HH:MM 的函數)
+                        // 如果你沒有，請把它丟進下面我附贈的 formatTimeDisplay 函數
+                        let arrTimeStr = formatTimeDisplay(arrT); 
+                        let depTimeStr = formatTimeDisplay(depT); 
+
+                        // 組裝字串：如果到站=離站(通過/首尾站)，就只顯示一個時間
+                        let displayText = "";
+                        if (arrTimeStr === depTimeStr) {
+                            displayText = `${arrTimeStr} ${stationName}`;
+                        } else {
+                            displayText = `${arrTimeStr} - ${depTimeStr} ${stationName}`;
+                        }
+
+                        // --- 3. 畫出文字 ---
+                        ctx.font = '11px "GlowSans", "Segoe UI", sans-serif'; 
+                        ctx.fillStyle = isDarkMode ? '#FFFFFF' : '#000000'; // 白字或黑字
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'middle';
+                        
+                        // 💡 視覺小秘訣：加一點點反色陰影，讓文字在密密麻麻的線條海中不會糊掉
+                        ctx.shadowColor = isDarkMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
+                        ctx.shadowBlur = 4;
+
+                        // 在 X 座標往右推 8 px 的地方畫字
+                        ctx.fillText(displayText, x_dep + 8, y);
+                    }
+
+                    ctx.restore(); // 恢復畫筆，準備畫下一台車
+                }
             }
         });
     };
@@ -1049,6 +1103,24 @@ function requestRedraw() {
             renderFrame = null;
         });
     }
+}
+
+// 將分鐘數轉換為 HH:MM 格式
+function formatTimeDisplay(minutesRaw) {
+    if (minutesRaw === undefined || minutesRaw === null) return "--:--";
+    
+    // 如果有跨夜 (超過 1440 分鐘)，可以選擇減掉或者保留 25:00 這種格式
+    // 這裡我們示範標準 24 小時制 (如果有跨夜需求請自行拿掉 % 1440)
+    let totalMinutes = Math.floor(minutesRaw) % 1440; 
+    
+    let hours = Math.floor(totalMinutes / 60);
+    let mins = totalMinutes % 60;
+    
+    // 補零 (例如 8 -> 08)
+    let hStr = hours.toString().padStart(2, '0');
+    let mStr = mins.toString().padStart(2, '0');
+    
+    return `${hStr}${mStr}`; // 配合你的截圖，回傳 "0815" 這種格式
 }
 
 // ==========================================
