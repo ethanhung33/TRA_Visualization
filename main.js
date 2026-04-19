@@ -1230,6 +1230,24 @@ function updateBottomPanel(train) {
     `;
 }
 
+// ==========================================
+// 🎨 視覺優化濾鏡：強制撐開同時間的停靠站
+// ==========================================
+function optimizeTrainTimesForDisplay(trainsData) {
+    trainsData.forEach(train => {
+        if (!train.segments) return;
+        
+        train.segments.forEach(seg => {
+            // seg.t 裡面的資料格式是 [到站1, 離站1, 到站2, 離站2...]
+            for (let i = 0; i < seg.t.length; i += 2) {
+                if (seg.t[i] === seg.t[i + 1]) {
+                    // 強制把離站時間往後延 1 分鐘 (為了讓 Canvas 畫出水平線)
+                    seg.t[i + 1] += 0.5; 
+                }
+            }
+        });
+    });
+}
 
 // ==========================================
 // 系統啟動點 (init)
@@ -1250,6 +1268,8 @@ async function init() {
 
         const timeRes = await fetch(dirc_path + 'timetable/timetable_20260419.json');
         timetable = await timeRes.json();
+
+        optimizeTrainTimesForDisplay(timetable);
 
         console.log("資料載入完成！建構 UI 與渲染畫布...");
         
