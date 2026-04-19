@@ -40,6 +40,7 @@ let stationCoords = [];
 
 let selectedTrain = null;
 let hoveredTrain = null;
+let selectedStation = null; // 加在 let selectedTrain = null; 旁邊
 
 // 🌟 還有這兩個主題狀態的變數也要確保有宣告到
 let settings = null;        
@@ -1005,8 +1006,36 @@ function setupCanvasInteractions() {
                     <hr style="border-top: 1px solid #555; margin: 6px 0;">
                 `;
             } else {
-                selectedTrain = null; // 點到空白處就清空
-                updateBottomPanel(null);
+                // ==========================================
+                // 🌟 新增：如果沒點到火車，判斷有沒有點到車站橫線！
+                // ==========================================
+                let closestStationId = null;
+                let minStationDist = 15; // Y軸容錯距離 15px
+
+                // 遍歷所有有畫在畫面上的車站 Y 座標 (利用你之前的 lookupY)
+                for (let st_id in lookupY) {
+                    let opts = lookupY[st_id];
+                    for (let opt of opts) {
+                        // 處理循環視圖的 Y 軸差距計算
+                        let dy = Math.abs(worldY - opt.y);
+                        // 如果有環狀模式，這裡可以加上 % loopHeight 的精密計算，但一般線性距離就夠用了
+                        if (dy < minStationDist) {
+                            minStationDist = dy;
+                            closestStationId = st_id;
+                        }
+                    }
+                }
+
+                if (closestStationId) {
+                    selectedStation = closestStationId;
+                    selectedTrain = null; // 點到車站就清空火車狀態
+                    updateBottomPanelStation(selectedStation); // 🌟 呼叫車站專屬面板
+                } else {
+                    // 點到空白處，全部清空
+                    selectedTrain = null; 
+                    selectedStation = null;
+                    updateBottomPanel(null);
+                }
             }
             redrawAll();
         }
@@ -1263,6 +1292,93 @@ function updateBottomPanel(train) {
             
             <div style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 15px; white-space: nowrap; scrollbar-width: none;">
                 ${stationsHtml}
+            </div>
+        </div>
+    `;
+}
+
+// ==========================================
+// 🚉 更新底部面板 (車站發車時刻表模式)
+// ==========================================
+function updateBottomPanelStation(st_id) {
+    const panel = document.getElementById('bottom-bar'); 
+    if (!panel) return;
+
+    let stName = getStationName(st_id);
+    const now = new Date();
+    let currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    let upcomingTrains = [];
+
+    // 1. 尋找即將發車的班次
+    timetable.forEach(train => {
+        if (!activeTrainTypes.has(train.type) || !train.segments) return;
+
+        train.segments.forEach(seg => {
+            for (let i = 0; i < seg.s.length; i++) {
+                // 找到這個車站，而且有停靠 (非通過 v!==2，非終點 v!==3)
+                if (seg.s[i] === st_id && seg.v[i] !== 2 && seg.v[i] !== 3) {
+                    let depT = seg.t[i * 2 + 1];
+                    let diff = depT - currentMinutes;
+                    
+                    // 處理跨夜邏輯 (例如現在 23:50，車子 00:10 發車)
+                    if (diff < -720) diff += 1440; 
+
+                    // 找出未來 120 分鐘內的班次
+                    if (diff >= 0 && diff <= 120) {
+                        // 尋找這班車的「最終目的地」
+                        let lastSeg = train.segments[train.segments.length - 1];
+                        let destId = lastSeg.s[lastSeg.s.length - 1];
+                        let destName = getStationName(destId);
+
+                        upcomingTrains.push({
+                            train: train,
+                            depTime: depT,
+                            destName: destName,
+                            diff: diff // 距離發車還有幾分鐘
+                        });
+                    }
+                }
+            }
+        });
+    });
+
+    // 2. 依照發車時間排序
+    upcomingTrains.sort((a, b) => a.depTime - b.depTime);
+
+    // 3. 組裝 HTML
+    let trainsHtml = "";
+    if (upcomingTrains.length === 0) {
+        trainsHtml = `<div style="color: #888; font-size: 14px; margin-left: 20px;">近期無發車班次</div>`;
+    } else {
+        upcomingTrains.forEach(item => {
+            let tColor = settings?.train_color?.[item.train.type]?.[0] || "#FFF";
+            let timeStr = formatTimeDisplay(item.depTime);
+            let trainNo = item.train.no || item.train.train_no || "未知";
+            
+            // 🌟 這裡使用 onclick 觸發全域函數，達成【功能 3：點車次看停靠站】
+            trainsHtml += `
+                <div onclick="window.triggerSelectTrain('${item.train.no}')" 
+                     style="display: flex; flex-direction: column; align-items: center; min-width: 80px; margin: 0 10px; padding: 5px; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; border: 1px solid transparent;"
+                     onmouseover="this.style.background='rgba(255,255,255,0.15)'; this.style.borderColor='${tColor}'"
+                     onmouseout="this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'">
+                    <div style="font-size: 16px; color: ${tColor}; font-weight: bold; margin-bottom: 2px;">${timeStr}</div>
+                    <div style="font-size: 12px; color: #FFF;">往 ${item.destName}</div>
+                    <div style="font-size: 11px; color: #AAA; margin-top: 4px;">${item.train.type} ${trainNo}</div>
+                    <div style="font-size: 11px; color: #FFD700; margin-top: 2px;">約 ${item.diff} 分鐘</div>
+                </div>
+            `;
+        });
+    }
+
+    panel.innerHTML = `
+        <div style="display: flex; width: 100%; height: 100%; align-items: center;">
+            <div style="min-width: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-right: 15px; border-right: 1px solid #444; flex-shrink: 0;">
+                <div style="font-size: 20px; font-weight: bold; color: #FFF;">${stName}</div>
+                <div style="font-size: 12px; color: #AAA; margin-top: 4px;">即將發車</div>
+            </div>
+            <div style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 10px; scrollbar-width: none;">
+                ${trainsHtml}
             </div>
         </div>
     `;
