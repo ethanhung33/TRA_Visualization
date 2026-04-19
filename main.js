@@ -729,6 +729,32 @@ function buildUI() {
 }
 
 // ==========================================
+// 🖱️ 底部面板：將滑鼠上下滾輪轉換為左右滑動
+// ==========================================
+function setupBottomBarScrolling() {
+    const bottomBar = document.getElementById('bottom-bar');
+    if (!bottomBar) return;
+
+    // { passive: false } 是必須的，這樣我們才能呼叫 e.preventDefault() 停用預設滾動
+    bottomBar.addEventListener('wheel', (e) => {
+        const scrollContainer = document.getElementById('bottom-scroll-container');
+        
+        if (scrollContainer) {
+            // 🌟 1. 防止整個網頁被上下捲動
+            e.preventDefault(); 
+            
+            // 🌟 2. 極度關鍵：防止事件往上傳遞給 Canvas！
+            // 這樣在底部面板滾輪時，上面的地圖就不會跟著放大縮小！
+            e.stopPropagation(); 
+            
+            // 🌟 3. 將滾輪的上下幅度 (deltaY) 轉移給容器的左右捲動軸 (scrollLeft)
+            // 加上一個倍率(例如 1.5) 可以讓滑動感覺更順暢、更快
+            scrollContainer.scrollLeft += (e.deltaY * 1.5); 
+        }
+    }, { passive: false });
+}
+
+// ==========================================
 // 視窗大小改變處理 (Resize)
 // ==========================================
 let resizeTimeout;
@@ -1346,7 +1372,7 @@ function updateBottomPanel(train) {
                 ${trainType} ${trainNo}
             </div>
             
-            <div style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 15px; white-space: nowrap; scrollbar-width: none;">
+            <div id="bottom-scroll-container" style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 15px; white-space: nowrap; scrollbar-width: none;">
                 ${stationsHtml}
             </div>
         </div>
@@ -1433,7 +1459,8 @@ function updateBottomPanelStation(st_id) {
                 <div style="font-size: 20px; font-weight: bold; color: #FFF;">${stName}</div>
                 <div style="font-size: 12px; color: #AAA; margin-top: 4px;">即將發車</div>
             </div>
-            <div style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 10px; scrollbar-width: none;">
+            
+            <div id="bottom-scroll-container" style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 10px; scrollbar-width: none;">
                 ${trainsHtml}
             </div>
         </div>
@@ -1508,6 +1535,8 @@ async function init() {
         bindThemeToggle(); // 🌟 啟動主題切換按鈕
 
         setupCanvasInteractions();
+
+        setupBottomBarScrolling();
 
         // 🌟 1. 先偷偷畫一次，為了讓系統算出正確的 loopKm (總里程數)
         redrawAll();       
