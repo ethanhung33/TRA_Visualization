@@ -410,11 +410,6 @@ function drawTrains() {
                         let depT = seg.t[i * 2 + 1];
                         let x_dep = timeToX(depT); // 文字要對齊出站的 X 座標
 
-                        // --- 1. 畫黃色小圓點 (標示停靠站) ---
-                        ctx.beginPath();
-                        ctx.arc(x_dep, y, 3, 0, Math.PI * 2);
-                        ctx.fillStyle = '#FFD700'; // 亮黃色
-                        ctx.fill();
 
                         // --- 2. 準備文字：站名與時間 ---
                         // ⚠️ A. 取得站名 (請替換成你系統中將 ID 轉成中文的函數)
