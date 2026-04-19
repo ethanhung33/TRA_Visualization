@@ -958,6 +958,8 @@ function setupCanvasInteractions() {
             if (closestTrain) {
                 // 🌟 直接把這台車的物件存起來！
                 selectedTrain = closestTrain; 
+
+                updateBottomPanel(selectedTrain);
                 
                 // 抓取車次號碼 (自動嘗試找 train_no 或 no，如果都沒有就顯示未知)
                 let trainNo = closestTrain.train_no || closestTrain.no || "未知";
@@ -973,6 +975,7 @@ function setupCanvasInteractions() {
                 tooltip.classList.add('show');
             } else {
                 selectedTrain = null; // 點到空白處就清空
+                updateBottomPanel(null);
                 tooltip.classList.remove('show');
             }
             redrawAll();
@@ -1181,6 +1184,79 @@ function getStationName(st_id) {
 
     // 如果整本字典都翻遍了還是找不到，就退回原本的數字代碼
     return st_id; 
+}
+
+// ==========================================
+// 🎨 更新底部列車資訊面板 (對接現有的 bottom-bar)
+// ==========================================
+function updateBottomPanel(train) {
+    const panel = document.getElementById('bottom-bar'); 
+    if (!panel) return;
+
+    // 如果沒有選中火車，恢復你原本寫的預設提示文字
+    if (!train) {
+        panel.innerHTML = `
+            <h2 style="margin: 0 15px 0 0; font-size: 16px; color: #FFF;">列車資訊</h2>
+            <span id="train-info-text" style="color: #888; font-size: 14px;">點選列車或車站以顯示資訊</span>
+        `;
+        return;
+    }
+
+    // 1. 取得車次與顏色
+    let trainNo = train.no || train.train_no || train.id || "未知";
+    let trainType = train.type || "";
+    
+    let trainColor = "#FF6B6B"; 
+    if (settings && settings.train_color && settings.train_color[trainType]) {
+        trainColor = settings.train_color[trainType][0]; 
+    }
+
+    // 2. 組裝車站列表的 HTML
+    let stationsHtml = "";
+    let stopCount = 0;
+
+    if (train.segments) {
+        train.segments.forEach(seg => {
+            for (let i = 0; i < seg.s.length; i++) {
+                if (seg.v[i] === 2) continue; // 過濾掉通過的車站
+
+                let stName = getStationName(seg.s[i]);
+                // 如果你沒有 formatTimeDisplay 函數，請確保把它也加進 main.js 喔！
+                let arrT = formatTimeDisplay(seg.t[i * 2]);     
+                let depT = formatTimeDisplay(seg.t[i * 2 + 1]); 
+
+                if (stopCount > 0) {
+                    stationsHtml += `
+                        <div style="display: flex; align-items: center; justify-content: center; margin: 0 10px; color: #555; font-size: 14px;">
+                            ➔
+                        </div>
+                    `;
+                }
+
+                stationsHtml += `
+                    <div style="display: flex; flex-direction: column; align-items: center; min-width: 45px;">
+                        <div style="font-size: 14px; margin-bottom: 4px; color: #FFFFFF; font-weight: bold;">${stName}</div>
+                        <div style="font-size: 12px; color: #AAAAAA; line-height: 1.2;">${arrT}</div>
+                        <div style="font-size: 12px; color: #AAAAAA; line-height: 1.2;">${depT}</div>
+                    </div>
+                `;
+                stopCount++;
+            }
+        });
+    }
+
+    // 3. 塞進現有的 bottom-bar
+    panel.innerHTML = `
+        <div style="display: flex; width: 100%; height: 100%; align-items: center;">
+            <div style="min-width: 100px; display: flex; align-items: center; padding-right: 15px; border-right: 1px solid #444; font-size: 18px; font-weight: bold; color: ${trainColor}; flex-shrink: 0;">
+                ${trainType} ${trainNo}
+            </div>
+            
+            <div style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 15px; white-space: nowrap; scrollbar-width: none;">
+                ${stationsHtml}
+            </div>
+        </div>
+    `;
 }
 
 
