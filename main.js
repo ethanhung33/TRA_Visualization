@@ -1045,27 +1045,6 @@ function setupCanvasInteractions() {
         requestRedraw();
     }, { passive: false });
 
-    // ==========================================
-    // 🌟 步驟 2：Tooltip 點擊事件監聽 (放在這裡只會執行一次，最安全！)
-    // ==========================================
-    const tooltip = document.getElementById('train-tooltip');
-    if (tooltip) {
-        tooltip.addEventListener('click', (e) => {
-            // 檢查滑鼠點到的目標，是不是帶有 'station-link' 這個 class 的元素
-            if (e.target.classList.contains('station-link')) {
-                
-                // 把我們剛剛藏在 data-station 裡面的站名挖出來
-                const clickedStation = e.target.getAttribute('data-station');
-                
-                // 💡 先用 alert 測試！如果成功跳出視窗，代表你的「事件委派」大成功！
-                alert(`恭喜！你成功點擊了：${clickedStation}！\n接下來可以在這裡串接發車資訊 API。`);
-                console.log("準備查詢車站：", clickedStation);
-
-                // 未來你的下一步邏輯就寫在這裡，例如：
-                // openStationModal(clickedStation);
-            }
-        });
-    }
 }
 
 function requestRedraw() {
