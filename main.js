@@ -132,7 +132,7 @@ function drawGrid(viewKey) {
                 ctx.strokeStyle = "#FFD700"; // 點擊選中：亮黃色
                 ctx.lineWidth = 2.0;
             } else if (isHovered) {
-                ctx.strokeStyle = isDarkMode ? "#FFFFFF" : "#000000"; // 懸停：高反差白色/黑色
+                ctx.strokeStyle = isDarkMode ? "#555555" : "#D0D0D0"; // 懸停：高反差白色/黑色
                 ctx.lineWidth = 1.5;
             } else {
                 ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0"; // 預設：低調的灰色
