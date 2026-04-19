@@ -404,6 +404,8 @@ function drawTrains() {
                     for (let i = 0; i < seg.s.length; i++) {
                         let y_raw = unwrappedCoords[i];
                         if (y_raw === null) continue; // 遇到斷點跳過
+
+                        if (seg.v[i] === 2) continue;
                         
                         let y = y_raw + offsetY;
                         let arrT = seg.t[i * 2];
