@@ -519,7 +519,7 @@ function drawCurrentTimeLine() {
 
             // 讓標籤跟著螢幕頂端浮動
             let labelY = Math.max(viewTop + 60, CONFIG.paddingTop);
-            ctx.fillText("現在時間", x + 8, labelY);
+            ctx.fillText(now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0'), x + 8, labelY);
         }
     });
 
