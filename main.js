@@ -951,10 +951,6 @@ function setupCanvasInteractions() {
                 }
             }
             
-
-            // 找到之後，控制我們剛剛寫的 HTML tooltip
-            const tooltip = document.getElementById('train-tooltip');
-            
             if (closestTrain) {
                 // 🌟 直接把這台車的物件存起來！
                 selectedTrain = closestTrain; 
@@ -970,13 +966,9 @@ function setupCanvasInteractions() {
                     </div>
                     <hr style="border-top: 1px solid #555; margin: 6px 0;">
                 `;
-                // ... 下面組裝車站的迴圈不用動 ...
-                
-                tooltip.classList.add('show');
             } else {
                 selectedTrain = null; // 點到空白處就清空
                 updateBottomPanel(null);
-                tooltip.classList.remove('show');
             }
             redrawAll();
         }
