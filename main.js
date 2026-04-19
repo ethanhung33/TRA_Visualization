@@ -482,41 +482,46 @@ function drawTrains() {
 }
 
 // ==========================================
-// 🕒 繪製現在時間線
+// 🕒 繪製現在時間線 (跨夜影分身版)
 // ==========================================
 function drawCurrentTimeLine() {
     const now = new Date();
-    // 將現在時間轉換成分鐘數 (0~1440)
     let currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    let x = timeToX(currentMinutes);
 
     const viewTop = camera.y;
     const viewBottom = camera.y + canvas.height;
     const viewLeft = camera.x;
     const viewRight = camera.x + canvas.width;
 
-    // 如果時間線在畫面外，就不用畫
-    if (x < viewLeft || x > viewRight) return;
-
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
 
-    ctx.beginPath();
-    ctx.strokeStyle = "rgba(255, 80, 80, 0.9)"; // 亮紅色
+    ctx.strokeStyle = "rgba(255, 80, 80, 0.9)";
     ctx.lineWidth = 2.0;
-    ctx.setLineDash([6, 4]); // 虛線效果
-
-    ctx.moveTo(x, viewTop);
-    ctx.lineTo(x, viewBottom);
-    ctx.stroke();
-
-    // 畫個小標籤提示
-    let labelY = Math.max(viewTop + 60, CONFIG.paddingTop);
+    ctx.setLineDash([6, 4]);
     ctx.fillStyle = "rgba(255, 80, 80, 0.9)";
     ctx.font = "bold 14px 'GlowSans', sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText(now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0'), x + 8, labelY);
+
+    // 🌟 關鍵修復：同時計算「今天」與「明天」的座標！
+    // 如果系統有支援到 48 小時，就連加兩個 1440
+    let timeCopies = [currentMinutes, currentMinutes + 1440];
+
+    timeCopies.forEach(mins => {
+        let x = timeToX(mins);
+
+        // 只有當這條線出現在螢幕可視範圍內時，才畫出它！
+        if (x >= viewLeft && x <= viewRight) {
+            ctx.beginPath();
+            ctx.moveTo(x, viewTop);
+            ctx.lineTo(x, viewBottom);
+            ctx.stroke();
+
+            // 讓標籤跟著螢幕頂端浮動
+            let labelY = Math.max(viewTop + 60, CONFIG.paddingTop);
+            ctx.fillText("現在時間", x + 8, labelY);
+        }
+    });
 
     ctx.restore();
 }
@@ -1336,7 +1341,7 @@ function updateBottomPanelStation(st_id) {
                 // 找到這個車站，而且有停靠 (非通過 v!==2，非終點 v!==3)
                 if (seg.s[i] === st_id && seg.v[i] !== 2 && seg.v[i] !== 3) {
                     let depT = seg.t[i * 2 + 1];
-                    let diff = depT - currentMinutes;
+                    let diff = ((depT - currentMinutes) % 1440 + 1440) % 1440;
                     
                     // 處理跨夜邏輯 (例如現在 23:50，車子 00:10 發車)
                     if (diff < -720) diff += 1440; 
