@@ -41,6 +41,7 @@ let stationCoords = [];
 let selectedTrain = null;
 let hoveredTrain = null;
 let selectedStation = null; // 加在 let selectedTrain = null; 旁邊
+let hoveredStation = null;
 
 // 🌟 還有這兩個主題狀態的變數也要確保有宣告到
 let settings = null;        
@@ -124,8 +125,20 @@ function drawGrid(viewKey) {
             if (y < viewTop || y > viewBottom) return;
 
             // --- 畫背景橫線 ---
-            ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
-            ctx.lineWidth = 1;
+            let isHovered = (st.id === hoveredStation);
+            let isSelected = (st.id === selectedStation);
+
+            if (isSelected) {
+                ctx.strokeStyle = "#FFD700"; // 點擊選中：亮黃色
+                ctx.lineWidth = 2.0;
+            } else if (isHovered) {
+                ctx.strokeStyle = isDarkMode ? "#FFFFFF" : "#000000"; // 懸停：高反差白色/黑色
+                ctx.lineWidth = 1.5;
+            } else {
+                ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0"; // 預設：低調的灰色
+                ctx.lineWidth = 1.0;
+            }
+
             ctx.beginPath();
             ctx.moveTo(CONFIG.paddingLeft, y);
             ctx.lineTo(CONFIG.paddingLeft + (1560 * CONFIG.scaleX), y);
@@ -906,8 +919,9 @@ function setupCanvasInteractions() {
         
         // 防呆：確保滑鼠真的在畫布範圍內
         if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
-            if (hoveredTrain !== null) {
+            if (hoveredTrain !== null || hoveredStation !== null) {
                 hoveredTrain = null;
+                hoveredStation = null;
                 wrapper.style.cursor = 'grab';
                 redrawAll();
             }
@@ -941,14 +955,55 @@ function setupCanvasInteractions() {
             }
         }
 
-        // 🌟 效能優化核心：只有當「懸停的火車發生改變時」，才重新繪製！
+        // ==========================================
+        // 🌟 新增：尋找滑鼠下方的車站橫線 (優先度排在火車後面)
+        // ==========================================
+        let closestStationId = null;
+        let minStationDist = 8; // Hover 的容錯距離 8px
+
+        if (!closestTrain) { // 如果滑鼠沒有碰到火車，才去檢查有沒有碰到車站
+            let presetKey = currentRouteView + "_view"; 
+            let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+            let copyStart = isCircular ? -1 : 0;
+            let copyEnd = isCircular ? 1 : 0;
+
+            for (let st_id in lookupY) {
+                let opts = lookupY[st_id];
+                for (let opt of opts) {
+                    for (let copy = copyStart; copy <= copyEnd; copy++) {
+                        // 🌟 把畫圖時的「偏移量」加回去算真實世界座標
+                        let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
+                        let actualStationY = opt.y + offsetY;
+                        let dy = Math.abs(worldY - actualStationY);
+
+                        if (dy < minStationDist) {
+                            minStationDist = dy;
+                            closestStationId = st_id;
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // 🌟 統整狀態改變與重繪邏輯
+        // ==========================================
+        let needsRedraw = false;
+
         if (hoveredTrain !== closestTrain) {
             hoveredTrain = closestTrain;
-            
-            // 改變滑鼠游標：有碰到火車就變成「手指頭 (pointer)」，沒有就恢復「手掌 (grab)」
-            wrapper.style.cursor = hoveredTrain ? 'pointer' : 'grab';
-            
-            redrawAll(); // 觸發重繪
+            needsRedraw = true;
+        }
+
+        if (hoveredStation !== closestStationId) {
+            hoveredStation = closestStationId;
+            needsRedraw = true;
+        }
+
+        // 只要火車或車站有狀態改變，就改變游標並重繪！
+        if (needsRedraw) {
+            wrapper.style.cursor = (hoveredTrain || hoveredStation) ? 'pointer' : 'grab';
+            redrawAll(); 
         }
     });
 
@@ -998,18 +1053,8 @@ function setupCanvasInteractions() {
             if (closestTrain) {
                 // 🌟 直接把這台車的物件存起來！
                 selectedTrain = closestTrain; 
-
+                selectedStation = null; // 點到火車就清空車站狀態
                 updateBottomPanel(selectedTrain);
-                
-                // 抓取車次號碼 (自動嘗試找 train_no 或 no，如果都沒有就顯示未知)
-                let trainNo = closestTrain.train_no || closestTrain.no || "未知";
-                
-                let htmlContent = `
-                    <div style="font-size: 15px; font-weight: bold; margin-bottom: 5px; color: #FFD700;">
-                        ${closestTrain.type} ${trainNo} 次
-                    </div>
-                    <hr style="border-top: 1px solid #555; margin: 6px 0;">
-                `;
             } else {
                 // ==========================================
                 // 🌟 新增：如果沒點到火車，判斷有沒有點到車站橫線！
@@ -1038,8 +1083,6 @@ function setupCanvasInteractions() {
                             let dy = Math.abs(worldY - actualStationY);
                             
                             // 🌟 關鍵修復 2：嚴格篩選「最小距離」！
-                            // 當發現距離比 minStationDist 小，就立刻把 minStationDist 更新成這個更小的數字！
-                            // 這樣就能保證最後留下來的一定是「最靠近」的那個，完美解決縮小後選錯站的問題。
                             if (dy < minStationDist) {
                                 minStationDist = dy; 
                                 closestStationId = st_id;
@@ -1092,33 +1135,25 @@ function setupCanvasInteractions() {
         const minScaleY = wrapperH / (loopKm || 1); 
 
         // 🌟 5. 終極等比例鎖定防護 (Aspect Ratio Lock)
-        if (zoom < 1) { // 只有在「縮小」時才需要防撞牆
-            // 計算 X 和 Y 各自還能容忍多小的縮放倍率
+        if (zoom < 1) { 
             const allowedZoomX = minScaleX / CONFIG.scaleX;
             const allowedZoomY = minScaleY / CONFIG.scaleY;
 
-            // 取比較「寬鬆」的極限 (Math.min)，這會允許畫面單邊留黑邊 (完美維持比例)
             let minAllowedZoom = Math.min(allowedZoomX, allowedZoomY);
-            
-            // 防止反彈：如果極限大於 1，代表畫面已經比螢幕小了，最多鎖死在 1 不准再縮
             if (minAllowedZoom > 1) minAllowedZoom = 1;
 
-            // 撞牆判定：如果這次縮小的幅度超過了極限，就強制踩煞車
             if (zoom < minAllowedZoom) {
                 zoom = minAllowedZoom;
             }
         }
 
-        // 提前阻斷：如果已經縮到極限，且使用者還在往下滾，直接中斷以節省效能
         if (zoom === 1 && e.deltaY > 0) return;
 
-        // 6. 將同一個 zoom 完美且平等地套用到 X 和 Y！(保證斜率絕對不變)
+        // 6. 將同一個 zoom 完美且平等地套用到 X 和 Y！
         CONFIG.scaleX *= zoom;
         CONFIG.scaleY *= zoom;
 
-        // --- 下面接續你原本的 // 5. 雙軸對齊核心 ---
         let targetX = (CONFIG.paddingLeft + dataX * CONFIG.scaleX) - mouseX;
-        // ... (保持不變) ...
         let targetY = (CONFIG.paddingTop + dataY * CONFIG.scaleY) - mouseY;
 
         // --- 6. X 軸邊界物理鎖定 ---
@@ -1132,27 +1167,22 @@ function setupCanvasInteractions() {
             camera.x = Math.max(minLimitX, Math.min(targetX, maxLimitX));
         }
 
-        // --- 🌟 7. Y 軸直接套用跟隨，不加邊界鎖死 ---
         camera.y = targetY;
 
         // 8. 絕對像素鎖定
         camera.x = Math.round(camera.x);
         camera.y = Math.round(camera.y);
 
-        // 🌟 9. [極度關鍵] 在檢查無限捲動前，強制更新 loopHeight！
-        // 如果你不更新這個，縮放時 checkInfiniteScroll 會用舊高度算中心點，導致畫面向上暴衝！
+        // 🌟 9. 更新 loopHeight
         if (loopKm > 0) {
-            // 請確認你原本是怎麼算 loopHeight 的，通常是這樣：
             loopHeight = loopKm * CONFIG.scaleY; 
         }
 
-        // 10. 處理 Y 軸無限循環
         checkInfiniteScroll();
         camera.y = Math.round(camera.y);
 
         requestRedraw();
     }, { passive: false });
-
 }
 
 function requestRedraw() {
