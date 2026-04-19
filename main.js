@@ -877,6 +877,7 @@ function setupCanvasInteractions() {
 
         // 🌟 沿著麵包屑尋找滑鼠下方的火車
         for (let train of timetable) { 
+            if (!activeTrainTypes.has(train.type)) continue;
             if (!train._hitPoints) continue;
 
             for (let i = 0; i < train._hitPoints.length - 1; i++) {
@@ -926,6 +927,7 @@ function setupCanvasInteractions() {
 
             // 🌟 沿著麵包屑尋找最近的火車！
             for (let train of timetable) { 
+                if (!activeTrainTypes.has(train.type)) continue;
                 if (!train._hitPoints) continue; // 如果沒有麵包屑就跳過
 
                 // 兩兩一組，連成線段來計算滑鼠距離
