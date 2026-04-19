@@ -1323,8 +1323,12 @@ function updateBottomPanel(train) {
                     `;
                 }
 
+                // 🌟 替換成這個可點擊版本：
                 stationsHtml += `
-                    <div style="display: flex; flex-direction: column; align-items: center; min-width: 45px;">
+                    <div onclick="window.triggerSelectStation('${seg.s[i]}')" 
+                         style="display: flex; flex-direction: column; align-items: center; min-width: 45px; cursor: pointer; padding: 4px; border-radius: 6px; transition: background 0.2s;"
+                         onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                         onmouseout="this.style.background='transparent'">
                         <div style="font-size: 14px; margin-bottom: 4px; color: #FFFFFF; font-weight: bold;">${stName}</div>
                         <div style="font-size: 12px; color: #AAAAAA; line-height: 1.2;">${arrT}</div>
                         <div style="font-size: 12px; color: #AAAAAA; line-height: 1.2;">${depT}</div>
@@ -1454,6 +1458,27 @@ function optimizeTrainTimesForDisplay(trainsData) {
         });
     });
 }
+
+// ==========================================
+// 🔄 跨面板互動觸發器 (全域函數)
+// ==========================================
+window.triggerSelectTrain = function(trainNo) {
+    let targetTrain = timetable.find(t => (t.no === trainNo || t.train_no === trainNo));
+    if (targetTrain) {
+        selectedTrain = targetTrain;
+        selectedStation = null;
+        updateBottomPanel(selectedTrain);
+        redrawAll(); 
+    }
+};
+
+// 🌟 確保你有這個函數！它是用來跳轉回車站面板的
+window.triggerSelectStation = function(st_id) {
+    selectedStation = st_id;
+    selectedTrain = null;
+    updateBottomPanelStation(selectedStation); // 呼叫車站面板
+    redrawAll(); // 重繪畫布，讓黃色選取線跳到該車站
+};
 
 // ==========================================
 // 系統啟動點 (init)
