@@ -515,7 +515,7 @@ function drawCurrentTimeLine() {
     ctx.fillStyle = "rgba(255, 80, 80, 0.9)";
     ctx.font = "bold 14px 'GlowSans', sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText(now.toLocaleTimeString(), x + 8, labelY);
+    ctx.fillText(now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0'), x + 8, labelY);
 
     ctx.restore();
 }
