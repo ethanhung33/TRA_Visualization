@@ -481,6 +481,46 @@ function drawTrains() {
 }
 
 // ==========================================
+// 🕒 繪製現在時間線
+// ==========================================
+function drawCurrentTimeLine() {
+    const now = new Date();
+    // 將現在時間轉換成分鐘數 (0~1440)
+    let currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    let x = timeToX(currentMinutes);
+
+    const viewTop = camera.y;
+    const viewBottom = camera.y + canvas.height;
+    const viewLeft = camera.x;
+    const viewRight = camera.x + canvas.width;
+
+    // 如果時間線在畫面外，就不用畫
+    if (x < viewLeft || x > viewRight) return;
+
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
+
+    ctx.beginPath();
+    ctx.strokeStyle = "rgba(255, 80, 80, 0.9)"; // 亮紅色
+    ctx.lineWidth = 2.0;
+    ctx.setLineDash([6, 4]); // 虛線效果
+
+    ctx.moveTo(x, viewTop);
+    ctx.lineTo(x, viewBottom);
+    ctx.stroke();
+
+    // 畫個小標籤提示
+    let labelY = Math.max(viewTop + 60, CONFIG.paddingTop);
+    ctx.fillStyle = "rgba(255, 80, 80, 0.9)";
+    ctx.font = "bold 14px 'GlowSans', sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("現在時間", x + 8, labelY);
+
+    ctx.restore();
+}
+
+// ==========================================
 // 5. UI 構建與事件綁定 (完美底色版)
 // ==========================================
 
@@ -701,7 +741,8 @@ function redrawAll() {
     clampCamera();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid(currentRouteView); 
-    drawTrains();               
+    drawTrains();
+    drawCurrentTimeLine();      
 }
 
 // ==========================================
@@ -1302,7 +1343,10 @@ async function init() {
         
         // 🌟 4. 最終邊界校正與完美渲染
         clampCamera(); 
-        redrawAll();   
+        redrawAll();
+        setInterval(() => {
+            requestAnimationFrame(redrawAll);
+        }, 60000);
 
     } catch (e) {
         console.error("載入失敗:", e);
