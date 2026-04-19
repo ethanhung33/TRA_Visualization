@@ -1012,16 +1012,33 @@ function setupCanvasInteractions() {
                 let closestStationId = null;
                 let minStationDist = 15; // Y軸容錯距離 15px
 
-                // 遍歷所有有畫在畫面上的車站 Y 座標 (利用你之前的 lookupY)
+                // 取得現在的視圖狀態 (判斷是否為環島循環模式)
+                let presetKey = currentRouteView + "_view"; 
+                let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+                let copyStart = isCircular ? -1 : 0;
+                let copyEnd = isCircular ? 1 : 0;
+
+                // 遍歷所有有畫在畫面上的車站 Y 座標
                 for (let st_id in lookupY) {
                     let opts = lookupY[st_id];
+                    
                     for (let opt of opts) {
-                        // 處理循環視圖的 Y 軸差距計算
-                        let dy = Math.abs(worldY - opt.y);
-                        // 如果有環狀模式，這裡可以加上 % loopHeight 的精密計算，但一般線性距離就夠用了
-                        if (dy < minStationDist) {
-                            minStationDist = dy;
-                            closestStationId = st_id;
+                        // 🌟 關鍵修復 1：必須把畫圖時的「偏移量 (padding 與 圈數)」加回去！
+                        for (let copy = copyStart; copy <= copyEnd; copy++) {
+                            // 這行跟 drawGrid 裡面的 y 座標算式一模一樣
+                            let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
+                            let actualStationY = opt.y + offsetY; // 這才是畫面上真正的那條線！
+                            
+                            // 計算滑鼠世界座標與真實線條的 Y 軸差距
+                            let dy = Math.abs(worldY - actualStationY);
+                            
+                            // 🌟 關鍵修復 2：嚴格篩選「最小距離」！
+                            // 當發現距離比 minStationDist 小，就立刻把 minStationDist 更新成這個更小的數字！
+                            // 這樣就能保證最後留下來的一定是「最靠近」的那個，完美解決縮小後選錯站的問題。
+                            if (dy < minStationDist) {
+                                minStationDist = dy; 
+                                closestStationId = st_id;
+                            }
                         }
                     }
                 }
@@ -1029,7 +1046,7 @@ function setupCanvasInteractions() {
                 if (closestStationId) {
                     selectedStation = closestStationId;
                     selectedTrain = null; // 點到車站就清空火車狀態
-                    updateBottomPanelStation(selectedStation); // 🌟 呼叫車站專屬面板
+                    updateBottomPanelStation(selectedStation); // 呼叫車站專屬面板
                 } else {
                     // 點到空白處，全部清空
                     selectedTrain = null; 
