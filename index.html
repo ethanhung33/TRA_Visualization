@@ -11,7 +11,11 @@
 
 <div id="app">
     <div id="left-panel">
-        <div id="canvas-wrapper">
+        <div id="canvas-wrapper" style="position: relative;"> <div id="loading-overlay">
+                <div class="spinner"></div>
+                <div style="color: #FFF; font-size: 14px; font-weight: bold; letter-spacing: 2px;">運行圖載入中...</div>
+            </div>
+
             <canvas id="diaCanvas"></canvas>
             
             <div id="crosshair-x" style="position: absolute; left: 0; height: 1px; background: rgba(255, 165, 0, 0.8); pointer-events: none; display: none; z-index: 50;"></div>

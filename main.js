@@ -576,34 +576,6 @@ function handleRouteSwitch(newRoute) {
     requestAnimationFrame(redrawAll);
 }
 
-// ==========================================
-// 🌟 1. 畫布尺寸校正器 (放在全域，任何地方都能呼叫)
-// ==========================================
-function resizeCanvas() {
-    const wrapper = document.getElementById('canvas-wrapper');
-    const canvas = document.getElementById('canvas'); // 確保有抓到畫布
-    if (!wrapper || !canvas) return;
-
-    const squishRatio = 1.3; // 🌟 你的完美壓扁比例
-
-    const targetInternalWidth = wrapper.clientWidth * squishRatio;
-    const targetInternalHeight = wrapper.clientHeight;
-
-    if (canvas.width !== targetInternalWidth || canvas.height !== targetInternalHeight) {
-        canvas.width = targetInternalWidth;
-        canvas.height = targetInternalHeight;
-        
-        canvas.style.width = wrapper.clientWidth + 'px';
-        canvas.style.height = wrapper.clientHeight + 'px';
-        
-        if (typeof redrawAll === 'function') redrawAll();
-    }
-}
-
-// ------------------------------------------
-// 往下是你原本的 buildUI() 函數
-// function buildUI() { ... }
-
 function buildUI() {
     // ---- 取得當下主題色碼的輔助函數 ----
     function getColor(colorsArray) {
@@ -756,32 +728,22 @@ function buildUI() {
     if (sidebar && toggleBtn) {
         toggleBtn.addEventListener('click', () => {
             sidebar.classList.toggle('collapsed');
+            
+            // 切換箭頭方向
             toggleBtn.textContent = sidebar.classList.contains('collapsed') ? '‹' : '›';
 
-            // 等待動畫跑完 (0.3秒)，呼叫我們寫好的校正器！
+            // 等待動畫跑完 (0.3秒)，重新測量並放大畫布
             setTimeout(() => {
-                resizeCanvas(); 
+                const wrapper = document.getElementById('canvas-wrapper');
+                if (wrapper) {
+                    canvas.width = wrapper.clientWidth;  
+                    canvas.height = wrapper.clientHeight;
+                    clampCamera();
+                    redrawAll();
+                }
             }, 300); 
         });
     }
-
-    // ==========================================
-    // 🌟 2. 綁定觀測器 (自動監聽視窗縮放)
-    // ==========================================
-    const wrapper = document.getElementById('canvas-wrapper'); 
-    if (wrapper && typeof ResizeObserver !== 'undefined') {
-        const resizeObserver = new ResizeObserver(() => {
-            resizeCanvas(); 
-        });
-        resizeObserver.observe(wrapper);
-    } else {
-        window.addEventListener('resize', resizeCanvas);
-    }
-
-    // ==========================================
-    // 🌟 3. 網頁載入完成，立刻強制執行第一次壓扁！
-    // ==========================================
-    resizeCanvas();
 }
 
 // ==========================================
@@ -1702,6 +1664,7 @@ async function init() {
         setupBottomBarScrolling();
 
         // 🌟 1. 先偷偷畫一次，為了讓系統算出正確的 loopKm (總里程數)
+        // 💡 提醒：為了避免畫布模糊，記得確認你在這行之前，有讓 canvas.width = canvas.clientWidth 喔！
         redrawAll();       
 
         // 🌟 2. 啟動 Auto Fit (自動計算完美比例)
@@ -1729,12 +1692,29 @@ async function init() {
         // 🌟 4. 最終邊界校正與完美渲染
         clampCamera(); 
         redrawAll();
+        
+        // ==========================================
+        // 🌟 5. 圖畫完了！把轉圈圈優雅地隱藏起來
+        // ==========================================
+        setTimeout(() => {
+            const loader = document.getElementById('loading-overlay');
+            if (loader) {
+                loader.classList.add('hidden'); // 觸發 CSS 淡出動畫
+            }
+        }, 100); 
+
+        // 設定每分鐘自動重繪 (讓時間軸往前推)
         setInterval(() => {
             requestAnimationFrame(redrawAll);
         }, 60000);
 
     } catch (e) {
         console.error("載入失敗:", e);
+        // 🌟 防呆體驗：如果網路斷線或資料抓錯，把轉圈圈換成錯誤提示，不要讓使用者一直等
+        const loader = document.getElementById('loading-overlay');
+        if (loader) {
+            loader.innerHTML = `<div style="color: #FF6666; font-size: 16px; font-weight: bold;">連線異常，載入失敗！<br><span style="font-size:12px; color:#AAA;">請檢查網路或重新整理 (F5)</span></div>`;
+        }
     }
 }
 

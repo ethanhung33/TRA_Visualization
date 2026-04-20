@@ -351,3 +351,41 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     opacity: 1;
     visibility: visible;
 }
+
+/* ========================================== */
+/* 🌟 載入中轉圈圈 (Loading Spinner) 樣式 */
+/* ========================================== */
+#loading-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #1a1a1a; /* 深色背景遮罩 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100; /* 確保它蓋在畫布最上面 */
+    transition: opacity 0.5s ease, visibility 0.5s ease; /* 消失時會有柔和的淡出動畫 */
+}
+
+/* 轉圈圈本體 */
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-top: 4px solid #66B2FF; /* 藍色轉動條 */
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 🌟 當 JS 加上這個 class 時，遮罩就會優雅地消失 */
+#loading-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
