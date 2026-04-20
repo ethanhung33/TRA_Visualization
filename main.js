@@ -576,6 +576,34 @@ function handleRouteSwitch(newRoute) {
     requestAnimationFrame(redrawAll);
 }
 
+// ==========================================
+// 🌟 1. 畫布尺寸校正器 (放在全域，任何地方都能呼叫)
+// ==========================================
+function resizeCanvas() {
+    const wrapper = document.getElementById('canvas-wrapper');
+    const canvas = document.getElementById('canvas'); // 確保有抓到畫布
+    if (!wrapper || !canvas) return;
+
+    const squishRatio = 1.3; // 🌟 你的完美壓扁比例
+
+    const targetInternalWidth = wrapper.clientWidth * squishRatio;
+    const targetInternalHeight = wrapper.clientHeight;
+
+    if (canvas.width !== targetInternalWidth || canvas.height !== targetInternalHeight) {
+        canvas.width = targetInternalWidth;
+        canvas.height = targetInternalHeight;
+        
+        canvas.style.width = wrapper.clientWidth + 'px';
+        canvas.style.height = wrapper.clientHeight + 'px';
+        
+        if (typeof redrawAll === 'function') redrawAll();
+    }
+}
+
+// ------------------------------------------
+// 往下是你原本的 buildUI() 函數
+// function buildUI() { ... }
+
 function buildUI() {
     // ---- 取得當下主題色碼的輔助函數 ----
     function getColor(colorsArray) {
@@ -728,22 +756,32 @@ function buildUI() {
     if (sidebar && toggleBtn) {
         toggleBtn.addEventListener('click', () => {
             sidebar.classList.toggle('collapsed');
-            
-            // 切換箭頭方向
             toggleBtn.textContent = sidebar.classList.contains('collapsed') ? '‹' : '›';
 
-            // 等待動畫跑完 (0.3秒)，重新測量並放大畫布
+            // 等待動畫跑完 (0.3秒)，呼叫我們寫好的校正器！
             setTimeout(() => {
-                const wrapper = document.getElementById('canvas-wrapper');
-                if (wrapper) {
-                    canvas.width = wrapper.clientWidth;  
-                    canvas.height = wrapper.clientHeight;
-                    clampCamera();
-                    redrawAll();
-                }
+                resizeCanvas(); 
             }, 300); 
         });
     }
+
+    // ==========================================
+    // 🌟 2. 綁定觀測器 (自動監聽視窗縮放)
+    // ==========================================
+    const wrapper = document.getElementById('canvas-wrapper'); 
+    if (wrapper && typeof ResizeObserver !== 'undefined') {
+        const resizeObserver = new ResizeObserver(() => {
+            resizeCanvas(); 
+        });
+        resizeObserver.observe(wrapper);
+    } else {
+        window.addEventListener('resize', resizeCanvas);
+    }
+
+    // ==========================================
+    // 🌟 3. 網頁載入完成，立刻強制執行第一次壓扁！
+    // ==========================================
+    resizeCanvas();
 }
 
 // ==========================================
