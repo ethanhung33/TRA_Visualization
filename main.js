@@ -1410,9 +1410,19 @@ function updateBottomPanelStation(st_id) {
             for (let i = 0; i < seg.s.length; i++) {
                 if (seg.s[i] === st_id && seg.v[i] !== 2 && seg.v[i] !== 3) {
                     let depT = seg.t[i * 2 + 1];
-                    let diff = ((depT - currentMinutes) % 1440 + 1440) % 1440;
+                    
+                    // ==========================================
+                    // 🌟 鐵道標準「營業日」時間轉換
+                    // 將凌晨 00:00 ~ 01:59 視為當日的 24:00 ~ 25:59
+                    // ==========================================
+                    let opsNow = currentMinutes < 120 ? currentMinutes + 1440 : currentMinutes;
+                    let opsDep = depT < 120 ? depT + 1440 : depT;
+                    
+                    // 重新計算最精準的倒數等待分鐘數
+                    let diff = opsDep - opsNow;
 
-                    if (diff >= 0 && diff <= 120) {
+                    // 🌟 只要這班車還沒開 (diff >= 0)，而且屬於今天收班前的車，就全部顯示！
+                    if (diff >= 0 && opsDep >= opsNow) {
                         
                         // ==========================================
                         // 🌟 穿透雷達看方向 (只管大方向，不管下一站是誰)
