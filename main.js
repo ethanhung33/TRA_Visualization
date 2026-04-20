@@ -1638,12 +1638,54 @@ window.triggerSelectTrain = function(trainNo) {
     }
 };
 
-// 🌟 確保你有這個函數！它是用來跳轉回車站面板的
+// ==========================================
+// 🔄 跨面板互動觸發器 (加入自動置中功能)
+// ==========================================
 window.triggerSelectStation = function(st_id) {
     selectedStation = st_id;
     selectedTrain = null;
     updateBottomPanelStation(selectedStation); // 呼叫車站面板
-    redrawAll(); // 重繪畫布，讓黃色選取線跳到該車站
+
+    // 🌟 新增：計算該車站的座標，並讓攝影機自動置中對準它！
+    if (lookupY[st_id] && lookupY[st_id].length > 0) {
+        
+        // 1. 取得車站的基礎 Y 座標 (這是在 drawGrid 時算出來的純資料座標)
+        let rawY = lookupY[st_id][0].y;
+        
+        // 2. 加上頂部 padding 轉換成真實的「畫布世界座標」
+        let targetY = rawY + CONFIG.paddingTop;
+        
+        // --- (處理環島循環線的防呆判斷) ---
+        let presetKey = currentRouteView + "_view"; 
+        let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+        
+        if (isCircular && loopHeight > 0) {
+            let currentCenterY = camera.y + (canvas.height / 2);
+            let closestY = targetY;
+            let minDist = Infinity;
+            
+            // 掃描上、中、下三圈，找出離目前視角最近的那條線
+            for (let copy = -1; copy <= 1; copy++) {
+                let actualY = rawY + ((copy * loopHeight) + CONFIG.paddingTop + loopHeight);
+                let dist = Math.abs(actualY - currentCenterY);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestY = actualY;
+                }
+            }
+            targetY = closestY;
+        }
+        // ------------------------------------
+
+        // 🌟 3. 核心運算：攝影機的 Y 點 = 目標物 Y 點 - (螢幕高度的一半)
+        camera.y = targetY - (canvas.height / 2);
+        
+        // 4. 清除小數點，並確保鏡頭不會超出地圖邊界 (撞牆保護)
+        camera.y = Math.round(camera.y);
+        clampCamera(); 
+    }
+
+    redrawAll(); // 重繪畫布，讓畫面跳轉並畫上黃色選取線
 };
 
 // ==========================================
