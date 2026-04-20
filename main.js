@@ -1366,25 +1366,28 @@ function updateBottomPanel(train) {
                 let arrT = formatTimeDisplay(seg.t[i * 2]);     
                 let depT = formatTimeDisplay(seg.t[i * 2 + 1]); 
 
+                // 在產生 stationsHtml 的迴圈內
+                stationsHtml += `
+                    <div onclick="window.triggerSelectStation('${seg.s[i]}')" 
+                        style="display: flex; flex-direction: column; align-items: center; min-width: 70px; cursor: pointer; padding: 8px; border-radius: 8px; transition: background 0.2s;">
+                        
+                        <div style="font-size: 20px; margin-bottom: 6px; color: #FFFFFF; font-weight: bold; letter-spacing: 1px;">
+                            ${stName}
+                        </div>
+                        
+                        <div style="font-size: 15px; color: #BBB; line-height: 1.4;">${arrT}</div>
+                        <div style="font-size: 15px; color: #BBB; line-height: 1.4;">${depT}</div>
+                    </div>
+                `;
+
+                // 🌟 別忘了中間的箭頭也可以加大
                 if (stopCount > 0) {
                     stationsHtml += `
-                        <div style="display: flex; align-items: center; justify-content: center; margin: 0 10px; color: #555; font-size: 14px;">
+                        <div style="display: flex; align-items: center; justify-content: center; margin: 0 12px; color: #666; font-size: 20px;">
                             ➔
                         </div>
                     `;
                 }
-
-                // 🌟 替換成這個可點擊版本：
-                stationsHtml += `
-                    <div onclick="window.triggerSelectStation('${seg.s[i]}')" 
-                         style="display: flex; flex-direction: column; align-items: center; min-width: 45px; cursor: pointer; padding: 4px; border-radius: 6px; transition: background 0.2s;"
-                         onmouseover="this.style.background='rgba(255,255,255,0.2)'"
-                         onmouseout="this.style.background='transparent'">
-                        <div style="font-size: 14px; margin-bottom: 4px; color: #FFFFFF; font-weight: bold;">${stName}</div>
-                        <div style="font-size: 12px; color: #AAAAAA; line-height: 1.2;">${arrT}</div>
-                        <div style="font-size: 12px; color: #AAAAAA; line-height: 1.2;">${depT}</div>
-                    </div>
-                `;
                 stopCount++;
             }
         });
@@ -1393,11 +1396,12 @@ function updateBottomPanel(train) {
     // 3. 塞進現有的 bottom-bar
     panel.innerHTML = `
         <div style="display: flex; width: 100%; height: 100%; align-items: center;">
-            <div style="min-width: 100px; display: flex; align-items: center; padding-right: 15px; border-right: 1px solid #444; font-size: 18px; font-weight: bold; color: ${trainColor}; flex-shrink: 0;">
+            
+            <div style="min-width: 150px; display: flex; align-items: center; padding-right: 20px; border-right: 2px solid #444; font-size: 32px; font-weight: 900; color: ${trainColor}; flex-shrink: 0; letter-spacing: 1px;">
                 ${trainType} ${trainNo}
             </div>
             
-            <div id="bottom-scroll-container" style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 15px; white-space: nowrap; scrollbar-width: none;">
+            <div id="bottom-scroll-container" style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 20px; white-space: nowrap; scrollbar-width: none;">
                 ${stationsHtml}
             </div>
         </div>
