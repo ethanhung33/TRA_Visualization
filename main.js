@@ -1365,6 +1365,15 @@ function updateBottomPanel(train) {
                 // 如果你沒有 formatTimeDisplay 函數，請確保把它也加進 main.js 喔！
                 let arrT = formatTimeDisplay(seg.t[i * 2]);     
                 let depT = formatTimeDisplay(seg.t[i * 2 + 1]); 
+                
+                // 🌟 別忘了中間的箭頭也可以加大
+                if (stopCount > 0) {
+                    stationsHtml += `
+                        <div style="display: flex; align-items: center; justify-content: center; margin: 0 12px; color: #666; font-size: 20px;">
+                            ➔
+                        </div>
+                    `;
+                }
 
                 // 在產生 stationsHtml 的迴圈內
                 stationsHtml += `
@@ -1380,14 +1389,7 @@ function updateBottomPanel(train) {
                     </div>
                 `;
 
-                // 🌟 別忘了中間的箭頭也可以加大
-                if (stopCount > 0) {
-                    stationsHtml += `
-                        <div style="display: flex; align-items: center; justify-content: center; margin: 0 12px; color: #666; font-size: 20px;">
-                            ➔
-                        </div>
-                    `;
-                }
+                
                 stopCount++;
             }
         });
