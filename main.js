@@ -1666,6 +1666,12 @@ async function init() {
         // 讓瀏覽器停頓 0.1 秒，確保側邊欄就定位，畫布不再被推擠
         // ==========================================
         await new Promise(resolve => setTimeout(resolve, 100));
+    
+        // ==========================================
+        // 🌟 終極修復 2：等待「所有自訂字體」下載完畢！
+        // 解決 Canvas 一開始拿不到字體，印出醜醜預設字的 Bug
+        // ==========================================
+        await document.fonts.ready;
 
         // 重新精準測量並設定畫布內部解析度
         const canvas = document.getElementById('diaCanvas');
