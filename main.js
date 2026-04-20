@@ -1509,31 +1509,49 @@ function updateBottomPanelStation(st_id) {
     upboundTrains.sort((a, b) => a.depTime - b.depTime);
     downboundTrains.sort((a, b) => a.depTime - b.depTime);
 
-    // 🌟 3. 建立全新「超緊湊兩行式」卡片 UI
+    // ==========================================
+    // 🌟 動態主題調色盤 (根據 isDarkMode 自動變色)
+    // ==========================================
+    const theme = {
+        // 卡片底色 (深色用 5% 白，淺色用 5% 黑)
+        cardBg: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+        // 卡片懸停底色
+        cardHoverBg: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)',
+        // 主要文字 (站名、時間)
+        textMain: isDarkMode ? '#FFFFFF' : '#222222',
+        // 次要文字 (往 XX、即將發車)
+        textSub: isDarkMode ? '#AAAAAA' : '#666666',
+        // 分隔線顏色
+        border: isDarkMode ? '#444444' : '#CCCCCC',
+        // 🌟 倒數時間顏色 (取代原本的黃色：深色模式用亮灰，淺色模式用深灰)
+        timeGray: isDarkMode ? '#BBBBBB' : '#555555' 
+    };
+
+    // 🌟 3. 建立全新「超緊湊兩行式」卡片 UI (套用主題色)
     const buildRowHtml = (trains) => {
         if (trains.length === 0) {
-            return `<div style="color: #666; font-size: 13px; margin-left: 10px; font-style: italic;">近期無班次</div>`;
+            return `<div style="color: ${theme.textSub}; font-size: 13px; margin-left: 10px; font-style: italic;">近期無班次</div>`;
         }
         return trains.map(item => {
-            let tColor = settings?.train_color?.[item.train.type]?.[0] || "#FFF";
+            // 如果沒設定車種顏色，就用主文字顏色
+            let tColor = settings?.train_color?.[item.train.type]?.[0] || theme.textMain;
             let timeStr = formatTimeDisplay(item.depTime);
             let displayDiff = Math.floor(item.diff); 
 
-            // 使用 Flexbox 左右對齊，把 4 行壓平成 2 行
             return `
                 <div onclick="window.triggerSelectTrain('${item.trainNo}')" 
-                     style="display: flex; flex-direction: column; justify-content: center; min-width: 120px; margin: 0 4px; padding: 4px 8px; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer; border: 1px solid transparent; line-height: 1.2;"
-                     onmouseover="this.style.background='rgba(255,255,255,0.15)'; this.style.borderColor='${tColor}'"
-                     onmouseout="this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'">
+                     style="display: flex; flex-direction: column; justify-content: center; min-width: 120px; margin: 0 4px; padding: 4px 8px; background: ${theme.cardBg}; border-radius: 6px; cursor: pointer; border: 1px solid transparent; line-height: 1.2;"
+                     onmouseover="this.style.background='${theme.cardHoverBg}'; this.style.borderColor='${tColor}'"
+                     onmouseout="this.style.background='${theme.cardBg}'; this.style.borderColor='transparent'">
                     
                     <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px;">
-                        <span style="font-size: 15px; color: #FFFFFF; font-weight: bold;">${timeStr}</span>
+                        <span style="font-size: 15px; color: ${theme.textMain}; font-weight: bold;">${timeStr}</span>
                         <span style="font-size: 11px; color: ${tColor}; font-weight: bold;">${item.train.type} ${item.trainNo}</span>
                     </div>
                     
                     <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                        <span style="font-size: 12px; color: #FFF;">往 ${item.destName}</span>
-                        <span style="font-size: 11px; color: #FFD700; font-weight: bold;">約 ${displayDiff} 分</span>
+                        <span style="font-size: 12px; color: ${theme.textSub};">往 ${item.destName}</span>
+                        <span style="font-size: 11px; color: ${theme.timeGray}; font-weight: bold;">約 ${displayDiff} 分</span>
                     </div>
 
                 </div>
@@ -1541,20 +1559,20 @@ function updateBottomPanelStation(st_id) {
         }).join('');
     };
 
-    // 4. 組裝最終介面 (固定雙向，排版更緊湊)
+    // 4. 組裝最終介面 (全面套用主題色)
     panel.innerHTML = `
-        <div style="display: flex; width: 100%; height: 100%; align-items: center;">
-            <div style="min-width: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-right: 15px; border-right: 1px solid #444; flex-shrink: 0;">
-                <div style="font-size: 20px; font-weight: bold; color: #FFF;">${stName}</div>
-                <div style="font-size: 12px; color: #AAA; margin-top: 4px;">即將發車</div>
+        <div style="display: flex; width: 100%; height: 100%; align-items: center; color: ${theme.textMain};">
+            <div style="min-width: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-right: 15px; border-right: 1px solid ${theme.border}; flex-shrink: 0;">
+                <div style="font-size: 20px; font-weight: bold;">${stName}</div>
+                <div style="font-size: 12px; color: ${theme.textSub}; margin-top: 4px;">即將發車</div>
             </div>
 
-            <div style="display: flex; flex-direction: column; justify-content: space-evenly; height: 100%; padding: 5px 10px 5px 15px; border-right: 1px solid #333; flex-shrink: 0; gap: 8px;">
-                <div style="color: #66B2FF; font-size: 13px; font-weight: bold; white-space: nowrap;">上行 ▲</div>
-                <div style="color: #FF9999; font-size: 13px; font-weight: bold; white-space: nowrap;">下行 ▼</div>
+            <div style="display: flex; flex-direction: column; justify-content: center; height: 100%; padding: 0 10px 0 15px; border-right: 1px solid ${theme.border}; flex-shrink: 0; gap: 10px;">
+                <div style="color: #66B2FF; font-size: 13px; font-weight: bold; white-space: nowrap;">▲ 上行</div>
+                <div style="color: #FF9999; font-size: 13px; font-weight: bold; white-space: nowrap;">▼ 下行</div>
             </div>
 
-            <div id="bottom-scroll-container" style="flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; height: 100%; overflow-x: auto; padding: 6px 10px; scrollbar-width: none; gap: 6px;">
+            <div id="bottom-scroll-container" style="flex: 1; display: flex; flex-direction: column; justify-content: center; height: 100%; overflow-x: auto; overflow-y: hidden; padding: 0 10px; scrollbar-width: none; gap: 4px;">
                 <div style="display: flex; align-items: center;">
                     ${buildRowHtml(upboundTrains)}
                 </div>
