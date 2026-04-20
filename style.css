@@ -73,19 +73,22 @@ body {
 
 /* 底部資訊列 */
 #bottom-bar {
-    height: 120px !important; /* 🌟 這裡的數值要跟上面 JS 設的一樣 */
-    min-height: 120px !important;
-    max-height: 120px !important;
-    /* 🌟 禁止 Flexbox 擠壓此區域 */
+    /* 🌟 核心：一進網頁就佔好 150px，不管裡面有沒有字 */
+    height: 150px !important;
+    min-height: 150px !important;
+    max-height: 150px !important;
+    
+    /* 🌟 防止被 Flexbox 壓縮 */
     flex-shrink: 0; 
 
     background-color: #2d2d2d;
     display: flex;
     align-items: center;
-    padding: 0 25px;
+    padding: 0 20px;
     border-top: 1px solid #444;
-    overflow: hidden; /* 防止內容過多時撐開 */
+    overflow: hidden;
 }
+
 #bottom-bar h2 { 
     margin: 0; 
     font-size: 20px; 
