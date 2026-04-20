@@ -1394,11 +1394,15 @@ function updateBottomPanelStation(st_id) {
     let upboundTrains = [];
     let downboundTrains = [];
 
+    let processedTrains = new Set();
+
     // 1. 尋找即將發車的班次
     timetable.forEach(train => {
         if (!activeTrainTypes.has(train.type) || !train.segments) return;
 
         let trainNo = train.no || train.train_no || "未知";
+
+        if (processedTrains.has(trainNo)) return;
 
         for (let segIdx = 0; segIdx < train.segments.length; segIdx++) {
             let seg = train.segments[segIdx];
@@ -1463,6 +1467,10 @@ function updateBottomPanelStation(st_id) {
 
                         if (isUpbound) upboundTrains.push(trainData);
                         else downboundTrains.push(trainData);
+
+                        processedTrains.add(trainNo);
+                        isAdded = true;
+                        break; // 跳出車站掃描的迴圈
                     }
                 }
             }
@@ -1514,8 +1522,8 @@ function updateBottomPanelStation(st_id) {
             </div>
 
             <div style="display: flex; flex-direction: column; justify-content: space-evenly; height: 100%; padding: 5px 10px 5px 15px; border-right: 1px solid #333; flex-shrink: 0; gap: 8px;">
-                <div style="color: #66B2FF; font-size: 13px; font-weight: bold; white-space: nowrap;">北上 ▲</div>
-                <div style="color: #FF9999; font-size: 13px; font-weight: bold; white-space: nowrap;">南下 ▼</div>
+                <div style="color: #66B2FF; font-size: 13px; font-weight: bold; white-space: nowrap;">上行 ▲</div>
+                <div style="color: #FF9999; font-size: 13px; font-weight: bold; white-space: nowrap;">下行 ▼</div>
             </div>
 
             <div id="bottom-scroll-container" style="flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; height: 100%; overflow-x: auto; padding: 6px 10px; scrollbar-width: none; gap: 6px;">
