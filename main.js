@@ -1373,7 +1373,7 @@ function updateBottomPanel(train) {
                 if (currentStationId === lastStationId) {
                     continue;
                 }
-                let lastStationId = currentStationId;
+                lastStationId = currentStationId;
 
                 let stName = getStationName(seg.s[i]);
                 // 如果你沒有 formatTimeDisplay 函數，請確保把它也加進 main.js 喔！
