@@ -644,6 +644,22 @@ function buildUI() {
 
     trainTypeContainer.innerHTML = ''; 
     
+    // ==========================================
+    // 🌟 新增：連動更新底部面板的專屬函數
+    // ==========================================
+    const syncBottomPanel = () => {
+        if (selectedStation) {
+            // 如果正在看車站面板，直接重新整理
+            updateBottomPanelStation(selectedStation);
+        } else if (selectedTrain) {
+            // 如果正在看火車面板，但該車種被取消勾選了，就清空面板
+            if (!activeTrainTypes.has(selectedTrain.type)) {
+                selectedTrain = null;
+                updateBottomPanel(null);
+            }
+        }
+    };
+
     // 4. 使用排好序的 sortedTypes 來生成按鈕
     sortedTypes.forEach(type => {
         activeTrainTypes.add(type);
@@ -654,22 +670,17 @@ function buildUI() {
         
         // 🌟 車種按鈕的配色邏輯
         const updateTrainBtnStyle = () => {
-            // 定義未選取時的基礎底色
             let defaultBg = isDarkMode ? "#444444" : "#E0E0E0";
             let defaultBorder = isDarkMode ? "#555555" : "#CCCCCC";
             let defaultText = isDarkMode ? "#CCCCCC" : "#000000";
-
-            // 定義彩色按鈕上面的字體顏色
             let selectedText = isDarkMode ? "#000000" : "#FFFFFF";
 
             if (activeTrainTypes.has(type)) {
-                // 有勾選：塗上 JSON 顏色 + 動態字體色
                 let tColor = getColor(settings?.train_color?.[type]);
                 btn.style.backgroundColor = tColor;
                 btn.style.borderColor = tColor;
                 btn.style.color = selectedText;
             } else {
-                // 未勾選：套用對應主題的灰底
                 btn.style.backgroundColor = defaultBg;
                 btn.style.borderColor = defaultBorder;
                 btn.style.color = defaultText;
@@ -683,21 +694,28 @@ function buildUI() {
             if (activeTrainTypes.has(type)) activeTrainTypes.delete(type);
             else activeTrainTypes.add(type);
             updateTrainBtnStyle();
+            
+            syncBottomPanel(); // 🌟 1. 單一按鈕點擊時：同步更新面板！
             redrawAll();
         });
         trainTypeContainer.appendChild(btn);
     });
 
-    // 全選 / 全部不選 (這裡也要記得改成 sortedTypes)
+    // 全選 
     btnAllTrains.addEventListener('click', () => {
         activeTrainTypes = new Set(sortedTypes);
         document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
+        
+        syncBottomPanel(); // 🌟 2. 全選時：同步更新面板！
         redrawAll();
     });
 
+    // 全部不選
     btnNoTrains.addEventListener('click', () => {
         activeTrainTypes.clear();
         document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
+        
+        syncBottomPanel(); // 🌟 3. 全部不選時：同步更新面板！
         redrawAll();
     });
     
