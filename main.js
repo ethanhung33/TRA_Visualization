@@ -1504,18 +1504,18 @@ function updateBottomPanelStation(st_id) {
             // 使用 Flexbox 左右對齊，把 4 行壓平成 2 行
             return `
                 <div onclick="window.triggerSelectTrain('${item.trainNo}')" 
-                     style="display: flex; flex-direction: column; justify-content: center; min-width: 130px; margin: 0 4px; padding: 6px 10px; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer; border: 1px solid transparent; line-height: 1.5;"
+                     style="display: flex; flex-direction: column; justify-content: center; min-width: 120px; margin: 0 4px; padding: 4px 8px; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer; border: 1px solid transparent; line-height: 1.2;"
                      onmouseover="this.style.background='rgba(255,255,255,0.15)'; this.style.borderColor='${tColor}'"
                      onmouseout="this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'">
                     
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 16px; color: ${tColor}; font-weight: bold;">${timeStr}</span>
-                        <span style="font-size: 11px; color: #AAA;">${item.train.type} ${item.trainNo}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px;">
+                        <span style="font-size: 15px; color: #FFFFFF; font-weight: bold;">${timeStr}</span>
+                        <span style="font-size: 11px; color: ${tColor}; font-weight: bold;">${item.train.type} ${item.trainNo}</span>
                     </div>
                     
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 13px; color: #FFF;">往 ${item.destName}</span>
-                        <span style="font-size: 12px; color: #FFD700; font-weight: bold;">約 ${displayDiff} 分</span>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                        <span style="font-size: 12px; color: #FFF;">往 ${item.destName}</span>
+                        <span style="font-size: 11px; color: #FFD700; font-weight: bold;">約 ${displayDiff} 分</span>
                     </div>
 
                 </div>
