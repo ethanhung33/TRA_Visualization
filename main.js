@@ -859,6 +859,10 @@ function bindThemeToggle() {
             updateBottomPanelStation(selectedStation);
         }
         
+        else if (selectedTrain) {
+            updateBottomPanel(selectedTrain);
+        }
+        
         // 4. 重繪畫布
         redrawAll();
     });
