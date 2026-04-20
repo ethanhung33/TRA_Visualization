@@ -1236,7 +1236,7 @@ function formatTimeDisplay(minutesRaw) {
     let hStr = hours.toString().padStart(2, '0');
     let mStr = mins.toString().padStart(2, '0');
     
-    return `${hStr}${mStr}`; // 配合你的截圖，回傳 "0815" 這種格式
+    return `${hStr}:${mStr}`; // 配合你的截圖，回傳 "0815" 這種格式
 }
 
 // ==========================================

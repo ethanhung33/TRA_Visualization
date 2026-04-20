@@ -73,7 +73,7 @@ body {
 
 /* 底部資訊列 */
 #bottom-bar { 
-    height: 100px; 
+    height: 120px; 
     background-color: #2d2d2d; /* 預設深色，JS日夜切換會蓋掉 */
     border-top: 1px solid #444; 
     display: flex; 
