@@ -862,7 +862,7 @@ function bindThemeToggle() {
         else if (selectedTrain) {
             updateBottomPanel(selectedTrain);
         }
-        
+
         // 4. 重繪畫布
         redrawAll();
     });
@@ -1380,7 +1380,11 @@ function updateBottomPanel(train) {
 
                 // 在產生 stationsHtml 的迴圈內
                 stationsHtml += `
-                    <div onclick="..." style="...">
+                    <div onclick="window.triggerSelectStation('${seg.s[i]}')" 
+                         style="display: flex; flex-direction: column; align-items: center; min-width: 70px; cursor: pointer; padding: 8px; border-radius: 8px; transition: background 0.2s;"
+                         onmouseover="this.style.background='rgba(128,128,128,0.2)'"
+                         onmouseout="this.style.background='transparent'">
+                         
                         <div style="font-size: 20px; margin-bottom: 6px; font-weight: bold; letter-spacing: 1px; color: var(--panel-text-main);">
                             ${stName}
                         </div>
