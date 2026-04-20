@@ -1676,8 +1676,11 @@ async function init() {
         // 重新精準測量並設定畫布內部解析度
         const canvas = document.getElementById('diaCanvas');
         
-        canvas.width = canvas.clientWidth ;
-        canvas.height = canvas.clientHeight;
+        const wrapper = document.getElementById('canvas-wrapper');
+
+        // 🌟 改用 wrapper 的寬度會比直接抓畫布更穩定
+        canvas.width = wrapper.clientWidth;
+        canvas.height = wrapper.clientHeight;
 
 
         // 🌟 1. 現在才開始畫圖，保證一畫出來就是最終完美的比例！
