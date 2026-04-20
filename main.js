@@ -1359,10 +1359,20 @@ function updateBottomPanel(train) {
     let stationsHtml = "";
     let stopCount = 0;
 
+    let lastStationId = null;
+
     if (train.segments) {
         train.segments.forEach(seg => {
             for (let i = 0; i < seg.s.length; i++) {
                 if (seg.v[i] === 2) continue; // 過濾掉通過的車站
+
+                let currentStationId = seg.s[i];
+
+                // 🌟 新增這段過濾機制：
+                // 如果現在這個車站，跟上一個剛剛印過的車站一模一樣，就直接跳過！
+                if (currentStationId === lastStationId) {
+                    continue;
+                }
 
                 let stName = getStationName(seg.s[i]);
                 // 如果你沒有 formatTimeDisplay 函數，請確保把它也加進 main.js 喔！
