@@ -1380,7 +1380,7 @@ function updateBottomPanel(train) {
 }
 
 // ==========================================
-// 🚉 更新底部面板 (終極動態分軌版：依據下一站自動開列)
+// 🚉 更新底部面板 (精簡雙排行 + 高效能幾何方向版)
 // ==========================================
 function updateBottomPanelStation(st_id) {
     const panel = document.getElementById('bottom-bar'); 
@@ -1390,10 +1390,11 @@ function updateBottomPanelStation(st_id) {
     const now = new Date();
     let currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-    // 🌟 1. 改用 Object (字典) 來動態收集路線，而不是固定的兩個陣列
-    let directionGroups = {}; 
+    // 🌟 回歸兩大陣營：只分 上行(北上) 與 下行(南下)
+    let upboundTrains = [];
+    let downboundTrains = [];
 
-    // 2. 尋找即將發車的班次
+    // 1. 尋找即將發車的班次
     timetable.forEach(train => {
         if (!activeTrainTypes.has(train.type) || !train.segments) return;
 
@@ -1410,31 +1411,48 @@ function updateBottomPanelStation(st_id) {
                     if (diff >= 0 && diff <= 120) {
                         
                         // ==========================================
-                        // 🌟 尋找「下一停靠站」當作分軌的依據
+                        // 🌟 穿透雷達看方向 (只管大方向，不管下一站是誰)
                         // ==========================================
-                        let nextStId = null;
-                        
-                        // 往後尋找這班車「真正有停靠」或「路線經過」的下一站
-                        for (let k = i + 1; k < seg.s.length; k++) {
-                            nextStId = seg.s[k];
-                            break; 
-                        }
-                        
-                        // 如果這條線沒下一站了，去抓下一條路線的開頭
-                        if (!nextStId && segIdx < train.segments.length - 1) {
-                            let nextSeg = train.segments[segIdx + 1];
-                            if (nextSeg.s.length > 1) nextStId = nextSeg.s[1];
+                        let isUpbound = true; 
+                        let foundDirection = false;
+                        let flatThreshold = 5; 
+
+                        if (lookupY[st_id] && lookupY[st_id].length > 0) {
+                            let currentY = lookupY[st_id][0].y;
+                            
+                            // 往未來的車站掃描，直到抓到明顯的 Y 軸變化
+                            for (let sIdx = segIdx; sIdx < train.segments.length; sIdx++) {
+                                let scanSeg = train.segments[sIdx];
+                                let startIdx = (sIdx === segIdx) ? i + 1 : 0;
+
+                                for (let k = startIdx; k < scanSeg.s.length; k++) {
+                                    let scanStId = scanSeg.s[k];
+                                    if (lookupY[scanStId] && lookupY[scanStId].length > 0) {
+                                        let scanY = lookupY[scanStId][0].y;
+                                        let dy = scanY - currentY;
+
+                                        // 只要 Y 軸變化超過 5px，就判定大方向！
+                                        if (Math.abs(dy) > flatThreshold) {
+                                            isUpbound = (dy < 0); 
+                                            foundDirection = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (foundDirection) break; 
+                            }
                         }
 
-                        // 如果真的找不到下一站(終點站)，就用它自己的目的地
+                        // 保底機制：如果都沒改變 Y 軸，退回奇偶數判斷
+                        if (!foundDirection) {
+                            isUpbound = (parseInt(trainNo) % 2 === 0);
+                        }
+                        // ==========================================
+
                         let lastSeg = train.segments[train.segments.length - 1];
                         let destId = lastSeg.s[lastSeg.s.length - 1];
-                        if (!nextStId) nextStId = destId;
-
-                        let nextStName = getStationName(nextStId);
-                        let groupKey = `往 ${nextStName}`; // 例如 "往 追分"、"往 新烏日"
-
                         let destName = getStationName(destId);
+
                         let trainData = {
                             train: train,
                             trainNo: trainNo,
@@ -1443,74 +1461,51 @@ function updateBottomPanelStation(st_id) {
                             diff: diff
                         };
 
-                        // 🌟 把這班車丟進對應的「下一站」抽屜裡
-                        if (!directionGroups[groupKey]) {
-                            directionGroups[groupKey] = [];
-                        }
-                        directionGroups[groupKey].push(trainData);
+                        if (isUpbound) upboundTrains.push(trainData);
+                        else downboundTrains.push(trainData);
                     }
                 }
             }
         }
     });
 
-    // 3. 準備畫面的 HTML 變數
-    let labelsHtml = "";
-    let rowsHtml = "";
-    
-    // 取得所有分組的 Key (例如 ["往 新烏日", "往 彰化", "往 追分"])
-    let groupKeys = Object.keys(directionGroups);
-    
-    // 如果沒有任何車，給個防呆畫面
-    if (groupKeys.length === 0) {
-        labelsHtml = `<div style="color: #666; font-size: 13px;">無資訊</div>`;
-        rowsHtml = `<div style="color: #666; font-size: 13px; margin-left: 10px; font-style: italic; display: flex; align-items: center; height: 100%;">近期無班次</div>`;
-    } else {
-        // 定義一組漂亮的標籤顏色輪流使用
-        const labelColors = ["#66B2FF", "#FF9999", "#99FF99", "#FFCC66"];
+    // 2. 依照發車時間排序
+    upboundTrains.sort((a, b) => a.depTime - b.depTime);
+    downboundTrains.sort((a, b) => a.depTime - b.depTime);
 
-        // 🌟 4. 動態生成每一列！
-        groupKeys.forEach((key, index) => {
-            let trains = directionGroups[key];
-            // 班次按時間排序
-            trains.sort((a, b) => a.depTime - b.depTime);
-            
-            let color = labelColors[index % labelColors.length];
+    // 🌟 3. 建立全新「超緊湊兩行式」卡片 UI
+    const buildRowHtml = (trains) => {
+        if (trains.length === 0) {
+            return `<div style="color: #666; font-size: 13px; margin-left: 10px; font-style: italic;">近期無班次</div>`;
+        }
+        return trains.map(item => {
+            let tColor = settings?.train_color?.[item.train.type]?.[0] || "#FFF";
+            let timeStr = formatTimeDisplay(item.depTime);
+            let displayDiff = Math.floor(item.diff); 
 
-            // 生成左側固定標籤
-            labelsHtml += `
-                <div style="color: ${color}; font-size: 13px; font-weight: bold; white-space: nowrap;">${key} ➔</div>
-            `;
-
-            // 生成右側滾動車次
-            let rowTrainsHtml = trains.map(item => {
-                let tColor = settings?.train_color?.[item.train.type]?.[0] || "#FFF";
-                let timeStr = formatTimeDisplay(item.depTime);
-                let displayDiff = Math.floor(item.diff); 
-
-                return `
-                    <div onclick="window.triggerSelectTrain('${item.trainNo}')" 
-                         style="display: flex; flex-direction: column; align-items: center; min-width: 70px; margin: 0 4px; padding: 4px; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer; border: 1px solid transparent;"
-                         onmouseover="this.style.background='rgba(255,255,255,0.15)'; this.style.borderColor='${tColor}'"
-                         onmouseout="this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'">
-                        <div style="font-size: 14px; color: ${tColor}; font-weight: bold; margin-bottom: 2px;">${timeStr}</div>
-                        <div style="font-size: 11px; color: #FFF;">終 ${item.destName}</div>
-                        <div style="font-size: 10px; color: #AAA; margin-top: 2px;">${item.train.type} ${item.trainNo}</div>
-                        <div style="font-size: 11px; color: #FFD700; margin-top: 2px;">約 ${displayDiff} 分</div>
+            // 使用 Flexbox 左右對齊，把 4 行壓平成 2 行
+            return `
+                <div onclick="window.triggerSelectTrain('${item.trainNo}')" 
+                     style="display: flex; flex-direction: column; justify-content: center; min-width: 130px; margin: 0 4px; padding: 6px 10px; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer; border: 1px solid transparent; line-height: 1.5;"
+                     onmouseover="this.style.background='rgba(255,255,255,0.15)'; this.style.borderColor='${tColor}'"
+                     onmouseout="this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 16px; color: ${tColor}; font-weight: bold;">${timeStr}</span>
+                        <span style="font-size: 11px; color: #AAA;">${item.train.type} ${item.trainNo}</span>
                     </div>
-                `;
-            }).join('');
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 13px; color: #FFF;">往 ${item.destName}</span>
+                        <span style="font-size: 12px; color: #FFD700; font-weight: bold;">約 ${displayDiff} 分</span>
+                    </div>
 
-            // 把這一整排車包起來
-            rowsHtml += `
-                <div style="display: flex; align-items: center; min-height: 60px;">
-                    ${rowTrainsHtml}
                 </div>
             `;
-        });
-    }
+        }).join('');
+    };
 
-    // 5. 組裝最終介面
+    // 4. 組裝最終介面 (固定雙向，排版更緊湊)
     panel.innerHTML = `
         <div style="display: flex; width: 100%; height: 100%; align-items: center;">
             <div style="min-width: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-right: 15px; border-right: 1px solid #444; flex-shrink: 0;">
@@ -1518,12 +1513,18 @@ function updateBottomPanelStation(st_id) {
                 <div style="font-size: 12px; color: #AAA; margin-top: 4px;">即將發車</div>
             </div>
 
-            <div style="display: flex; flex-direction: column; justify-content: space-evenly; height: 100%; padding: 5px 10px 5px 15px; border-right: 1px solid #333; flex-shrink: 0; gap: 5px;">
-                ${labelsHtml}
+            <div style="display: flex; flex-direction: column; justify-content: space-evenly; height: 100%; padding: 5px 10px 5px 15px; border-right: 1px solid #333; flex-shrink: 0; gap: 8px;">
+                <div style="color: #66B2FF; font-size: 13px; font-weight: bold; white-space: nowrap;">北上 ▲</div>
+                <div style="color: #FF9999; font-size: 13px; font-weight: bold; white-space: nowrap;">南下 ▼</div>
             </div>
 
-            <div id="bottom-scroll-container" style="flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; height: 100%; overflow-x: auto; padding: 4px 10px; scrollbar-width: none; gap: 5px;">
-                ${rowsHtml}
+            <div id="bottom-scroll-container" style="flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; height: 100%; overflow-x: auto; padding: 6px 10px; scrollbar-width: none; gap: 6px;">
+                <div style="display: flex; align-items: center;">
+                    ${buildRowHtml(upboundTrains)}
+                </div>
+                <div style="display: flex; align-items: center;">
+                    ${buildRowHtml(downboundTrains)}
+                </div>
             </div>
         </div>
     `;
