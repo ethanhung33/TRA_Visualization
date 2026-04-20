@@ -74,6 +74,8 @@ body {
 /* 底部資訊列 */
 #bottom-bar { 
     height: 150px; 
+    min-height: 150px; /* 確保不會被擠壓 */
+    max-height: 150px;
     background-color: #2d2d2d; /* 預設深色，JS日夜切換會蓋掉 */
     border-top: 1px solid #444; 
     display: flex; 
