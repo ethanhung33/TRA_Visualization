@@ -1673,6 +1673,8 @@ async function init() {
         // ==========================================
         await document.fonts.ready;
 
+        document.body.offsetHeight;
+
         // 重新精準測量並設定畫布內部解析度
         const canvas = document.getElementById('diaCanvas');
         
