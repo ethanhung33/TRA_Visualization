@@ -1673,6 +1673,12 @@ async function init() {
         // ==========================================
         await document.fonts.ready;
 
+        // 重新精準測量並設定畫布內部解析度
+        const canvas = document.getElementById('diaCanvas');
+        
+        canvas.width = canvas.clientWidth ;
+        canvas.height = canvas.clientHeight;
+
 
         // 🌟 1. 現在才開始畫圖，保證一畫出來就是最終完美的比例！
         redrawAll();       
