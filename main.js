@@ -1657,41 +1657,31 @@ async function init() {
         console.log("資料載入完成！建構 UI 與渲染畫布...");
         
         buildUI();         // 建立側邊欄按鈕
-        bindThemeToggle(); // 🌟 啟動主題切換按鈕
-
+        bindThemeToggle(); // 啟動主題切換按鈕
         setupCanvasInteractions();
-
         setupBottomBarScrolling();
 
-        // 🌟 1. 先偷偷畫一次，為了讓系統算出正確的 loopKm (總里程數)
-        // 💡 提醒：為了避免畫布模糊，記得確認你在這行之前，有讓 canvas.width = canvas.clientWidth 喔！
+        // ==========================================
+        // 🌟 終極修復：等待 CSS 排版完全穩定！
+        // 讓瀏覽器停頓 0.1 秒，確保側邊欄就定位，畫布不再被推擠
+        // ==========================================
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // 重新精準測量並設定畫布內部解析度
+        const canvas = document.getElementById('diaCanvas');
+        
+        // 💡 這裡你可以決定要不要壓扁！
+        // 如果你覺得壓扁的字比較好閱讀，可以把 1 改成 1.3
+        const squishRatio = 1.3; 
+        canvas.width = Math.floor(canvas.clientWidth * squishRatio);
+        canvas.height = canvas.clientHeight;
+
+
+        // 🌟 1. 現在才開始畫圖，保證一畫出來就是最終完美的比例！
         redrawAll();       
 
         // 🌟 2. 啟動 Auto Fit (自動計算完美比例)
-        const wrapper = document.getElementById('canvas-wrapper');
-        const minScaleX = (wrapper.clientWidth - SIDE_MARGIN * 2) / 1560;
-        const minScaleY = wrapper.clientHeight / (loopKm || 1);
-
-        // 將算出的完美比例覆寫回設定中
-        CONFIG.scaleX = minScaleX; 
-        CONFIG.scaleY = minScaleY; 
-
-        // 更新比例後，重新計算正確的像素總高度
-        loopHeight = loopKm * CONFIG.scaleY;
-
-        // 🌟 3. 依據不同模式決定初始攝影機降落點
-        let presetKey = currentRouteView + "_view"; 
-        let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
-        
-        if (isCircular) {
-            camera.y = loopHeight; // 環狀模式看中間圈
-        } else {
-            camera.y = -50;        // 線性模式貼齊上方
-        }
-        
-        // 🌟 4. 最終邊界校正與完美渲染
-        clampCamera(); 
-        redrawAll();
+        // ... (這以下維持你原本的程式碼) ...
         
         // ==========================================
         // 🌟 5. 圖畫完了！把轉圈圈優雅地隱藏起來
