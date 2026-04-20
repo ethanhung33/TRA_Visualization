@@ -1333,11 +1333,10 @@ function updateBottomPanel(train) {
 
     // 如果沒有選中火車，恢復你原本寫的預設提示文字
     if (!train) {
-        // 🌟 這裡只需要寫文字就好，高度交給 CSS 鎖定
         panel.innerHTML = `
             <div style="display: flex; align-items: center; width: 100%;">
-                <h2 style="margin: 0 20px 0 0; font-size: 24px; color: #FFF;">列車資訊</h2>
-                <span style="color: #AAA; font-size: 18px;">點選列車或車站以顯示資訊</span>
+                <h2 style="margin: 0 20px 0 0; font-size: 24px; color: var(--panel-text-main);">列車資訊</h2>
+                <span style="font-size: 18px; color: var(--panel-text-sub);">點選列車或車站以顯示資訊</span>
             </div>
         `;
         return;
@@ -1369,7 +1368,7 @@ function updateBottomPanel(train) {
                 // 🌟 別忘了中間的箭頭也可以加大
                 if (stopCount > 0) {
                     stationsHtml += `
-                        <div style="display: flex; align-items: center; justify-content: center; margin: 0 12px; color: #666; font-size: 20px;">
+                        <div style="display: flex; align-items: center; justify-content: center; margin: 0 12px; font-size: 20px; color: var(--panel-arrow);">
                             ➔
                         </div>
                     `;
@@ -1377,15 +1376,13 @@ function updateBottomPanel(train) {
 
                 // 在產生 stationsHtml 的迴圈內
                 stationsHtml += `
-                    <div onclick="window.triggerSelectStation('${seg.s[i]}')" 
-                        style="display: flex; flex-direction: column; align-items: center; min-width: 70px; cursor: pointer; padding: 8px; border-radius: 8px; transition: background 0.2s;">
-                        
-                        <div style="font-size: 20px; margin-bottom: 6px; color: #FFFFFF; font-weight: bold; letter-spacing: 1px;">
+                    <div onclick="..." style="...">
+                        <div style="font-size: 20px; margin-bottom: 6px; font-weight: bold; letter-spacing: 1px; color: var(--panel-text-main);">
                             ${stName}
                         </div>
                         
-                        <div style="font-size: 15px; color: #BBB; line-height: 1.4;">${arrT}</div>
-                        <div style="font-size: 15px; color: #BBB; line-height: 1.4;">${depT}</div>
+                        <div style="font-size: 15px; line-height: 1.4; color: var(--panel-text-sub);">${arrT}</div>
+                        <div style="font-size: 15px; line-height: 1.4; color: var(--panel-text-sub);">${depT}</div>
                     </div>
                 `;
 

@@ -8,6 +8,11 @@
     --btn-border: rgba(255, 255, 255, 0.2);
     --btn-hover: rgba(68, 68, 68, 0.95);
     --btn-shadow: rgba(0, 0, 0, 0.2);
+
+    /* 🌟 新增：底部面板的文字顏色變數 (深色模式) */
+    --panel-text-main: #FFFFFF; /* 主要文字：站名、標題 */
+    --panel-text-sub: #BBBBBB;  /* 次要文字：時間、提示 */
+    --panel-arrow: #666666;     /* 箭頭顏色 */
 }
 
 /* 當 body 被貼上 light-mode 標籤時，這組顏色會「自動覆蓋」上面的顏色！ */
@@ -17,6 +22,11 @@ body.light-mode {
     --btn-border: rgba(0, 0, 0, 0.15);
     --btn-hover: rgba(200, 200, 200, 0.95);
     --btn-shadow: rgba(0, 0, 0, 0.05);
+
+    /* 🌟 新增：底部面板的文字顏色變數 (淺色模式自動切換) */
+    --panel-text-main: #222222; /* 變成深灰色 */
+    --panel-text-sub: #666666;  /* 變成中灰色 */
+    --panel-arrow: #999999;     /* 變成淺灰色 */
 }
 
 /* ==========================================
