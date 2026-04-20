@@ -1660,6 +1660,7 @@ async function init() {
         console.log("資料載入完成！建構 UI 與渲染畫布...");
         
         buildUI();         // 建立側邊欄按鈕
+        updateBottomPanel(null); // 初始化底部面板
         bindThemeToggle(); // 啟動主題切換按鈕
         setupCanvasInteractions();
         setupBottomBarScrolling();
