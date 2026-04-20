@@ -1348,7 +1348,7 @@ function updateBottomPanel(train) {
     
     let trainColor = "#888888"; 
     if (settings && settings.train_color && settings.train_color[trainType]) {
-        trainColor = settings.train_color[trainType][isDarkMode ? "dark" : "light"]; 
+        trainColor = settings.train_color[trainType][isDarkMode ? 0 : 1]; 
     }
 
     // 2. 組裝車站列表的 HTML
