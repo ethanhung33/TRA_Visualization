@@ -1510,31 +1510,37 @@ function updateBottomPanelStation(st_id) {
     downboundTrains.sort((a, b) => a.depTime - b.depTime);
 
     // ==========================================
-    // 🌟 動態主題調色盤 (根據 isDarkMode 自動變色)
+    // 🌟 1. 強制同步真實的日夜狀態 (判斷 body 是否有 light-mode)
     // ==========================================
+    const currentIsDark = !document.body.classList.contains('light-mode');
+
     const theme = {
-        // 卡片底色 (深色用 5% 白，淺色用 5% 黑)
-        cardBg: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-        // 卡片懸停底色
-        cardHoverBg: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)',
-        // 主要文字 (站名、時間)
-        textMain: isDarkMode ? '#FFFFFF' : '#222222',
-        // 次要文字 (往 XX、即將發車)
-        textSub: isDarkMode ? '#AAAAAA' : '#666666',
-        // 分隔線顏色
-        border: isDarkMode ? '#444444' : '#CCCCCC',
-        // 🌟 倒數時間顏色 (取代原本的黃色：深色模式用亮灰，淺色模式用深灰)
-        timeGray: isDarkMode ? '#BBBBBB' : '#555555' 
+        cardBg: currentIsDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+        cardHoverBg: currentIsDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)',
+        textMain: currentIsDark ? '#FFFFFF' : '#222222',
+        textSub: currentIsDark ? '#AAAAAA' : '#666666',
+        border: currentIsDark ? '#444444' : '#DDDDDD',
+        timeGray: currentIsDark ? '#BBBBBB' : '#666666' 
     };
 
-    // 🌟 3. 建立全新「超緊湊兩行式」卡片 UI (套用主題色)
+    // 🌟 2. 建立卡片 UI
     const buildRowHtml = (trains) => {
         if (trains.length === 0) {
             return `<div style="color: ${theme.textSub}; font-size: 13px; margin-left: 10px; font-style: italic;">近期無班次</div>`;
         }
         return trains.map(item => {
-            // 如果沒設定車種顏色，就用主文字顏色
-            let tColor = settings?.train_color?.[item.train.type]?.[0] || theme.textMain;
+            
+            // ==========================================
+            // 🌟 3. 動態抓取對應的車種色碼 (深色抓 [0]，淺色抓 [1])
+            // ==========================================
+            let typeColors = settings?.train_color?.[item.train.type];
+            let tColor = theme.textMain; // 預設顏色
+            
+            if (typeColors && typeColors.length > 0) {
+                // 如果是深色模式拿第一個，淺色模式拿第二個 (如果沒有第二個就拿第一個防呆)
+                tColor = currentIsDark ? typeColors[0] : (typeColors[1] || typeColors[0]);
+            }
+            
             let timeStr = formatTimeDisplay(item.depTime);
             let displayDiff = Math.floor(item.diff); 
 
@@ -1559,7 +1565,7 @@ function updateBottomPanelStation(st_id) {
         }).join('');
     };
 
-    // 4. 組裝最終介面 (全面套用主題色)
+    // 4. 組裝最終介面 (維持原樣)
     panel.innerHTML = `
         <div style="display: flex; width: 100%; height: 100%; align-items: center; color: ${theme.textMain};">
             <div style="min-width: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-right: 15px; border-right: 1px solid ${theme.border}; flex-shrink: 0;">
