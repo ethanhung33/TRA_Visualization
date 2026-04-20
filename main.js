@@ -1673,15 +1673,6 @@ async function init() {
         // ==========================================
         await document.fonts.ready;
 
-        // 重新精準測量並設定畫布內部解析度
-        const canvas = document.getElementById('diaCanvas');
-        
-        // 💡 這裡你可以決定要不要壓扁！
-        // 如果你覺得壓扁的字比較好閱讀，可以把 1 改成 1.3
-        const squishRatio = 1.3; 
-        canvas.width = Math.floor(canvas.clientWidth * squishRatio);
-        canvas.height = canvas.clientHeight;
-
 
         // 🌟 1. 現在才開始畫圖，保證一畫出來就是最終完美的比例！
         redrawAll();       
