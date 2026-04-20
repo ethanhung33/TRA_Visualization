@@ -854,6 +854,10 @@ function bindThemeToggle() {
         document.querySelectorAll('#train-type-container .pill-btn').forEach(btn => {
             if(btn._updateStyle) btn._updateStyle();
         });
+
+        if (selectedStation) {
+            updateBottomPanelStation(selectedStation);
+        }
         
         // 4. 重繪畫布
         redrawAll();
@@ -1510,17 +1514,15 @@ function updateBottomPanelStation(st_id) {
     downboundTrains.sort((a, b) => a.depTime - b.depTime);
 
     // ==========================================
-    // 🌟 1. 強制同步真實的日夜狀態 (判斷 body 是否有 light-mode)
+    // 🌟 1. 直接使用你原本系統就有的全域變數 isDarkMode！
     // ==========================================
-    const currentIsDark = !document.body.classList.contains('light-mode');
-
     const theme = {
-        cardBg: currentIsDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-        cardHoverBg: currentIsDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)',
-        textMain: currentIsDark ? '#FFFFFF' : '#222222',
-        textSub: currentIsDark ? '#AAAAAA' : '#666666',
-        border: currentIsDark ? '#444444' : '#DDDDDD',
-        timeGray: currentIsDark ? '#BBBBBB' : '#666666' 
+        cardBg: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+        cardHoverBg: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)',
+        textMain: isDarkMode ? '#FFFFFF' : '#222222',   // 淺色模式會變成深灰偏黑
+        textSub: isDarkMode ? '#AAAAAA' : '#666666',    // 淺色模式會變成中灰色
+        border: isDarkMode ? '#444444' : '#DDDDDD',
+        timeGray: isDarkMode ? '#BBBBBB' : '#666666' 
     };
 
     // 🌟 2. 建立卡片 UI
@@ -1531,14 +1533,14 @@ function updateBottomPanelStation(st_id) {
         return trains.map(item => {
             
             // ==========================================
-            // 🌟 3. 動態抓取對應的車種色碼 (深色抓 [0]，淺色抓 [1])
+            // 🌟 3. 動態抓取對應的車種色碼
             // ==========================================
             let typeColors = settings?.train_color?.[item.train.type];
-            let tColor = theme.textMain; // 預設顏色
+            let tColor = theme.textMain; 
             
             if (typeColors && typeColors.length > 0) {
-                // 如果是深色模式拿第一個，淺色模式拿第二個 (如果沒有第二個就拿第一個防呆)
-                tColor = currentIsDark ? typeColors[0] : (typeColors[1] || typeColors[0]);
+                // 直接依據 isDarkMode 決定拿 [0] 還是 [1]
+                tColor = isDarkMode ? typeColors[0] : (typeColors[1] || typeColors[0]);
             }
             
             let timeStr = formatTimeDisplay(item.depTime);
