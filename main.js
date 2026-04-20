@@ -1587,7 +1587,7 @@ async function init() {
         const topoRes = await fetch(dirc_path + 'topology.json');
         topology = await topoRes.json();
 
-        const timeRes = await fetch(dirc_path + 'timetable/timetable_20260419.json');
+        const timeRes = await fetch(dirc_path + 'timetable/timetable_20260420.json');
         timetable = await timeRes.json();
 
         optimizeTrainTimesForDisplay(timetable);
