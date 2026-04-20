@@ -76,10 +76,16 @@ body {
     height: 120px !important; /* 🌟 這裡的數值要跟上面 JS 設的一樣 */
     min-height: 120px !important;
     max-height: 120px !important;
-    flex-shrink: 0; /* 🌟 絕對禁止被擠壓 */
-    overflow: hidden;
-}
+    /* 🌟 禁止 Flexbox 擠壓此區域 */
+    flex-shrink: 0; 
 
+    background-color: #2d2d2d;
+    display: flex;
+    align-items: center;
+    padding: 0 25px;
+    border-top: 1px solid #444;
+    overflow: hidden; /* 防止內容過多時撐開 */
+}
 #bottom-bar h2 { 
     margin: 0; 
     font-size: 20px; 

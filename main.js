@@ -1333,11 +1333,10 @@ function updateBottomPanel(train) {
 
     // 如果沒有選中火車，恢復你原本寫的預設提示文字
     if (!train) {
-        // 🌟 這裡加上 min-height，確保沒火車時高度也跟有火車時一樣
         panel.innerHTML = `
-            <div style="display: flex; align-items: center; height: 120px;">
-                <h2 style="margin: 0 15px 0 0; font-size: 18px; color: #FFF;">列車資訊</h2>
-                <span id="train-info-text" style="color: #888; font-size: 16px;">點選列車或車站以顯示資訊</span>
+            <div style="display: flex; align-items: center; height: 150px; width: 100%;">
+                <h2 style="margin: 0 20px 0 0; font-size: 24px; color: #FFF;">列車資訊</h2>
+                <span id="train-info-text" style="color: #AAA; font-size: 18px;">點選列車或車站以顯示資訊</span>
             </div>
         `;
         return;
