@@ -465,3 +465,39 @@ body.light-mode input#datePicker.flatpickr-input:focus {
     border-color: #FFA500 !important; /* 一樣保持漂亮的橘色邊框 */
     box-shadow: 0 0 8px rgba(255, 165, 0, 0.2) !important;
 }
+
+/* ==========================================
+   🌟 覆寫 Flatpickr 日曆本體：深藍色 -> 側邊欄深灰色
+========================================== */
+/* 使用 :not(.light-mode) 確保只有在「深色模式」時才覆寫 */
+
+/* 1. 日曆主體與邊框 */
+body:not(.light-mode) .flatpickr-calendar {
+    background: #333333 !important; /* 完美融入側邊欄底色 */
+    border: 1px solid #555555 !important; /* 加上低調的灰色邊框 */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important; /* 加深陰影讓它浮現出來 */
+}
+
+/* 2. 上方月份切換區塊 */
+body:not(.light-mode) .flatpickr-months {
+    background: #333333 !important;
+}
+
+/* 3. 星期幾 (Sun, Mon...) 區塊 */
+body:not(.light-mode) .flatpickr-weekdays {
+    background: #333333 !important;
+}
+
+/* 4. 連接輸入框的那個「小三角形 (箭頭)」也要跟著變色！ */
+body:not(.light-mode) .flatpickr-calendar.arrowTop:before {
+    border-bottom-color: #555555 !important; /* 三角形外框 */
+}
+body:not(.light-mode) .flatpickr-calendar.arrowTop:after {
+    border-bottom-color: #333333 !important; /* 三角形本體 */
+}
+body:not(.light-mode) .flatpickr-calendar.arrowBottom:before {
+    border-top-color: #555555 !important; /* 若日曆往上開，三角形的外框 */
+}
+body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
+    border-top-color: #333333 !important; /* 若日曆往上開，三角形的本體 */
+}
