@@ -9,8 +9,8 @@
   "view_presets": {
     "mountain_view": {
         "lines": ["north_main", "mountain_line", "south_main", "eastern_trunk"],
-        "view_type": "LINEAR",
-        "button_color": ["#FF0000", "#2E7D32"]
+        "view_type": "CIRCULAR",
+        "button_color": ["#4CAF50", "#2E7D32"]
     },
     "sea_view": {
         "lines": ["north_main", "sea_line", "south_main", "eastern_trunk"],
