@@ -1756,39 +1756,33 @@ async function init() {
         // 🌟 3. 判斷時刻表載入策略
         // ==========================================
         if (settings.data_fetch_strategy === "DAILY_FILE") {
-            // 模式 A：日曆模式 -> 去抓 available_dates.json
             const dateRes = await fetch(dirc_path + 'available_dates.json');
-            availableDates = await dateRes.json();
-
-            // 防呆：如果沒有抓到日期清單，給個預設值
-            if (!availableDates || availableDates.length === 0) {
-                availableDates = ["2026-04-20"];
+            
+            if (dateRes.ok) {
+                availableDates = await dateRes.json();
+            } else {
+                console.warn("⚠️ 找不到 available_dates.json！");
+                availableDates = ["2026-04-20"]; 
             }
 
-            // 綁定 HTML 的日曆選擇器
-            const datePicker = document.querySelector('input[type="date"]'); 
-            if (datePicker) {
-                // 限制可選範圍
-                datePicker.min = availableDates[0];
-                datePicker.max = availableDates[availableDates.length - 1];
-                
-                // 預設載入最後一天 (最新的一天)
-                currentDate = availableDates[availableDates.length - 1];
-                datePicker.value = currentDate;
+            // 預設載入最後一天 (最新的一天)
+            currentDate = availableDates[availableDates.length - 1];
 
-                // 監聽日曆改變事件
-                datePicker.addEventListener('change', async (e) => {
-                    const selected = e.target.value;
-                    
-                    // 防呆：使用者如果手動亂敲一個不存在的日期
-                    if (!availableDates.includes(selected)) {
-                        alert(`抱歉，伺服器上沒有 ${selected} 的資料！\n目前有資料的區間為：${availableDates[0]} ~ ${availableDates[availableDates.length-1]}`);
-                        e.target.value = currentDate; // 把日曆文字拉回正常的日期
-                        return;
+            // ==========================================
+            // 🌟 升級版：使用 Flatpickr 綁定日曆
+            // ==========================================
+            const dateInput = document.querySelector('input[type="date"]'); 
+            if (dateInput) {
+                // Flatpickr 會自動接管這個 input
+                flatpickr(dateInput, {
+                    defaultDate: currentDate,
+                    enable: availableDates, // 🌟 神級功能：直接把我們的清單餵給它，清單以外的日子全部自動反灰不能點！
+                    dateFormat: "Y-m-d",
+                    disableMobile: "true", // 強制手機版也用我們漂亮的日曆，不用原生的
+                    onChange: async function(selectedDates, dateStr, instance) {
+                        // 當使用者點擊合法的日期時，直接載入！不需要再 alert 防呆了！
+                        await loadTimetableData(dateStr);
                     }
-
-                    // 呼叫我們剛剛寫好的換日函式！
-                    await loadTimetableData(selected);
                 });
             }
 
