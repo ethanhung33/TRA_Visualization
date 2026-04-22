@@ -404,3 +404,22 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     visibility: hidden;
     pointer-events: none;
 }
+
+/* ==========================================
+   🌟 覆寫 Flatpickr 暗黑主題：改善無法點擊日期的辨識度
+========================================== */
+
+/* 針對不能點擊的日期 */
+span.flatpickr-day.flatpickr-disabled,
+span.flatpickr-day.flatpickr-disabled:hover {
+    color: #888888 !important; /* 提亮成中灰色，讓數字清晰可見 */
+    background-color: transparent !important;
+    opacity: 0.8 !important;
+    text-decoration: line-through; /* ✨ 加上刪除線，這是最強的防呆視覺提示！ */
+    cursor: not-allowed !important; /* 滑鼠移過去會變成禁止符號 🚫 */
+}
+
+/* (可選) 讓「今天」的標示更明顯一點，避免被吃掉 */
+span.flatpickr-day.today {
+    border-color: #FFA500 !important; /* 給今天加上橘色邊框 */
+}
