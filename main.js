@@ -1757,7 +1757,7 @@ async function init() {
         // ==========================================
         if (settings.data_fetch_strategy === "DAILY_FILE") {
             // 模式 A：日曆模式 -> 去抓 available_dates.json
-            const dateRes = await fetch(dirc_path + 'timetable/available_dates.json');
+            const dateRes = await fetch(dirc_path + 'available_dates.json');
             availableDates = await dateRes.json();
 
             // 防呆：如果沒有抓到日期清單，給個預設值
