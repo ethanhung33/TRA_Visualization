@@ -1627,7 +1627,7 @@ function optimizeTrainTimesForDisplay(trainsData) {
         train.segments.forEach(seg => {
             // seg.t 裡面的資料格式是 [到站1, 離站1, 到站2, 離站2...]
             for (let i = 0; i < seg.t.length; i += 2) {
-                if (seg.t[i] === seg.t[i + 1]) {
+                if (seg.t[i] === seg.t[i + 1] && seg.v[i] !== 2) {
                     // 強制把離站時間往後延 1 分鐘 (為了讓 Canvas 畫出水平線)
                     seg.t[i + 1] += 0.5; 
                 }
