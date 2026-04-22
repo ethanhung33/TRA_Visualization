@@ -423,3 +423,21 @@ span.flatpickr-day.flatpickr-disabled:hover {
 span.flatpickr-day.today {
     border-color: #FFA500 !important; /* 給今天加上橘色邊框 */
 }
+
+/* ==========================================
+   🌞 淺色模式下的日曆輸入框樣式
+   (請確認你的 body 淺色 class 名稱，這裡是假設為 light-mode)
+========================================== */
+body.light-mode input.flatpickr-input {
+    background-color: #ffffff !important; /* 白色背景 */
+    color: #333333 !important; /* 深灰色文字 */
+    border: 1px solid #cccccc !important; /* 淺灰色邊框 */
+}
+
+/* 淺色模式下，滑鼠移過去的發光效果 */
+body.light-mode input.flatpickr-input:hover,
+body.light-mode input.flatpickr-input:focus {
+    background-color: #f9f9f9 !important;
+    border-color: #FFA500 !important; /* 一樣保持漂亮的橘色邊框 */
+    box-shadow: 0 0 8px rgba(255, 165, 0, 0.2) !important;
+}
