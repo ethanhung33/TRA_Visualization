@@ -1751,7 +1751,7 @@ async function loadTimetableData(dateString) {
 // ==========================================
 async function loadSystemMenu() {
     try {
-        const res = await fetch('global.json');
+        const res = await fetch('data/global.json');
         const globalData = await res.json();
         const container = document.getElementById('system-menu-container');
 
