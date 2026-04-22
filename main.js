@@ -1803,7 +1803,7 @@ async function loadSystemMenu() {
 // ==========================================
 // 系統啟動點 (init)
 // ==========================================
-async function init() {
+async function init(systemPath) {
     try {
         currentSystemPath = systemPath + "json/";
         
