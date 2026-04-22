@@ -59,6 +59,8 @@ let currentSystemPath = "";
 
 let renderIntervalId = null;
 
+let isThemeBound = false; // 🌟 新增：用來記錄主題按鈕是不是已經綁定過了
+
 
 // ==========================================
 // 2. 核心換算函式
@@ -819,6 +821,15 @@ function redrawAll() {
 // 綁定主題切換功能
 // ==========================================
 function bindThemeToggle() {
+
+    // 🌟 1. 防呆鎖：如果已經綁定過了，就直接退堂，不要再綁第二次！
+    if (isThemeBound) return; 
+    
+    // 🌟 2. 標記為已綁定
+    isThemeBound = true;
+
+    const btnTheme = document.getElementById('btn-theme');
+
     // 🌟 新增：先抓到 HTML 裡面的 flatpickr CSS 標籤
     // (⚠️ 請確保你的 index.html 裡那行 CSS 有加上 id="flatpickr-theme")
     const flatpickrThemeLink = document.getElementById('flatpickr-theme');
