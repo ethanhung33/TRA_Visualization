@@ -814,20 +814,31 @@ function redrawAll() {
 // ==========================================
 // 綁定主題切換功能
 // ==========================================
-// ==========================================
-// 綁定主題切換功能
-// ==========================================
 function bindThemeToggle() {
+    // 🌟 新增：先抓到 HTML 裡面的 flatpickr CSS 標籤
+    // (⚠️ 請確保你的 index.html 裡那行 CSS 有加上 id="flatpickr-theme")
+    const flatpickrThemeLink = document.getElementById('flatpickr-theme');
+
     btnTheme.addEventListener('click', () => {
         isDarkMode = !isDarkMode;
         
         btnTheme.textContent = isDarkMode ? "🌞" : "🌙";
 
-        // 🌟 核心新增：給 body 貼上/撕下 light-mode 標籤，讓 CSS 裡的毛玻璃按鈕變色！
+        // 🌟 核心新增：給 body 貼上/撕下 light-mode 標籤，並同步切換日曆主題！
         if (isDarkMode) {
             document.body.classList.remove('light-mode'); // 撕下標籤 (恢復深色模式)
+            
+            // 🌟 將日曆切換回「暗黑主題」
+            if (flatpickrThemeLink) {
+                flatpickrThemeLink.href = "https://npmcdn.com/flatpickr/dist/themes/dark.css";
+            }
         } else {
             document.body.classList.add('light-mode');    // 貼上標籤 (觸發淺色模式)
+            
+            // 🌟 將日曆切換為「淺色預設主題」
+            if (flatpickrThemeLink) {
+                flatpickrThemeLink.href = "https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css";
+            }
         }
         
         // 1. 切換畫布容器與側邊欄的背景顏色
@@ -861,7 +872,6 @@ function bindThemeToggle() {
         if (selectedStation) {
             updateBottomPanelStation(selectedStation);
         }
-        
         else if (selectedTrain) {
             updateBottomPanel(selectedTrain);
         }
