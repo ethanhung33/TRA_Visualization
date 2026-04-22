@@ -57,6 +57,8 @@ let activeTrainTypes = new Set();
 
 let currentSystemPath = "";
 
+let renderIntervalId = null;
+
 
 // ==========================================
 // 2. 核心換算函式
@@ -1801,6 +1803,31 @@ async function loadSystemMenu() {
 }
 
 // ==========================================
+// 🌟 綁定「回到首頁」按鈕
+// ==========================================
+function bindHomeButton() {
+    const btnHome = document.getElementById('btn-home');
+    if (btnHome) {
+        btnHome.addEventListener('click', () => {
+            // 1. 停止背景的重繪計時器 (避免效能浪費與重疊 Bug)
+            if (renderIntervalId) {
+                clearInterval(renderIntervalId);
+                renderIntervalId = null;
+            }
+
+            // 2. 清空畫布，避免下一次進來時看到殘影
+            const canvas = document.getElementById('diaCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 3. 轉場動畫：隱藏主畫面，顯示首頁選單
+            document.getElementById('app').style.display = 'none';
+            document.getElementById('landing-page').style.display = 'block'; 
+        });
+    }
+}
+
+// ==========================================
 // 系統啟動點 (init)
 // ==========================================
 async function init(systemPath) {
@@ -1912,10 +1939,19 @@ async function init(systemPath) {
             }
         }, 100); 
 
+        // ==========================================
+        // 🌟 終極修正：啟動前先清掉舊的計時器，再綁定返回按鈕
+        // ==========================================
+        if (renderIntervalId) {
+            clearInterval(renderIntervalId);
+        }
+
         // 設定每分鐘自動重繪 (讓時間軸往前推)
-        setInterval(() => {
+        renderIntervalId = setInterval(() => {
             requestAnimationFrame(redrawAll);
         }, 60000);
+
+        bindHomeButton(); // 綁定返回首頁按鈕
 
     } catch (e) {
         console.error("載入失敗:", e);
