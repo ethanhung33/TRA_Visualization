@@ -43,6 +43,9 @@ let hoveredTrain = null;
 let selectedStation = null; // 加在 let selectedTrain = null; 旁邊
 let hoveredStation = null;
 
+let availableDates = [];
+let currentDate = "";
+
 // 🌟 還有這兩個主題狀態的變數也要確保有宣告到
 let settings = null;        
 let isDarkMode = true;      
@@ -1700,26 +1703,105 @@ window.triggerSelectStation = function(st_id) {
 };
 
 // ==========================================
+// 🌟 獨立出來的「載入特定日期時刻表」函式
+// ==========================================
+async function loadTimetableData(dateString) {
+    try {
+        let dirc_path = "data/Taiwan/TRA/json/";
+        let formattedDate = dateString.replace(/-/g, ''); // 轉換格式: 2026-04-20 -> 20260420
+        
+        const timeRes = await fetch(`${dirc_path}timetable/timetable_${formattedDate}.json`);
+        if (!timeRes.ok) throw new Error(`找不到檔案: timetable_${formattedDate}.json`);
+
+        timetable = await timeRes.json();
+        optimizeTrainTimesForDisplay(timetable);
+
+        currentDate = dateString; // 成功載入後，更新當前日期狀態
+
+        // 🌟 換日大掃除：清空畫面上點擊的車輛或車站
+        selectedTrain = null;
+        selectedStation = null;
+        hoveredTrain = null;
+        hoveredStation = null;
+        updateBottomPanel(null);
+
+        // 重新繪製新的一天的畫布
+        redrawAll();
+
+    } catch (e) {
+        alert(`無法載入 ${dateString} 的時刻表！\n可能是該日期的資料尚未爬取。`);
+        console.error(e);
+    }
+}
+
+// ==========================================
 // 系統啟動點 (init)
 // ==========================================
 async function init() {
     try {
         let dirc_path = "data/Taiwan/TRA/json/";
         
-        // 🌟 1. 多載入一個 setting.json
+        // 1. 載入 setting.json
         const setRes = await fetch(dirc_path + 'setting.json');
         settings = await setRes.json();
         if (settings.system_name) {
             document.title = settings.system_name + " - 運行圖";
         }
 
+        // 2. 載入 topology.json
         const topoRes = await fetch(dirc_path + 'topology.json');
         topology = await topoRes.json();
 
-        const timeRes = await fetch(dirc_path + 'timetable/timetable_20260420.json');
-        timetable = await timeRes.json();
+        // ==========================================
+        // 🌟 3. 判斷時刻表載入策略
+        // ==========================================
+        if (settings.data_fetch_strategy === "DAILY_FILE") {
+            // 模式 A：日曆模式 -> 去抓 available_dates.json
+            const dateRes = await fetch(dirc_path + 'timetable/available_dates.json');
+            availableDates = await dateRes.json();
 
-        optimizeTrainTimesForDisplay(timetable);
+            // 防呆：如果沒有抓到日期清單，給個預設值
+            if (!availableDates || availableDates.length === 0) {
+                availableDates = ["2026-04-20"];
+            }
+
+            // 綁定 HTML 的日曆選擇器
+            const datePicker = document.querySelector('input[type="date"]'); 
+            if (datePicker) {
+                // 限制可選範圍
+                datePicker.min = availableDates[0];
+                datePicker.max = availableDates[availableDates.length - 1];
+                
+                // 預設載入最後一天 (最新的一天)
+                currentDate = availableDates[availableDates.length - 1];
+                datePicker.value = currentDate;
+
+                // 監聽日曆改變事件
+                datePicker.addEventListener('change', async (e) => {
+                    const selected = e.target.value;
+                    
+                    // 防呆：使用者如果手動亂敲一個不存在的日期
+                    if (!availableDates.includes(selected)) {
+                        alert(`抱歉，伺服器上沒有 ${selected} 的資料！\n目前有資料的區間為：${availableDates[0]} ~ ${availableDates[availableDates.length-1]}`);
+                        e.target.value = currentDate; // 把日曆文字拉回正常的日期
+                        return;
+                    }
+
+                    // 呼叫我們剛剛寫好的換日函式！
+                    await loadTimetableData(selected);
+                });
+            }
+
+            // 啟動時先載入預設的第一張時刻表
+            await loadTimetableData(currentDate);
+
+        } else {
+            // 模式 B：單一檔案模式 (維持你原本的寫法)
+            const timeRes = await fetch(dirc_path + 'timetable/timetable_20260420.json');
+            timetable = await timeRes.json();
+            optimizeTrainTimesForDisplay(timetable);
+        }
+        // ==========================================
 
         console.log("資料載入完成！建構 UI 與渲染畫布...");
         
@@ -1745,20 +1827,17 @@ async function init() {
 
         // 重新精準測量並設定畫布內部解析度
         const canvas = document.getElementById('diaCanvas');
-        
         const wrapper = document.getElementById('canvas-wrapper');
 
         // 🌟 改用 wrapper 的寬度會比直接抓畫布更穩定
         canvas.width = wrapper.clientWidth;
         canvas.height = wrapper.clientHeight;
 
-
         // 🌟 1. 現在才開始畫圖，保證一畫出來就是最終完美的比例！
-        redrawAll();       
+        if (settings.data_fetch_strategy !== "DAILY_FILE") {
+           redrawAll(); // DAILY_FILE 模式在 loadTimetableData 裡面已經畫過了，所以這裡可以略過或保留
+        }       
 
-        // 🌟 2. 啟動 Auto Fit (自動計算完美比例)
-        // ... (這以下維持你原本的程式碼) ...
-        
         // ==========================================
         // 🌟 5. 圖畫完了！把轉圈圈優雅地隱藏起來
         // ==========================================
