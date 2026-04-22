@@ -1,0 +1,31 @@
+{
+    "countries": [
+        {
+            "id": "Taiwan",
+            "chinese_name": "臺灣",
+            "systems": [
+                {
+                    "id": "TRA",
+                    "chinese_name": "臺鐵",
+                    "is_active": true
+                },
+                {
+                    "id": "HSR",
+                    "chinese_name": "高鐵",
+                    "is_active": false
+                }
+            ]
+        },
+        {
+            "id": "Japan",
+            "chinese_name": "日本",
+            "systems": [
+                {
+                    "id": "Nankai",
+                    "chinese_name": "南海鐵道",
+                    "is_active": false
+                }
+            ]
+        }
+    ]
+}

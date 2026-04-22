@@ -55,6 +55,8 @@ let isDarkMode = true;
 let currentRouteView = "mountain"; 
 let activeTrainTypes = new Set(); 
 
+let currentSystemPath = "";
+
 
 // ==========================================
 // 2. 核心換算函式
@@ -1717,7 +1719,7 @@ window.triggerSelectStation = function(st_id) {
 // ==========================================
 async function loadTimetableData(dateString) {
     try {
-        let dirc_path = "data/Taiwan/TRA/json/";
+        let dirc_path = currentSystemPath + "json/"; // 確保路徑正確
         let formattedDate = dateString.replace(/-/g, ''); // 轉換格式: 2026-04-20 -> 20260420
         
         const timeRes = await fetch(`${dirc_path}timetable/timetable_${formattedDate}.json`);
@@ -1745,28 +1747,82 @@ async function loadTimetableData(dateString) {
 }
 
 // ==========================================
+// 🌟 產生首頁系統選單
+// ==========================================
+async function loadSystemMenu() {
+    try {
+        const res = await fetch('global.json');
+        const globalData = await res.json();
+        const container = document.getElementById('system-menu-container');
+
+        // 隱藏 Loading，顯示首頁
+        document.getElementById('loading-overlay').classList.add('hidden');
+
+        globalData.countries.forEach(country => {
+            // 建立國家標題
+            const countryTitle = document.createElement('div');
+            countryTitle.style.cssText = "width: 100%; color: #FFA500; font-size: 18px; margin-top: 20px; margin-bottom: 10px;";
+            countryTitle.innerText = `📍 ${country.chinese_name}`;
+            container.appendChild(countryTitle);
+
+            // 建立該國家的系統按鈕
+            country.systems.forEach(sys => {
+                const btn = document.createElement('button');
+                btn.className = 'pill-btn'; // 套用你原本漂亮的膠囊按鈕樣式
+                
+                if (sys.is_active) {
+                    btn.innerText = sys.chinese_name;
+                    // 🌟 點擊事件：切換畫面並載入該系統！
+                    btn.onclick = () => {
+                        // 1. 拼出路徑 (例如: data/Taiwan/TRA/)
+                        const dynamicPath = `data/${country.id}/${sys.id}/`;
+                        
+                        // 2. 轉場動畫：顯示 Loading，隱藏首頁，顯示主畫面
+                        document.getElementById('loading-overlay').classList.remove('hidden');
+                        document.getElementById('landing-page').style.display = 'none';
+                        document.getElementById('app').style.display = 'flex';
+                        
+                        // 3. 呼叫 init()，並把路徑傳給它！
+                        init(dynamicPath);
+                    };
+                } else {
+                    // 未開放的系統：反灰且不能點
+                    btn.innerText = sys.chinese_name + " (建置中)";
+                    btn.style.opacity = "0.4";
+                    btn.style.cursor = "not-allowed";
+                }
+                
+                container.appendChild(btn);
+            });
+        });
+    } catch (e) {
+        console.error("無法載入系統清單", e);
+    }
+}
+
+// ==========================================
 // 系統啟動點 (init)
 // ==========================================
 async function init() {
     try {
-        let dirc_path = "data/Taiwan/TRA/json/";
+        currentSystemPath = systemPath + "json/";
         
         // 1. 載入 setting.json
-        const setRes = await fetch(dirc_path + 'setting.json');
+        const setRes = await fetch(currentSystemPath + 'setting.json');
         settings = await setRes.json();
         if (settings.system_name) {
             document.title = settings.system_name + " - 運行圖";
         }
 
         // 2. 載入 topology.json
-        const topoRes = await fetch(dirc_path + 'topology.json');
+        const topoRes = await fetch(currentSystemPath + 'topology.json');
         topology = await topoRes.json();
 
         // ==========================================
         // 🌟 3. 判斷時刻表載入策略
         // ==========================================
         if (settings.data_fetch_strategy === "DAILY_FILE") {
-            const dateRes = await fetch(dirc_path + 'available_dates.json');
+            const dateRes = await fetch(currentSystemPath + 'available_dates.json');
             
             if (dateRes.ok) {
                 availableDates = await dateRes.json();
@@ -1801,7 +1857,7 @@ async function init() {
 
         } else {
             // 模式 B：單一檔案模式 (維持你原本的寫法)
-            const timeRes = await fetch(dirc_path + 'timetable/timetable_20260420.json');
+            const timeRes = await fetch(currentSystemPath + 'timetable/timetable_20260420.json');
             timetable = await timeRes.json();
             optimizeTrainTimesForDisplay(timetable);
         }
@@ -1867,4 +1923,4 @@ async function init() {
     }
 }
 
-init();
+loadSystemMenu();
