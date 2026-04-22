@@ -1753,11 +1753,14 @@ async function loadTimetableData(dateString) {
 // ==========================================
 async function loadSystemMenu() {
     try {
+        // 🌟 核心新增：強制程式在這裡等，直到 GlowSans 等所有字體載入完畢！
+        await document.fonts.ready;
+
         const res = await fetch('data/global.json');
         const globalData = await res.json();
         const container = document.getElementById('system-menu-container');
 
-        // 隱藏 Loading，顯示首頁
+        // 字體等完了，資料也抓完了，這時才隱藏 Loading，顯示完美的字體首頁！
         document.getElementById('loading-overlay').classList.add('hidden');
 
         globalData.countries.forEach(country => {
