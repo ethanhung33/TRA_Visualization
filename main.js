@@ -1804,25 +1804,29 @@ async function loadSystemMenu() {
 // 系統啟動點 (init)
 // ==========================================
 async function init(systemPath) {
+
+    currentSystemPath = systemPath;
+
     try {
-        currentSystemPath = systemPath + "json/";
+        
+        let dirc_path = currentSystemPath + "json/"; // 確保路徑正確
         
         // 1. 載入 setting.json
-        const setRes = await fetch(currentSystemPath + 'setting.json');
+        const setRes = await fetch(dirc_path + 'setting.json');
         settings = await setRes.json();
         if (settings.system_name) {
             document.title = settings.system_name + " - 運行圖";
         }
 
         // 2. 載入 topology.json
-        const topoRes = await fetch(currentSystemPath + 'topology.json');
+        const topoRes = await fetch(dirc_path + 'topology.json');
         topology = await topoRes.json();
 
         // ==========================================
         // 🌟 3. 判斷時刻表載入策略
         // ==========================================
         if (settings.data_fetch_strategy === "DAILY_FILE") {
-            const dateRes = await fetch(currentSystemPath + 'available_dates.json');
+            const dateRes = await fetch(dirc_path + 'available_dates.json');
             
             if (dateRes.ok) {
                 availableDates = await dateRes.json();
@@ -1857,7 +1861,7 @@ async function init(systemPath) {
 
         } else {
             // 模式 B：單一檔案模式 (維持你原本的寫法)
-            const timeRes = await fetch(currentSystemPath + 'timetable/timetable_20260420.json');
+            const timeRes = await fetch(dirc_path + 'timetable/timetable_20260420.json');
             timetable = await timeRes.json();
             optimizeTrainTimesForDisplay(timetable);
         }
