@@ -109,10 +109,9 @@ function drawGrid(viewKey) {
     loopKm = currentAccumulatedKm;
     loopHeight = loopKm * CONFIG.scaleY;
 
-    // ... (底下的 canvas.width = wrapper.clientWidth... 等畫線邏輯皆維持不變)
-    const wrapper = document.getElementById('canvas-wrapper');
-    canvas.width = wrapper.clientWidth;
-    canvas.height = wrapper.clientHeight;
+    // 🌟 換成我們的高畫質工具！
+    initCanvas('diaCanvas', 'canvas-wrapper');
+    const wrapper = document.getElementById('canvas-wrapper'); // 保留這行因為後面程式可能會用到
 
     const viewTop = camera.y - 100;
     const viewBottom = camera.y + canvas.height + 100;
@@ -745,12 +744,12 @@ function buildUI() {
             setTimeout(() => {
                 const wrapper = document.getElementById('canvas-wrapper');
                 if (wrapper) {
-                    canvas.width = wrapper.clientWidth;  
-                    canvas.height = wrapper.clientHeight;
+                    // 🌟 換成高畫質工具！
+                    initCanvas('diaCanvas', 'canvas-wrapper');
                     clampCamera();
                     redrawAll();
                 }
-            }, 300); 
+            }, 300);
         });
     }
 }
@@ -787,16 +786,14 @@ function setupBottomBarScrolling() {
 let resizeTimeout;
 
 window.addEventListener('resize', () => {
-    // 使用防抖動 (Debounce)：避免拖拉視窗時瘋狂重繪導致卡頓
     clearTimeout(resizeTimeout);
     
     resizeTimeout = setTimeout(() => {
         const wrapper = document.getElementById('canvas-wrapper');
         if (!wrapper) return;
 
-        // 1. 重新設定 canvas 的「真實物理解析度」
-        canvas.width = wrapper.clientWidth;
-        canvas.height = wrapper.clientHeight;
+        // 🌟 1. 換成高畫質工具！
+        initCanvas('diaCanvas', 'canvas-wrapper');
 
         // 2. 視窗改變後，螢幕寬度變了，必須強制校正邊界
         clampCamera(); 
