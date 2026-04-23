@@ -798,13 +798,14 @@ function buildUI() {
     });
     
     // ==========================================
-    // 🌟 側邊欄收合功能綁定
+    // 🌟 側邊欄收合功能綁定 (修復幽靈連點 Bug)
     // ==========================================
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('sidebar-toggle');
 
     if (sidebar && toggleBtn) {
-        toggleBtn.addEventListener('click', () => {
+        // 🌟 核心修復：把 addEventListener 改成 onclick，保證這輩子永遠只有一個點擊事件！
+        toggleBtn.onclick = () => {
             sidebar.classList.toggle('collapsed');
             
             // 切換箭頭方向
@@ -814,13 +815,13 @@ function buildUI() {
             setTimeout(() => {
                 const wrapper = document.getElementById('canvas-wrapper');
                 if (wrapper) {
-                    // 🌟 換成高畫質工具！
+                    // 🌟 這裡也確保換上我們的高畫質工具，防止側欄收合時畫質變糊！
                     initCanvas('diaCanvas', 'canvas-wrapper');
                     clampCamera();
                     redrawAll();
                 }
-            }, 300);
-        });
+            }, 300); 
+        };
     }
 }
 
