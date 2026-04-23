@@ -67,6 +67,59 @@ function timeToX(minutes) {
     return CONFIG.paddingLeft + (minutes * CONFIG.scaleX);
 }
 
+// ==========================================
+// 🌟 智慧路線整理器：自動判斷交會站並翻轉方向
+// ==========================================
+function getProcessedSegments(selectedSegments, topology) {
+    // 1. 先把所有路線的車站名單抓出來
+    let segmentsData = selectedSegments.map(segInput => {
+        let segId = typeof segInput === 'string' ? segInput : segInput.id;
+        let seg = topology.segments.find(s => s.id === segId);
+        if (!seg) return null;
+        
+        let stations = [...seg.stations];
+        let userReversed = false;
+        
+        // 處理區間截取
+        if (typeof segInput === 'object') {
+            let sIdx = 0, eIdx = seg.stations.length - 1;
+            if (segInput.start) sIdx = seg.stations.findIndex(st => st.name === segInput.start || st.id === segInput.start);
+            if (segInput.end) eIdx = seg.stations.findIndex(st => st.name === segInput.end || st.id === segInput.end);
+            
+            if (sIdx !== -1 && eIdx !== -1) {
+                stations = seg.stations.slice(Math.min(sIdx, eIdx), Math.max(sIdx, eIdx) + 1);
+                if (sIdx > eIdx) { stations.reverse(); userReversed = true; }
+            }
+        }
+        return { segId, stations, userReversed };
+    }).filter(Boolean);
+
+    // 2. 自動判斷是否需要翻轉
+    for (let i = 0; i < segmentsData.length; i++) {
+        if (segmentsData[i].userReversed) continue; // 使用者已手動翻轉，不干涉
+
+        if (i < segmentsData.length - 1) {
+            // 如果有下一條線，看交會站在哪
+            let curr = segmentsData[i].stations;
+            let next = segmentsData[i+1].stations;
+            let commonIdx = curr.findIndex(st => next.some(nst => nst.id === st.id));
+            
+            // 如果交會站在前半段，代表這條線背對著下一條線，轉頭！
+            if (commonIdx !== -1 && commonIdx < curr.length / 2) curr.reverse();
+            
+        } else if (i > 0) {
+            // 如果是最後一條線，看上一條線的最後一站
+            let curr = segmentsData[i].stations;
+            let prevLast = segmentsData[i-1].stations[segmentsData[i-1].stations.length - 1];
+            let commonIdx = curr.findIndex(st => st.id === prevLast.id);
+            
+            // 如果交會站在後半段，必須轉頭把交會站接到前面！
+            if (commonIdx !== -1 && commonIdx >= curr.length / 2) curr.reverse();
+        }
+    }
+    return segmentsData;
+}
+
 
 // ==========================================
 // 繪製背景網格 (攤平展開版)
@@ -80,47 +133,14 @@ function drawGrid(viewKey) {
 
     if (selectedSegments.length === 0) return; 
 
-    // 🌟 1. 整理唯一車站 (極簡自動接軌版)
+    // 🌟 1. 整理唯一車站 (套用自動整理器)
     let uniqueStations = [];
-    
-    let lastStationId = null; // 🌟 記憶體：用來記住上一條路線的「最後一站」
+    let segmentsData = getProcessedSegments(selectedSegments, topology);
 
-    selectedSegments.forEach((segInput) => {
-        let segId = typeof segInput === 'string' ? segInput : segInput.id;
-        let seg = topology.segments.find(s => s.id === segId);
-        if (!seg) return;
+    segmentsData.forEach(data => {
+        let stationsToDraw = data.stations;
+        let segId = data.segId;
 
-        // --- 處理截取 (維持原本的簡單邏輯) ---
-        let stationsToDraw = [...seg.stations];
-        if (typeof segInput === 'object') {
-            let sIdx = 0, eIdx = seg.stations.length - 1;
-            if (segInput.start) sIdx = seg.stations.findIndex(st => st.name === segInput.start || st.id === segInput.start);
-            if (segInput.end) eIdx = seg.stations.findIndex(st => st.name === segInput.end || st.id === segInput.end);
-            
-            if (sIdx !== -1 && eIdx !== -1) {
-                stationsToDraw = seg.stations.slice(Math.min(sIdx, eIdx), Math.max(sIdx, eIdx) + 1);
-                if (sIdx > eIdx) stationsToDraw.reverse(); // 使用者手動指定的反轉
-            }
-        }
-        if (stationsToDraw.length === 0) return;
-
-        // ==========================================
-        // 🌟 極簡魔法：自動判斷要不要反轉！
-        // ==========================================
-        if (lastStationId) {
-            // 找找看上一條線的終點，在我這條線的哪個位置？
-            let connectIdx = stationsToDraw.findIndex(st => st.id === lastStationId || st.name === lastStationId);
-            
-            // 如果找到了，而且「不是在第 0 個位置」 (代表它排在後面)，就整條線轉頭！
-            if (connectIdx > 0) {
-                stationsToDraw.reverse();
-            }
-        }
-        // 記錄這條線畫完後的最後一站，交棒給下一條線去比對
-        lastStationId = stationsToDraw[stationsToDraw.length - 1].id;
-        // ==========================================
-
-        // --- 下面繼續原本的畫格子與算里程邏輯 ---
         let segMaxKm = 0;
         let startKm = stationsToDraw[0].km; 
 
@@ -649,38 +669,16 @@ function handleRouteSwitch(newRoute) {
     currentRouteView = newRoute;
     if (window.updateRouteButtons) window.updateRouteButtons();
 
-    // --- 3. 背景偷偷計算新路線的總長度 (支援區間截取版) ---
+    // --- 3. 背景偷偷計算新路線的總長度 ---
     let newLoopKm = 0;
     let selectedSegments = settings?.view_presets?.[newRoute]?.lines || [];
-    selectedSegments.forEach(segInput => {
-        let segId = typeof segInput === 'string' ? segInput : segInput.id;
-        let seg = topology.segments.find(s => s.id === segId);
-        if (!seg) return;
-
-        let stationsToDraw = seg.stations;
-        if (typeof segInput === 'object') {
-            let sIdx = 0;
-            let eIdx = seg.stations.length - 1;
-            if (segInput.start) sIdx = seg.stations.findIndex(st => st.name === segInput.start || st.id === segInput.start);
-            if (segInput.end) eIdx = seg.stations.findIndex(st => st.name === segInput.end || st.id === segInput.end);
-            
-            if (sIdx !== -1 && eIdx !== -1) {
-                let minIdx = Math.min(sIdx, eIdx);
-                let maxIdx = Math.max(sIdx, eIdx);
-                stationsToDraw = seg.stations.slice(minIdx, maxIdx + 1);
-                
-                // 🌟 這裡也同步反轉
-                if (sIdx > eIdx) {
-                    stationsToDraw.reverse();
-                }
-            }
-        }
-
-        if (stationsToDraw.length > 0) {
-            let startKm = stationsToDraw[0].km;
-            let endKm = stationsToDraw[stationsToDraw.length - 1].km;
-            newLoopKm += Math.abs(endKm - startKm);
-        }
+    let segmentsData = getProcessedSegments(selectedSegments, topology);
+    
+    segmentsData.forEach(data => {
+        let stationsToDraw = data.stations;
+        let startKm = stationsToDraw[0].km;
+        let endKm = stationsToDraw[stationsToDraw.length - 1].km;
+        newLoopKm += Math.abs(endKm - startKm);
     });
     
     loopKm = newLoopKm;
