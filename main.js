@@ -128,6 +128,9 @@ function drawGrid(viewKey) {
     for (let copy = copyStart; copy <= copyEnd; copy++) {
         let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
 
+        ctx.font = "bold 16px 'GlowSans', sans-serif";
+        ctx.textBaseline = "middle";
+
         uniqueStations.forEach(st => {
             let y = st.baseY + offsetY;
             if (y < viewTop || y > viewBottom) return;
@@ -153,8 +156,7 @@ function drawGrid(viewKey) {
             ctx.stroke();
 
             // --- 🌟 左右雙向懸浮站名 ---
-            ctx.font = "bold 16px 'GlowSans', sans-serif";
-            ctx.textBaseline = "middle";
+            
             let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
             let textColor = isDarkMode ? "#FFFFFF" : "#000000";
             let textWidth = ctx.measureText(st.name).width;
@@ -188,6 +190,9 @@ function drawGrid(viewKey) {
         });
     }
 
+    ctx.font = "bold 18px 'GlowSans', sans-serif";
+    ctx.textAlign = "center";
+
     // --- 🌟 上下雙向懸浮時間軸 ---
     for (let m = 0; m <= 1560; m += 10) {
         let x = timeToX(m);
@@ -211,8 +216,7 @@ function drawGrid(viewKey) {
         if (isHourLine) {
             let hour = m / 60;
             let timeStr = `${hour}:00`;
-            ctx.font = "bold 18px 'GlowSans', sans-serif";
-            ctx.textAlign = "center";
+            
             let textWidth = ctx.measureText(timeStr).width;
             let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
             let textColor = isDarkMode ? "#FFFFFF" : "#000000";
