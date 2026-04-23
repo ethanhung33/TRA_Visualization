@@ -98,11 +98,17 @@ function drawGrid(viewKey) {
             if (segInput.start) sIdx = seg.stations.findIndex(st => st.name === segInput.start || st.id === segInput.start);
             if (segInput.end) eIdx = seg.stations.findIndex(st => st.name === segInput.end || st.id === segInput.end);
             
-            // 防呆：如果找不到站名，或者順序寫反了，自動修正
             if (sIdx !== -1 && eIdx !== -1) {
                 let minIdx = Math.min(sIdx, eIdx);
                 let maxIdx = Math.max(sIdx, eIdx);
                 stationsToDraw = seg.stations.slice(minIdx, maxIdx + 1);
+                
+                // ==========================================
+                // 🌟 核心修復：如果起點在陣列後面 (逆向行駛)，就把車站順序反轉！
+                // ==========================================
+                if (sIdx > eIdx) {
+                    stationsToDraw.reverse();
+                }
             }
         }
 
@@ -657,6 +663,11 @@ function handleRouteSwitch(newRoute) {
                 let minIdx = Math.min(sIdx, eIdx);
                 let maxIdx = Math.max(sIdx, eIdx);
                 stationsToDraw = seg.stations.slice(minIdx, maxIdx + 1);
+                
+                // 🌟 這裡也同步反轉
+                if (sIdx > eIdx) {
+                    stationsToDraw.reverse();
+                }
             }
         }
 
