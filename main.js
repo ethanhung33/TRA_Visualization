@@ -1842,6 +1842,35 @@ function bindHomeButton() {
 }
 
 // ==========================================
+// 🌟 高畫質 Canvas 初始化工具 (解決模糊問題)
+// ==========================================
+function initCanvas(canvasId, wrapperId) {
+    const canvas = document.getElementById(canvasId);
+    const wrapper = document.getElementById(wrapperId);
+    const ctx = canvas.getContext('2d');
+
+    // 1. 抓取螢幕的像素比 (一般螢幕是 1，Mac/手機通常是 2 或 3)
+    const dpr = window.devicePixelRatio || 1;
+
+    // 2. 抓取外層容器的實際 CSS 尺寸
+    const displayWidth = wrapper.clientWidth;
+    const displayHeight = wrapper.clientHeight;
+
+    // 3. 把畫布的「真實像素」乘上像素比 (放大底層解析度)
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+
+    // 4. 把畫布的「顯示尺寸」強制縮回 CSS 尺寸 (看起來一樣大，但更密實)
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
+
+    // 5. 將畫布的畫筆也等比例放大，這樣你原本寫的座標和字體大小都不用改！
+    ctx.scale(dpr, dpr);
+
+    return { canvas, ctx };
+}
+
+// ==========================================
 // 系統啟動點 (init)
 // ==========================================
 async function init(systemPath) {
@@ -1930,13 +1959,15 @@ async function init(systemPath) {
 
         document.body.offsetHeight;
 
-        // 重新精準測量並設定畫布內部解析度
-        const canvas = document.getElementById('diaCanvas');
-        const wrapper = document.getElementById('canvas-wrapper');
-
-        // 🌟 改用 wrapper 的寬度會比直接抓畫布更穩定
-        canvas.width = wrapper.clientWidth;
-        canvas.height = wrapper.clientHeight;
+        // ==========================================
+        // 🌟 核心升級：套用高畫質 Canvas 解析度
+        // ==========================================
+        const canvasObj = initCanvas('diaCanvas', 'canvas-wrapper');
+        
+        // ⚠️ 注意：如果你的全域變數叫做 ctx，請把 ctx 替換為 canvasObj.ctx
+        // 假設你的全域變數是 diaCanvas 或是 canvas，這裡重新賦值給它
+        const canvas = canvasObj.canvas; 
+        const ctx = canvasObj.ctx; // 讓後面的 redrawAll 可以用高畫質的筆刷來畫！
 
         // 🌟 1. 現在才開始畫圖，保證一畫出來就是最終完美的比例！
         if (settings.data_fetch_strategy !== "DAILY_FILE") {
