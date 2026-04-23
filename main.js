@@ -113,10 +113,15 @@ function drawGrid(viewKey) {
     initCanvas('diaCanvas', 'canvas-wrapper');
     const wrapper = document.getElementById('canvas-wrapper'); // 保留這行因為後面程式可能會用到
 
+    // 🌟 1. 新增這兩行：抓取「網頁邏輯尺寸」而不是放大的「物理尺寸」
+    const wrapperW = wrapper.clientWidth;
+    const wrapperH = wrapper.clientHeight;
+
     const viewTop = camera.y - 100;
-    const viewBottom = camera.y + canvas.height + 100;
+    // 🌟 2. 下面這兩個把 canvas.height/width 換成 wrapperH/wrapperW
+    const viewBottom = camera.y + wrapperH + 100; 
     const viewLeft = camera.x - 100;
-    const viewRight = camera.x + canvas.width + 100;
+    const viewRight = camera.x + wrapperW + 100;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
@@ -172,7 +177,7 @@ function drawGrid(viewKey) {
 
             // --- 右側站名 ---
             // 🌟 距離右邊緣僅 10px
-            let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + canvas.width - 10);
+            let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + wrapperW - 10);
             ctx.fillStyle = maskBg;
             ctx.fillRect(labelXRight - textWidth - 5, y - 12, textWidth + 10, 24);
             ctx.fillStyle = textColor;
@@ -229,7 +234,7 @@ function drawGrid(viewKey) {
             ctx.fillText(timeStr, x, labelYTop + 2);
 
             // 底部時間
-            let labelYBottom = camera.y + canvas.height - 30;
+            let labelYBottom = camera.y + wrapperH - 30;
             ctx.fillStyle = maskBg;
             ctx.fillRect(x - textWidth/2 - 5, labelYBottom - 15, textWidth + 10, 22);
             ctx.fillStyle = textColor;
@@ -517,10 +522,11 @@ function drawCurrentTimeLine() {
     const now = new Date();
     let currentMinutes = now.getHours() * 60 + now.getMinutes();
 
+    const wrapper = document.getElementById('canvas-wrapper');
+    const viewBottom = camera.y + wrapper.clientHeight;
+    const viewRight = camera.x + wrapper.clientWidth;
     const viewTop = camera.y;
-    const viewBottom = camera.y + canvas.height;
     const viewLeft = camera.x;
-    const viewRight = camera.x + canvas.width;
 
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
