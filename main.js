@@ -322,7 +322,11 @@ function drawTrains() {
         ctx.lineWidth = lineWidth;
 
         // 4. 無條件清空麵包屑袋子
-        train._hitPoints = []; 
+        // 🌟 優化 3：重複利用陣列，不重新要記憶體空間！
+        if (!train._hitPoints) {
+            train._hitPoints = [];
+        }
+        train._hitPoints.length = 0; // 這樣可以清空陣列，但不會產生垃圾！ 
 
         let trainLastBaseY = null;
         let wrapOffset = 0; 
