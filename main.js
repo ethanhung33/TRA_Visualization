@@ -2113,13 +2113,33 @@ async function init(systemPath) {
         const ctx = canvasObj.ctx; // 讓後面的 redrawAll 可以用高畫質的筆刷來畫！
 
         // ==========================================
-        // 🌟 啟動時強制執行一次滿版校正 (取代原本的畫圖邏輯)
+        // 🌟 啟動時強制執行一次滿版校正與「時間自動置中」
         // ==========================================
-        redrawAll();      // 讓系統先算出預設路線的 loopKm (無論哪種模式都強制先算一次)
-        autoFitScale();   // 算出最完美的拉伸比例
+        redrawAll();      // 讓系統先算出預設路線的 loopKm
+        autoFitScale();   // 算出最完美的 Y 軸拉伸比例
         camera.y = -50;   // 把畫面推到最頂端
-        clampCamera();    // 確保不會超出邊界
-        redrawAll();      // 畫出拉伸後的最終完美畫面！     
+
+        // --- 🌟 核心新增：X 軸時間自動置中 ---
+        const now = new Date();
+        let currentMinutes = now.getHours() * 60 + now.getMinutes();
+        
+        // 鐵道標準跨夜處理：如果是凌晨 00:00 ~ 01:59，視為圖表上的 24:00 ~ 25:59
+        if (currentMinutes < 120) {
+            currentMinutes += 1440;
+        }
+
+        // 算出現在時間在畫布上的真實 X 座標
+        let targetX = timeToX(currentMinutes);
+        
+        // 取得螢幕寬度，將鏡頭的 X 座標設定為「目標 X 減去螢幕寬度的一半」達到完美置中
+        const wrapper = document.getElementById('canvas-wrapper');
+        let halfScreenWidth = wrapper ? wrapper.clientWidth / 2 : canvas.width / 2;
+        camera.x = targetX - halfScreenWidth;
+
+        // --- 結束新增 ---
+
+        clampCamera();    // 撞牆防護：確保鏡頭不會超出邊界 (例如置中後左邊或右邊露出黑底)
+        redrawAll();      // 畫出拉伸後、時間對準的最終完美畫面！     
 
         // ==========================================
         // 🌟 5. 圖畫完了！把轉圈圈優雅地隱藏起來
