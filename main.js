@@ -196,7 +196,14 @@ function drawGrid(viewKey) {
     ctx.font = "bold 18px 'GlowSans', sans-serif";
     ctx.textAlign = "center";
 
-    // --- 🌟 上下雙向懸浮時間軸 ---
+    // --- 🌟 上下雙向懸浮時間軸 (智慧邊界版) ---
+    let routeStartY = CONFIG.paddingTop;
+    let routeEndY = CONFIG.paddingTop + loopHeight;
+
+    // 🌟 核心防護：限制垂直線不要畫到外太空！如果是短路線，線條就只畫到最後一站。
+    let lineTop = isCircular ? viewTop : Math.max(viewTop, routeStartY - 20);
+    let lineBottom = isCircular ? viewBottom : Math.min(viewBottom, routeEndY + 20);
+
     for (let m = 0; m <= 1560; m += 10) {
         let x = timeToX(m);
         if (x < viewLeft - 50 || x > viewRight + 50) continue; 
@@ -211,28 +218,39 @@ function drawGrid(viewKey) {
             ctx.strokeStyle = isDarkMode ? "#444444" : "#DDDDDD";
             ctx.lineWidth = 1.2;
         }
-        ctx.moveTo(x, viewTop);                 
-        ctx.lineTo(x, viewBottom);     
+        
+        // 🌟 使用新的邊界來畫線！
+        ctx.moveTo(x, lineTop);                 
+        ctx.lineTo(x, lineBottom);     
         ctx.stroke();
         ctx.setLineDash([]); 
 
         if (isHourLine) {
             let hour = m / 60;
             let timeStr = `${hour}:00`;
-            
+            ctx.font = "bold 18px 'GlowSans', sans-serif";
+            ctx.textAlign = "center";
             let textWidth = ctx.measureText(timeStr).width;
             let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
             let textColor = isDarkMode ? "#FFFFFF" : "#000000";
 
-            // 頂部時間
-            let labelYTop = Math.max(CONFIG.paddingTop - 25, camera.y + 30);
+            // 🌟 頂部時間：貼近螢幕頂部，但不會超過路線最頂端
+            let labelYTop = isCircular 
+                ? Math.max(CONFIG.paddingTop - 25, camera.y + 30) 
+                : Math.max(routeStartY - 25, Math.min(camera.y + 30, routeEndY));
+
+            // 🌟 底部時間：貼近螢幕底部，但如果路線很短，會自動「吸附」在路線底下，不會掉進黑洞！
+            let labelYBottom = isCircular 
+                ? camera.y + canvas.height - 30 
+                : Math.min(camera.y + canvas.height - 30, routeEndY + 30);
+
+            // 畫頂部
             ctx.fillStyle = maskBg;
             ctx.fillRect(x - textWidth/2 - 5, labelYTop - 15, textWidth + 10, 22);
             ctx.fillStyle = textColor;
             ctx.fillText(timeStr, x, labelYTop + 2);
 
-            // 底部時間
-            let labelYBottom = camera.y + wrapperH - 30;
+            // 畫底部
             ctx.fillStyle = maskBg;
             ctx.fillRect(x - textWidth/2 - 5, labelYBottom - 15, textWidth + 10, 22);
             ctx.fillStyle = textColor;
@@ -514,17 +532,25 @@ function drawTrains() {
 }
 
 // ==========================================
-// 🕒 繪製現在時間線 (跨夜影分身版)
+// 🕒 繪製現在時間線 (跨夜影分身 + 智慧邊界版)
 // ==========================================
 function drawCurrentTimeLine() {
     const now = new Date();
     let currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-    const wrapper = document.getElementById('canvas-wrapper');
-    const viewBottom = camera.y + wrapper.clientHeight;
-    const viewRight = camera.x + wrapper.clientWidth;
     const viewTop = camera.y;
+    const viewBottom = camera.y + canvas.height;
     const viewLeft = camera.x;
+    const viewRight = camera.x + canvas.width;
+
+    // 🌟 新增邊界判斷
+    let presetKey = currentRouteView + "_view"; 
+    let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+    let routeStartY = CONFIG.paddingTop;
+    let routeEndY = CONFIG.paddingTop + loopHeight;
+
+    let lineTop = isCircular ? viewTop : Math.max(viewTop, routeStartY - 20);
+    let lineBottom = isCircular ? viewBottom : Math.min(viewBottom, routeEndY + 20);
 
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
@@ -536,22 +562,23 @@ function drawCurrentTimeLine() {
     ctx.font = "bold 14px 'GlowSans', sans-serif";
     ctx.textAlign = "left";
 
-    // 🌟 關鍵修復：同時計算「今天」與「明天」的座標！
-    // 如果系統有支援到 48 小時，就連加兩個 1440
     let timeCopies = [currentMinutes, currentMinutes + 1440];
 
     timeCopies.forEach(mins => {
         let x = timeToX(mins);
 
-        // 只有當這條線出現在螢幕可視範圍內時，才畫出它！
         if (x >= viewLeft && x <= viewRight) {
             ctx.beginPath();
-            ctx.moveTo(x, viewTop);
-            ctx.lineTo(x, viewBottom);
+            // 🌟 使用新的邊界畫紅線
+            ctx.moveTo(x, lineTop);
+            ctx.lineTo(x, lineBottom);
             ctx.stroke();
 
-            // 讓標籤跟著螢幕頂端浮動
-            let labelY = Math.max(viewTop + 60, CONFIG.paddingTop);
+            // 讓紅線標籤也跟著智慧浮動
+            let labelY = isCircular 
+                ? Math.max(viewTop + 60, CONFIG.paddingTop) 
+                : Math.max(lineTop + 40, Math.min(viewTop + 60, lineBottom - 20));
+            
             ctx.fillText(now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0'), x + 8, labelY);
         }
     });
@@ -564,47 +591,54 @@ function drawCurrentTimeLine() {
 // ==========================================
 
 // ==========================================
-// 🌟 終極防跳動換線處理 (融合 Auto-Fit 滿版魔法)
+// 🌟 終極防跳動換線處理 (修正錯位、閃爍與保持使用者縮放)
 // ==========================================
 function handleRouteSwitch(newRoute) {
-    if (currentRouteView === newRoute) return; 
+    if (currentRouteView === newRoute) return;
 
-    // --- 1. 記憶目前位置 (保留你的超強防跳動邏輯) ---
+    // --- 1. 記憶目前物理位置 (真實時間與里程) ---
+    let anchorDataX = 0;
     let anchorDataY = 0;
     if (loopKm > 0) {
-        const currentLoopHeight = loopKm * CONFIG.scaleY;
-        // 降維運算：把目前巨大的 Y 座標，強制轉換回「第 0 圈」的相對位置
-        let relativeY = (camera.y - CONFIG.paddingTop) % currentLoopHeight;
-        if (relativeY < 0) relativeY += currentLoopHeight; 
+        anchorDataX = (camera.x - CONFIG.paddingLeft) / CONFIG.scaleX; // 記住 X 軸時間
         
-        // 記錄這個「絕對安全」的真實里程數 (不受縮放比例影響)
-        anchorDataY = relativeY / CONFIG.scaleY; 
+        const currentLoopHeight = loopKm * CONFIG.scaleY;
+        let relativeY = (camera.y - CONFIG.paddingTop) % currentLoopHeight;
+        if (relativeY < 0) relativeY += currentLoopHeight;
+        anchorDataY = relativeY / CONFIG.scaleY; // 記住 Y 軸里程
     }
 
-    // --- 2. 切換路線狀態與 UI ---
+    // --- 2. 切換狀態與 UI ---
     currentRouteView = newRoute;
     if (window.updateRouteButtons) window.updateRouteButtons();
 
-    // --- 3. 抓取新資料並重新計算比例 ---
-    // 先畫一次，讓底層算出新路線的長度 (loopKm)
-    redrawAll(); 
+    // --- 3. 背景偷偷計算新路線的總長度 (不觸碰畫布，防止脫節 Bug) ---
+    let newLoopKm = 0;
+    let selectedSegments = settings?.view_presets?.[newRoute]?.lines || [];
+    selectedSegments.forEach(segId => {
+        let seg = topology.segments.find(s => s.id === segId);
+        if (!seg) return;
+        let segMaxKm = 0;
+        seg.stations.forEach(st => { if (st.km > segMaxKm) segMaxKm = st.km; });
+        newLoopKm += segMaxKm;
+    });
     
-    // 🌟 啟動滿版魔法：根據新長度，自動拉伸 X 和 Y 的比例！
-    autoFitScale(); 
+    loopKm = newLoopKm; // 預先更新全域變數，確保後續比例計算 100% 準確
 
-    // --- 4. 座標補償：無視之前的圈數，把攝影機降落回「同一里程數」---
-    // 注意：這裡是乘上「新的 CONFIG.scaleY」，所以比例拉長了也能準確降落！
+    // --- 4. 觸發防呆縮放 ---
+    autoFitScale();
+
+    // --- 5. 座標補償：精準降落回剛剛的時間與里程！ ---
+    camera.x = Math.round(CONFIG.paddingLeft + (anchorDataX * CONFIG.scaleX));
     camera.y = Math.round(CONFIG.paddingTop + (anchorDataY * CONFIG.scaleY));
 
-    // --- 5. 防禦性校正 (極度重要) ---
-    // 如果你是從長路線(環島) 切換到 短路線(北段)，原本的位置可能會跑到螢幕外
-    // 所以一定要呼叫 clampCamera 來強制把畫面拉回合法範圍內！
+    // --- 6. 防禦性校正 ---
+    if (loopKm > 0) loopHeight = loopKm * CONFIG.scaleY;
     checkInfiniteScroll();
-    clampCamera(); 
-    camera.y = Math.round(camera.y);
-    
-    // --- 6. 為了防閃爍，用 requestAnimationFrame 再畫一次最終結果 ---
-    requestAnimationFrame(redrawAll);
+    clampCamera();
+
+    // --- 7. 安全重繪最終畫面 (只畫一次，拒絕錯位！) ---
+    redrawAll();
 }
 
 function buildUI() {
@@ -930,17 +964,16 @@ function bindThemeToggle() {
 }
 
 // ==========================================
-// 🌟 視角自動適應 (只在畫面出現黑邊時才介入，尊重使用者縮放)
+// 🌟 視角自動適應 (徹底解放版：尊重 Y 軸完美貼合)
 // ==========================================
 function autoFitScale() {
     const wrapper = document.getElementById('canvas-wrapper');
     if (!wrapper || typeof loopKm === 'undefined' || loopKm <= 0) return;
 
-    // 算出要塞滿螢幕的「最低下限」比例
     const minScaleY = (wrapper.clientHeight - 150) / loopKm;
 
-    // 🌟 核心防護：只在「目前的比例太小，會露出底部黑邊」時，才強制拉伸。
-    // 如果你已經手動滾輪放大 (大於 minScale)，就完美保留你的縮放倍率！
+    // 🌟 徹底解放：不再限制最大放大倍率！
+    // 讓短路線能完美撐開上下邊界。X 軸變長沒關係，我們爽爽左右拖曳來看！
     if (CONFIG.scaleY < minScaleY) {
         CONFIG.scaleX = minScaleY;
         CONFIG.scaleY = minScaleY;
