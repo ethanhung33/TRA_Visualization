@@ -256,7 +256,7 @@ def main():
         '4220-臺南', '4400-高雄', '5050-潮州', '5120-枋寮', 
         '6000-臺東', '7000-花蓮', '7190-宜蘭', '7360-瑞芳'
     ]
-    date = "2026/04/20"  # 或是 datetime.today().strftime("%Y/%m/%d")
+    date = datetime.today().strftime("%Y/%m/%d")
     train_list = set()
     print(f"📡 正在獲取 {date} 的車次名單...")
     

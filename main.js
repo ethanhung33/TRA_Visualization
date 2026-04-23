@@ -5,8 +5,7 @@ const canvas = document.getElementById('diaCanvas');
 const ctx = canvas.getContext('2d');
 
 // UI 控制項
-const btnMountain = document.getElementById('btn-mountain');
-const btnSea = document.getElementById('btn-sea');
+let currentRouteView = ""; // 🌟 改成空字串，動態指派
 const trainTypeContainer = document.getElementById('train-type-container');
 const btnAllTrains = document.getElementById('btn-all-trains');
 const btnNoTrains = document.getElementById('btn-no-trains');
@@ -76,7 +75,7 @@ function timeToX(minutes) {
 function drawGrid(viewKey) {
     lookupY = {}; 
     let currentAccumulatedKm = 0; 
-    let presetKey = viewKey + "_view"; 
+    let presetKey = viewKey; 
     let selectedSegments = settings?.view_presets?.[presetKey]?.lines || [];
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
 
@@ -278,7 +277,7 @@ function drawTrains() {
     const viewLeft = camera.x - 200;
     const viewRight = camera.x + canvas.width + 200;
 
-    let presetKey = currentRouteView + "_view"; 
+    let presetKey = currentRouteView; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
     let copyStart = isCircular ? -1 : 0;
     let copyEnd = isCircular ? 1 : 0;
@@ -605,45 +604,58 @@ function buildUI() {
         return isDarkMode ? colorsArray[0] : colorsArray[1];
     }
 
-    // ---- A. 路線切換按鈕綁定 ----
-    const updateRouteButtons = () => {
-        let mColor = getColor(settings?.view_presets?.mountain_view?.button_color);
-        let sColor = getColor(settings?.view_presets?.sea_view?.button_color);
+    // ---- A. 🌟 動態產生路線切換按鈕 ----
+    const routeContainer = document.getElementById('route-type-container');
+    if (routeContainer) routeContainer.innerHTML = ''; 
 
-        // 🌟 定義未選取時的基礎底色 (深色模式用深灰，淺色模式用淺灰底黑字)
+    // 抓出 setting.json 裡面所有的視角 key (例如 'mountain_view', 'north_link')
+    const viewKeys = Object.keys(settings?.view_presets || {});
+    
+    // 如果還沒有設定當前視角，預設選中 json 裡面的第一個！
+    if (viewKeys.length > 0 && !currentRouteView) {
+        currentRouteView = viewKeys[0];
+    }
+
+    // 建立一個陣列把產生的按鈕存起來，方便切換時改顏色
+    const dynamicRouteBtns = [];
+
+    const updateRouteButtons = () => {
         let defaultBg = isDarkMode ? "#444444" : "#E0E0E0";
         let defaultBorder = isDarkMode ? "#555555" : "#CCCCCC";
         let defaultText = isDarkMode ? "#CCCCCC" : "#000000";
-
-        // 🌟 定義彩色按鈕上面的字體顏色 (深色模式配黑字，淺色模式配白字)
         let selectedText = isDarkMode ? "#000000" : "#FFFFFF";
 
-        // 判斷並上色
-        if (currentRouteView === "mountain") {
-            btnMountain.style.backgroundColor = mColor;
-            btnMountain.style.borderColor = mColor;
-            btnMountain.style.color = selectedText;
-            
-            btnSea.style.backgroundColor = defaultBg;
-            btnSea.style.borderColor = defaultBorder;
-            btnSea.style.color = defaultText;
-        } else {
-            btnSea.style.backgroundColor = sColor;
-            btnSea.style.borderColor = sColor;
-            btnSea.style.color = selectedText;
-
-            btnMountain.style.backgroundColor = defaultBg;
-            btnMountain.style.borderColor = defaultBorder;
-            btnMountain.style.color = defaultText;
-        }
+        dynamicRouteBtns.forEach(item => {
+            let btn = item.btn;
+            if (currentRouteView === item.key) {
+                // 如果是被選中的路線，就抓 json 裡設定的專屬顏色
+                let routeColor = getColor(settings.view_presets[item.key].button_color);
+                btn.style.backgroundColor = routeColor;
+                btn.style.borderColor = routeColor;
+                btn.style.color = selectedText;
+            } else {
+                btn.style.backgroundColor = defaultBg;
+                btn.style.borderColor = defaultBorder;
+                btn.style.color = defaultText;
+            }
+        });
     };
 
-    // 🌟 綁定按鈕事件 (取代原本那兩大段)
-    btnMountain.addEventListener('click', () => handleRouteSwitch("mountain"));
-    btnSea.addEventListener('click', () => handleRouteSwitch("sea"));
+    // 迴圈跑出所有按鈕
+    viewKeys.forEach(key => {
+        const preset = settings.view_presets[key];
+        const btn = document.createElement('button');
+        btn.className = 'pill-btn';
+        btn.textContent = preset.name; // 這裡會印出 "山線環島鐵路" 或 "縱貫線北段"
+        
+        btn.addEventListener('click', () => handleRouteSwitch(key));
+        
+        if (routeContainer) routeContainer.appendChild(btn);
+        dynamicRouteBtns.push({ key: key, btn: btn });
+    });
 
-    updateRouteButtons();
     window.updateRouteButtons = updateRouteButtons; 
+    updateRouteButtons();
 
     // ---- B. 動態生成車種篩選按鈕 (同步 setting.json 順序) ----
     
@@ -929,7 +941,7 @@ function clampCamera() {
     }
 
     // --- 🌟 Y 軸限制 (上下，防止出現巨大留空) ---
-    let presetKey = currentRouteView + "_view"; 
+    let presetKey = currentRouteView; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
     
     if (!isCircular) {
@@ -956,7 +968,7 @@ function checkInfiniteScroll() {
     if (loopHeight <= 0) return;
 
     // 取得目前的視圖類型 (判斷是否為 CIRCULAR)
-    let presetKey = currentRouteView + "_view"; 
+    let presetKey = currentRouteView; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
     
     if (!isCircular) return;
@@ -1053,7 +1065,7 @@ function setupCanvasInteractions() {
         let minStationDist = 8; // Hover 的容錯距離 8px
 
         if (!closestTrain) { // 如果滑鼠沒有碰到火車，才去檢查有沒有碰到車站
-            let presetKey = currentRouteView + "_view"; 
+            let presetKey = currentRouteView; 
             let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
             let copyStart = isCircular ? -1 : 0;
             let copyEnd = isCircular ? 1 : 0;
@@ -1154,7 +1166,7 @@ function setupCanvasInteractions() {
                 let minStationDist = 15; // Y軸容錯距離 15px
 
                 // 取得現在的視圖狀態 (判斷是否為環島循環模式)
-                let presetKey = currentRouteView + "_view"; 
+                let presetKey = currentRouteView; 
                 let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
                 let copyStart = isCircular ? -1 : 0;
                 let copyEnd = isCircular ? 1 : 0;
@@ -1706,7 +1718,7 @@ window.triggerSelectStation = function(st_id) {
         let targetY = rawY + CONFIG.paddingTop;
         
         // --- (處理環島循環線的防呆判斷) ---
-        let presetKey = currentRouteView + "_view"; 
+        let presetKey = currentRouteView; 
         let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
         
         if (isCircular && loopHeight > 0) {

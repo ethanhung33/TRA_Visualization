@@ -8,14 +8,22 @@
 
   "view_presets": {
     "mountain_view": {
+        "name": "山線環島鐵路",
         "lines": ["north_main", "mountain_line", "south_main", "eastern_trunk"],
         "view_type": "CIRCULAR",
         "button_color": ["#4CAF50", "#2E7D32"]
     },
     "sea_view": {
+        "name": "海線環島鐵路",
         "lines": ["north_main", "sea_line", "south_main", "eastern_trunk"],
         "view_type": "CIRCULAR",
         "button_color": ["#2196F3", "#1565C0"]
+    },
+    "north_link": {
+        "name": "縱貫線北段",
+        "lines": ["keelung", "north_main"],
+        "view_type": "LINEAR",
+        "button_color": ["#FF5722", "#BF360C"]
     }
   },
 
