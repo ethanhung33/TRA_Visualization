@@ -930,22 +930,21 @@ function bindThemeToggle() {
 }
 
 // ==========================================
-// 🌟 視角自動適應 (X與Y等比例放大，維持真實車速斜率！)
+// 🌟 視角自動適應 (只在畫面出現黑邊時才介入，尊重使用者縮放)
 // ==========================================
 function autoFitScale() {
     const wrapper = document.getElementById('canvas-wrapper');
     if (!wrapper || typeof loopKm === 'undefined' || loopKm <= 0) return;
 
-    // 1. 計算能讓這條路線「剛好塞滿螢幕高度」的完美倍率
-    const idealScaleY = (wrapper.clientHeight - 150) / loopKm;
+    // 算出要塞滿螢幕的「最低下限」比例
+    const minScaleY = (wrapper.clientHeight - 150) / loopKm;
 
-    // 2. 取得最終要放大的倍率 (至少為 1.0，避免把長路線縮得太小)
-    const zoomFactor = Math.max(1.0, idealScaleY);
-
-    // 🌟 3. 核心修正：把這個倍率「同時」套用給時間(X)和距離(Y)！
-    // 假設我們最原始的基準比例都是 1.0
-    CONFIG.scaleX = 1.0 * zoomFactor; 
-    CONFIG.scaleY = 1.0 * zoomFactor; 
+    // 🌟 核心防護：只在「目前的比例太小，會露出底部黑邊」時，才強制拉伸。
+    // 如果你已經手動滾輪放大 (大於 minScale)，就完美保留你的縮放倍率！
+    if (CONFIG.scaleY < minScaleY) {
+        CONFIG.scaleX = minScaleY;
+        CONFIG.scaleY = minScaleY;
+    }
 }
 
 // ==========================================
