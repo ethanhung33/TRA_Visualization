@@ -648,54 +648,70 @@ function drawCurrentTimeLine() {
 // ==========================================
 
 // ==========================================
-// 🌟 終極防跳動換線處理 (修正錯位、閃爍與保持使用者縮放)
+// 🌟 終極防跳動換線處理 (中央對焦雙軸記憶 + 智慧路線整理)
 // ==========================================
 function handleRouteSwitch(newRoute) {
     if (currentRouteView === newRoute) return;
 
-    // --- 1. 記憶目前物理位置 (真實時間與里程) ---
+    // 取得畫布容器的真實尺寸，用來計算「螢幕正中央」
+    const wrapper = document.getElementById('canvas-wrapper');
+    const screenW = wrapper ? wrapper.clientWidth : canvas.width;
+    const screenH = wrapper ? wrapper.clientHeight : canvas.height;
+
+    // --- 1. 雙軸記憶：精準記下螢幕「正中央」的時間 (X) 和里程 (Y) ---
     let anchorDataX = 0;
     let anchorDataY = 0;
     if (loopKm > 0) {
-        anchorDataX = (camera.x - CONFIG.paddingLeft) / CONFIG.scaleX; // 記住 X 軸時間
+        // 算出螢幕正中央的 X 座標
+        let centerCamX = camera.x + (screenW / 2);
+        anchorDataX = (centerCamX - CONFIG.paddingLeft) / CONFIG.scaleX; 
         
+        // 算出螢幕正中央的 Y 座標 (加上降維運算)
+        let centerCamY = camera.y + (screenH / 2);
         const currentLoopHeight = loopKm * CONFIG.scaleY;
-        let relativeY = (camera.y - CONFIG.paddingTop) % currentLoopHeight;
+        let relativeY = (centerCamY - CONFIG.paddingTop) % currentLoopHeight;
         if (relativeY < 0) relativeY += currentLoopHeight;
-        anchorDataY = relativeY / CONFIG.scaleY; // 記住 Y 軸里程
+        anchorDataY = relativeY / CONFIG.scaleY; 
     }
 
     // --- 2. 切換狀態與 UI ---
     currentRouteView = newRoute;
     if (window.updateRouteButtons) window.updateRouteButtons();
 
-    // --- 3. 背景偷偷計算新路線的總長度 ---
+    // --- 3. 背景偷偷計算新路線的總長度 (智慧整理器) ---
     let newLoopKm = 0;
     let selectedSegments = settings?.view_presets?.[newRoute]?.lines || [];
     let segmentsData = getProcessedSegments(selectedSegments, topology);
     
     segmentsData.forEach(data => {
         let stationsToDraw = data.stations;
-        let startKm = stationsToDraw[0].km;
-        let endKm = stationsToDraw[stationsToDraw.length - 1].km;
-        newLoopKm += Math.abs(endKm - startKm);
+        if (stationsToDraw.length > 0) {
+            let startKm = stationsToDraw[0].km;
+            let endKm = stationsToDraw[stationsToDraw.length - 1].km;
+            newLoopKm += Math.abs(endKm - startKm);
+        }
     });
     
     loopKm = newLoopKm;
 
-    // --- 4. 觸發防呆縮放 ---
-    autoFitScale();
+    // --- 4. 觸發防呆縮放 (比例改變就在這瞬間！) ---
+    if (typeof autoFitScale === 'function') autoFitScale();
 
-    // --- 5. 座標補償：精準降落回剛剛的時間與里程！ ---
-    camera.x = Math.round(CONFIG.paddingLeft + (anchorDataX * CONFIG.scaleX));
-    camera.y = Math.round(CONFIG.paddingTop + (anchorDataY * CONFIG.scaleY));
+    // --- 5. 座標補償：以「螢幕正中央」為基準，還原時間和里程 ---
+    // 先算出目標時間和里程在新比例下的「絕對像素座標」
+    let targetCenterX = CONFIG.paddingLeft + (anchorDataX * CONFIG.scaleX);
+    let targetCenterY = CONFIG.paddingTop + (anchorDataY * CONFIG.scaleY);
 
-    // --- 6. 防禦性校正 ---
+    // 把鏡頭的左上角 (camera.x, camera.y) 減去螢幕一半，精準推回中央！
+    camera.x = Math.round(targetCenterX - (screenW / 2));
+    camera.y = Math.round(targetCenterY - (screenH / 2));
+
+    // --- 6. 防禦性校正 (撞牆保護) ---
     if (loopKm > 0) loopHeight = loopKm * CONFIG.scaleY;
     checkInfiniteScroll();
     clampCamera();
 
-    // --- 7. 安全重繪最終畫面 (只畫一次，拒絕錯位！) ---
+    // --- 7. 安全重繪最終畫面 ---
     redrawAll();
 }
 
