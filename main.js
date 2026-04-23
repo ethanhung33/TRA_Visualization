@@ -80,50 +80,55 @@ function drawGrid(viewKey) {
 
     if (selectedSegments.length === 0) return; 
 
-    // 🌟 1. 整理唯一車站 (支援整條線與「區間截取」)
+    // 🌟 1. 整理唯一車站 (極簡自動接軌版)
     let uniqueStations = [];
-    selectedSegments.forEach(segInput => {
-        // 判斷是字串還是物件
+    
+    let lastStationId = null; // 🌟 記憶體：用來記住上一條路線的「最後一站」
+
+    selectedSegments.forEach((segInput) => {
         let segId = typeof segInput === 'string' ? segInput : segInput.id;
         let seg = topology.segments.find(s => s.id === segId);
         if (!seg) return;
 
-        // 🌟 區間截取邏輯
-        let stationsToDraw = seg.stations;
+        // --- 處理截取 (維持原本的簡單邏輯) ---
+        let stationsToDraw = [...seg.stations];
         if (typeof segInput === 'object') {
-            let sIdx = 0;
-            let eIdx = seg.stations.length - 1;
-            
-            // 找出起點和終點在陣列中的位置 (支援站名或 ID)
+            let sIdx = 0, eIdx = seg.stations.length - 1;
             if (segInput.start) sIdx = seg.stations.findIndex(st => st.name === segInput.start || st.id === segInput.start);
             if (segInput.end) eIdx = seg.stations.findIndex(st => st.name === segInput.end || st.id === segInput.end);
             
             if (sIdx !== -1 && eIdx !== -1) {
-                let minIdx = Math.min(sIdx, eIdx);
-                let maxIdx = Math.max(sIdx, eIdx);
-                stationsToDraw = seg.stations.slice(minIdx, maxIdx + 1);
-                
-                // ==========================================
-                // 🌟 核心修復：如果起點在陣列後面 (逆向行駛)，就把車站順序反轉！
-                // ==========================================
-                if (sIdx > eIdx) {
-                    stationsToDraw.reverse();
-                }
+                stationsToDraw = seg.stations.slice(Math.min(sIdx, eIdx), Math.max(sIdx, eIdx) + 1);
+                if (sIdx > eIdx) stationsToDraw.reverse(); // 使用者手動指定的反轉
             }
         }
-
         if (stationsToDraw.length === 0) return;
 
+        // ==========================================
+        // 🌟 極簡魔法：自動判斷要不要反轉！
+        // ==========================================
+        if (lastStationId) {
+            // 找找看上一條線的終點，在我這條線的哪個位置？
+            let connectIdx = stationsToDraw.findIndex(st => st.id === lastStationId || st.name === lastStationId);
+            
+            // 如果找到了，而且「不是在第 0 個位置」 (代表它排在後面)，就整條線轉頭！
+            if (connectIdx > 0) {
+                stationsToDraw.reverse();
+            }
+        }
+        // 記錄這條線畫完後的最後一站，交棒給下一條線去比對
+        lastStationId = stationsToDraw[stationsToDraw.length - 1].id;
+        // ==========================================
+
+        // --- 下面繼續原本的畫格子與算里程邏輯 ---
         let segMaxKm = 0;
-        let startKm = stationsToDraw[0].km; // 記錄這一刀切下去的起點里程
+        let startKm = stationsToDraw[0].km; 
 
         stationsToDraw.forEach(st => {
-            // 算出相對里程：減去起點里程，讓這段截取線完美接到上一段的屁股後面
             let relativeKm = Math.abs(st.km - startKm); 
             let absoluteKm = currentAccumulatedKm + relativeKm;
             let yPos = absoluteKm * CONFIG.scaleY;
 
-            // 將 lookupY 改為陣列，容納座標與對應的「路線 ID」
             if (!lookupY[st.id]) lookupY[st.id] = [];
             
             let lastOpt = lookupY[st.id][lookupY[st.id].length - 1];
