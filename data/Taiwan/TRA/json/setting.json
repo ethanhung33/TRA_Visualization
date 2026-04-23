@@ -24,6 +24,50 @@
         "lines": ["keelung", "north_main"],
         "view_type": "LINEAR",
         "button_color": ["#FF5722", "#BF360C"]
+    },
+    "yilan": {
+        "name": "宜蘭線 (八堵-蘇澳)",
+        "lines": [
+          {"id": "eastern_trunk", "start": "八堵", "end": "蘇澳新"},
+          "suao"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#4CAF50", "#2E7D32"]
+    },
+    "liujia": {
+        "name": "六家線 (新竹-六家)",
+        "lines": [
+          {"id": "north_main", "start": "新竹", "end": "北新竹"},
+          {"id": "neiwan", "start": "北新竹", "end": "竹中"},
+          "liujia"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#9C27B0", "#7B1FA2"]
+    },
+    "neiwan": {
+        "name": "內灣線 (新竹-內灣)",
+        "lines": [
+          {"id": "north_main", "start": "新竹", "end": "北新竹"},
+          "neiwan"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#E91E63", "#C2185B"]
+    },
+    "shengao-pingxi": {
+        "name": "深澳、平溪線 (八斗子-瑞芳-菁桐)",
+        "lines": [
+          "shengao", 
+          {"id": "eastern_trunk", "start": "瑞芳", "end": "三貂嶺"},
+          "pingxi"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#3F51B5", "#303F9F"]
+    },
+    "jiji": {
+        "name": "集集線 (二水-集集)",
+        "lines": ["jiji"],
+        "view_type": "LINEAR",
+        "button_color": ["#009688", "#00796B"]
     }
   },
 

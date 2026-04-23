@@ -80,26 +80,52 @@ function drawGrid(viewKey) {
 
     if (selectedSegments.length === 0) return; 
 
-    // 🌟 1. 整理唯一車站 (線性模式下容許頭尾重複)
+    // 🌟 1. 整理唯一車站 (支援整條線與「區間截取」)
     let uniqueStations = [];
-    selectedSegments.forEach(segId => {
+    selectedSegments.forEach(segInput => {
+        // 判斷是字串還是物件
+        let segId = typeof segInput === 'string' ? segInput : segInput.id;
         let seg = topology.segments.find(s => s.id === segId);
         if (!seg) return;
+
+        // 🌟 區間截取邏輯
+        let stationsToDraw = seg.stations;
+        if (typeof segInput === 'object') {
+            let sIdx = 0;
+            let eIdx = seg.stations.length - 1;
+            
+            // 找出起點和終點在陣列中的位置 (支援站名或 ID)
+            if (segInput.start) sIdx = seg.stations.findIndex(st => st.name === segInput.start || st.id === segInput.start);
+            if (segInput.end) eIdx = seg.stations.findIndex(st => st.name === segInput.end || st.id === segInput.end);
+            
+            // 防呆：如果找不到站名，或者順序寫反了，自動修正
+            if (sIdx !== -1 && eIdx !== -1) {
+                let minIdx = Math.min(sIdx, eIdx);
+                let maxIdx = Math.max(sIdx, eIdx);
+                stationsToDraw = seg.stations.slice(minIdx, maxIdx + 1);
+            }
+        }
+
+        if (stationsToDraw.length === 0) return;
+
         let segMaxKm = 0;
-        seg.stations.forEach(st => {
-            let absoluteKm = currentAccumulatedKm + st.km;
+        let startKm = stationsToDraw[0].km; // 記錄這一刀切下去的起點里程
+
+        stationsToDraw.forEach(st => {
+            // 算出相對里程：減去起點里程，讓這段截取線完美接到上一段的屁股後面
+            let relativeKm = Math.abs(st.km - startKm); 
+            let absoluteKm = currentAccumulatedKm + relativeKm;
             let yPos = absoluteKm * CONFIG.scaleY;
 
-            // 🌟 將 lookupY 改為陣列，容納座標與對應的「路線 ID」
+            // 將 lookupY 改為陣列，容納座標與對應的「路線 ID」
             if (!lookupY[st.id]) lookupY[st.id] = [];
             
-            // 避免同一個交會站在同一條路線被存兩次
             let lastOpt = lookupY[st.id][lookupY[st.id].length - 1];
             if (!lastOpt || Math.abs(lastOpt.y - yPos) > 1.0) {
-                lookupY[st.id].push({ y: yPos, segId: segId }); // 紀錄它是哪條線的座標
+                lookupY[st.id].push({ y: yPos, segId: segId }); 
                 uniqueStations.push({ id: st.id, name: st.name, baseY: yPos });
             }
-            if (st.km > segMaxKm) segMaxKm = st.km;
+            if (relativeKm > segMaxKm) segMaxKm = relativeKm;
         });
         currentAccumulatedKm += segMaxKm; 
     });
@@ -612,18 +638,36 @@ function handleRouteSwitch(newRoute) {
     currentRouteView = newRoute;
     if (window.updateRouteButtons) window.updateRouteButtons();
 
-    // --- 3. 背景偷偷計算新路線的總長度 (不觸碰畫布，防止脫節 Bug) ---
+    // --- 3. 背景偷偷計算新路線的總長度 (支援區間截取版) ---
     let newLoopKm = 0;
     let selectedSegments = settings?.view_presets?.[newRoute]?.lines || [];
-    selectedSegments.forEach(segId => {
+    selectedSegments.forEach(segInput => {
+        let segId = typeof segInput === 'string' ? segInput : segInput.id;
         let seg = topology.segments.find(s => s.id === segId);
         if (!seg) return;
-        let segMaxKm = 0;
-        seg.stations.forEach(st => { if (st.km > segMaxKm) segMaxKm = st.km; });
-        newLoopKm += segMaxKm;
+
+        let stationsToDraw = seg.stations;
+        if (typeof segInput === 'object') {
+            let sIdx = 0;
+            let eIdx = seg.stations.length - 1;
+            if (segInput.start) sIdx = seg.stations.findIndex(st => st.name === segInput.start || st.id === segInput.start);
+            if (segInput.end) eIdx = seg.stations.findIndex(st => st.name === segInput.end || st.id === segInput.end);
+            
+            if (sIdx !== -1 && eIdx !== -1) {
+                let minIdx = Math.min(sIdx, eIdx);
+                let maxIdx = Math.max(sIdx, eIdx);
+                stationsToDraw = seg.stations.slice(minIdx, maxIdx + 1);
+            }
+        }
+
+        if (stationsToDraw.length > 0) {
+            let startKm = stationsToDraw[0].km;
+            let endKm = stationsToDraw[stationsToDraw.length - 1].km;
+            newLoopKm += Math.abs(endKm - startKm);
+        }
     });
     
-    loopKm = newLoopKm; // 預先更新全域變數，確保後續比例計算 100% 準確
+    loopKm = newLoopKm;
 
     // --- 4. 觸發防呆縮放 ---
     autoFitScale();
