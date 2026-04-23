@@ -563,36 +563,47 @@ function drawCurrentTimeLine() {
 // 5. UI 構建與事件綁定 (完美底色版)
 // ==========================================
 
-// 🌟 終極防跳動換線處理 (修正無限捲動錯位問題)
+// ==========================================
+// 🌟 終極防跳動換線處理 (融合 Auto-Fit 滿版魔法)
+// ==========================================
 function handleRouteSwitch(newRoute) {
     if (currentRouteView === newRoute) return; 
 
-    // 1. 取得目前的總高度 (換線前的 loopHeight)
-    const currentLoopHeight = loopKm * CONFIG.scaleY;
+    // --- 1. 記憶目前位置 (保留你的超強防跳動邏輯) ---
+    let anchorDataY = 0;
+    if (loopKm > 0) {
+        const currentLoopHeight = loopKm * CONFIG.scaleY;
+        // 降維運算：把目前巨大的 Y 座標，強制轉換回「第 0 圈」的相對位置
+        let relativeY = (camera.y - CONFIG.paddingTop) % currentLoopHeight;
+        if (relativeY < 0) relativeY += currentLoopHeight; 
+        
+        // 記錄這個「絕對安全」的真實里程數 (不受縮放比例影響)
+        anchorDataY = relativeY / CONFIG.scaleY; 
+    }
 
-    // 🌟 2. 降維運算：把目前巨大的 Y 座標，強制轉換回「第 0 圈」的相對位置
-    let relativeY = (camera.y - CONFIG.paddingTop) % currentLoopHeight;
-    if (relativeY < 0) relativeY += currentLoopHeight; // 處理往上捲的負數情況
-
-    // 記錄這個「絕對安全」的相對里程
-    const anchorDataY = relativeY / CONFIG.scaleY;
-
-    // 3. 切換路線狀態與 UI
+    // --- 2. 切換路線狀態與 UI ---
     currentRouteView = newRoute;
-    updateRouteButtons();
+    if (window.updateRouteButtons) window.updateRouteButtons();
 
-    // 🚨 4. 先執行你的資料更新 (很重要：這會讓 loopKm 更新為新路線的長度)
-    // 假設你的 redrawAll 裡面會重新整理 uniqueStations 和 loopKm
-    redrawAll();
+    // --- 3. 抓取新資料並重新計算比例 ---
+    // 先畫一次，讓底層算出新路線的長度 (loopKm)
+    redrawAll(); 
+    
+    // 🌟 啟動滿版魔法：根據新長度，自動拉伸 X 和 Y 的比例！
+    autoFitScale(); 
 
-    // 🌟 5. 座標補償：無視之前的圈數，把攝影機強制降落在「第 0 圈」的同一個位置
+    // --- 4. 座標補償：無視之前的圈數，把攝影機降落回「同一里程數」---
+    // 注意：這裡是乘上「新的 CONFIG.scaleY」，所以比例拉長了也能準確降落！
     camera.y = Math.round(CONFIG.paddingTop + (anchorDataY * CONFIG.scaleY));
 
-    // 6. 防禦性檢查無限捲動
+    // --- 5. 防禦性校正 (極度重要) ---
+    // 如果你是從長路線(環島) 切換到 短路線(北段)，原本的位置可能會跑到螢幕外
+    // 所以一定要呼叫 clampCamera 來強制把畫面拉回合法範圍內！
     checkInfiniteScroll();
+    clampCamera(); 
     camera.y = Math.round(camera.y);
     
-    // 7. 為了防閃爍，用 requestAnimationFrame 再畫一次最終結果
+    // --- 6. 為了防閃爍，用 requestAnimationFrame 再畫一次最終結果 ---
     requestAnimationFrame(redrawAll);
 }
 
@@ -916,6 +927,25 @@ function bindThemeToggle() {
         // 4. 重繪畫布
         redrawAll();
     });
+}
+
+// ==========================================
+// 🌟 視角自動適應 (X與Y等比例放大，維持真實車速斜率！)
+// ==========================================
+function autoFitScale() {
+    const wrapper = document.getElementById('canvas-wrapper');
+    if (!wrapper || typeof loopKm === 'undefined' || loopKm <= 0) return;
+
+    // 1. 計算能讓這條路線「剛好塞滿螢幕高度」的完美倍率
+    const idealScaleY = (wrapper.clientHeight - 150) / loopKm;
+
+    // 2. 取得最終要放大的倍率 (至少為 1.0，避免把長路線縮得太小)
+    const zoomFactor = Math.max(1.0, idealScaleY);
+
+    // 🌟 3. 核心修正：把這個倍率「同時」套用給時間(X)和距離(Y)！
+    // 假設我們最原始的基準比例都是 1.0
+    CONFIG.scaleX = 1.0 * zoomFactor; 
+    CONFIG.scaleY = 1.0 * zoomFactor; 
 }
 
 // ==========================================
@@ -1991,10 +2021,14 @@ async function init(systemPath) {
         const canvas = canvasObj.canvas; 
         const ctx = canvasObj.ctx; // 讓後面的 redrawAll 可以用高畫質的筆刷來畫！
 
-        // 🌟 1. 現在才開始畫圖，保證一畫出來就是最終完美的比例！
-        if (settings.data_fetch_strategy !== "DAILY_FILE") {
-           redrawAll(); // DAILY_FILE 模式在 loadTimetableData 裡面已經畫過了，所以這裡可以略過或保留
-        }       
+        // ==========================================
+        // 🌟 啟動時強制執行一次滿版校正 (取代原本的畫圖邏輯)
+        // ==========================================
+        redrawAll();      // 讓系統先算出預設路線的 loopKm (無論哪種模式都強制先算一次)
+        autoFitScale();   // 算出最完美的拉伸比例
+        camera.y = -50;   // 把畫面推到最頂端
+        clampCamera();    // 確保不會超出邊界
+        redrawAll();      // 畫出拉伸後的最終完美畫面！     
 
         // ==========================================
         // 🌟 5. 圖畫完了！把轉圈圈優雅地隱藏起來
