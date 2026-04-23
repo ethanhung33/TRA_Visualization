@@ -50,8 +50,7 @@ let settings = null;
 let isDarkMode = true;      
 
 // ... (往下繼續是你原本的程式碼) ...
-// 視角與過濾狀態
-let currentRouteView = "mountain"; 
+// 視角與過濾狀態 
 let activeTrainTypes = new Set(); 
 
 let currentSystemPath = "";
