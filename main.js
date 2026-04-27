@@ -1105,13 +1105,11 @@ function findPresetsForStation(stationKeyword) {
 }
 
 // ==========================================
-// 🌟 智慧視角跳轉：無縫自動跨線導航版 (加入防呆鎖)
+// 🌟 智慧視角跳轉：無縫自動跨線導航版 (加入雙軸對焦)
 // ==========================================
-function focusStationOnCanvas(stationId, stationName) {
-    // 1. 存在性雷達：檢查這個車站有沒有畫在「當下的畫布」上？
+function focusStationOnCanvas(stationId, stationName, targetMinutes = null) {
+    // 1. 存在性雷達：如果畫面上沒有這個車站，先換路線
     if (!lookupY[stationId] || lookupY[stationId].length === 0) {
-        
-        // 啟動全網雷達搜尋！
         let availableRoutes = findPresetsForStation(stationId);
         if (!availableRoutes || availableRoutes.length === 0) {
             availableRoutes = findPresetsForStation(stationName);
@@ -1123,41 +1121,41 @@ function focusStationOnCanvas(stationId, stationName) {
         }
 
         let targetRoute = availableRoutes[0];
-
-        // 🌟 防呆鎖：如果找到的路線就是「現在正在看的路線」，立刻換下一條！
         if (targetRoute.id === currentRouteView) {
             if (availableRoutes.length > 1) {
-                targetRoute = availableRoutes[1]; // 換備用路線
+                targetRoute = availableRoutes[1]; 
             } else {
-                console.log(`⚠️ 找不到適合的路線來顯示 ${stationName}`);
                 return; 
             }
         }
 
-        // 🚀 霸氣執行：直接切換路線！
         handleRouteSwitch(targetRoute.id);
 
-        // ⚠️ 延遲 0.1 秒等新地圖畫好，再次呼叫自己降落！
+        // 🌟 把 targetMinutes 一起傳遞給下一回合的自己
         setTimeout(() => {
-            focusStationOnCanvas(stationId, stationName);
+            focusStationOnCanvas(stationId, stationName, targetMinutes);
         }, 100);
-        
         return; 
     }
 
-    // --- 2. 畫面上已經有這個車站了，直接置中！ ---
+    // --- 2. 畫面上已經有這個車站了，開始雙軸降落！ ---
     let targetY = lookupY[stationId][0].y;
 
     const wrapper = document.getElementById('canvas-wrapper');
     let screenH = wrapper ? wrapper.clientHeight : canvas.height;
+    let screenW = wrapper ? wrapper.clientWidth : canvas.width;
     
-    // 完美置中
+    // 🌟 完美置中 Y 軸 (對齊車站)
     camera.y = targetY - (screenH / 2);
 
-    // 防禦性校正
-    clampCamera();
+    // 🌟 核心新增：如果我們知道火車幾點到，就把 X 軸 (時間) 也完美置中！
+    if (targetMinutes !== null) {
+        let targetX = timeToX(targetMinutes);
+        camera.x = targetX - (screenW / 2);
+    }
 
-    // 重新畫圖！
+    // 防禦性校正與重繪
+    clampCamera();
     requestAnimationFrame(redrawAll);
 }
 
@@ -1943,20 +1941,34 @@ window.triggerSelectTrain = function(trainNo) {
 };
 
 // ==========================================
-// 🔄 跨面板互動觸發器 (呼叫智慧導航大腦版)
+// 🔄 跨面板互動觸發器 (保留黃色高亮 + 追蹤時間版)
 // ==========================================
 window.triggerSelectStation = function(st_id) {
     selectedStation = st_id;
-    selectedTrain = null;
     
-    // 1. 更新底部 UI 面板
+    // 🌟 核心修復 1：不要清空火車！讓這台車繼續保持「黃色高亮」VIP 狀態！
+    // selectedTrain = null; (這行我們不要了)
+    
+    // 更新底部 UI 面板
     updateBottomPanelStation(selectedStation); 
-
-    // 2. 取得站名
     let stName = getStationName(st_id);
 
-    // 🌟 3. 把剩下的複雜工作，全部外包給我們的最強導航大腦！
-    focusStationOnCanvas(st_id, stName);
+    // 🌟 核心修復 2：查出這班車「幾點幾分」會到這個車站？
+    let targetMinutes = null;
+    if (selectedTrain && selectedTrain.segments) {
+        for (let seg of selectedTrain.segments) {
+            for (let i = 0; i < seg.s.length; i++) {
+                if (seg.s[i] === st_id) {
+                    targetMinutes = seg.t[i * 2]; // 抓取這班車的到站時間
+                    break;
+                }
+            }
+            if (targetMinutes !== null) break;
+        }
+    }
+
+    // 呼叫超級大腦，把「目標時間」一起傳進去！
+    focusStationOnCanvas(st_id, stName, targetMinutes);
 };
 
 // ==========================================
