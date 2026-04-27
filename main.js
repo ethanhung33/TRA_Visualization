@@ -1105,7 +1105,7 @@ function findPresetsForStation(stationKeyword) {
 }
 
 // ==========================================
-// 🌟 智慧視角跳轉：無縫自動跨線導航版 (加入雙軸對焦)
+// 🌟 智慧視角跳轉：無縫自動跨線導航版 (同步強制渲染版)
 // ==========================================
 function focusStationOnCanvas(stationId, stationName, targetMinutes = null) {
     // 1. 存在性雷達：如果畫面上沒有這個車站，先換路線
@@ -1129,12 +1129,12 @@ function focusStationOnCanvas(stationId, stationName, targetMinutes = null) {
             }
         }
 
+        // 🌟 核心修復 1：拔除 setTimeout 延遲！
+        // handleRouteSwitch 其實是「同步」執行的，跑完瞬間座標就算好了。
+        // 所以直接切換路線後，立刻再次呼叫自己進行降落！
         handleRouteSwitch(targetRoute.id);
-
-        // 🌟 把 targetMinutes 一起傳遞給下一回合的自己
-        setTimeout(() => {
-            focusStationOnCanvas(stationId, stationName, targetMinutes);
-        }, 100);
+        focusStationOnCanvas(stationId, stationName, targetMinutes);
+        
         return; 
     }
 
@@ -1145,18 +1145,21 @@ function focusStationOnCanvas(stationId, stationName, targetMinutes = null) {
     let screenH = wrapper ? wrapper.clientHeight : canvas.height;
     let screenW = wrapper ? wrapper.clientWidth : canvas.width;
     
-    // 🌟 完美置中 Y 軸 (對齊車站)
-    camera.y = targetY - (screenH / 2);
+    // 完美置中 Y 軸 (加上 Math.round 避免小數點造成畫面模糊)
+    camera.y = Math.round(targetY - (screenH / 2));
 
-    // 🌟 核心新增：如果我們知道火車幾點到，就把 X 軸 (時間) 也完美置中！
+    // 完美置中 X 軸 (如果有傳入目標時間的話)
     if (targetMinutes !== null) {
         let targetX = timeToX(targetMinutes);
-        camera.x = targetX - (screenW / 2);
+        camera.x = Math.round(targetX - (screenW / 2));
     }
 
-    // 防禦性校正與重繪
+    // 防禦性校正
     clampCamera();
-    requestAnimationFrame(redrawAll);
+
+    // 🌟 核心修復 2：拔除 requestAnimationFrame！
+    // 強制瀏覽器在此刻立刻重繪，拒絕掉幀與偷懶！
+    redrawAll();
 }
 
 // ==========================================
