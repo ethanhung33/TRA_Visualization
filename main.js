@@ -1066,6 +1066,93 @@ function autoFitScale() {
 }
 
 // ==========================================
+// 🌟 車站全網雷達：找出包含該車站的所有「路線視角 (View Presets)」
+// ==========================================
+function findPresetsForStation(stationKeyword) {
+    let foundPresets = [];
+
+    // 翻開 setting.json，檢查每一個路線組合 (例如 mountain_view, sea_view...)
+    for (const [presetKey, presetData] of Object.entries(settings.view_presets)) {
+        let hasStation = false;
+
+        // 遍歷這個組合裡面的所有線段 (例如 north_main, mountain_line...)
+        let lines = presetData.lines || [];
+        lines.forEach(segInput => {
+            let segId = typeof segInput === 'string' ? segInput : segInput.id;
+            
+            // 去 topology.json 把這條實體線抓出來
+            let seg = topology.segments.find(s => s.id === segId);
+            if (!seg) return;
+
+            // 檢查這個線段裡，有沒有這名乘客想找的車站？
+            if (seg.stations.some(st => st.name === stationKeyword || st.id === stationKeyword)) {
+                hasStation = true;
+            }
+        });
+
+        // 如果這個路線組合有包含這個車站，就把它加進名單！
+        if (hasStation) {
+            foundPresets.push({
+                id: presetKey,     // 程式用的 ID (例如 "sea_view")
+                name: presetData.name // 給人看的名字 (例如 "海線環島鐵路")
+            });
+        }
+    }
+    
+    return foundPresets; // 回傳找到的路線清單
+}
+
+// ==========================================
+// 🌟 智慧視角跳轉：無縫自動跨線導航版 (不彈窗直接跳)
+// ==========================================
+function focusStationOnCanvas(stationId, stationName) {
+    // 1. 存在性雷達：檢查這個車站有沒有畫在「當下的畫布」上？
+    if (!lookupY[stationId] || lookupY[stationId].length === 0) {
+        
+        // 啟動全網雷達搜尋！
+        let availableRoutes = findPresetsForStation(stationId);
+        if (!availableRoutes || availableRoutes.length === 0) {
+            availableRoutes = findPresetsForStation(stationName);
+        }
+
+        // 如果真的全台灣都找不到，才給予提示
+        if (!availableRoutes || availableRoutes.length === 0) {
+            alert(`系統內完全找不到「${stationName}」這個車站喔！`);
+            return;
+        }
+
+        // 預設拿找到的「第一個路線」來無縫跳轉
+        let targetRoute = availableRoutes[0];
+
+        // 🚀 霸氣執行：直接切換路線，不問使用者！
+        handleRouteSwitch(targetRoute.id);
+
+        // ⚠️ 魔法延遲：換線需要約 0.1 秒讓系統重新計算 Y 軸座標
+        // 等新地圖畫好之後，再次呼叫自己，執行完美的置中降落！
+        setTimeout(() => {
+            focusStationOnCanvas(stationId, stationName);
+        }, 100);
+        
+        return; // 結束這一回合，剩下的交給 setTimeout 裡的自己
+    }
+
+    // --- 下面是原本完美的置中邏輯 ---
+    let targetY = lookupY[stationId][0].y;
+
+    const wrapper = document.getElementById('canvas-wrapper');
+    let screenH = wrapper ? wrapper.clientHeight : canvas.height;
+    
+    // 完美置中
+    camera.y = targetY - (screenH / 2);
+
+    // 防禦性校正
+    clampCamera();
+
+    // 重新畫圖！
+    requestAnimationFrame(redrawAll);
+}
+
+// ==========================================
 // 核心限制函數：禁止攝影機滑出邊界 (包含上下黑洞防護)
 // ==========================================
 function clampCamera() {
