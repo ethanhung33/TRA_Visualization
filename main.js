@@ -1136,14 +1136,11 @@ function focusStationOnCanvas(stationId, stationName, targetMinutes = null) {
 
     if (targetMinutes !== null) {
         let targetX = timeToX(targetMinutes);
-        console.log(`📏 [4. 換算座標] 畫布 X 軸目標位置: ${targetX}px`);
         camera.x = Math.round(targetX - (screenW / 2));
-        console.log(`🚀 [5. 相機推移] 預計移動到 Camera.x: ${camera.x}`);
     }
 
     clampCamera();
     checkInfiniteScroll();
-    console.log(`🛡️ [6. 撞牆防護後] 最終 Camera.x 變成: ${camera.x}`);
 
     requestAnimationFrame(() => {
         redrawAll();
@@ -1938,9 +1935,6 @@ window.triggerSelectStation = function(st_id) {
     updateBottomPanelStation(selectedStation); 
     let stName = getStationName(st_id);
 
-    console.log(`================================`);
-    console.log(`🔍 [1. 開始追蹤] 目標車站: ${stName} (面板傳來的 ID: ${st_id})`);
-
     let targetMinutes = null;
     if (selectedTrain && selectedTrain.segments) {
         for (let seg of selectedTrain.segments) {
@@ -1949,8 +1943,7 @@ window.triggerSelectStation = function(st_id) {
                     let arrTime = seg.t[i * 2];
                     let depTime = seg.t[i * 2 + 1];
                     
-                    console.log(`✅ [2. 命中資料庫] 找到 ${stName}！ 原始抵達: ${arrTime}, 原始出發: ${depTime}`);
-
+                    
                     if (arrTime !== null && arrTime !== undefined && arrTime !== "" && !isNaN(arrTime) && arrTime >= 0) {
                         targetMinutes = Number(arrTime);
                     } else if (depTime !== null && depTime !== undefined && depTime !== "" && !isNaN(depTime) && depTime >= 0) {
@@ -1961,12 +1954,6 @@ window.triggerSelectStation = function(st_id) {
             }
             if (targetMinutes !== null) break;
         }
-    }
-
-    if (targetMinutes === null) {
-        console.log(`❌ [異常] 翻遍了這班車的時刻表，就是找不到 ID 為 ${st_id} 的站！(可能站碼格式不符)`);
-    } else {
-        console.log(`🎯 [3. 最終時間] 決定將 X 軸移動到: ${targetMinutes} 分鐘`);
     }
 
     focusStationOnCanvas(st_id, stName, targetMinutes);
