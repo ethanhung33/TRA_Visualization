@@ -619,7 +619,11 @@ function drawCurrentTimeLine() {
     ctx.font = "bold 14px 'GlowSans', sans-serif";
     ctx.textAlign = "left";
 
-    let timeCopies = [currentMinutes, currentMinutes + 1440];
+    // 🌟 修正：只有當現在時間是凌晨 00:00 ~ 01:59 (即小於 120 分鐘) 時，才需要畫跨夜的 24:00~25:00 影分身
+    let timeCopies = [currentMinutes];
+    if (currentMinutes < 120) {
+        timeCopies.push(currentMinutes + 1440);
+    }
 
     timeCopies.forEach(mins => {
         let x = timeToX(mins);
