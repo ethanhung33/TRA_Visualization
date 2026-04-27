@@ -1105,66 +1105,49 @@ function findPresetsForStation(stationKeyword) {
 }
 
 // ==========================================
-// 🌟 智慧視角跳轉：雙軸精準對焦 + 非同步渲染修復版
+// 🌟 智慧視角跳轉：雙軸精準對焦 + 座標雷達版
 // ==========================================
 function focusStationOnCanvas(stationId, stationName, targetMinutes = null) {
-    // 1. 存在性雷達：如果畫面上沒有這個車站，先換路線
     if (!lookupY[stationId] || lookupY[stationId].length === 0) {
         let availableRoutes = findPresetsForStation(stationId);
         if (!availableRoutes || availableRoutes.length === 0) {
             availableRoutes = findPresetsForStation(stationName);
         }
 
-        if (!availableRoutes || availableRoutes.length === 0) {
-            alert(`系統內完全找不到「${stationName}」這個車站喔！`);
-            return;
-        }
+        if (!availableRoutes || availableRoutes.length === 0) return;
 
         let targetRoute = availableRoutes[0];
         if (targetRoute.id === currentRouteView) {
-            if (availableRoutes.length > 1) {
-                targetRoute = availableRoutes[1]; 
-            } else {
-                return; 
-            }
+            if (availableRoutes.length > 1) targetRoute = availableRoutes[1]; 
+            else return; 
         }
 
-        // 換線
         handleRouteSwitch(targetRoute.id);
-        
-        // 🌟 終極修復：必須給 Canvas 一點時間！
-        // 等待 50 毫秒，讓畫布把新路線畫完並產生 lookupY 座標表，才能進行降落！
-        setTimeout(() => {
-            focusStationOnCanvas(stationId, stationName, targetMinutes);
-        }, 50);
-        
-        return; // 結束這回合，交給 50 毫秒後的自己
+        focusStationOnCanvas(stationId, stationName, targetMinutes);
+        return; 
     }
 
-    // --- 2. 畫面上已經有這個車站了，開始雙軸降落！ ---
     let targetY = lookupY[stationId][0].y;
-
     const wrapper = document.getElementById('canvas-wrapper');
     let screenH = wrapper ? wrapper.clientHeight : canvas.height;
     let screenW = wrapper ? wrapper.clientWidth : canvas.width;
     
-    // 完美置中 Y 軸
     camera.y = Math.round(targetY - (screenH / 2));
 
-    // 完美置中 X 軸
     if (targetMinutes !== null) {
         let targetX = timeToX(targetMinutes);
+        console.log(`📏 [4. 換算座標] 畫布 X 軸目標位置: ${targetX}px`);
         camera.x = Math.round(targetX - (screenW / 2));
+        console.log(`🚀 [5. 相機推移] 預計移動到 Camera.x: ${camera.x}`);
     }
 
     clampCamera();
+    console.log(`🛡️ [6. 撞牆防護後] 最終 Camera.x 變成: ${camera.x}`);
 
-    // 強制重繪
     requestAnimationFrame(() => {
         redrawAll();
     });
 }
-
 // ==========================================
 // 核心限制函數：禁止攝影機滑出邊界 (包含上下黑洞防護)
 // ==========================================
@@ -1947,25 +1930,31 @@ window.triggerSelectTrain = function(trainNo) {
 };
 
 // ==========================================
-// 🔄 跨面板互動觸發器 (保留黃色高亮 + 追蹤時間版)
+// 🔄 跨面板互動觸發器 (終極驗屍官追蹤版)
 // ==========================================
 window.triggerSelectStation = function(st_id) {
     selectedStation = st_id;
-    
-    // 🌟 核心修復 1：不要清空火車！讓這台車繼續保持「黃色高亮」VIP 狀態！
-    // selectedTrain = null; (這行我們不要了)
-    
-    // 更新底部 UI 面板
     updateBottomPanelStation(selectedStation); 
     let stName = getStationName(st_id);
 
-    // 🌟 核心修復 2：查出這班車「幾點幾分」會到這個車站？
+    console.log(`================================`);
+    console.log(`🔍 [1. 開始追蹤] 目標車站: ${stName} (面板傳來的 ID: ${st_id})`);
+
     let targetMinutes = null;
     if (selectedTrain && selectedTrain.segments) {
         for (let seg of selectedTrain.segments) {
             for (let i = 0; i < seg.s.length; i++) {
-                if (seg.s[i] === st_id) {
-                    targetMinutes = seg.t[i * 2]; // 抓取這班車的到站時間
+                if (String(seg.s[i]) === String(st_id)) {
+                    let arrTime = seg.t[i * 2];
+                    let depTime = seg.t[i * 2 + 1];
+                    
+                    console.log(`✅ [2. 命中資料庫] 找到 ${stName}！ 原始抵達: ${arrTime}, 原始出發: ${depTime}`);
+
+                    if (arrTime !== null && arrTime !== undefined && arrTime !== "" && !isNaN(arrTime) && arrTime >= 0) {
+                        targetMinutes = Number(arrTime);
+                    } else if (depTime !== null && depTime !== undefined && depTime !== "" && !isNaN(depTime) && depTime >= 0) {
+                        targetMinutes = Number(depTime);
+                    }
                     break;
                 }
             }
@@ -1973,7 +1962,12 @@ window.triggerSelectStation = function(st_id) {
         }
     }
 
-    // 呼叫超級大腦，把「目標時間」一起傳進去！
+    if (targetMinutes === null) {
+        console.log(`❌ [異常] 翻遍了這班車的時刻表，就是找不到 ID 為 ${st_id} 的站！(可能站碼格式不符)`);
+    } else {
+        console.log(`🎯 [3. 最終時間] 決定將 X 軸移動到: ${targetMinutes} 分鐘`);
+    }
+
     focusStationOnCanvas(st_id, stName, targetMinutes);
 };
 
