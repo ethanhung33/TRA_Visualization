@@ -1066,44 +1066,38 @@ function autoFitScale() {
 }
 
 // ==========================================
-// 🌟 車站全網雷達：找出包含該車站的所有「路線視角 (View Presets)」
+// 🌟 車站全網雷達：找出「真正有畫出該車站」的路線 (防區間截取Bug版)
 // ==========================================
 function findPresetsForStation(stationKeyword) {
     let foundPresets = [];
 
-    // 翻開 setting.json，檢查每一個路線組合 (例如 mountain_view, sea_view...)
     for (const [presetKey, presetData] of Object.entries(settings.view_presets)) {
         let hasStation = false;
+        let selectedSegments = presetData.lines || [];
 
-        // 遍歷這個組合裡面的所有線段 (例如 north_main, mountain_line...)
-        let lines = presetData.lines || [];
-        lines.forEach(segInput => {
-            let segId = typeof segInput === 'string' ? segInput : segInput.id;
-            
-            // 去 topology.json 把這條實體線抓出來
-            let seg = topology.segments.find(s => s.id === segId);
-            if (!seg) return;
+        // 🌟 使用智慧整理器，精準過濾掉被截斷的車站
+        let segmentsData = getProcessedSegments(selectedSegments, topology);
 
-            // 檢查這個線段裡，有沒有這名乘客想找的車站？
-            if (seg.stations.some(st => st.name === stationKeyword || st.id === stationKeyword)) {
+        segmentsData.forEach(data => {
+            let stationsToDraw = data.stations;
+            if (stationsToDraw.some(st => st.name === stationKeyword || st.id === stationKeyword)) {
                 hasStation = true;
             }
         });
 
-        // 如果這個路線組合有包含這個車站，就把它加進名單！
         if (hasStation) {
             foundPresets.push({
-                id: presetKey,     // 程式用的 ID (例如 "sea_view")
-                name: presetData.name // 給人看的名字 (例如 "海線環島鐵路")
+                id: presetKey,
+                name: presetData.name
             });
         }
     }
     
-    return foundPresets; // 回傳找到的路線清單
+    return foundPresets;
 }
 
 // ==========================================
-// 🌟 智慧視角跳轉：無縫自動跨線導航版 (不彈窗直接跳)
+// 🌟 智慧視角跳轉：無縫自動跨線導航版 (加入防呆鎖)
 // ==========================================
 function focusStationOnCanvas(stationId, stationName) {
     // 1. 存在性雷達：檢查這個車站有沒有畫在「當下的畫布」上？
@@ -1115,28 +1109,35 @@ function focusStationOnCanvas(stationId, stationName) {
             availableRoutes = findPresetsForStation(stationName);
         }
 
-        // 如果真的全台灣都找不到，才給予提示
         if (!availableRoutes || availableRoutes.length === 0) {
             alert(`系統內完全找不到「${stationName}」這個車站喔！`);
             return;
         }
 
-        // 預設拿找到的「第一個路線」來無縫跳轉
         let targetRoute = availableRoutes[0];
 
-        // 🚀 霸氣執行：直接切換路線，不問使用者！
+        // 🌟 防呆鎖：如果找到的路線就是「現在正在看的路線」，立刻換下一條！
+        if (targetRoute.id === currentRouteView) {
+            if (availableRoutes.length > 1) {
+                targetRoute = availableRoutes[1]; // 換備用路線
+            } else {
+                console.log(`⚠️ 找不到適合的路線來顯示 ${stationName}`);
+                return; 
+            }
+        }
+
+        // 🚀 霸氣執行：直接切換路線！
         handleRouteSwitch(targetRoute.id);
 
-        // ⚠️ 魔法延遲：換線需要約 0.1 秒讓系統重新計算 Y 軸座標
-        // 等新地圖畫好之後，再次呼叫自己，執行完美的置中降落！
+        // ⚠️ 延遲 0.1 秒等新地圖畫好，再次呼叫自己降落！
         setTimeout(() => {
             focusStationOnCanvas(stationId, stationName);
         }, 100);
         
-        return; // 結束這一回合，剩下的交給 setTimeout 裡的自己
+        return; 
     }
 
-    // --- 下面是原本完美的置中邏輯 ---
+    // --- 2. 畫面上已經有這個車站了，直接置中！ ---
     let targetY = lookupY[stationId][0].y;
 
     const wrapper = document.getElementById('canvas-wrapper');
@@ -1934,53 +1935,20 @@ window.triggerSelectTrain = function(trainNo) {
 };
 
 // ==========================================
-// 🔄 跨面板互動觸發器 (加入自動置中功能)
+// 🔄 跨面板互動觸發器 (呼叫智慧導航大腦版)
 // ==========================================
 window.triggerSelectStation = function(st_id) {
     selectedStation = st_id;
     selectedTrain = null;
-    updateBottomPanelStation(selectedStation); // 呼叫車站面板
+    
+    // 1. 更新底部 UI 面板
+    updateBottomPanelStation(selectedStation); 
 
-    // 🌟 新增：計算該車站的座標，並讓攝影機自動置中對準它！
-    if (lookupY[st_id] && lookupY[st_id].length > 0) {
-        
-        // 1. 取得車站的基礎 Y 座標 (這是在 drawGrid 時算出來的純資料座標)
-        let rawY = lookupY[st_id][0].y;
-        
-        // 2. 加上頂部 padding 轉換成真實的「畫布世界座標」
-        let targetY = rawY + CONFIG.paddingTop;
-        
-        // --- (處理環島循環線的防呆判斷) ---
-        let presetKey = currentRouteView; 
-        let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
-        
-        if (isCircular && loopHeight > 0) {
-            let currentCenterY = camera.y + (canvas.height / 2);
-            let closestY = targetY;
-            let minDist = Infinity;
-            
-            // 掃描上、中、下三圈，找出離目前視角最近的那條線
-            for (let copy = -1; copy <= 1; copy++) {
-                let actualY = rawY + ((copy * loopHeight) + CONFIG.paddingTop + loopHeight);
-                let dist = Math.abs(actualY - currentCenterY);
-                if (dist < minDist) {
-                    minDist = dist;
-                    closestY = actualY;
-                }
-            }
-            targetY = closestY;
-        }
-        // ------------------------------------
+    // 2. 取得站名
+    let stName = getStationName(st_id);
 
-        // 🌟 3. 核心運算：攝影機的 Y 點 = 目標物 Y 點 - (螢幕高度的一半)
-        camera.y = targetY - (canvas.height / 2);
-        
-        // 4. 清除小數點，並確保鏡頭不會超出地圖邊界 (撞牆保護)
-        camera.y = Math.round(camera.y);
-        clampCamera(); 
-    }
-
-    redrawAll(); // 重繪畫布，讓畫面跳轉並畫上黃色選取線
+    // 🌟 3. 把剩下的複雜工作，全部外包給我們的最強導航大腦！
+    focusStationOnCanvas(st_id, stName);
 };
 
 // ==========================================
