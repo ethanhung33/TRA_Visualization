@@ -1142,6 +1142,7 @@ function focusStationOnCanvas(stationId, stationName, targetMinutes = null) {
     }
 
     clampCamera();
+    checkInfiniteScroll();
     console.log(`🛡️ [6. 撞牆防護後] 最終 Camera.x 變成: ${camera.x}`);
 
     requestAnimationFrame(() => {
