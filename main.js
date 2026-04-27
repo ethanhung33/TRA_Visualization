@@ -298,8 +298,8 @@ function drawGrid(viewKey) {
 
             // 🌟 底部時間：貼近螢幕底部，但如果路線很短，會自動「吸附」在路線底下，不會掉進黑洞！
             let labelYBottom = isCircular 
-                ? camera.y + canvas.height - 30 
-                : Math.min(camera.y + canvas.height - 30, routeEndY + 30);
+                ? camera.y + wrapperH - 30 
+                : Math.min(camera.y + wrapperH - 30, routeEndY + 30);
 
             // 畫頂部
             ctx.fillStyle = maskBg;
@@ -595,13 +595,18 @@ function drawCurrentTimeLine() {
     const now = new Date();
     let currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-    const viewTop = camera.y;
-    const viewBottom = camera.y + canvas.height;
-    const viewLeft = camera.x;
-    const viewRight = camera.x + canvas.width;
+    // 🌟 抓取真實的螢幕高度，而不是被高畫質放大的 canvas.height
+    const wrapper = document.getElementById('canvas-wrapper');
+    const wrapperH = wrapper ? wrapper.clientHeight : canvas.height;
+    const wrapperW = wrapper ? wrapper.clientWidth : canvas.width;
 
-    // 🌟 新增邊界判斷
-    let presetKey = currentRouteView + "_view"; 
+    const viewTop = camera.y;
+    const viewBottom = camera.y + wrapperH; // 邊界對齊螢幕底部
+    const viewLeft = camera.x;
+    const viewRight = camera.x + wrapperW;
+
+    // 🌟 拔除 _view 錯字！讓系統正確辨識環狀線，不再強制截斷紅線！
+    let presetKey = currentRouteView; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
     let routeStartY = CONFIG.paddingTop;
     let routeEndY = CONFIG.paddingTop + loopHeight;
@@ -619,7 +624,7 @@ function drawCurrentTimeLine() {
     ctx.font = "bold 14px 'GlowSans', sans-serif";
     ctx.textAlign = "left";
 
-    // 🌟 修正：只有當現在時間是凌晨 00:00 ~ 01:59 (即小於 120 分鐘) 時，才需要畫跨夜的 24:00~25:00 影分身
+    // 🌟 修正：只有當現在時間是凌晨 00:00 ~ 01:59 (即小於 120 分鐘) 時，才畫跨夜的影分身
     let timeCopies = [currentMinutes];
     if (currentMinutes < 120) {
         timeCopies.push(currentMinutes + 1440);
@@ -630,15 +635,14 @@ function drawCurrentTimeLine() {
 
         if (x >= viewLeft && x <= viewRight) {
             ctx.beginPath();
-            // 🌟 使用新的邊界畫紅線
             ctx.moveTo(x, lineTop);
             ctx.lineTo(x, lineBottom);
             ctx.stroke();
 
-            // 讓紅線標籤也跟著智慧浮動
+            // 讓紅線標籤也跟著智慧浮動，且保證不超出螢幕底部
             let labelY = isCircular 
                 ? Math.max(viewTop + 60, CONFIG.paddingTop) 
-                : Math.max(lineTop + 40, Math.min(viewTop + 60, lineBottom - 20));
+                : Math.max(lineTop + 40, Math.min(viewBottom - 30, lineBottom - 20));
             
             ctx.fillText(now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0'), x + 8, labelY);
         }
