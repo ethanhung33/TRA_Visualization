@@ -1915,15 +1915,63 @@ function optimizeTrainTimesForDisplay(trainsData) {
 }
 
 // ==========================================
-// 🔄 跨面板互動觸發器 (全域函數)
+// 🔄 跨面板互動觸發器：點擊火車自動置中版
 // ==========================================
 window.triggerSelectTrain = function(trainNo) {
     let targetTrain = timetable.find(t => (t.no === trainNo || t.train_no === trainNo));
+    
     if (targetTrain) {
+        // 🌟 1. 記住我們是從「哪個車站」點擊這班車的 (趁它被清空前趕快備份)
+        let originStationId = selectedStation;
+
+        // 2. 切換狀態：選中火車，清空車站面板，更新底部 UI
         selectedTrain = targetTrain;
         selectedStation = null;
         updateBottomPanel(selectedTrain);
-        redrawAll(); 
+
+        // 🌟 3. 查出這班車在剛剛那個車站的「準確時間」
+        let targetMinutes = null;
+        if (originStationId && targetTrain.segments) {
+            for (let seg of targetTrain.segments) {
+                for (let i = 0; i < seg.s.length; i++) {
+                    if (String(seg.s[i]) === String(originStationId)) {
+                        let arrTime = seg.t[i * 2];
+                        let depTime = seg.t[i * 2 + 1];
+                        
+                        // 雙重保險抓取時間
+                        if (arrTime !== null && arrTime !== undefined && arrTime !== "" && !isNaN(arrTime) && arrTime >= 0) {
+                            targetMinutes = Number(arrTime);
+                        } else if (depTime !== null && depTime !== undefined && depTime !== "" && !isNaN(depTime) && depTime >= 0) {
+                            targetMinutes = Number(depTime);
+                        }
+                        break;
+                    }
+                }
+                if (targetMinutes !== null) break;
+            }
+        }
+
+        // 🌟 4. 呼叫超級大腦進行精準雙軸降落！
+        if (originStationId && targetMinutes !== null) {
+            // 如果我們知道你是從哪個車站點的，就精準降落在那個「交會點」
+            let stName = getStationName(originStationId);
+            focusStationOnCanvas(originStationId, stName, targetMinutes);
+        } 
+        // 🌟 5. 保底機制：如果找不到交會點，就直接飛到這班車的「發車起站」！
+        else if (targetTrain.segments && targetTrain.segments.length > 0) {
+            let firstSeg = targetTrain.segments[0];
+            let firstStationId = firstSeg.s[0];
+            let stName = getStationName(firstStationId);
+            let firstTime = firstSeg.t[0] !== null ? firstSeg.t[0] : firstSeg.t[1];
+            
+            if (firstTime !== null && firstTime !== undefined) {
+                focusStationOnCanvas(firstStationId, stName, Number(firstTime));
+            } else {
+                redrawAll();
+            }
+        } else {
+            redrawAll();
+        }
     }
 };
 
