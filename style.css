@@ -522,70 +522,86 @@ body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
    📱 手機版專屬排版 (當螢幕寬度小於 768px 時自動觸發)
    ========================================== */
 @media (max-width: 768px) {
-    /* 1. 將 APP 容器改為上下排列，並用 column-reverse 讓側邊欄跑到上面 */
-    #app {
-        flex-direction: column-reverse !important; 
+    /* 1. 徹底解決滾動黑洞：使用動態視窗高度 (dvh) */
+    html, body {
+        height: 100dvh !important; /* 🌟 確保網頁絕對不會超出真實螢幕高度 */
+        width: 100vw !important;
+        overflow: hidden !important;
     }
 
-    /* 2. 側邊欄變身為「上方選單區」 */
+    #app {
+        height: 100dvh !important;
+        flex-direction: column-reverse !important; /* 側欄在上，畫布在下 */
+    }
+
+    /* 2. 上方側邊欄 (改為上下收合動畫) */
     #sidebar {
         width: 100% !important;
-        height: 35vh !important; /* 佔據畫面上方 35% */
-        max-height: 35vh !important;
+        height: 35dvh !important; 
+        max-height: 35dvh !important;
         border-left: none !important;
-        border-bottom: 2px solid #444 !important;
+        border-bottom: 2px solid var(--btn-border) !important;
+        position: relative !important;
+        /* 🌟 關鍵：將側欄的動畫從 width 改為 height */
+        transition: height 0.3s ease, min-height 0.3s ease !important;
     }
 
-    /* 讓側邊欄內部可以順暢上下滑動 */
+    #sidebar.collapsed {
+        height: 0 !important;
+        min-height: 0 !important;
+        border-bottom: none !important;
+        width: 100% !important; 
+    }
+
     .sidebar-inner {
         width: 100% !important;
         height: 100% !important;
         padding: 15px !important;
     }
 
-    /* 手機版隱藏側欄的「收合按鈕」，避免擋住畫面 */
+    /* 3. 復活收合按鈕！變成側欄底部的「下拉/上推標籤」 */
     .sidebar-toggle-btn {
-        display: none !important;
+        display: flex !important;
+        left: 50% !important;
+        top: 100% !important; /* 黏在側邊欄的最下緣 */
+        transform: translateX(-50%) !important; /* 水平置中 */
+        width: 80px !important;
+        height: 25px !important;
+        border-radius: 0 0 12px 12px !important; /* 下方變圓角 */
+        border: 1px solid var(--btn-border) !important;
+        border-top: none !important;
+        font-size: 20px !important;
+        /* 🌟 CSS 魔法：把原本的左右箭頭 (‹ ›) 旋轉 90 度，變成上下箭頭！ */
+        writing-mode: vertical-rl; 
+        padding-top: 5px !important; /* 微調箭頭位置 */
     }
 
-    /* 3. 左側面板 (畫布 + 底部) 佔據畫面下方 65% */
+    /* 4. 左側面板 (畫布 + 底部面板，霸佔剩下的所有空間) */
     #left-panel {
         width: 100% !important;
-        height: 65vh !important; 
+        flex: 1 !important; /* 填滿 100dvh 扣除側邊欄後剩下的空間 */
+        height: auto !important;
         display: flex !important;
         flex-direction: column !important;
     }
 
-    /* 4. 畫布自動填滿剩下的空間 */
     #canvas-wrapper {
         flex: 1 !important; 
         width: 100% !important;
+        min-height: 0 !important; /* 🌟 關鍵防呆：避免畫布無限長大撐破 Flex 容器 */
     }
 
-    /* 5. 稍微縮小底部列車面板，把空間還給畫布 */
+    /* 5. 底部列車面板 */
     #bottom-bar {
-        height: 120px !important;
-        min-height: 120px !important;
-        max-height: 120px !important;
+        height: 110px !important; 
+        min-height: 110px !important;
+        max-height: 110px !important;
         position: relative !important;
+        padding: 0 10px !important;
     }
 
-    /* ==========================================
-       🌟 字體放大計畫：胖手指友善！
-       ========================================== */
-    .control-section h3 {
-        font-size: 20px !important;
-        margin-bottom: 12px !important;
-    }
-
-    .pill-btn {
-        font-size: 15px !important;
-        padding: 10px 16px !important; 
-        margin-bottom: 8px !important;
-    }
-
-    input#datePicker.flatpickr-input {
-        font-size: 16px !important;
-        padding: 10px !important;
-    }
+    /* 6. 字體微調，保持精緻不過擠 */
+    .control-section h3 { font-size: 18px !important; margin-bottom: 10px !important; }
+    .pill-btn { font-size: 14px !important; padding: 8px 14px !important; margin-bottom: 8px !important; }
+    input#datePicker.flatpickr-input { font-size: 16px !important; padding: 10px !important; }
 }
