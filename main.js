@@ -1255,299 +1255,283 @@ function checkInfiniteScroll() {
 }
 
 // ==========================================
-// 設置畫布互動 (已修正 dataX 未定義與黑邊問題)
+// 🖱️ + 👆 設置畫布互動 (支援手機觸控、雙指縮放、滑鼠 Pointer 版)
 // ==========================================
 function setupCanvasInteractions() {
     const wrapper = document.getElementById('canvas-wrapper');
+    
+    // 🌟 強制關閉瀏覽器預設的手機手勢 (如下拉更新、全頁滑動)，把控制權完全交給畫布！
+    wrapper.style.touchAction = 'none';
+
     let isDragging = false;
     let startMouseX = 0, startMouseY = 0;
     let startCameraX = 0, startCameraY = 0;
 
-    wrapper.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        startMouseX = e.clientX; startMouseY = e.clientY;
-        startCameraX = camera.x; startCameraY = camera.y;
-        wrapper.style.cursor = 'grabbing';
-    });
+    // 🌟 手機雙指縮放專用變數
+    let activePointers = [];
+    let lastPinchDist = 0;
 
-    window.addEventListener('mousemove', (e) => {
-        // 1. 如果正在按著滑鼠拖曳，就執行原本的地圖平移邏輯
-        if (isDragging) {
-            camera.x = startCameraX - (e.clientX - startMouseX);
-            camera.y = startCameraY - (e.clientY - startMouseY);
-            clampCamera(); // 拖曳校正
-            requestRedraw();
-            return; // 🌟 拖曳時不處理懸停變色，直接結束！
-        }
-
-        // 2. 如果沒有在拖曳，就啟動「懸停偵測」邏輯
-        const rect = canvas.getBoundingClientRect();
-        
-        // 防呆：確保滑鼠真的在畫布範圍內
-        if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
-            if (hoveredTrain !== null || hoveredStation !== null) {
-                hoveredTrain = null;
-                hoveredStation = null;
-                wrapper.style.cursor = 'grab';
-                redrawAll();
-            }
-            return;
-        }
-
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        const worldX = mouseX + camera.x;
-        const worldY = mouseY + camera.y;
-
-        let closestTrain = null;
-        let minDistance = 8; // 容錯距離 8 pixel
-
-        // 🌟 沿著麵包屑尋找滑鼠下方的火車
-        for (let train of timetable) { 
-            if (!activeTrainTypes.has(train.type)) continue;
-            if (!train._hitPoints) continue;
-
-            for (let i = 0; i < train._hitPoints.length - 1; i++) {
-                let p1 = train._hitPoints[i];
-                let p2 = train._hitPoints[i+1];
-                if (!p1 || !p2) continue;
-
-                let dist = getDistanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
-                
-                if (dist < minDistance) {
-                    minDistance = dist;
-                    closestTrain = train;
-                }
-            }
-        }
-
-        // ==========================================
-        // 🌟 新增：尋找滑鼠下方的車站橫線 (優先度排在火車後面)
-        // ==========================================
-        let closestStationId = null;
-        let minStationDist = 8; // Hover 的容錯距離 8px
-
-        if (!closestTrain) { // 如果滑鼠沒有碰到火車，才去檢查有沒有碰到車站
-            let presetKey = currentRouteView; 
-            let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
-            let copyStart = isCircular ? -1 : 0;
-            let copyEnd = isCircular ? 1 : 0;
-
-            for (let st_id in lookupY) {
-                let opts = lookupY[st_id];
-                for (let opt of opts) {
-                    for (let copy = copyStart; copy <= copyEnd; copy++) {
-                        // 🌟 把畫圖時的「偏移量」加回去算真實世界座標
-                        let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
-                        let actualStationY = opt.y + offsetY;
-                        let dy = Math.abs(worldY - actualStationY);
-
-                        if (dy < minStationDist) {
-                            minStationDist = dy;
-                            closestStationId = st_id;
-                        }
-                    }
-                }
-            }
-        }
-
-        // ==========================================
-        // 🌟 統整狀態改變與重繪邏輯
-        // ==========================================
-        let needsRedraw = false;
-
-        if (hoveredTrain !== closestTrain) {
-            hoveredTrain = closestTrain;
-            needsRedraw = true;
-        }
-
-        if (hoveredStation !== closestStationId) {
-            hoveredStation = closestStationId;
-            needsRedraw = true;
-        }
-
-        // 只要火車或車站有狀態改變，就改變游標並重繪！
-        if (needsRedraw) {
-            wrapper.style.cursor = (hoveredTrain || hoveredStation) ? 'pointer' : 'grab';
-            redrawAll(); 
-        }
-    });
-
-    window.addEventListener('mouseup', (e) => {
-        // 1. 恢復游標狀態
-        wrapper.style.cursor = 'grab';
-
-        // 2. 計算拖曳距離
-        let dragDistance = Math.abs(e.clientX - startMouseX) + Math.abs(e.clientY - startMouseY);
-        
-        // 🌟 3. 判斷點擊！(此時 isDragging 還是 true 喔！)
-        if (isDragging && dragDistance < 3) {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            // 🌟 將滑鼠的「螢幕座標」加上鏡頭偏移，轉換成「世界座標」
-            const worldX = mouseX + camera.x;
-            const worldY = mouseY + camera.y;
-
-            let closestTrain = null;
-            let minDistance = 8; // 容錯距離 8 pixel
-
-            // 🌟 沿著麵包屑尋找最近的火車！
-            for (let train of timetable) { 
-                if (!activeTrainTypes.has(train.type)) continue;
-                if (!train._hitPoints) continue; // 如果沒有麵包屑就跳過
-
-                // 兩兩一組，連成線段來計算滑鼠距離
-                for (let i = 0; i < train._hitPoints.length - 1; i++) {
-                    let p1 = train._hitPoints[i];
-                    let p2 = train._hitPoints[i+1];
-
-                    // 如果遇到 null (斷點)，這兩個點就不能連線，直接跳過
-                    if (!p1 || !p2) continue;
-
-                    // 計算距離 (因為麵包屑已經是世界座標了，直接算就好)
-                    let dist = getDistanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
-                    
-                    if (dist < minDistance) {
-                        minDistance = dist;
-                        closestTrain = train;
-                    }
-                }
-            }
-            
-            if (closestTrain) {
-                // 🌟 直接把這台車的物件存起來！
-                selectedTrain = closestTrain; 
-                selectedStation = null; // 點到火車就清空車站狀態
-                updateBottomPanel(selectedTrain);
-            } else {
-                // ==========================================
-                // 🌟 新增：如果沒點到火車，判斷有沒有點到車站橫線！
-                // ==========================================
-                let closestStationId = null;
-                let minStationDist = 15; // Y軸容錯距離 15px
-
-                // 取得現在的視圖狀態 (判斷是否為環島循環模式)
-                let presetKey = currentRouteView; 
-                let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
-                let copyStart = isCircular ? -1 : 0;
-                let copyEnd = isCircular ? 1 : 0;
-
-                // 遍歷所有有畫在畫面上的車站 Y 座標
-                for (let st_id in lookupY) {
-                    let opts = lookupY[st_id];
-                    
-                    for (let opt of opts) {
-                        // 🌟 關鍵修復 1：必須把畫圖時的「偏移量 (padding 與 圈數)」加回去！
-                        for (let copy = copyStart; copy <= copyEnd; copy++) {
-                            // 這行跟 drawGrid 裡面的 y 座標算式一模一樣
-                            let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
-                            let actualStationY = opt.y + offsetY; // 這才是畫面上真正的那條線！
-                            
-                            // 計算滑鼠世界座標與真實線條的 Y 軸差距
-                            let dy = Math.abs(worldY - actualStationY);
-                            
-                            // 🌟 關鍵修復 2：嚴格篩選「最小距離」！
-                            if (dy < minStationDist) {
-                                minStationDist = dy; 
-                                closestStationId = st_id;
-                            }
-                        }
-                    }
-                }
-
-                if (closestStationId) {
-                    selectedStation = closestStationId;
-                    selectedTrain = null; // 點到車站就清空火車狀態
-                    updateBottomPanelStation(selectedStation); // 呼叫車站專屬面板
-                } else {
-                    // 點到空白處，全部清空
-                    selectedTrain = null; 
-                    selectedStation = null;
-                    updateBottomPanel(null);
-                }
-            }
-            redrawAll();
-        }
-        
-        // 🌟 4. 最後的最後，才把 isDragging 關掉！
-        isDragging = false;
-    });
-
-    wrapper.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        if (renderFrame) return;
-
-        const rect = wrapper.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+    // ==========================================
+    // 🛠️ 核心縮放模組 (統整滾輪跟雙指的共用邏輯)
+    // ==========================================
+    const applyZoom = (zoom, mouseX, mouseY) => {
         const wrapperW = wrapper.clientWidth;
         const wrapperH = wrapper.clientHeight;
-
-        // 1. 抓取精確的物理座標
         const currentCamX = Math.round(camera.x);
         const currentCamY = Math.round(camera.y);
 
-        // 🌟 2. 雙軸紀錄：精準記下「滑鼠游標正下方」的資料座標
         const dataX = (currentCamX + mouseX - CONFIG.paddingLeft) / CONFIG.scaleX;
         const dataY = (currentCamY + mouseY - CONFIG.paddingTop) / CONFIG.scaleY;
 
-        // 3. 基礎縮放倍率
-        let zoom = e.deltaY > 0 ? 0.9 : 1.1; 
-
-        // 4. 計算"如果要把寬度或高度塞滿"所需要的最低倍率
         const minScaleX = (wrapperW - SIDE_MARGIN * 2) / 1560;
-        const minScaleY = wrapperH / (loopKm || 1); 
+        const minScaleY = wrapperH / (loopKm || 1);
 
-        // 🌟 5. 終極等比例鎖定防護 (Aspect Ratio Lock)
-        if (zoom < 1) { 
+        if (zoom < 1) {
             const allowedZoomX = minScaleX / CONFIG.scaleX;
             const allowedZoomY = minScaleY / CONFIG.scaleY;
-
             let minAllowedZoom = Math.min(allowedZoomX, allowedZoomY);
             if (minAllowedZoom > 1) minAllowedZoom = 1;
-
-            if (zoom < minAllowedZoom) {
-                zoom = minAllowedZoom;
-            }
+            if (zoom < minAllowedZoom) zoom = minAllowedZoom;
         }
 
-        if (zoom === 1 && e.deltaY > 0) return;
-
-        // 6. 將同一個 zoom 完美且平等地套用到 X 和 Y！
         CONFIG.scaleX *= zoom;
         CONFIG.scaleY *= zoom;
 
         let targetX = (CONFIG.paddingLeft + dataX * CONFIG.scaleX) - mouseX;
         let targetY = (CONFIG.paddingTop + dataY * CONFIG.scaleY) - mouseY;
 
-        // --- 6. X 軸邊界物理鎖定 ---
         const minLimitX = CONFIG.paddingLeft - SIDE_MARGIN;
         const contentWidth = 1560 * CONFIG.scaleX;
         const maxLimitX = CONFIG.paddingLeft + contentWidth - wrapperW + SIDE_MARGIN;
 
         if (contentWidth + (SIDE_MARGIN * 2) <= wrapperW + 1) {
-            camera.x = minLimitX; 
+            camera.x = minLimitX;
         } else {
             camera.x = Math.max(minLimitX, Math.min(targetX, maxLimitX));
         }
 
         camera.y = targetY;
-
-        // 8. 絕對像素鎖定
         camera.x = Math.round(camera.x);
         camera.y = Math.round(camera.y);
 
-        // 🌟 9. 更新 loopHeight
-        if (loopKm > 0) {
-            loopHeight = loopKm * CONFIG.scaleY; 
-        }
+        if (loopKm > 0) loopHeight = loopKm * CONFIG.scaleY;
 
         checkInfiniteScroll();
         camera.y = Math.round(camera.y);
-
         requestRedraw();
+    };
+
+    // ==========================================
+    // 🎯 點擊判定模組 (統整滑鼠與手指點擊)
+    // ==========================================
+    const executeClick = (clientX, clientY) => {
+        const rect = canvas.getBoundingClientRect();
+        const worldX = (clientX - rect.left) + camera.x;
+        const worldY = (clientY - rect.top) + camera.y;
+
+        let closestTrain = null;
+        let minDistance = 15; // 🌟 胖手指優化：火車觸控容錯率調大 (8 -> 15px)
+
+        // 尋找火車
+        for (let train of timetable) {
+            if (!activeTrainTypes.has(train.type) || !train._hitPoints) continue;
+            for (let i = 0; i < train._hitPoints.length - 1; i++) {
+                let p1 = train._hitPoints[i], p2 = train._hitPoints[i+1];
+                if (!p1 || !p2) continue;
+                let dist = getDistanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
+                if (dist < minDistance) { minDistance = dist; closestTrain = train; }
+            }
+        }
+
+        if (closestTrain) {
+            selectedTrain = closestTrain;
+            selectedStation = null;
+            updateBottomPanel(selectedTrain);
+        } else {
+            // 尋找車站
+            let closestStationId = null;
+            let minStationDist = 20; // 🌟 胖手指優化：車站橫線容錯率調大 (15 -> 20px)
+
+            let presetKey = currentRouteView;
+            let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+            
+            for (let st_id in lookupY) {
+                for (let opt of lookupY[st_id]) {
+                    for (let copy = (isCircular ? -1 : 0); copy <= (isCircular ? 1 : 0); copy++) {
+                        let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
+                        if (Math.abs(worldY - (opt.y + offsetY)) < minStationDist) {
+                            minStationDist = Math.abs(worldY - (opt.y + offsetY));
+                            closestStationId = st_id;
+                        }
+                    }
+                }
+            }
+
+            if (closestStationId) {
+                selectedStation = closestStationId;
+                selectedTrain = null;
+                updateBottomPanelStation(selectedStation);
+            } else {
+                selectedTrain = null; selectedStation = null;
+                updateBottomPanel(null);
+            }
+        }
+        redrawAll();
+    };
+
+    // ==========================================
+    // 🌟 啟動 Pointer Events (接管滑鼠、觸控、觸控筆)
+    // ==========================================
+    wrapper.addEventListener('pointerdown', (e) => {
+        wrapper.setPointerCapture(e.pointerId); // 鎖定游標，滑出框外也能繼續追蹤
+        activePointers.push({ id: e.pointerId, x: e.clientX, y: e.clientY });
+
+        if (activePointers.length === 1) {
+            isDragging = true;
+            startMouseX = e.clientX; startMouseY = e.clientY;
+            startCameraX = camera.x; startCameraY = camera.y;
+            wrapper.style.cursor = 'grabbing';
+        } else if (activePointers.length === 2) {
+            isDragging = false; // 兩指放上去代表要縮放，立刻停止平移
+            lastPinchDist = Math.hypot(
+                activePointers[0].x - activePointers[1].x,
+                activePointers[0].y - activePointers[1].y
+            );
+        }
+    });
+
+    wrapper.addEventListener('pointermove', (e) => {
+        let idx = activePointers.findIndex(p => p.id === e.pointerId);
+        if (idx !== -1) {
+            activePointers[idx].x = e.clientX;
+            activePointers[idx].y = e.clientY;
+        }
+
+        // --- 單指/滑鼠拖曳平移 ---
+        if (isDragging && activePointers.length === 1) {
+            camera.x = startCameraX - (e.clientX - startMouseX);
+            camera.y = startCameraY - (e.clientY - startMouseY);
+            clampCamera();
+            requestRedraw();
+            return;
+        }
+
+        // --- 🌟 雙指縮放 (Pinch-to-Zoom) ---
+        if (activePointers.length === 2) {
+            let currentDist = Math.hypot(
+                activePointers[0].x - activePointers[1].x,
+                activePointers[0].y - activePointers[1].y
+            );
+
+            if (lastPinchDist > 0) {
+                let zoomDelta = currentDist / lastPinchDist;
+                
+                // 加入微小緩衝，避免手指抖動造成畫面閃爍
+                if (Math.abs(1 - zoomDelta) > 0.01) {
+                    let midX = (activePointers[0].x + activePointers[1].x) / 2;
+                    let midY = (activePointers[0].y + activePointers[1].y) / 2;
+                    const rect = wrapper.getBoundingClientRect();
+                    
+                    applyZoom(zoomDelta, midX - rect.left, midY - rect.top);
+                    lastPinchDist = currentDist;
+                }
+            }
+            return;
+        }
+
+        // --- 純電腦滑鼠懸停變色 (手機觸控不會觸發這個) ---
+        if (activePointers.length === 0 && e.pointerType === 'mouse') {
+            const rect = canvas.getBoundingClientRect();
+            if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+                if (hoveredTrain || hoveredStation) {
+                    hoveredTrain = null; hoveredStation = null;
+                    wrapper.style.cursor = 'grab'; redrawAll();
+                }
+                return;
+            }
+
+            const worldX = (e.clientX - rect.left) + camera.x;
+            const worldY = (e.clientY - rect.top) + camera.y;
+
+            let closestTrain = null, minDistance = 8;
+            for (let train of timetable) {
+                if (!activeTrainTypes.has(train.type) || !train._hitPoints) continue;
+                for (let i = 0; i < train._hitPoints.length - 1; i++) {
+                    let p1 = train._hitPoints[i], p2 = train._hitPoints[i+1];
+                    if (!p1 || !p2) continue;
+                    let dist = getDistanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
+                    if (dist < minDistance) { minDistance = dist; closestTrain = train; }
+                }
+            }
+
+            let closestStationId = null, minStationDist = 8;
+            if (!closestTrain) {
+                let presetKey = currentRouteView;
+                let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+                for (let st_id in lookupY) {
+                    for (let opt of lookupY[st_id]) {
+                        for (let copy = (isCircular ? -1 : 0); copy <= (isCircular ? 1 : 0); copy++) {
+                            let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
+                            if (Math.abs(worldY - (opt.y + offsetY)) < minStationDist) {
+                                minStationDist = Math.abs(worldY - (opt.y + offsetY));
+                                closestStationId = st_id;
+                            }
+                        }
+                    }
+                }
+            }
+
+            let needsRedraw = false;
+            if (hoveredTrain !== closestTrain) { hoveredTrain = closestTrain; needsRedraw = true; }
+            if (hoveredStation !== closestStationId) { hoveredStation = closestStationId; needsRedraw = true; }
+            if (needsRedraw) {
+                wrapper.style.cursor = (hoveredTrain || hoveredStation) ? 'pointer' : 'grab';
+                redrawAll();
+            }
+        }
+    });
+
+    const handlePointerUp = (e) => {
+        wrapper.releasePointerCapture(e.pointerId);
+        let idx = activePointers.findIndex(p => p.id === e.pointerId);
+        if (idx !== -1) activePointers.splice(idx, 1);
+
+        // 當所有手指都離開螢幕時
+        if (activePointers.length === 0) {
+            wrapper.style.cursor = 'grab';
+            if (isDragging) {
+                let dragDistance = Math.hypot(e.clientX - startMouseX, e.clientY - startMouseY);
+                // 🌟 胖手指優化：觸控滑動距離在 10px 以內都視為「點擊」，不再誤判為拖曳！
+                if (dragDistance < 10) {
+                    executeClick(e.clientX, e.clientY);
+                }
+            }
+            isDragging = false;
+            lastPinchDist = 0;
+        } 
+        // 兩指放開一指，變回單指平移模式
+        else if (activePointers.length === 1) {
+            isDragging = true;
+            startMouseX = activePointers[0].x;
+            startMouseY = activePointers[0].y;
+            startCameraX = camera.x;
+            startCameraY = camera.y;
+        }
+    };
+
+    wrapper.addEventListener('pointerup', handlePointerUp);
+    wrapper.addEventListener('pointercancel', handlePointerUp);
+
+    // --- 電腦版滑鼠滾輪縮放 (保留原本功能) ---
+    wrapper.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (renderFrame) return;
+
+        const rect = wrapper.getBoundingClientRect();
+        let zoom = e.deltaY > 0 ? 0.9 : 1.1;
+        if (zoom === 1 && e.deltaY > 0) return;
+
+        applyZoom(zoom, e.clientX - rect.left, e.clientY - rect.top);
     }, { passive: false });
 }
 
