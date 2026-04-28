@@ -1762,13 +1762,19 @@ function updateBottomPanelStation(st_id) {
 
                     if (diff >= 0 && opsDep >= opsNow) {
                         
-                        // --- 穿透雷達看方向 (維持原本你的超強邏輯不變) ---
+                        // ==========================================
+                        // 🌟 穿透雷達看方向 (交會站分身防呆版)
+                        // ==========================================
                         let isUpbound = true; 
                         let foundDirection = false;
-                        let flatThreshold = 5; 
+                        let flatThreshold = 2; // 降低門檻，只要有一點點 Y 軸移動就判定
 
                         if (lookupY[st_id] && lookupY[st_id].length > 0) {
-                            let currentY = lookupY[st_id][0].y;
+                            
+                            // 🌟 核心修復 1：精準抓取「當下這條線」的車站 Y 座標，而不是盲目抓第一個！
+                            let currentOpt = lookupY[st_id].find(opt => opt.segId === seg.id) || lookupY[st_id][0];
+                            let currentY = currentOpt.y;
+                            
                             for (let sIdx = segIdx; sIdx < train.segments.length; sIdx++) {
                                 let scanSeg = train.segments[sIdx];
                                 let startIdx = (sIdx === segIdx) ? i + 1 : 0;
@@ -1776,8 +1782,26 @@ function updateBottomPanelStation(st_id) {
                                 for (let k = startIdx; k < scanSeg.s.length; k++) {
                                     let scanStId = scanSeg.s[k];
                                     if (lookupY[scanStId] && lookupY[scanStId].length > 0) {
-                                        let scanY = lookupY[scanStId][0].y;
+                                        
+                                        // 🌟 核心修復 2：未來的車站也要對準線段！
+                                        let scanOpt = lookupY[scanStId].find(opt => opt.segId === scanSeg.id);
+                                        let scanY = scanOpt ? scanOpt.y : lookupY[scanStId][0].y;
+
+                                        // 如果找不到同線段的，就找畫面上離目前位置最近的那個分身！
+                                        if (!scanOpt && lookupY[scanStId].length > 1) {
+                                            let minDist = Infinity;
+                                            lookupY[scanStId].forEach(opt => {
+                                                let dist = Math.abs(opt.y - currentY);
+                                                if (dist < minDist) {
+                                                    minDist = dist;
+                                                    scanY = opt.y;
+                                                }
+                                            });
+                                        }
+
                                         let dy = scanY - currentY;
+
+                                        // 只要 Y 軸有變化，就判定大方向！
                                         if (Math.abs(dy) > flatThreshold) {
                                             isUpbound = (dy < 0); 
                                             foundDirection = true;
@@ -1789,9 +1813,11 @@ function updateBottomPanelStation(st_id) {
                             }
                         }
 
+                        // 保底機制：如果都沒改變 Y 軸，退回台鐵官方的奇偶數車次判斷！
                         if (!foundDirection) {
                             isUpbound = (parseInt(trainNo) % 2 === 0);
                         }
+                        // ==========================================
                         // ---------------------------------------------
 
                         let lastSeg = train.segments[train.segments.length - 1];
