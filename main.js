@@ -1730,36 +1730,31 @@ function updateBottomPanelStation(st_id) {
         if (processedTrains.has(trainNo)) return;
 
         for (let segIdx = 0; segIdx < train.segments.length; segIdx++) {
+            
+            // 🌟 核心修復：如果這班車已經在前面的線段被加進去了，就直接強制打斷，不要再找下一段了！
+            if (processedTrains.has(trainNo)) break; 
+
             let seg = train.segments[segIdx];
 
             for (let i = 0; i < seg.s.length; i++) {
                 if (seg.s[i] === st_id && seg.v[i] !== 2 && seg.v[i] !== 3) {
                     let depT = seg.t[i * 2 + 1];
                     
-                    // ==========================================
-                    // 🌟 鐵道標準「營業日」時間轉換
-                    // 將凌晨 00:00 ~ 01:59 視為當日的 24:00 ~ 25:59
-                    // ==========================================
+                    // 鐵道標準「營業日」時間轉換
                     let opsNow = currentMinutes < 120 ? currentMinutes + 1440 : currentMinutes;
                     let opsDep = depT < 120 ? depT + 1440 : depT;
                     
-                    // 重新計算最精準的倒數等待分鐘數
                     let diff = opsDep - opsNow;
 
-                    // 🌟 只要這班車還沒開 (diff >= 0)，而且屬於今天收班前的車，就全部顯示！
                     if (diff >= 0 && opsDep >= opsNow) {
                         
-                        // ==========================================
-                        // 🌟 穿透雷達看方向 (只管大方向，不管下一站是誰)
-                        // ==========================================
+                        // --- 穿透雷達看方向 (維持原本你的超強邏輯不變) ---
                         let isUpbound = true; 
                         let foundDirection = false;
                         let flatThreshold = 5; 
 
                         if (lookupY[st_id] && lookupY[st_id].length > 0) {
                             let currentY = lookupY[st_id][0].y;
-                            
-                            // 往未來的車站掃描，直到抓到明顯的 Y 軸變化
                             for (let sIdx = segIdx; sIdx < train.segments.length; sIdx++) {
                                 let scanSeg = train.segments[sIdx];
                                 let startIdx = (sIdx === segIdx) ? i + 1 : 0;
@@ -1769,8 +1764,6 @@ function updateBottomPanelStation(st_id) {
                                     if (lookupY[scanStId] && lookupY[scanStId].length > 0) {
                                         let scanY = lookupY[scanStId][0].y;
                                         let dy = scanY - currentY;
-
-                                        // 只要 Y 軸變化超過 5px，就判定大方向！
                                         if (Math.abs(dy) > flatThreshold) {
                                             isUpbound = (dy < 0); 
                                             foundDirection = true;
@@ -1782,11 +1775,10 @@ function updateBottomPanelStation(st_id) {
                             }
                         }
 
-                        // 保底機制：如果都沒改變 Y 軸，退回奇偶數判斷
                         if (!foundDirection) {
                             isUpbound = (parseInt(trainNo) % 2 === 0);
                         }
-                        // ==========================================
+                        // ---------------------------------------------
 
                         let lastSeg = train.segments[train.segments.length - 1];
                         let destId = lastSeg.s[lastSeg.s.length - 1];
@@ -1803,8 +1795,10 @@ function updateBottomPanelStation(st_id) {
                         if (isUpbound) upboundTrains.push(trainData);
                         else downboundTrains.push(trainData);
 
-                        processedTrains.add(trainNo);
-                        isAdded = true;
+                        // 📝 登記：這台車已經加過了！
+                        processedTrains.add(trainNo); 
+                        
+                        // 🌟 把你原本那行沒有宣告的 isAdded = true 刪掉了
                         break; // 跳出車站掃描的迴圈
                     }
                 }
