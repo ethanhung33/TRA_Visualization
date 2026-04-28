@@ -1034,11 +1034,25 @@ function bindThemeToggle() {
             if(btn._updateStyle) btn._updateStyle();
         });
 
+        // ==========================================
+        // 🌟 核心修復：在重新渲染面板前，先「記住」目前的左右滾動進度！
+        // ==========================================
+        const scrollContainer = document.getElementById('bottom-scroll-container');
+        let savedScrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
+
         if (selectedStation) {
             updateBottomPanelStation(selectedStation);
         }
         else if (selectedTrain) {
             updateBottomPanel(selectedTrain);
+        }
+
+        // ==========================================
+        // 🌟 重新抓取剛畫好的新面板，把滾動進度「還給」它！
+        // ==========================================
+        const newScrollContainer = document.getElementById('bottom-scroll-container');
+        if (newScrollContainer) {
+            newScrollContainer.scrollLeft = savedScrollLeft;
         }
 
         // 4. 重繪畫布
