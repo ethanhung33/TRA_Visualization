@@ -565,6 +565,28 @@ function drawTrains() {
     timetable.forEach(train => {
         if (!activeTrainTypes.has(train.type)) return;
 
+        // ==========================================
+        // 🌟 核心新增：車站聚焦過濾器 (Focus Mode)
+        // ==========================================
+        if (selectedStation) {
+            let stopsHere = false;
+            if (train.segments) {
+                for (let seg of train.segments) {
+                    for (let i = 0; i < seg.s.length; i++) {
+                        // 檢查：1. 站碼是不是我們點擊的站  2. v !== 2 代表「有停靠」不是通過
+                        if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
+                            stopsHere = true;
+                            break;
+                        }
+                    }
+                    if (stopsHere) break;
+                }
+            }
+            // 如果這台車沒有停靠這個車站，就直接跳過，讓他在畫面上隱形！
+            if (!stopsHere) return; 
+        }
+        // ==========================================
+
         if (train === selectedTrain) {
             vipTrain = train;
         } else if (train === hoveredTrain) {
