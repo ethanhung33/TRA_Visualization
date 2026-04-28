@@ -518,3 +518,52 @@ body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
     margin-bottom: 30px;
 }
 
+/* ==========================================
+   📱 手機版專屬排版 (當螢幕寬度小於 768px 時自動觸發)
+   ========================================== */
+@media (max-width: 768px) {
+    /* 1. 把整個網頁從「左右」切分成「上下」排列 */
+    body {
+        flex-direction: column; 
+    }
+
+    /* 2. 側邊欄移到最上方，變成選單列 */
+    #sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 25vh; /* 限制側邊欄最多只佔螢幕的 1/4 */
+        border-right: none;
+        border-bottom: 1px solid #ccc; /* 改成下底線 */
+        overflow-y: auto;
+        display: flex;
+        flex-wrap: wrap; /* 讓按鈕自動換行，不要擠在一起 */
+    }
+
+    /* 3. 調整主內容區塊 */
+    #main-content {
+        width: 100%;
+        height: 75vh; /* 剩下的 3/4 空間給畫布和底部面板 */
+        display: flex;
+        flex-direction: column;
+        position: relative; /* 確保裡面的絕對定位不會跑掉 */
+    }
+
+    /* 4. 畫布區域自動彈性填滿，但不會把底部面板擠出去 */
+    #canvas-wrapper {
+        flex: 1; /* 拿走所有剩下的空間 */
+        height: auto; 
+        width: 100%;
+    }
+
+    /* 🌟 5. 拯救底部面板！強制它浮在最上面 */
+    #bottom-panel {
+        width: 100%;
+        max-height: 35vh; /* 限制高度，避免擋住太多畫布 */
+        bottom: 0;
+        left: 0;
+        position: absolute; /* 強制貼在 main-content 的最下面 */
+        z-index: 9999; /* 設到最高，保證不被畫布蓋住 */
+        box-shadow: 0 -4px 10px rgba(0,0,0,0.3); /* 加一點陰影看起來更立體 */
+        overflow-y: auto;
+    }
+}
