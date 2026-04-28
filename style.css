@@ -3,11 +3,16 @@
    ========================================== */
 /* 預設：深色模式的顏色 */
 :root {
-    --btn-bg: rgba(34, 34, 34, 0.5);
+    --btn-bg: rgba(51, 51, 51, 0.5);
     --btn-color: rgba(255, 255, 255, 0.8);
     --btn-border: rgba(255, 255, 255, 0.2);
     --btn-hover: rgba(68, 68, 68, 0.95);
     --btn-shadow: rgba(0, 0, 0, 0.2);
+
+    /* 🌟 新增：底部面板的文字顏色變數 (深色模式) */
+    --panel-text-main: #FFFFFF; /* 主要文字：站名、標題 */
+    --panel-text-sub: #BBBBBB;  /* 次要文字：時間、提示 */
+    --panel-arrow: #666666;     /* 箭頭顏色 */
 }
 
 /* 當 body 被貼上 light-mode 標籤時，這組顏色會「自動覆蓋」上面的顏色！ */
@@ -17,6 +22,11 @@ body.light-mode {
     --btn-border: rgba(0, 0, 0, 0.15);
     --btn-hover: rgba(200, 200, 200, 0.95);
     --btn-shadow: rgba(0, 0, 0, 0.05);
+
+    /* 🌟 新增：底部面板的文字顏色變數 (淺色模式自動切換) */
+    --panel-text-main: #222222; /* 變成深灰色 */
+    --panel-text-sub: #666666;  /* 變成中灰色 */
+    --panel-arrow: #999999;     /* 變成淺灰色 */
 }
 
 /* ==========================================
@@ -72,15 +82,20 @@ body {
 }
 
 /* 底部資訊列 */
-#bottom-bar { 
-    height: 60px; 
-    background-color: #2d2d2d; /* 預設深色，JS日夜切換會蓋掉 */
-    border-top: 1px solid #444; 
-    display: flex; 
-    align-items: center; 
-    padding: 0 20px; 
-    gap: 15px; 
-    z-index: 20;
+#bottom-bar {
+    /* 🌟 不管有沒有火車，一律佔據 150px */
+    height: 150px !important;
+    min-height: 150px !important;
+    max-height: 150px !important;
+    
+    /* 🌟 禁止 Flexbox 把這區塊擠扁 */
+    flex-shrink: 0; 
+
+    background-color: #2d2d2d;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    border-top: 1px solid #444;
 }
 
 #bottom-bar h2 { 
@@ -93,6 +108,26 @@ body {
     font-size: 14px; 
     color: #888888; 
     font-style: italic; 
+}
+
+/* ========================================== */
+/* 🌞 淺色模式：底部資訊列覆蓋規則 */
+/* ========================================== */
+
+/* 1. 底部外盒改成淺灰底、淺色邊線 */
+body.light-mode #bottom-bar { 
+    background-color: #F5F5F5; 
+    border-top: 1px solid #DDDDDD; 
+}
+
+/* 2. 預設的 H2 標題 (例如: "尚未選擇車站") 改為深色字 */
+body.light-mode #bottom-bar h2 { 
+    color: #222222; 
+}
+
+/* 3. 預設的 span 說明文字 (例如: "點擊上方節點...") 改為深灰色 */
+body.light-mode #bottom-bar span { 
+    color: #666666; 
 }
 
 /* ==========================================
@@ -295,4 +330,190 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .utility-bar .pill-btn {
     padding: 4px 10px;
     font-size: 14px;
+}
+
+/* ==========================================
+   🌟 浮動提示框 (Tooltip)
+   ========================================== */
+#train-tooltip {
+    position: absolute; /* 絕對定位，飄在 Canvas 上面 */
+    background-color: rgba(30, 30, 30, 0.95); /* 深灰微透明底色 */
+    color: #FFFFFF;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'GlowSans', 'Segoe UI', sans-serif;
+    line-height: 1.6;
+    z-index: 100;
+    
+    /* 🌟 超級關鍵：讓滑鼠「穿透」這個浮動層！
+       如果不加這個，當滑鼠移到框框上時，Canvas 就收不到拖曳和滾輪事件了！ */
+    pointer-events: none; 
+    
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    
+    /* 預設隱藏 */
+    opacity: 0;
+    visibility: hidden;
+    transform: translate(15px, 15px); /* 預設往右下角稍微偏移 */
+    transition: opacity 0.2s ease, visibility 0.2s ease; /* 淡入淡出動畫 */
+    white-space: nowrap; /* 讓站名和時間不要亂換行 */
+}
+
+/* 當 JS 幫它加上 show 標籤時，就會浮現出來 */
+#train-tooltip.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* ========================================== */
+/* 🌟 載入中轉圈圈 (Loading Spinner) 樣式 */
+/* ========================================== */
+#loading-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #1a1a1a; /* 深色背景遮罩 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100; /* 確保它蓋在畫布最上面 */
+    transition: opacity 0.5s ease, visibility 0.5s ease; /* 消失時會有柔和的淡出動畫 */
+}
+
+/* 轉圈圈本體 */
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-top: 4px solid #66B2FF; /* 藍色轉動條 */
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 🌟 當 JS 加上這個 class 時，遮罩就會優雅地消失 */
+#loading-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* ==========================================
+   🌟 覆寫 Flatpickr 暗黑主題：改善無法點擊日期的辨識度
+========================================== */
+
+/* 針對不能點擊的日期 */
+span.flatpickr-day.flatpickr-disabled,
+span.flatpickr-day.flatpickr-disabled:hover {
+    color: #888888 !important; /* 提亮成中灰色，讓數字清晰可見 */
+    background-color: transparent !important;
+    opacity: 0.8 !important;
+    text-decoration: line-through; /* ✨ 加上刪除線，這是最強的防呆視覺提示！ */
+    cursor: not-allowed !important; /* 滑鼠移過去會變成禁止符號 🚫 */
+}
+
+/* (可選) 讓「今天」的標示更明顯一點，避免被吃掉 */
+span.flatpickr-day.today {
+    border-color: #FFA500 !important; /* 給今天加上橘色邊框 */
+}
+
+/* ==========================================
+   🌟 終極覆寫：綁定 ID 確保樣式絕對生效 (深色預設)
+========================================== */
+input#datePicker.flatpickr-input {
+    background-color: #2b2b2b !important; /* 深灰色背景 */
+    color: #ffffff !important;
+    border: 1px solid #444444 !important;
+    border-radius: 20px !important; /* 👈 大圓角關鍵在這裡！ */
+    padding: 8px 15px !important;
+    font-size: 14px !important;
+    width: 100% !important;
+    box-sizing: border-box;
+    cursor: pointer !important;
+    outline: none !important;
+    transition: all 0.3s ease;
+}
+
+input#datePicker.flatpickr-input:hover,
+input#datePicker.flatpickr-input:focus {
+    border-color: #FFA500 !important;
+    background-color: #333333 !important;
+    box-shadow: 0 0 8px rgba(255, 165, 0, 0.3) !important;
+}
+
+/* ==========================================
+   🌞 淺色模式下的日曆輸入框樣式
+========================================== */
+/* 🌟 這裡加上 #datePicker，確保權重能壓過預設的深色模式 */
+body.light-mode input#datePicker.flatpickr-input {
+    background-color: #ffffff !important; /* 白色背景 */
+    color: #333333 !important; /* 深灰色文字 */
+    border: 1px solid #cccccc !important; /* 淺灰色邊框 */
+}
+
+/* 淺色模式下，滑鼠移過去的發光效果 */
+body.light-mode input#datePicker.flatpickr-input:hover,
+body.light-mode input#datePicker.flatpickr-input:focus {
+    background-color: #f9f9f9 !important;
+    border-color: #FFA500 !important; /* 一樣保持漂亮的橘色邊框 */
+    box-shadow: 0 0 8px rgba(255, 165, 0, 0.2) !important;
+}
+
+/* ==========================================
+   🌟 覆寫 Flatpickr 日曆本體：深藍色 -> 側邊欄深灰色
+========================================== */
+/* 1. 日曆主體與邊框 (維持不變) */
+body:not(.light-mode) .flatpickr-calendar {
+    background: #333333 !important; 
+    border: 1px solid #555555 !important; 
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important; 
+}
+
+/* 🌟 2 & 3. 終極修正：把所有上方區塊（月份、年份、星期幾）的背景全部強制塗成深灰色！ */
+body:not(.light-mode) .flatpickr-months,
+body:not(.light-mode) .flatpickr-months .flatpickr-month,
+body:not(.light-mode) .flatpickr-weekdays,
+body:not(.light-mode) .flatpickr-weekdays .flatpickr-weekdaycontainer,
+body:not(.light-mode) span.flatpickr-weekday {
+    background: #333333 !important;
+    background-color: #333333 !important;
+}
+
+/* 4. 連接輸入框的那個「小三角形 (箭頭)」 (維持不變) */
+body:not(.light-mode) .flatpickr-calendar.arrowTop:before {
+    border-bottom-color: #555555 !important; 
+}
+body:not(.light-mode) .flatpickr-calendar.arrowTop:after {
+    border-bottom-color: #333333 !important; 
+}
+body:not(.light-mode) .flatpickr-calendar.arrowBottom:before {
+    border-top-color: #555555 !important; 
+}
+body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
+    border-top-color: #333333 !important; 
+}
+
+/* ==========================================
+   🌟 首頁歡迎選單 (Landing Page) 佈局排版
+   ========================================== */
+#landing-page {
+    width: 100%;
+    height: 100vh; /* 佔滿全螢幕高度 */
+    padding: 80px 10%; /* 🌟 關鍵：上下空出 80px，左右空出 10% 的螢幕寬度 */
+    box-sizing: border-box;
+    overflow-y: auto; /* 如果以後國家變多，允許上下捲動 */
+    background-color: #0a0a0a; /* (可選) 讓首頁的黑底比畫布的純黑稍微淺一點點，更有層次 */
+}
+
+/* 讓系統按鈕比國家標題再往右邊縮排一點點，視覺上會有「從屬」的階層感 */
+#system-menu-container button {
+    margin-left: 15px; 
+    margin-bottom: 30px;
 }

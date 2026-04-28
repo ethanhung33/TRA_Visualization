@@ -7,51 +7,43 @@ Universal Railway Stringline Generator (通用鐵道運行圖生成平台)
 ------------------------------------------------------------
 [1] 專案目錄架構 (Project Structure)
 ------------------------------------------------------------
-本專案將核心邏輯與各系統資料完全分離，結構如下：
+本專案目前的實際結構如下：
 
-railway-stringline/
-├── data/
-│   ├── Taiwan/
-│   │   └── TRA/
-│   │       ├── route.json          # [系統規則] fetch_strategy: "DAILY_FILE"
-│   │       ├── option.json
-│   │       ├── distance.json
-│   │       ├── crawl_tra.py
-│   │       └── timetables/         # 📁 [新增] 專屬收納庫：原始時刻表
-│   │           ├── raw_2026-04-14.json
-│   │           └── raw_2026-04-15.json
-│   └── Japan/
-│       └── Nankai/
-│           ├── route.json          # [系統規則] fetch_strategy: "PATTERN_FILE"
-│           ├── ...
-│           └── timetables/         # 📁 [新增] 專屬收納庫
-│               ├── raw_weekday.json
-│               └── raw_holiday.json
-│
-├── scripts/
-│   └── compiler.py
-│
-└── web/
-    ├── index.html
-    └── public/                     # 前端 fetch 的唯一入口
-        ├── TRA/                    # 📁 [新增] 按系統分類的編譯結果
-        │   ├── render_2026-04-14.json
-        │   └── render_2026-04-15.json
-        └── Nankai/
-            ├── render_weekday.json
-            └── render_holiday.json
+TRA_Visualization/
+├── index.html            # 前端頁面入口
+├── main.js               # 前端渲染與互動邏輯
+├── style.css             # 頁面樣式
+├── README.md             # 專案說明文件
+├── fonts/                # 字型資源
+├── data/                 # 資料與腳本根目錄
+│   ├── global.json       # 全域設定
+│   ├── Japan/            # 日本路線資料
+│   │   └── JR/           # JR 相關資料與腳本
+│   └── Taiwan/           # 台灣路線資料
+│       ├── HSR/          # 台灣高鐵資料
+│       └── TRA/          # 台鐵資料
+│           ├── json/     # 台鐵視覺化設定與輸出 JSON
+│           │   ├── available_dates.json
+│           │   ├── setting.json
+│           │   ├── topology.json
+│           │   └── timetable/  # 編譯後時刻表
+│           │       ├── timetable_20260415.json
+│           │       ├── timetable_20260416.json
+│           │       └── ...
+│           └── script/   # 資料整理與轉換腳本
+...
 
 
 ------------------------------------------------------------
 [2] 設定檔定義 (Configuration Definitions)
 ------------------------------------------------------------
-1. route.json (系統特徵)
+1. topology.json (系統特徵)
    定義該鐵路系統的獨特屬性：
    - Topology: 定義分岔節點 (Split/Merge) 與環狀連通性。
    - Temporal Policy: 定義時間分類方式 (WEEKDAY_BITMAP 1-7 或 SERVICE_GROUP 平假日)。
    - System Metadata: 系統名稱、預設視角、是否隱藏車次 ID。
 
-2. option.json (視覺樣式)
+2. setting.json (視覺樣式)
    控制圖表呈現細節：
    - Train Styles: 各車種 (如自強、Rap:t) 對應的顏色代碼與線條屬性。
    - Grid Layout: X 軸 (時間) 與 Y 軸 (距離) 的預設縮放比例。
@@ -69,7 +61,7 @@ railway-stringline/
         執行各別資料夾下的 crawl_*.py，取得最新的時刻表與里程。
 
 步驟 2. 邏輯編譯 (Logical Compilation):
-        使用 compiler.py 根據 route.json 的拓樸規則，將時刻表轉換為前端 Canvas 座標。
+        使用 compiler.py 根據 topology.json 的拓樸規則，將時刻表轉換為前端 Canvas 座標。
 
 步驟 3. 前端渲染 (Web Rendering):
         網頁讀取編譯後的 JSON，透過 renderer.js 在 HTML5 Canvas 上繪製運行圖。

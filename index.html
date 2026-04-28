@@ -5,59 +5,72 @@
     <title>台鐵運行圖渲染引擎</title>
     <link rel="icon" href="data:,">
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link id="flatpickr-theme" rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
     <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
-<div id="app">
-    <div id="left-panel">
-        <div id="canvas-wrapper">
-            <canvas id="diaCanvas"></canvas>
-            
-            <div id="crosshair-x" style="position: absolute; left: 0; height: 1px; background: rgba(255, 165, 0, 0.8); pointer-events: none; display: none; z-index: 50;"></div>
-            <div id="crosshair-y" style="position: absolute; top: 0; width: 1px; background: rgba(255, 165, 0, 0.8); pointer-events: none; display: none; z-index: 50;"></div>
-            <div id="tooltip" style="position: absolute; background: rgba(0,0,0,0.85); color: #fff; padding: 6px 12px; border-radius: 4px; pointer-events: none; display: none; z-index: 60; font-size: 14px; border: 1px solid #555; white-space: nowrap;"></div>
-        </div>
-        <div id="bottom-bar">
-            <h2>列車資訊</h2>
-            <span id="train-info-text">點選列車或車站以顯示資訊</span>
-        </div>
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div style="color: #FFF; font-size: 14px; font-weight: bold; letter-spacing: 2px;">運行圖載入中...</div>
     </div>
 
-    <div id="sidebar">
-        <button id="sidebar-toggle" class="sidebar-toggle-btn">›</button>
-
-        <div class="sidebar-inner">
-            <div class="btn-group" style="justify-content: flex-end;">
-                <button class="pill-btn" id="btn-theme">🌞</button>
-                <button class="pill-btn">ℹ️</button>
-                <button class="pill-btn">❓</button>
+    <div id="landing-page">
+        <h1 style="color: white; margin-bottom: 20px; font-family: 'GlowSans', sans-serif;">鐵道運行圖引擎</h1>
+        <div id="system-menu-container" class="btn-group">
             </div>
+    </div>
 
-            <div class="control-section">
-                <h3>日期</h3>
-                <input type="date" id="datePicker" value="2026-04-16">
+    <div id="app" style="display: none;">
+        <div id="left-panel">
+            <div id="canvas-wrapper" style="position: relative;"> 
+
+                <canvas id="diaCanvas"></canvas>
+                
+                <div id="crosshair-x" style="position: absolute; left: 0; height: 1px; background: rgba(255, 165, 0, 0.8); pointer-events: none; display: none; z-index: 50;"></div>
+                <div id="crosshair-y" style="position: absolute; top: 0; width: 1px; background: rgba(255, 165, 0, 0.8); pointer-events: none; display: none; z-index: 50;"></div>
             </div>
+            <div id="bottom-bar">
+                <h2>列車資訊</h2>
+                <span id="train-info-text">點選列車或車站以顯示資訊</span>
+            </div>
+        </div>
 
-            <div class="control-section">
-                <h3>路線</h3>
-                <div class="btn-group">
-                    <button class="pill-btn active green" id="btn-mountain">山線</button>
-                    <button class="pill-btn" id="btn-sea">海線</button>
+        <div id="sidebar">
+            <button id="sidebar-toggle" class="sidebar-toggle-btn">›</button>
+
+            <div class="sidebar-inner">
+                <div class="btn-group" style="justify-content: flex-end;">
+                    <button class="pill-btn" id="btn-home" title="回系統選單">🏠</button>
+                    <button class="pill-btn" id="btn-theme">🌞</button>
+                    <button class="pill-btn">ℹ️</button>
+                    <button class="pill-btn">❓</button>
                 </div>
-            </div>
 
-            <div class="control-section">
-                <h3>車種</h3>
-                <div class="btn-group" style="margin-bottom: 10px;">
-                    <button class="pill-btn" id="btn-all-trains">全選</button>
-                    <button class="pill-btn" id="btn-no-trains">全部不選</button>
+                <div class="control-section">
+                    <h3>日期</h3>
+                    <input type="date" id="datePicker" value="2026-04-16">
                 </div>
-                <div class="btn-group" id="train-type-container">
+
+                <div class="control-section">
+                    <h3>路線</h3>
+                    <div class="btn-group" id="route-type-container">
+                        </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>車種</h3>
+                    <div class="btn-group" style="margin-bottom: 10px;">
+                        <button class="pill-btn" id="btn-all-trains">全選</button>
+                        <button class="pill-btn" id="btn-no-trains">全部不選</button>
                     </div>
-            </div>
-        </div> </div> </div>
+                    <div class="btn-group" id="train-type-container">
+                        </div>
+                </div>
+            </div> </div> </div>
 
-<script src="main.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="main.js"></script>
 </body>
 </html>
