@@ -1043,7 +1043,7 @@ function bindThemeToggle() {
 
         document.querySelectorAll('#sidebar .pill-btn').forEach(btn => {
             // 排除路線按鈕與車種按鈕 (車種按鈕有綁定 _updateStyle)，剩下的就是那 5 顆！
-            if (btn.id !== 'btn-mountain' && btn.id !== 'btn-sea' && !btn._updateStyle) {
+            if (!btn.closest('#route-type-container') && !btn._updateStyle) {
                 btn.style.backgroundColor = defaultBg;
                 btn.style.borderColor = defaultBorder;
                 btn.style.color = defaultText;
