@@ -1763,62 +1763,56 @@ function updateBottomPanelStation(st_id) {
                     if (diff >= 0 && opsDep >= opsNow) {
                         
                         // ==========================================
-                        // 🌟 穿透雷達看方向 (交會站分身防呆版)
+                        // 🌟 終極方案：絕對里程判定法 (Data-Driven Radar)
+                        // 拋棄畫布座標，直接從 topology 底層資料庫比對真實里程！
                         // ==========================================
                         let isUpbound = true; 
                         let foundDirection = false;
-                        let flatThreshold = 2; // 降低門檻，只要有一點點 Y 軸移動就判定
 
-                        if (lookupY[st_id] && lookupY[st_id].length > 0) {
-                            
-                            // 🌟 核心修復 1：精準抓取「當下這條線」的車站 Y 座標，而不是盲目抓第一個！
-                            let currentOpt = lookupY[st_id].find(opt => opt.segId === seg.id) || lookupY[st_id][0];
-                            let currentY = currentOpt.y;
-                            
-                            for (let sIdx = segIdx; sIdx < train.segments.length; sIdx++) {
-                                let scanSeg = train.segments[sIdx];
-                                let startIdx = (sIdx === segIdx) ? i + 1 : 0;
+                        // 1. 抓出這班車的「下一站」是誰？
+                        let nextStId = null;
+                        if (i + 1 < seg.s.length) {
+                            nextStId = seg.s[i + 1]; // 同一條線段的下一站
+                        } else if (segIdx + 1 < train.segments.length) {
+                            nextStId = train.segments[segIdx + 1].s[0]; // 跨線段的第一站
+                        }
 
-                                for (let k = startIdx; k < scanSeg.s.length; k++) {
-                                    let scanStId = scanSeg.s[k];
-                                    if (lookupY[scanStId] && lookupY[scanStId].length > 0) {
+                        // 2. 去 topology.json (實體路線圖) 查水表！
+                        if (nextStId && topology && topology.segments) {
+                            for (let topoSeg of topology.segments) {
+                                // 找找看這條實體線有沒有包含這兩個站
+                                let currSt = topoSeg.stations.find(s => String(s.id) === String(st_id));
+                                let nextSt = topoSeg.stations.find(s => String(s.id) === String(nextStId));
+                                
+                                // 🌟 核心防呆：必須確保這兩個站「都在同一條實體線上」，才能互相比較里程！
+                                // 這樣就可以完美避開「交會站 (如新竹、八堵)」的影分身問題！
+                                if (currSt && nextSt && currSt.km !== undefined && nextSt.km !== undefined) {
+                                    if (currSt.km !== nextSt.km) {
                                         
-                                        // 🌟 核心修復 2：未來的車站也要對準線段！
-                                        let scanOpt = lookupY[scanStId].find(opt => opt.segId === scanSeg.id);
-                                        let scanY = scanOpt ? scanOpt.y : lookupY[scanStId][0].y;
-
-                                        // 如果找不到同線段的，就找畫面上離目前位置最近的那個分身！
-                                        if (!scanOpt && lookupY[scanStId].length > 1) {
-                                            let minDist = Infinity;
-                                            lookupY[scanStId].forEach(opt => {
-                                                let dist = Math.abs(opt.y - currentY);
-                                                if (dist < minDist) {
-                                                    minDist = dist;
-                                                    scanY = opt.y;
-                                                }
-                                            });
-                                        }
-
-                                        let dy = scanY - currentY;
-
-                                        // 只要 Y 軸有變化，就判定大方向！
-                                        if (Math.abs(dy) > flatThreshold) {
-                                            isUpbound = (dy < 0); 
-                                            foundDirection = true;
-                                            break;
-                                        }
+                                        // 🚂 鐵路物理鐵律：
+                                        // 里程變小 (往起點開) = ▲ 上行
+                                        // 里程變大 (往終點開) = ▼ 下行
+                                        isUpbound = (nextSt.km < currSt.km);
+                                        foundDirection = true;
+                                        break;
                                     }
                                 }
-                                if (foundDirection) break; 
                             }
                         }
 
-                        // 保底機制：如果都沒改變 Y 軸，退回台鐵官方的奇偶數車次判斷！
+                        // 3. 🛡️ 終極保底機制 (如果這是一站到底的車，或是下一站剛好不在資料庫)
                         if (!foundDirection) {
-                            isUpbound = (parseInt(trainNo) % 2 === 0);
+                            let match = String(trainNo).match(/\d+/g);
+                            if (match) {
+                                let lastNum = parseInt(match[match.length - 1], 10);
+                                isUpbound = (lastNum % 2 === 0);
+                            } else if (train.direction !== undefined) {
+                                isUpbound = (train.direction === 0 || train.direction === "0");
+                            } else {
+                                isUpbound = true; 
+                            }
                         }
                         // ==========================================
-                        // ---------------------------------------------
 
                         let lastSeg = train.segments[train.segments.length - 1];
                         let destId = lastSeg.s[lastSeg.s.length - 1];
