@@ -1643,6 +1643,34 @@ function setupCanvasInteractions() {
             startCameraY = camera.y;
         }
     }, { passive: false });
+
+    // ==========================================
+    // ⌨️ 全域鍵盤事件：按下 ESC 取消選取
+    // ==========================================
+    window.addEventListener('keydown', (e) => {
+        // 檢查按下的鍵是不是 ESC
+        if (e.key === 'Escape') {
+            // 如果現在有選取火車或車站，才去執行清空動作
+            if (selectedTrain || selectedStation) {
+                
+                // 1. 清空選取狀態變數
+                selectedTrain = null;
+                selectedStation = null;
+                
+                // 2. 恢復底部面板為預設狀態 ("點選列車或車站以顯示資訊")
+                if (typeof updateBottomPanel === 'function') {
+                    updateBottomPanel(null);
+                }
+                
+                // 3. 重新繪製畫布，把黃色高光線條或發光的車站橫線擦掉
+                if (typeof requestRedraw === 'function') {
+                    requestRedraw();
+                } else if (typeof redrawAll === 'function') {
+                    redrawAll();
+                }
+            }
+        }
+    });
 }
 
 function requestRedraw() {
