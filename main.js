@@ -1166,6 +1166,8 @@ function autoFitScale() {
     // 強制將 Y 軸適應螢幕，並讓 X 軸依據專屬係數壓縮或拉長！
     CONFIG.scaleY = minScaleY;
     CONFIG.scaleX = minScaleY * timeStretchRatio; 
+
+    console.log(`[除錯] 讀取到的比例: ${timeStretchRatio}, 算出的 X軸縮放率: ${CONFIG.scaleX}`);
 }
 
 // ==========================================
