@@ -2564,7 +2564,6 @@ function initCanvas(canvasId, wrapperId) {
 // ==========================================
 async function init(systemPath) {
     // 🌟 核心修正 1：日誌必須放在最頂端，確保我們知道 init 真的有動！
-    console.log("%c 🚀 INIT 啟動: " + systemPath, "background: #222; color: #bada55; font-size: 16px; padding: 5px;");
     
     // 🌟 修正：改用 ID 抓取，確保不受 Flatpickr 屬性變更影響
     const dateInput = document.getElementById('datePicker'); 
@@ -2572,7 +2571,6 @@ async function init(systemPath) {
         dateInput.value = ""; 
         if (dateInput._flatpickr) {
             dateInput._flatpickr.destroy();
-            console.log("[Debug] 舊系統日曆已物理毀滅");
         }
     }
     
@@ -2610,8 +2608,6 @@ async function init(systemPath) {
         const settingText = await setRes.text();
         settings = JSON.parse(settingText);
 
-        // 🌟 3. 幫你檢查高鐵到底讀到了什麼設定
-        console.log(`[Debug] 當前系統策略: "${settings.data_fetch_strategy}"`);
 
         // 🌟 通用破解法：用正規表達式從純文字中挖出 train_color 的原始 Key 順序
         let extractedOrder = [];
@@ -2670,16 +2666,12 @@ async function init(systemPath) {
 
             // 🌟 這裡也同樣改用 getElementById
             const dateInput = document.getElementById('datePicker');
-            
+
             if (dateInput) {
-                // 1. 檢查目前抓到的日期資料
-                console.log(`[Debug] 系統切換中: ${systemPath}`);
-                console.log(`[Debug] 抓到的可用日期清單:`, availableDates);
 
                 // 2. 清空數值與摧毀實體
                 dateInput.value = ""; 
                 if (dateInput._flatpickr) {
-                    console.log("[Debug] 偵測到舊日曆實體，執行 destroy()");
                     dateInput._flatpickr.destroy();
                 }
 
@@ -2690,12 +2682,9 @@ async function init(systemPath) {
                     dateFormat: "Y-m-d",
                     disableMobile: "true",
                     onChange: async function(selectedDates, dateStr, instance) {
-                        console.log(`[Debug] 日期切換為: ${dateStr}`);
                         await loadTimetableData(dateStr);
                     }
                 });
-                
-                console.log("[Debug] 新日曆實體建立完成。");
             }
 
 
