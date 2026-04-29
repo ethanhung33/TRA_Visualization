@@ -2536,6 +2536,25 @@ function initCanvas(canvasId, wrapperId) {
 // 系統啟動點 (init)
 // ==========================================
 async function init(systemPath) {
+    // ==========================================
+    // 🌟 切換系統大掃除：徹底抹除上一套系統的殘留影蹤
+    // ==========================================
+    if (typeof timetable !== 'undefined' && timetable.length > 0) {
+        timetable.forEach(train => {
+            if (train._hitPoints) train._hitPoints.length = 0; // 徹底清空舊系統的物理點
+        });
+    }
+    
+    // 重置選取狀態，避免舊系統的車站 ID 影響新系統
+    selectedTrain = null;
+    selectedStation = null;
+    hoveredTrain = null;
+    hoveredStation = null;
+    
+    // 清空時刻表與快取，確保重新開始
+    timetable = [];
+    junctionCache = {}; 
+    // ==========================================
 
     currentSystemPath = systemPath;
 
