@@ -2566,16 +2566,13 @@ async function init(systemPath) {
     // 🌟 核心修正 1：日誌必須放在最頂端，確保我們知道 init 真的有動！
     console.log("%c 🚀 INIT 啟動: " + systemPath, "background: #222; color: #bada55; font-size: 16px; padding: 5px;");
     
-    // ==========================================
-    // 🌟 核心修正：不管是什麼模式，先強行殺掉舊日曆
-    // ==========================================
-    const dateInput = document.querySelector('input[type="date"]'); 
+    // 🌟 修正：改用 ID 抓取，確保不受 Flatpickr 屬性變更影響
+    const dateInput = document.getElementById('datePicker'); 
     if (dateInput) {
-        console.log(`[Debug] 偵測到進入新系統，嘗試重置日曆...`);
-        dateInput.value = ""; // 清空文字，防止舊日期殘留
+        dateInput.value = ""; 
         if (dateInput._flatpickr) {
-            dateInput._flatpickr.destroy(); // 徹底銷毀台鐵的實體
-            console.log(`[Debug] 舊日曆實體已銷毀`);
+            dateInput._flatpickr.destroy();
+            console.log("[Debug] 舊系統日曆已物理毀滅");
         }
     }
     
@@ -2670,7 +2667,10 @@ async function init(systemPath) {
             // ==========================================
             // 🌟 偵錯版：強制更新日曆並印出狀態
             // ==========================================
-            const dateInput = document.querySelector('input[type="date"]'); 
+
+            // 🌟 這裡也同樣改用 getElementById
+            const dateInput = document.getElementById('datePicker');
+            
             if (dateInput) {
                 // 1. 檢查目前抓到的日期資料
                 console.log(`[Debug] 系統切換中: ${systemPath}`);
