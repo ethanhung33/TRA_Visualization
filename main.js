@@ -960,26 +960,39 @@ function setupBottomBarScrolling() {
 }
 
 // ==========================================
-// 視窗大小改變處理 (Resize)
+// 🌟 視窗與容器大小改變處理 (ResizeObserver 終極版)
 // ==========================================
 let resizeTimeout;
+const canvasWrapperElement = document.getElementById('canvas-wrapper');
 
-window.addEventListener('resize', () => {
-    clearTimeout(resizeTimeout);
-    
-    resizeTimeout = setTimeout(() => {
-        const wrapper = document.getElementById('canvas-wrapper');
-        if (!wrapper) return;
-
-        // 🌟 1. 換成高畫質工具！
-        initCanvas('diaCanvas', 'canvas-wrapper');
-
-        // 2. 視窗改變後，螢幕寬度變了，必須強制校正邊界
-        clampCamera(); 
+if (canvasWrapperElement) {
+    // 建立一個變形監視器
+    const resizeObserver = new ResizeObserver(entries => {
+        clearTimeout(resizeTimeout);
         
-        // 3. 重新畫圖
-        redrawAll();
-    }, 100); // 等使用者停止拉動視窗 100 毫秒後才執行
+        // 加上 150 毫秒的防抖，確保手機網址列縮放或排版完全穩定後才重繪
+        resizeTimeout = setTimeout(() => {
+            const rect = entries[0].contentRect;
+            
+            // 防呆：如果寬度或高度是 0 (例如切換頁面被隱藏)，不浪費效能
+            if (rect.width === 0 || rect.height === 0) return;
+
+            // 🌟 核心：在這裡抓取高畫質！這時候的物理像素絕對是 100% 完美的！
+            initCanvas('diaCanvas', 'canvas-wrapper');
+
+            // 強制校正鏡頭邊界並重繪
+            if (typeof clampCamera === 'function') clampCamera(); 
+            if (typeof redrawAll === 'function') redrawAll();
+        }, 150); 
+    });
+
+    // 啟動監視！死死盯著畫布的容器
+    resizeObserver.observe(canvasWrapperElement);
+}
+
+// 保留 window.resize 僅作為極端狀況的備用
+window.addEventListener('resize', () => {
+    // 主要工作已經交給 ResizeObserver 了，這裡可以安心留空
 });
 
 // 統整重繪動作 (清空 -> 畫網格 -> 畫火車)
@@ -2309,12 +2322,6 @@ async function init(systemPath) {
             if (loader) {
                 loader.classList.add('hidden'); // 觸發 CSS 淡出動畫
             }
-            
-            // ==========================================
-            // 🌟 終極殺手鐧：延遲觸發「視窗重整」！
-            // 讓手機瀏覽器的 CSS 完全排版穩定後，強迫 Canvas 再抓一次最高畫質！
-            // ==========================================
-            window.dispatchEvent(new Event('resize'));
 
         }, 400); // 🌟 把原本的 100 改成 400 毫秒，多給手機一點時間排版
 
