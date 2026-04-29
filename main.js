@@ -1872,6 +1872,27 @@ function updateBottomPanel(train) {
         ? trainNo 
         : `${trainType} ${trainNo}`;
 
+    // ==========================================
+    // 🌟 新增：自動抓取這班車的「起點」與「終點」
+    // ==========================================
+    let startStationName = "未知";
+    let endStationName = "未知";
+
+    // 優先檢查原始資料有沒有自帶起終點，如果沒有，就從停靠站列表 (segments) 裡面挖出來
+    if (train.start_station_name) {
+        startStationName = train.start_station_name;
+        endStationName = train.end_station_name;
+    } else if (train.segments && train.segments.length > 0) {
+        let firstSeg = train.segments[0];
+        let lastSeg = train.segments[train.segments.length - 1];
+        
+        let startId = firstSeg.s[0];
+        let endId = lastSeg.s[lastSeg.s.length - 1];
+        
+        if (stationMap[startId]) startStationName = stationMap[startId].name;
+        if (stationMap[endId]) endStationName = stationMap[endId].name;
+    }
+
     // 2. 組裝車站列表的 HTML
     let stationsHtml = "";
     let stopCount = 0;
@@ -1932,8 +1953,13 @@ function updateBottomPanel(train) {
     panel.innerHTML = `
         <div style="display: flex; width: 100%; height: 100%; align-items: center;">
             
-            <div style="min-width: 150px; display: flex; align-items: center; padding-right: 20px; border-right: 2px solid #444; font-size: 32px; font-weight: 900; color: ${trainColor}; flex-shrink: 0; letter-spacing: 1px;">
-                ${displayTitle}
+            <div style="min-width: 150px; display: flex; flex-direction: column; justify-content: center; padding-right: 20px; border-right: 2px solid #444; flex-shrink: 0;">
+                <div style="font-size: 32px; font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.1;">
+                    ${displayTitle}
+                </div>
+                <div style="font-size: 14px; color: ${theme.textMain}; opacity: 0.8; margin-top: 4px; font-weight: bold; letter-spacing: 1px;">
+                    ${startStationName} <span style="font-size:12px; margin: 0 2px;">▶</span> ${endStationName}
+                </div>
             </div>
             
             <div id="bottom-scroll-container" style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 20px; white-space: nowrap; scrollbar-width: none;">
