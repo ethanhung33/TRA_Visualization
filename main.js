@@ -2656,6 +2656,7 @@ async function init(systemPath) {
                 
                 console.log("[Debug] 新日曆實體建立完成。");
             }
+            
 
             // 啟動時先載入預設的第一張時刻表
             await loadTimetableData(currentDate);
