@@ -836,16 +836,25 @@ function buildUI() {
     window.updateRouteButtons = updateRouteButtons; 
     updateRouteButtons();
 
-    // ---- B. 動態生成車種篩選按鈕 (同步 setting.json 順序) ----
+    // ---- B. 動態生成車種篩選按鈕 (通用萬用版，免寫 train_order) ----
     
     // 1. 抓出時刻表內實際有出現的車種集合
     const dataTypes = new Set(timetable.map(t => t.type));
     
-    // 2. 優先依照 settings.train_color 定義的順序排隊
     let sortedTypes = [];
-    if (settings && settings.train_color) {
-        // 只留下時刻表裡確實有出現的車種，避免產生幽靈按鈕 (例如今天沒復興號就不顯示)
-        sortedTypes = Object.keys(settings.train_color).filter(type => dataTypes.has(type));
+    
+    // 2. 依照我們剛剛從純文字挖出來的 _rawOrder 來排序
+    if (settings && settings._rawOrder && settings._rawOrder.length > 0) {
+        settings._rawOrder.forEach(type => {
+            if (dataTypes.has(type)) {
+                sortedTypes.push(type);
+            }
+        });
+    } else if (settings && settings.train_color) {
+        // 保底機制：萬一正則表達式沒抓到，退回預設的 Object.keys
+        Object.keys(settings.train_color).forEach(type => {
+            if (dataTypes.has(type)) sortedTypes.push(type);
+        });
     }
 
     // 3. 把資料有出現，但 setting.json 沒設定到的額外車種補在最後面
@@ -855,7 +864,7 @@ function buildUI() {
         }
     });
 
-    trainTypeContainer.innerHTML = ''; 
+    trainTypeContainer.innerHTML = '';
     
     // ==========================================
     // 🌟 新增：連動更新底部面板的專屬函數
@@ -2441,7 +2450,20 @@ async function init(systemPath) {
         
         // 1. 載入 setting.json
         const setRes = await fetch(dirc_path + 'setting.json');
+        const settingText = await setRes.text(); // 先以純文字讀取，保留最原始的寫作順序
         settings = await setRes.json();
+
+        // 🌟 通用破解法：用正規表達式從純文字中挖出 train_color 的原始 Key 順序
+        let extractedOrder = [];
+        const colorBlockMatch = settingText.match(/"train_color"\s*:\s*\{([^}]*)\}/);
+        if (colorBlockMatch) {
+            // 抓出 block 裡所有的 "key":
+            const keyMatches = [...colorBlockMatch[1].matchAll(/"([^"]+)"\s*:/g)];
+            extractedOrder = keyMatches.map(m => m[1]);
+        }
+        // 將挖出來的原汁原味順序，掛載到 settings 物件上
+        settings._rawOrder = extractedOrder;
+
         if (settings.system_name) {
             document.title = settings.system_name + " - 運行圖";
         }
