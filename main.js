@@ -1425,12 +1425,19 @@ function setupCanvasInteractions() {
     let initialPinchDist = 0;
     let touchMoveDist = 0;
     let lastTouchX = 0, lastTouchY = 0;
+    
+    // 🌟 新增防護罩變數：記錄剛才是否在雙指縮放
+    let wasPinching = false; 
 
     wrapper.addEventListener('touchstart', (e) => {
-        e.preventDefault(); // 防止瀏覽器原生干擾
+        e.preventDefault(); 
         if (e.touches.length === 1) {
             isDragging = true;
             touchMoveDist = 0;
+            
+            // 如果是真正的「全新單指落下」，解除防護罩
+            if (e.touches.length === 1) wasPinching = false; 
+
             lastTouchX = e.touches[0].clientX;
             lastTouchY = e.touches[0].clientY;
             startMouseX = lastTouchX;
@@ -1438,7 +1445,11 @@ function setupCanvasInteractions() {
             startCameraX = camera.x;
             startCameraY = camera.y;
         } else if (e.touches.length === 2) {
-            isDragging = false; // 兩指放上去，停止平移，準備縮放
+            isDragging = false;
+            
+            // 🌟 偵測到兩根手指，立刻開啟「絕對防點擊」防護罩！
+            wasPinching = true; 
+            
             initialPinchDist = Math.hypot(
                 e.touches[0].clientX - e.touches[1].clientX,
                 e.touches[0].clientY - e.touches[1].clientY
@@ -1451,7 +1462,7 @@ function setupCanvasInteractions() {
         if (isDragging && e.touches.length === 1) {
             let dx = e.touches[0].clientX - startMouseX;
             let dy = e.touches[0].clientY - startMouseY;
-            touchMoveDist += Math.abs(dx) + Math.abs(dy); // 累積移動距離
+            touchMoveDist += Math.abs(dx) + Math.abs(dy); 
             lastTouchX = e.touches[0].clientX;
             lastTouchY = e.touches[0].clientY;
 
@@ -1468,7 +1479,6 @@ function setupCanvasInteractions() {
             );
             if (initialPinchDist > 0) {
                 let zoomDelta = currentDist / initialPinchDist;
-                // 加入 2% 防抖緩衝，避免手指微微顫抖導致畫面閃爍
                 if (Math.abs(1 - zoomDelta) > 0.02) {
                     let midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
                     let midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
@@ -1485,15 +1495,22 @@ function setupCanvasInteractions() {
         if (e.touches.length === 0) { 
             if (isDragging) {
                 isDragging = false;
-                // 如果總滑動距離很小，判定為「點擊車站/班次」而不是拖曳
-                if (touchMoveDist < 20) {
+                
+                // 🌟 核心防呆：只有在「移動距離很小」且「剛剛沒有在縮放」時，才允許判定為點擊！
+                if (touchMoveDist < 20 && !wasPinching) {
                     executeClick(lastTouchX, lastTouchY);
                 }
             }
             initialPinchDist = 0;
+            wasPinching = false; // 所有手指都離開了，重置防護罩
+            
         } else if (e.touches.length === 1) { 
-            // 兩指縮放完，放開一指時，重新設定單指拖曳基準點，避免畫面暴衝
             isDragging = true;
+            
+            // 🌟 暴力破解法：如果從雙指變單指，強制把累積拖曳距離「灌滿到 999」，
+            // 保證這根最後離開的手指，絕對不會被下一階段誤判成點擊！
+            touchMoveDist = 999; 
+            
             startMouseX = e.touches[0].clientX;
             startMouseY = e.touches[0].clientY;
             startCameraX = camera.x;
