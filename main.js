@@ -599,7 +599,7 @@ function drawTrains() {
         // ==========================================
 
         // 1. 車種過濾檢查
-        if (activeTrainTypes.size > 0 && !activeTrainTypes.has(train.type)) {
+        if (!activeTrainTypes.has(train.type)) {
             return; 
         }
 
@@ -938,23 +938,26 @@ function buildUI() {
         trainTypeContainer.appendChild(btn);
     });
 
+    // ==========================================
+    // 🌟 修正：將 addEventListener 改成 onclick
+    // ==========================================
     // 全選 
-    btnAllTrains.addEventListener('click', () => {
+    btnAllTrains.onclick = () => {
         activeTrainTypes = new Set(sortedTypes);
         document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
         
-        syncBottomPanel(); // 🌟 2. 全選時：同步更新面板！
+        syncBottomPanel();
         redrawAll();
-    });
+    };
 
     // 全部不選
-    btnNoTrains.addEventListener('click', () => {
+    btnNoTrains.onclick = () => {
         activeTrainTypes.clear();
         document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
         
-        syncBottomPanel(); // 🌟 3. 全部不選時：同步更新面板！
+        syncBottomPanel();
         redrawAll();
-    });
+    };
     
     // ==========================================
     // 🌟 側邊欄收合功能綁定 (修復幽靈連點 Bug)
