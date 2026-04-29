@@ -2613,6 +2613,9 @@ async function init(systemPath) {
         const settingText = await setRes.text();
         settings = JSON.parse(settingText);
 
+        // 🌟 3. 幫你檢查高鐵到底讀到了什麼設定
+        console.log(`[Debug] 當前系統策略: "${settings.data_fetch_strategy}"`);
+
         // 🌟 通用破解法：用正規表達式從純文字中挖出 train_color 的原始 Key 順序
         let extractedOrder = [];
         const colorBlockMatch = settingText.match(/"train_color"\s*:\s*\{([^}]*)\}/);
