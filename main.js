@@ -1382,7 +1382,7 @@ function setupCanvasInteractions() {
             selectedTrain = closestTrain; selectedStation = null;
             if (typeof updateBottomPanel === 'function') updateBottomPanel(selectedTrain);
         } else {
-            let closestStationId = null, minStationDist = 25; 
+            let closestStationId = null, minStationDist = 10; 
             let isCircular = false;
             if (typeof settings !== 'undefined' && settings?.view_presets?.[currentRouteView]?.view_type === "CIRCULAR") {
                 isCircular = true;
@@ -1518,7 +1518,7 @@ function setupCanvasInteractions() {
             }
         }
     });
-    
+
     window.addEventListener('mouseup', (e) => {
         if (isDragging) {
             isDragging = false;
