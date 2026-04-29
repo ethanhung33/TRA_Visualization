@@ -72,7 +72,9 @@
     "taichung-circular": {
         "name": "台中環線 (經由成追線)",
         "lines": [
-          "mountain_line", "chengzhui", "mountain_line"
+          {"id": "mountain_line", "start": "竹南", "end": "成功"},
+          "chengzhui",
+          {"id": "sea_line", "start": "追分", "end": "竹南"}
         ],
         "view_type": "LINEAR",
         "button_color": ["#9C27B0", "#7B1FA2"]
