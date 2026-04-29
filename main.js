@@ -1966,7 +1966,7 @@ function updateBottomPanel(train) {
     panel.innerHTML = `
         <div style="display: flex; width: 100%; height: 100%; align-items: center;">
             
-            <div style="min-width: 170px; display: flex; flex-direction: column; justify-content: center; padding-right: 20px; border-right: 2px solid #444; flex-shrink: 0;">
+            <div style="min-width: 180px; display: flex; flex-direction: column; justify-content: center; padding-left: 25px; padding-right: 20px; border-right: 2px solid #444; flex-shrink: 0;">
                 <div style="font-size: 26px; font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.0;">
                     ${displayTitle}
                 </div>
