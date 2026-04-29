@@ -2627,18 +2627,22 @@ async function init(systemPath) {
             currentDate = availableDates[availableDates.length - 1];
 
             // ==========================================
-            // 🌟 升級版：使用 Flatpickr 綁定日曆
+            // 🌟 升級版：使用 Flatpickr 綁定日曆 (修正切換系統殘留問題)
             // ==========================================
             const dateInput = document.querySelector('input[type="date"]'); 
             if (dateInput) {
-                // Flatpickr 會自動接管這個 input
+                // 1. 檢查這個 input 是否已經有綁定過 flatpickr 實體
+                // 如果有，就先將它徹底摧毀，確保下一秒能讀取新系統的 availableDates
+                if (dateInput._flatpickr) {
+                    dateInput._flatpickr.destroy();
+                }
+
                 flatpickr(dateInput, {
                     defaultDate: currentDate,
-                    enable: availableDates, // 🌟 神級功能：直接把我們的清單餵給它，清單以外的日子全部自動反灰不能點！
+                    enable: availableDates, // 🌟 這裡會抓到新系統 (高鐵) 的 availableDates
                     dateFormat: "Y-m-d",
-                    disableMobile: "true", // 強制手機版也用我們漂亮的日曆，不用原生的
+                    disableMobile: "true",
                     onChange: async function(selectedDates, dateStr, instance) {
-                        // 當使用者點擊合法的日期時，直接載入！不需要再 alert 防呆了！
                         await loadTimetableData(dateStr);
                     }
                 });
