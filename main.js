@@ -2451,7 +2451,9 @@ async function init(systemPath) {
         // 1. 載入 setting.json
         const setRes = await fetch(dirc_path + 'setting.json');
         const settingText = await setRes.text(); // 先以純文字讀取，保留最原始的寫作順序
-        settings = await setRes.json();
+        
+        // ✅ 正確做法：直接解析剛剛讀出來的字串，不要再對 setRes 呼叫 .json()
+        settings = JSON.parse(settingText);
 
         // 🌟 通用破解法：用正規表達式從純文字中挖出 train_color 的原始 Key 順序
         let extractedOrder = [];
