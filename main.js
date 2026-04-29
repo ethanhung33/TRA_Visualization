@@ -503,8 +503,12 @@ function drawTrains() {
                         ctx.lineTo(x_arr, y); 
                     }
 
-                    if (seg.v[i] !== 2) ctx.lineTo(x_dep, y);
-                    else ctx.moveTo(x_dep, y); 
+                    // 🌟 改成下面這樣 (直接把 else 刪掉！)：
+                    if (seg.v[i] !== 2) {
+                        ctx.lineTo(x_dep, y);
+                    }
+                    // 解說：如果是通過站 (v === 2)，我們什麼都不做！
+                    // 讓畫筆繼續貼在紙上，下一個 lineTo 就會畫出完美的連續直線，不再斷裂！
                 }
                 ctx.stroke();
                 // ==========================================
@@ -2004,9 +2008,6 @@ function interpolatePassingStations(timetable, topology) {
                                 passTime = t1 + (t2 - t1) * (currentDist / totalDist);
                             }
 
-                            // 轉回 24 小時制
-                            passTime = passTime % 1440;
-
                             // 將算出來的通過站偷偷塞進去
                             new_s.push(currentTopoSt.id);
                             new_t.push(passTime, passTime); // 通過站的到離時間一樣
@@ -2025,17 +2026,27 @@ function interpolatePassingStations(timetable, topology) {
 }
 
 // ==========================================
-// 🎨 視覺優化濾鏡：強制撐開同時間的停靠站
+// 🎨 視覺優化濾鏡與時間校正
 // ==========================================
 function optimizeTrainTimesForDisplay(trainsData) {
     trainsData.forEach(train => {
         if (!train.segments) return;
         
         train.segments.forEach(seg => {
-            // seg.t 裡面的資料格式是 [到站1, 離站1, 到站2, 離站2...]
+            // 🌟 1. 跨夜防呆：確保時間絕對不會「倒流」
+            let lastT = seg.t[0];
+            for (let i = 1; i < seg.t.length; i++) {
+                // 如果時間突然往回掉 (例如 1435 分掉到 5 分)
+                if (seg.t[i] < lastT && (lastT - seg.t[i]) > 300) { 
+                    seg.t[i] += 1440; // 把隔天的時間強制加上 24 小時
+                }
+                lastT = Math.max(lastT, seg.t[i]); // 更新進度水位線
+            }
+
+            // 🌟 2. 撐開停靠站的水平線
             for (let i = 0; i < seg.t.length; i += 2) {
-                if (seg.t[i] === seg.t[i + 1] && seg.v[i] !== 2) {
-                    // 強制把離站時間往後延 1 分鐘 (為了讓 Canvas 畫出水平線)
+                // (順便修復一個小 Bug：v 的長度是 t 的一半，所以索引要是 i / 2)
+                if (seg.t[i] === seg.t[i + 1] && seg.v[i / 2] !== 2) {
                     seg.t[i + 1] += 0.5; 
                 }
             }
