@@ -1427,7 +1427,11 @@ function setupCanvasInteractions() {
                     let p1 = train._hitPoints[i], p2 = train._hitPoints[i+1];
                     if (!p1 || !p2) continue;
                     let dist = getDistanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
-                    if (dist < minDistance) { minDistance = dist; closestTrain = train; }
+                    // 🌟 順便縮小一點胖手指容錯率 (從 20 降到 15)，減少誤觸機率
+                    if (dist < 15 && dist < minDistance) { 
+                        minDistance = dist; 
+                        closestTrain = train; 
+                    }
                 }
             }
         }
