@@ -575,21 +575,27 @@ function drawTrains() {
 
     // 第一次迴圈：畫普通車，把 VIP 和 Hover 扣留起來
     timetable.forEach(train => {
-        // 🌟 防呆 1：如果車種被取消勾選，強制清空物理碰撞點
-        if (!activeTrainTypes.has(train.type)) {
-            if (train._hitPoints) train._hitPoints.length = 0; 
-            return;
+        
+        // ==========================================
+        // 🌟 終極淨化術：在做任何判斷前，無條件清空這台車的物理座標！
+        // 這樣就算它等一下被隱藏，也絕對不會留下「幽靈點」讓滑鼠點到！
+        // ==========================================
+        if (!train._hitPoints) train._hitPoints = [];
+        train._hitPoints.length = 0; 
+        // ==========================================
+
+        // 1. 車種過濾檢查
+        if (activeTrainTypes.size > 0 && !activeTrainTypes.has(train.type)) {
+            return; 
         }
 
-        // ==========================================
-        // 🌟 核心新增：車站聚焦過濾器 (Focus Mode)
-        // ==========================================
+        // 2. 停靠站聚焦過濾器 (Focus Mode)
         if (selectedStation) {
             let stopsHere = false;
             if (train.segments) {
                 for (let seg of train.segments) {
                     for (let i = 0; i < seg.s.length; i++) {
-                        // 檢查：1. 站碼是不是我們點擊的站  2. v !== 2 代表「有停靠」不是通過
+                        // 檢查：1. 站碼是不是我們點擊的站  2. v !== 2 代表「有停靠」
                         if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
                             stopsHere = true;
                             break;
@@ -599,33 +605,27 @@ function drawTrains() {
                 }
             }
             // 如果這台車沒有停靠這個車站，就直接跳過，讓他在畫面上隱形！
+            // (而且因為上面已經清空了 _hitPoints，它現在連物理實體都沒有了！)
             if (!stopsHere) {
-                // 🌟 核心修復 (防幽靈點擊)：把隱形火車的物理實體也徹底刪除！
-                if (train._hitPoints) train._hitPoints.length = 0; 
                 return; 
             }
         }
-        // ==========================================
 
+        // 3. 狀態判斷與分發
         if (train === selectedTrain) {
             vipTrain = train;
         } else if (train === hoveredTrain) {
             hoverTrainDraw = train;
         } else {
-            // 畫普通車 (isVIP=false, isHovered=false)
             drawSingleTrain(train, false, false); 
         }
     });
 
     // 第二次：畫懸停的車 (壓在普通車上面)
-    if (hoverTrainDraw) {
-        drawSingleTrain(hoverTrainDraw, false, true); 
-    }
+    if (hoverTrainDraw) drawSingleTrain(hoverTrainDraw, false, true); 
 
     // 第三次：畫點擊的 VIP 車 (永遠壓在最上面)
-    if (vipTrain) {
-        drawSingleTrain(vipTrain, true, false); 
-    }
+    if (vipTrain) drawSingleTrain(vipTrain, true, false); 
 
     ctx.restore();
 }
