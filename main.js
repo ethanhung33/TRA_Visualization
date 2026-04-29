@@ -2634,6 +2634,17 @@ async function init(systemPath) {
         }
 
         // ==========================================
+        // 🌟 通用日曆清理：確保切換系統時，舊日曆一定會消失
+        // ==========================================
+        const dateInput = document.querySelector('input[type="date"]');
+        if (dateInput) {
+            dateInput.value = ""; // 清空舊日期文字
+            if (dateInput._flatpickr) {
+                dateInput._flatpickr.destroy(); // 徹底銷毀舊系統實體
+            }
+        }
+
+        // ==========================================
         // 🌟 3. 判斷時刻表載入策略
         // ==========================================
         if (settings.data_fetch_strategy === "DAILY_FILE") {
