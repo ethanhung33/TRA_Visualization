@@ -20,7 +20,7 @@
         "button_color": ["#2196F3", "#1565C0"]
     },
     "north_link": {
-        "name": "縱貫線北段",
+        "name": "縱貫線北段 (基隆-竹南)",
         "lines": ["keelung", "north_main"],
         "view_type": "LINEAR",
         "button_color": ["#FF5722", "#BF360C"]
@@ -68,6 +68,14 @@
         "lines": ["jiji"],
         "view_type": "LINEAR",
         "button_color": ["#009688", "#00796B"]
+    },
+    "taichung-circular": {
+        "name": "台中環線 (經由成追線)",
+        "lines": [
+          "mountain_line", "chengzhui", "mountain_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#9C27B0", "#7B1FA2"]
     }
   },
 
