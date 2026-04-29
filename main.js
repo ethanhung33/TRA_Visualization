@@ -2470,21 +2470,25 @@ async function loadSystemMenu() {
             // 建立該國家的系統按鈕
             country.systems.forEach(sys => {
                 const btn = document.createElement('button');
-                btn.className = 'pill-btn'; // 套用你原本漂亮的膠囊按鈕樣式
+                btn.className = 'pill-btn';
+                
+                // 🌟 核心修正：給按鈕一個身分證 ID，這樣 document 的監聽器才抓得到它
+                btn.id = `btn-${sys.id}`; 
                 
                 if (sys.is_active) {
                     btn.innerText = sys.chinese_name;
-                    // 🌟 點擊事件：切換畫面並載入該系統！
                     btn.onclick = () => {
-                        // 1. 拼出路徑 (例如: data/Taiwan/TRA/)
                         const dynamicPath = `data/${country.id}/${sys.id}/`;
                         
-                        // 2. 轉場動畫：顯示 Loading，隱藏首頁，顯示主畫面
-                        document.getElementById('loading-overlay').classList.remove('hidden');
+                        // 🌟 核心修正：進入前強制重置一次 Loader，確保它不會擋路
+                        const loader = document.getElementById('loading-overlay');
+                        if (loader) {
+                            loader.style.display = 'flex';
+                            loader.classList.remove('hidden');
+                        }
+
                         document.getElementById('landing-page').style.display = 'none';
                         document.getElementById('app').style.display = 'flex';
-                        
-                        // 3. 呼叫 init()，並把路徑傳給它！
                         init(dynamicPath);
                     };
                 } else {
@@ -2559,6 +2563,8 @@ function initCanvas(canvasId, wrapperId) {
 // 系統啟動點 (init)
 // ==========================================
 async function init(systemPath) {
+    // 🌟 核心修正 1：日誌必須放在最頂端，確保我們知道 init 真的有動！
+    console.log("%c 🚀 INIT 啟動: " + systemPath, "background: #222; color: #bada55; font-size: 16px; padding: 5px;");
     // ==========================================
     // 🌟 切換系統大掃除：徹底抹除上一套系統的殘留影蹤
     // ==========================================
@@ -2585,11 +2591,12 @@ async function init(systemPath) {
         
         let dirc_path = currentSystemPath + "json/"; // 確保路徑正確
         
-        // 1. 載入 setting.json
-        const setRes = await fetch(dirc_path + 'setting.json');
-        const settingText = await setRes.text(); // 先以純文字讀取，保留最原始的寫作順序
+        // 🌟 核心修正 2：所有的 fetch 都要加上 Cache Buster (?t=...)
+        // 防止瀏覽器在切換系統時把「台鐵的檔案」當成「高鐵的檔案」餵給你
+        const setRes = await fetch(`${dirc_path}setting.json?t=${Date.now()}`);
+        if (!setRes.ok) throw new Error("找不到 setting.json");
         
-        // ✅ 正確做法：直接解析剛剛讀出來的字串，不要再對 setRes 呼叫 .json()
+        const settingText = await setRes.text();
         settings = JSON.parse(settingText);
 
         // 🌟 通用破解法：用正規表達式從純文字中挖出 train_color 的原始 Key 順序
