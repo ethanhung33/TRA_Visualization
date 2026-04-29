@@ -375,7 +375,7 @@ function drawTrains() {
         // 🌟 1. 先決定這台車「原本的」顏色和粗細
         // ==========================================
         let baseColor = fallbackColor;
-        let baseWidth = train.w || 2.0; // 通用的保底粗細 (如果設定檔沒寫，預設 2.0)
+        let baseWidth = train.w || 1.5; // 通用的保底粗細 (如果設定檔沒寫，預設 1.5)
 
         if (settings && settings.train_color && settings.train_color[train.type]) {
             let typeStyle = settings.train_color[train.type];
