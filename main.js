@@ -571,7 +571,11 @@ function drawTrains() {
 
     // 第一次迴圈：畫普通車，把 VIP 和 Hover 扣留起來
     timetable.forEach(train => {
-        if (!activeTrainTypes.has(train.type)) return;
+        // 🌟 防呆 1：如果車種被取消勾選，強制清空物理碰撞點
+        if (!activeTrainTypes.has(train.type)) {
+            if (train._hitPoints) train._hitPoints.length = 0; 
+            return;
+        }
 
         // ==========================================
         // 🌟 核心新增：車站聚焦過濾器 (Focus Mode)
@@ -591,7 +595,11 @@ function drawTrains() {
                 }
             }
             // 如果這台車沒有停靠這個車站，就直接跳過，讓他在畫面上隱形！
-            if (!stopsHere) return; 
+            if (!stopsHere) {
+                // 🌟 核心修復 (防幽靈點擊)：把隱形火車的物理實體也徹底刪除！
+                if (train._hitPoints) train._hitPoints.length = 0; 
+                return; 
+            }
         }
         // ==========================================
 
