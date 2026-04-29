@@ -984,9 +984,15 @@ window.addEventListener('resize', () => {
 
 // 統整重繪動作 (清空 -> 畫網格 -> 畫火車)
 function redrawAll() {
-    // 由於我們動態改變 canvas.height，這本身就會清空畫布，
-    // 但為保險起見還是加上 clearRect
     clampCamera();
+    
+    // ==========================================
+    // 🌟 終極防模糊殺手鐧：強制攝影機對齊「實體像素」！
+    // 徹底消滅因為小數點座標造成的次像素模糊 (Sub-pixel blur)
+    // ==========================================
+    camera.x = Math.round(camera.x);
+    camera.y = Math.round(camera.y);
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid(currentRouteView); 
     drawTrains();
