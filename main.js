@@ -375,16 +375,17 @@ function drawTrains() {
         // 🌟 1. 先決定這台車「原本的」顏色和粗細
         // ==========================================
         let baseColor = fallbackColor;
+        let baseWidth = train.w || 2.0; // 通用的保底粗細 (如果設定檔沒寫，預設 2.0)
+
         if (settings && settings.train_color && settings.train_color[train.type]) {
-            baseColor = settings.train_color[train.type][colorIndex];
+            let typeStyle = settings.train_color[train.type];
+            baseColor = typeStyle[colorIndex]; // 抓取顏色 (深色/淺色模式)
+            
+            // 🌟 終極通用解法：如果有設定第三個參數，就把它當作該車種的專屬粗細！
+            if (typeStyle.length > 2) {
+                baseWidth = typeStyle[2];
+            }
         }
-
-        let isExpress = ["新自強", "普悠瑪", "太魯閣", "自強", "莒光"].includes(train.type);
-        let baseWidth = train.w || (isExpress ? 1.5 : 1.0);
-
-        // 先把畫筆設定成預設狀態
-        let trainColor = baseColor;
-        let lineWidth = baseWidth;
 
         // ==========================================
         // 🌟 2. 再根據狀態換衣服 (這時候 baseColor 已經準備好了)
