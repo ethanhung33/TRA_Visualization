@@ -1873,12 +1873,12 @@ function updateBottomPanel(train) {
         : `${trainType} ${trainNo}`;
 
     // ==========================================
-    // 🌟 新增：自動抓取這班車的「起點」與「終點」
+    // 🌟 新增：自動抓取這班車的「起點」與「終點」 (修正版)
     // ==========================================
     let startStationName = "未知";
     let endStationName = "未知";
 
-    // 優先檢查原始資料有沒有自帶起終點，如果沒有，就從停靠站列表 (segments) 裡面挖出來
+    // 優先檢查原始資料有沒有自帶起終點
     if (train.start_station_name) {
         startStationName = train.start_station_name;
         endStationName = train.end_station_name;
@@ -1886,11 +1886,17 @@ function updateBottomPanel(train) {
         let firstSeg = train.segments[0];
         let lastSeg = train.segments[train.segments.length - 1];
         
-        let startId = firstSeg.s[0];
-        let endId = lastSeg.s[lastSeg.s.length - 1];
+        let startId = String(firstSeg.s[0]);
+        let endId = String(lastSeg.s[lastSeg.s.length - 1]);
         
-        if (stationMap[startId]) startStationName = stationMap[startId].name;
-        if (stationMap[endId]) endStationName = stationMap[endId].name;
+        // 🌟 修正：使用 global 的 stations 陣列來搜尋車站名稱
+        if (typeof stations !== 'undefined') {
+            let startStn = stations.find(s => String(s.id) === startId);
+            let endStn = stations.find(s => String(s.id) === endId);
+            
+            if (startStn) startStationName = startStn.name;
+            if (endStn) endStationName = endStn.name;
+        }
     }
 
     // 2. 組裝車站列表的 HTML
