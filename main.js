@@ -1450,14 +1450,24 @@ function setupCanvasInteractions() {
             let hitStation = null;
 
             // ==========================================
-            // 📡 雷達 1：偵測火車 (掃描麵包屑)
+            // 📡 雷達 1：偵測火車 (精準線段掃描)
             // ==========================================
             for (let train of timetable) {
-                if (!train._hitPoints || train._hitPoints.length === 0) continue; 
-                for (let pt of train._hitPoints) {
-                    if (pt === null) continue; // 防呆：跳過斷點
+                // 如果火車被隱藏或點不到兩個，跳過
+                if (!train._hitPoints || train._hitPoints.length < 2) continue; 
+                
+                for (let i = 0; i < train._hitPoints.length - 1; i++) {
+                    let p1 = train._hitPoints[i];
+                    let p2 = train._hitPoints[i+1];
                     
-                    if (Math.abs(pt.x - worldX) < 5 && Math.abs(pt.y - worldY) < 8) {
+                    // 防呆：如果遇到 null (代表路線斷開)，就跳過這段不計算
+                    if (!p1 || !p2) continue; 
+                    
+                    // 🌟 核心升級：使用「點到線段的垂直距離」來計算！
+                    let dist = getDistanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
+                    
+                    // 容錯範圍：只要距離線條小於 6 像素，就視為碰到火車！
+                    if (dist < 6) {
                         hitTrain = train;
                         break; 
                     }
