@@ -1,0 +1,23 @@
+{
+  "system_id": "HSR",
+  "system_name": "台灣高鐵",
+  
+  "data_fetch_strategy": "DAILY_FILE",
+  
+  "calendar_type": "WEEKDAY_BITMAP",
+
+  "train_color" : {
+    "01": ["#FF5252", "#F12F2F"],
+    "02": ["#FF9800", "#F57C00"],
+    "03": ["#FDD835", "#FBC02D"],
+    "05": ["#9C27B0", "#7B1FA2"],
+    "06": ["#BB99FF", "#7B1FA2"],
+    "08": ["#66FF6A", "#00994D"],
+    "11": ["#FF5252", "#F12F2F"],
+    "12": ["#FF9800", "#F57C00"],
+    "13": ["#FDD835", "#FBC02D"],
+    "15": ["#9C27B0", "#7B1FA2"],
+    "16": ["#BB99FF", "#7B1FA2"],
+    "18": ["#66FF6A", "#00994D"]
+  }
+}

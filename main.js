@@ -774,6 +774,21 @@ function buildUI() {
 
     // 抓出 setting.json 裡面所有的視角 key (例如 'mountain_view', 'north_link')
     const viewKeys = Object.keys(settings?.view_presets || {});
+
+    // ==========================================
+    // 🌟 新增：如果視角只有 1 個(或沒有)，直接把整個切換區塊隱藏！
+    // ==========================================
+    if (viewKeys.length <= 1) {
+        if (routeContainer) routeContainer.style.display = 'none';
+        
+        // 順便把旁邊可能有的 "路線" 標題也隱藏 (如果你 HTML 裡有寫的話)
+        let routeTitle = document.getElementById('route-title');
+        if (routeTitle) routeTitle.style.display = 'none';
+    } else {
+        if (routeContainer) routeContainer.style.display = ''; // 恢復預設顯示
+        let routeTitle = document.getElementById('route-title');
+        if (routeTitle) routeTitle.style.display = '';
+    }
     
     // 如果還沒有設定當前視角，預設選中 json 裡面的第一個！
     if (viewKeys.length > 0 && !currentRouteView) {
@@ -2434,6 +2449,21 @@ async function init(systemPath) {
         // 2. 載入 topology.json
         const topoRes = await fetch(dirc_path + 'topology.json');
         topology = await topoRes.json();
+
+        // ==========================================
+        // 🌟 核心新增：單一線路防呆機制 (針對高鐵等沒有 view_presets 的系統)
+        // ==========================================
+        if (!settings.view_presets || Object.keys(settings.view_presets).length === 0) {
+            // 如果 JSON 沒寫，我們就自己創造一個預設視角
+            settings.view_presets = {
+                "default_view": {
+                    "name": "全線",
+                    // 直接去 topology 裡面把所有的實體路線 ID 都抓進來串接
+                    "lines": topology.segments.map(seg => seg.id), 
+                    "view_type": "LINEAR"
+                }
+            };
+        }
 
         // ==========================================
         // 🌟 3. 判斷時刻表載入策略

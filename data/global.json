@@ -12,7 +12,7 @@
                 {
                     "id": "HSR",
                     "chinese_name": "高鐵",
-                    "is_active": false
+                    "is_active": true
                 }
             ]
         },
