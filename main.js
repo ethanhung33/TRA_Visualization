@@ -133,7 +133,7 @@ function drawGrid(viewKey) {
 
     if (selectedSegments.length === 0) return; 
 
-    // 🌟 1. 整理唯一車站 (套用自動整理器)
+    // 1. 整理唯一車站
     let uniqueStations = [];
     let segmentsData = getProcessedSegments(selectedSegments, topology);
 
@@ -164,23 +164,27 @@ function drawGrid(viewKey) {
     loopKm = currentAccumulatedKm;
     loopHeight = loopKm * CONFIG.scaleY;
 
-    // 🌟 換成我們的高畫質工具！
-    initCanvas('diaCanvas', 'canvas-wrapper');
-    const wrapper = document.getElementById('canvas-wrapper'); // 保留這行因為後面程式可能會用到
-
-    // 🌟 1. 新增這兩行：抓取「網頁邏輯尺寸」而不是放大的「物理尺寸」
+    // ==========================================
+    // 🌟 核心修復：把 initCanvas('diaCanvas', 'canvas-wrapper') 刪掉！
+    // 畫布尺寸已經在 init() 和 resize() 處理好了，不准在這裡一直重設！
+    // ==========================================
+    
+    const wrapper = document.getElementById('canvas-wrapper');
     const wrapperW = wrapper.clientWidth;
     const wrapperH = wrapper.clientHeight;
 
     const viewTop = camera.y - 100;
-    // 🌟 2. 下面這兩個把 canvas.height/width 換成 wrapperH/wrapperW
     const viewBottom = camera.y + wrapperH + 100; 
     const viewLeft = camera.x - 100;
     const viewRight = camera.x + wrapperW + 100;
 
+    // 🌟 因為我們沒呼叫 initCanvas 了，所以這裡要負責把上一幀的舊圖擦掉
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
+
+    // ... (下面維持你原本的畫橫線、畫時間標籤的迴圈邏輯) ...
 
     let copyStart = isCircular ? -1 : 0;
     let copyEnd = isCircular ? 1 : 0;
@@ -2147,22 +2151,17 @@ function initCanvas(canvasId, wrapperId) {
     const wrapper = document.getElementById(wrapperId);
     const ctx = canvas.getContext('2d');
 
-    // 1. 抓取螢幕的像素比 (一般螢幕是 1，Mac/手機通常是 2 或 3)
     const dpr = window.devicePixelRatio || 1;
 
-    // 2. 抓取外層容器的實際 CSS 尺寸
-    const displayWidth = wrapper.clientWidth;
-    const displayHeight = wrapper.clientHeight;
+    // 🌟 加上 Math.round，確保不會產生小數點像素造成的邊緣模糊
+    const displayWidth = Math.round(wrapper.clientWidth);
+    const displayHeight = Math.round(wrapper.clientHeight);
 
-    // 3. 把畫布的「真實像素」乘上像素比 (放大底層解析度)
     canvas.width = displayWidth * dpr;
     canvas.height = displayHeight * dpr;
-
-    // 4. 把畫布的「顯示尺寸」強制縮回 CSS 尺寸 (看起來一樣大，但更密實)
     canvas.style.width = displayWidth + 'px';
     canvas.style.height = displayHeight + 'px';
 
-    // 5. 將畫布的畫筆也等比例放大，這樣你原本寫的座標和字體大小都不用改！
     ctx.scale(dpr, dpr);
 
     return { canvas, ctx };
