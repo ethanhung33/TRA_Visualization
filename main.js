@@ -1146,27 +1146,36 @@ function bindThemeToggle() {
 }
 
 // ==========================================
-// 🌟 視角自動適應 (動態讀取系統層級的比例)
+// 🌟 視角自動適應 (防過度壓縮 + 支援預設縮放版)
 // ==========================================
 function autoFitScale() {
     const wrapper = document.getElementById('canvas-wrapper');
     if (!wrapper || typeof loopKm === 'undefined' || loopKm <= 0) return;
 
-    // 算出 Y 軸要完美塞滿螢幕所需要的倍率
+    // 算出 Y 軸要「完美塞滿螢幕」所需要的最低倍率
     const minScaleY = (wrapper.clientHeight - 150) / loopKm;
 
-    // 🌟 核心：從 setting.json 最外層讀取系統的「時間軸拉伸係數」
-    // (預設保底值設為 0.4，如果 JSON 沒寫就用這個)
+    // 讀取時間拉伸係數
     let timeStretchRatio = 0.4;
-    
     if (settings && settings.time_stretch_ratio !== undefined) {
         timeStretchRatio = settings.time_stretch_ratio;
     }
 
-    // 強制將 Y 軸適應螢幕，並讓 X 軸依據專屬係數壓縮或拉長！
-    CONFIG.scaleY = minScaleY;
-    CONFIG.scaleX = minScaleY * timeStretchRatio; 
+    // 🌟 核心修改：不再無腦硬塞滿螢幕！
+    let targetScaleY = minScaleY;
 
+    // 1. 如果設定檔有明確指示「預設放大倍率」，絕對聽設定檔的！
+    if (settings && settings.default_scale_y !== undefined) {
+        targetScaleY = settings.default_scale_y;
+    } 
+    // 2. 如果沒設定，且路線太長導致比例被壓得太扁 (例如小於 2.0)，強制放大，讓使用者自己滾動
+    else if (minScaleY < 2.0) {
+        targetScaleY = 2.0; 
+    }
+
+    // 正式套用比例
+    CONFIG.scaleY = targetScaleY;
+    CONFIG.scaleX = targetScaleY * timeStretchRatio; 
 }
 
 // ==========================================
