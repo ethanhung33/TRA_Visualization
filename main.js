@@ -794,8 +794,8 @@ function buildUI() {
         if (routeTitle) routeTitle.style.display = '';
     }
     
-    // 如果還沒有設定當前視角，預設選中 json 裡面的第一個！
-    if (viewKeys.length > 0 && !currentRouteView) {
+    // 🌟 核心防呆：如果目前記憶的視角「不在」新系統的視角清單中，就強制洗掉重置！
+    if (viewKeys.length > 0 && !viewKeys.includes(currentRouteView)) {
         currentRouteView = viewKeys[0];
     }
 
