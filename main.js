@@ -2627,28 +2627,34 @@ async function init(systemPath) {
             currentDate = availableDates[availableDates.length - 1];
 
             // ==========================================
-            // 🌟 終極修正：強制清空並重新初始化日曆
+            // 🌟 偵錯版：強制更新日曆並印出狀態
             // ==========================================
             const dateInput = document.querySelector('input[type="date"]'); 
             if (dateInput) {
-                // 1. 先把輸入框裡面的舊日期文字（例如台鐵的日期）徹底拔掉
-                dateInput.value = ""; 
+                // 1. 檢查目前抓到的日期資料
+                console.log(`[Debug] 系統切換中: ${systemPath}`);
+                console.log(`[Debug] 抓到的可用日期清單:`, availableDates);
 
-                // 2. 如果已經有日曆實體，徹底摧毀它
+                // 2. 清空數值與摧毀實體
+                dateInput.value = ""; 
                 if (dateInput._flatpickr) {
+                    console.log("[Debug] 偵測到舊日曆實體，執行 destroy()");
                     dateInput._flatpickr.destroy();
                 }
 
-                // 3. 以新系統的資料 (currentDate, availableDates) 重新建立
+                // 3. 重新建立
                 flatpickr(dateInput, {
-                    defaultDate: currentDate, // 抓取新系統最新的日期
-                    enable: availableDates,   // 載入新系統可用的日期清單
+                    defaultDate: currentDate,
+                    enable: availableDates, 
                     dateFormat: "Y-m-d",
                     disableMobile: "true",
                     onChange: async function(selectedDates, dateStr, instance) {
+                        console.log(`[Debug] 日期切換為: ${dateStr}`);
                         await loadTimetableData(dateStr);
                     }
                 });
+                
+                console.log("[Debug] 新日曆實體建立完成。");
             }
 
             // 啟動時先載入預設的第一張時刻表
