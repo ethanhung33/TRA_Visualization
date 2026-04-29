@@ -563,17 +563,22 @@ body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
     .sidebar-toggle-btn {
         display: flex !important;
         left: 50% !important;
-        top: 100% !important; /* 黏在側邊欄的最下緣 */
-        transform: translateX(-50%) !important; /* 水平置中 */
+        top: 100% !important; 
+        
+        /* 🌟 核心修正：加入 rotate(180deg) 把按鈕「倒過來」，箭頭方向瞬間變正確！ */
+        transform: translateX(-50%) rotate(180deg) !important; 
+        
         width: 80px !important;
         height: 25px !important;
-        border-radius: 0 0 12px 12px !important; /* 下方變圓角 */
+        
+        /* 🌟 因為按鈕倒過來了，所以形狀也要「反著畫」 */
+        border-radius: 12px 12px 0 0 !important; /* 倒過來後會變成視覺上的下方圓角 */
         border: 1px solid var(--btn-border) !important;
-        border-top: none !important;
+        border-bottom: none !important; /* 倒過來後會變成視覺上的平坦頂部 */
+        
         font-size: 20px !important;
-        /* 🌟 CSS 魔法：把原本的左右箭頭 (‹ ›) 旋轉 90 度，變成上下箭頭！ */
         writing-mode: vertical-rl; 
-        padding-top: 5px !important; /* 微調箭頭位置 */
+        padding-bottom: 5px !important; /* 微調箭頭視覺中心 */
     }
 
     /* 4. 左側面板 (畫布 + 底部面板，霸佔剩下的所有空間) */
