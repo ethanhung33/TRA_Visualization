@@ -2627,19 +2627,22 @@ async function init(systemPath) {
             currentDate = availableDates[availableDates.length - 1];
 
             // ==========================================
-            // 🌟 升級版：使用 Flatpickr 綁定日曆 (修正切換系統殘留問題)
+            // 🌟 終極修正：強制清空並重新初始化日曆
             // ==========================================
             const dateInput = document.querySelector('input[type="date"]'); 
             if (dateInput) {
-                // 1. 檢查這個 input 是否已經有綁定過 flatpickr 實體
-                // 如果有，就先將它徹底摧毀，確保下一秒能讀取新系統的 availableDates
+                // 1. 先把輸入框裡面的舊日期文字（例如台鐵的日期）徹底拔掉
+                dateInput.value = ""; 
+
+                // 2. 如果已經有日曆實體，徹底摧毀它
                 if (dateInput._flatpickr) {
                     dateInput._flatpickr.destroy();
                 }
 
+                // 3. 以新系統的資料 (currentDate, availableDates) 重新建立
                 flatpickr(dateInput, {
-                    defaultDate: currentDate,
-                    enable: availableDates, // 🌟 這裡會抓到新系統 (高鐵) 的 availableDates
+                    defaultDate: currentDate, // 抓取新系統最新的日期
+                    enable: availableDates,   // 載入新系統可用的日期清單
                     dateFormat: "Y-m-d",
                     disableMobile: "true",
                     onChange: async function(selectedDates, dateStr, instance) {
