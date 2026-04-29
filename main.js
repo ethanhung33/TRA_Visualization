@@ -1167,7 +1167,6 @@ function autoFitScale() {
     CONFIG.scaleY = minScaleY;
     CONFIG.scaleX = minScaleY * timeStretchRatio; 
 
-    console.log(`[除錯] 讀取到的比例: ${timeStretchRatio}, 算出的 X軸縮放率: ${CONFIG.scaleX}`);
 }
 
 // ==========================================
