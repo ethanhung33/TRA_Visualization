@@ -8,6 +8,8 @@
 
   "time_stretch_ratio": 2.0,
 
+  "show_train_type": false,
+
   "train_color": {
     "01": ["#FB8989", "#EB0000"],
     "11": ["#FC2F2F", "#FF5252"],

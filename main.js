@@ -1822,6 +1822,11 @@ function updateBottomPanel(train) {
         trainColor = settings.train_color[trainType][isDarkMode ? 0 : 1]; 
     }
 
+    // 🌟 核心修改：如果設定檔明確寫了 false，就只顯示車次；否則顯示「車種 車次」
+    let displayTitle = (settings && settings.show_train_type === false) 
+        ? trainNo 
+        : `${trainType} ${trainNo}`;
+
     // 2. 組裝車站列表的 HTML
     let stationsHtml = "";
     let stopCount = 0;
@@ -1883,7 +1888,7 @@ function updateBottomPanel(train) {
         <div style="display: flex; width: 100%; height: 100%; align-items: center;">
             
             <div style="min-width: 150px; display: flex; align-items: center; padding-right: 20px; border-right: 2px solid #444; font-size: 32px; font-weight: 900; color: ${trainColor}; flex-shrink: 0; letter-spacing: 1px;">
-                ${trainType} ${trainNo}
+                ${displayTitle}
             </div>
             
             <div id="bottom-scroll-container" style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 20px; white-space: nowrap; scrollbar-width: none;">
@@ -2052,6 +2057,11 @@ function updateBottomPanelStation(st_id) {
             let timeStr = formatTimeDisplay(item.depTime);
             let displayDiff = Math.floor(item.diff); 
 
+            // 🌟 核心修改：卡片上的車種名稱也套用設定檔開關
+            let displayTitle = (settings && settings.show_train_type === false) 
+                ? item.trainNo 
+                : `${item.train.type} ${item.trainNo}`;
+
             return `
                 <div onclick="window.triggerSelectTrain('${item.trainNo}')" 
                      style="display: flex; flex-direction: column; justify-content: center; min-width: 120px; margin: 0 4px; padding: 4px 8px; background: ${theme.cardBg}; border-radius: 6px; cursor: pointer; border: 1px solid transparent; line-height: 1.2;"
@@ -2060,7 +2070,7 @@ function updateBottomPanelStation(st_id) {
                     
                     <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px;">
                         <span style="font-size: 15px; color: ${theme.textMain}; font-weight: bold;">${timeStr}</span>
-                        <span style="font-size: 11px; color: ${tColor}; font-weight: bold;">${item.train.type} ${item.trainNo}</span>
+                        <span style="font-size: 11px; color: ${tColor}; font-weight: bold;">${displayTitle}</span>
                     </div>
                     
                     <div style="display: flex; justify-content: space-between; align-items: baseline;">
