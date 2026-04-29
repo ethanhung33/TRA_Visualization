@@ -387,6 +387,9 @@ function drawTrains() {
             }
         }
 
+        let trainColor = baseColor;
+        let lineWidth = baseWidth;
+
         // ==========================================
         // 🌟 2. 再根據狀態換衣服 (這時候 baseColor 已經準備好了)
         // ==========================================
