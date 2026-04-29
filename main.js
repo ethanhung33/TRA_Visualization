@@ -1146,7 +1146,7 @@ function bindThemeToggle() {
 }
 
 // ==========================================
-// 🌟 視角自動適應 (加入「長寬比」自由調整係數)
+// 🌟 視角自動適應 (動態讀取系統層級的比例)
 // ==========================================
 function autoFitScale() {
     const wrapper = document.getElementById('canvas-wrapper');
@@ -1155,21 +1155,17 @@ function autoFitScale() {
     // 算出 Y 軸要完美塞滿螢幕所需要的倍率
     const minScaleY = (wrapper.clientHeight - 150) / loopKm;
 
-    if (CONFIG.scaleY < minScaleY) {
-        
-        // ==========================================
-        // 🎛️ 長寬比微調區 (預設等比例是 1.0)
-        // 如果覺得時間軸被拉得太長、太寬了，就把這個數字調小！
-        // 建議值：0.5 (X軸只放大一半), 0.3 (X軸只放大三成)
-        // ==========================================
-        const timeStretchRatio = 0.4; 
-
-        // Y 軸維持完美撐滿螢幕
-        CONFIG.scaleY = minScaleY;
-        
-        // X 軸根據你設定的係數，稍微縮短一點，不再無限狂飆！
-        CONFIG.scaleX = minScaleY * timeStretchRatio; 
+    // 🌟 核心：從 setting.json 最外層讀取系統的「時間軸拉伸係數」
+    // (預設保底值設為 0.4，如果 JSON 沒寫就用這個)
+    let timeStretchRatio = 0.4;
+    
+    if (settings && settings.time_stretch_ratio !== undefined) {
+        timeStretchRatio = settings.time_stretch_ratio;
     }
+
+    // 強制將 Y 軸適應螢幕，並讓 X 軸依據專屬係數壓縮或拉長！
+    CONFIG.scaleY = minScaleY;
+    CONFIG.scaleX = minScaleY * timeStretchRatio; 
 }
 
 // ==========================================
