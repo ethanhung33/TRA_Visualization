@@ -6,7 +6,7 @@
   
   "calendar_type": "WEEKDAY_BITMAP",
 
-  "time_stretch_ratio": 0.8,
+  "time_stretch_ratio": 1.6,
 
   "train_color": {
     "01": ["#FB8989", "#EB0000"],
@@ -21,7 +21,7 @@
     "05": ["#E9ADF3", "#B304D0"],
     "15": ["#E040FB", "#E040FB"],
     
-    "06": ["#2EB6FF", "#0D00FC"],
+    "06": ["#5BC1F7", "#0D00FC"],
     "16": ["#009aff", "#5C6BC0"],
     
     "08": ["#EEEEEE", "#222222"],
