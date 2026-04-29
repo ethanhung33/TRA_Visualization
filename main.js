@@ -59,6 +59,8 @@ let renderIntervalId = null;
 
 let isThemeBound = false; // 🌟 新增：用來記錄主題按鈕是不是已經綁定過了
 
+let isInteractionsBound = false; // 🌟 新增：紀錄互動事件是否已綁定
+
 
 // ==========================================
 // 2. 核心換算函式
@@ -1327,6 +1329,10 @@ function setupCanvasInteractions() {
     const wrapper = document.getElementById('canvas-wrapper');
     const canvas = document.getElementById('diaCanvas');
     if (!wrapper || !canvas) return;
+
+    // 🌟 核心防修復：如果已經綁定過，就直接退場，不要重複綁定到 window 上！
+    if (isInteractionsBound) return; 
+    isInteractionsBound = true;
 
     // 嚴格禁止手機原生滑動與雙擊放大
     wrapper.style.touchAction = 'none';
