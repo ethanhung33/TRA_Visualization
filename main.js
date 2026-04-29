@@ -1399,6 +1399,29 @@ function setupCanvasInteractions() {
         if (typeof timetable !== 'undefined') {
             for (let train of timetable) {
                 if (typeof activeTrainTypes !== 'undefined' && !activeTrainTypes.has(train.type)) continue;
+
+                // ==========================================
+                // 🌟 新增防護罩：如果現在有鎖定車站，但這台車沒停，就讓它物理穿透！
+                // ==========================================
+                if (selectedStation) {
+                    let stopsHere = false;
+                    if (train.segments) {
+                        for (let seg of train.segments) {
+                            for (let i = 0; i < seg.s.length; i++) {
+                                // 檢查是否為選定站，且有停靠 (v !== 2)
+                                if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
+                                    stopsHere = true; 
+                                    break;
+                                }
+                            }
+                            if (stopsHere) break;
+                        }
+                    }
+                    // 如果這台車沒停靠這個車站，直接跳過點擊判定！
+                    if (!stopsHere) continue; 
+                }
+                // ==========================================
+
                 if (!train._hitPoints) continue;
                 for (let i = 0; i < train._hitPoints.length - 1; i++) {
                     let p1 = train._hitPoints[i], p2 = train._hitPoints[i+1];
@@ -1484,6 +1507,28 @@ function setupCanvasInteractions() {
             // 📡 雷達 1：偵測火車 (精準線段掃描)
             // ==========================================
             for (let train of timetable) {
+
+                // ==========================================
+                // 🌟 新增防護罩：游標懸停時也一樣，沒停靠的車變成幽靈！
+                // ==========================================
+                if (selectedStation) {
+                    let stopsHere = false;
+                    if (train.segments) {
+                        for (let seg of train.segments) {
+                            for (let i = 0; i < seg.s.length; i++) {
+                                if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
+                                    stopsHere = true; 
+                                    break;
+                                }
+                            }
+                            if (stopsHere) break;
+                        }
+                    }
+                    // 如果這台車沒停靠這個車站，直接跳過懸停判定！
+                    if (!stopsHere) continue; 
+                }
+                // ==========================================
+
                 // 如果火車被隱藏或點不到兩個，跳過
                 if (!train._hitPoints || train._hitPoints.length < 2) continue; 
                 
