@@ -1963,7 +1963,7 @@ function updateBottomPanel(train) {
                 <div style="font-size: 32px; font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.1;">
                     ${displayTitle}
                 </div>
-                <div style="font-size: 14px; color: ${theme.textMain}; opacity: 0.8; margin-top: 4px; font-weight: bold; letter-spacing: 1px;">
+                <div style="font-size: 14px; color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.8; margin-top: 4px; font-weight: bold; letter-spacing: 1px;">
                     ${startStationName} <span style="font-size:12px; margin: 0 2px;">▶</span> ${endStationName}
                 </div>
             </div>
