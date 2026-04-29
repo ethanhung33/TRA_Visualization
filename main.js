@@ -1937,6 +1937,94 @@ function updateBottomPanelStation(st_id) {
 }
 
 // ==========================================
+// 🌟 核心升級：時刻表自動補點 (空間線性內插法)
+// 解決快車未紀錄通過站，導致畫布支線(如內灣線)斷線的問題
+// ==========================================
+function interpolatePassingStations(timetable, topology) {
+    if (!topology || !topology.segments) return;
+
+    timetable.forEach(train => {
+        if (!train.segments) return;
+
+        train.segments.forEach(seg => {
+            // 1. 找出這條線在 topology 裡的實體鐵軌資料
+            let topoSeg = topology.segments.find(t => String(t.id) === String(seg.id));
+            if (!topoSeg || !topoSeg.stations) return;
+
+            let new_s = [];
+            let new_t = [];
+            let new_v = [];
+
+            // 2. 確定這班車在這段實體線的起點與終點
+            let startIdx = topoSeg.stations.findIndex(st => String(st.id) === String(seg.s[0]));
+            let endIdx = topoSeg.stations.findIndex(st => String(st.id) === String(seg.s[seg.s.length - 1]));
+
+            if (startIdx === -1 || endIdx === -1) return; // 防呆機制
+
+            let step = startIdx <= endIdx ? 1 : -1;
+            let lastKnownIdx = 0; // 紀錄「上一個有在時刻表裡的站」
+
+            // 3. 順著實體鐵軌一路往下走，檢查每個車站
+            for (let i = startIdx; startIdx <= endIdx ? i <= endIdx : i >= endIdx; i += step) {
+                let currentTopoSt = topoSeg.stations[i];
+                let originalIdx = seg.s.findIndex(id => String(id) === String(currentTopoSt.id));
+
+                if (originalIdx !== -1) {
+                    // 👉 狀況 A：這個站原本就在時刻表裡 (有停靠、或原本就有抓到的通過站)
+                    new_s.push(seg.s[originalIdx]);
+                    new_t.push(seg.t[originalIdx * 2], seg.t[originalIdx * 2 + 1]);
+                    new_v.push(seg.v[originalIdx]);
+                    lastKnownIdx = originalIdx; // 更新進度
+                } else {
+                    // 👉 狀況 B：抓到漏網之魚！(例如北新竹)
+                    let nextKnownIdx = lastKnownIdx + 1;
+
+                    // 確保後面還有站可以對照
+                    if (nextKnownIdx < seg.s.length) {
+                        let prevStId = seg.s[lastKnownIdx];
+                        let nextStId = seg.s[nextKnownIdx];
+
+                        let prevTopoSt = topoSeg.stations.find(st => String(st.id) === String(prevStId));
+                        let nextTopoSt = topoSeg.stations.find(st => String(st.id) === String(nextStId));
+
+                        // 必須要有里程數才能計算比例
+                        if (prevTopoSt && nextTopoSt && currentTopoSt.km !== undefined) {
+                            let t1 = seg.t[lastKnownIdx * 2 + 1]; // 上一站離站時間
+                            let t2 = seg.t[nextKnownIdx * 2];     // 下一站到站時間
+
+                            // 處理跨夜邏輯 (例如 23:50 到 00:10)
+                            if (t2 < t1) t2 += 1440;
+
+                            // 🧮 依「里程比例」計算通過時間
+                            let totalDist = Math.abs(nextTopoSt.km - prevTopoSt.km);
+                            let currentDist = Math.abs(currentTopoSt.km - prevTopoSt.km);
+
+                            let passTime = t1;
+                            if (totalDist > 0) {
+                                passTime = t1 + (t2 - t1) * (currentDist / totalDist);
+                            }
+
+                            // 轉回 24 小時制
+                            passTime = passTime % 1440;
+
+                            // 將算出來的通過站偷偷塞進去
+                            new_s.push(currentTopoSt.id);
+                            new_t.push(passTime, passTime); // 通過站的到離時間一樣
+                            new_v.push(2); // 2 代表「通過」
+                        }
+                    }
+                }
+            }
+
+            // 4. 用補滿的資料覆蓋掉原本有破洞的資料
+            seg.s = new_s;
+            seg.t = new_t;
+            seg.v = new_v;
+        });
+    });
+}
+
+// ==========================================
 // 🎨 視覺優化濾鏡：強制撐開同時間的停靠站
 // ==========================================
 function optimizeTrainTimesForDisplay(trainsData) {
@@ -2060,6 +2148,7 @@ async function loadTimetableData(dateString) {
         if (!timeRes.ok) throw new Error(`找不到檔案: timetable_${formattedDate}.json`);
 
         timetable = await timeRes.json();
+        interpolatePassingStations(timetable, topology);
         optimizeTrainTimesForDisplay(timetable);
 
         currentDate = dateString; // 成功載入後，更新當前日期狀態
@@ -2249,6 +2338,7 @@ async function init(systemPath) {
             // 模式 B：單一檔案模式 (維持你原本的寫法)
             const timeRes = await fetch(dirc_path + 'timetable/timetable_20260420.json');
             timetable = await timeRes.json();
+            interpolatePassingStations(timetable, topology);
             optimizeTrainTimesForDisplay(timetable);
         }
         // ==========================================
