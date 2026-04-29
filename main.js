@@ -1966,12 +1966,13 @@ function updateBottomPanel(train) {
     panel.innerHTML = `
         <div style="display: flex; width: 100%; height: 100%; align-items: center;">
             
-            <div style="min-width: 150px; display: flex; flex-direction: column; justify-content: center; padding-right: 20px; border-right: 2px solid #444; flex-shrink: 0;">
-                <div style="font-size: 32px; font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.1;">
+            <div style="min-width: 170px; display: flex; flex-direction: column; justify-content: center; padding-right: 20px; border-right: 2px solid #444; flex-shrink: 0;">
+                <div style="font-size: 26px; font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.0;">
                     ${displayTitle}
                 </div>
-                <div style="font-size: 14px; color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.8; margin-top: 4px; font-weight: bold; letter-spacing: 1px;">
-                    ${startStationName} <span style="font-size:12px; margin: 0 2px;">▶</span> ${endStationName}
+                
+                <div style="font-size: 16px; color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 10px; font-weight: bold; letter-spacing: 1px;">
+                    ${startStationName} <span style="font-size:14px; margin: 0 4px; opacity: 0.7;">▶</span> ${endStationName}
                 </div>
             </div>
             
