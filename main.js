@@ -1425,6 +1425,9 @@ function setupCanvasInteractions() {
         wrapper.style.cursor = 'grabbing';
     });
 
+    // ==========================================
+    // 💻 [電腦版專區] 滑鼠移動事件 (包含拖曳與 Hover 偵測)
+    // ==========================================
     window.addEventListener('mousemove', (e) => { 
         if (isDragging) {
             camera.x = startCameraX - (e.clientX - startMouseX);
@@ -1433,8 +1436,40 @@ function setupCanvasInteractions() {
             if (typeof requestRedraw === 'function') requestRedraw();
             else if (typeof redrawAll === 'function') redrawAll();
         } else if (e.target === canvas || e.target === wrapper) {
-            // 懸停變色邏輯
-            wrapper.style.cursor = 'grab';
+            // ==========================================
+            // 🌟 補回遺失的懸停變色 (Hover) 碰撞邏輯！
+            // ==========================================
+            const rect = wrapper.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            let hitTrain = null;
+
+            // 迴圈掃描所有火車，看看游標有沒有碰到誰的麵包屑
+            for (let train of timetable) {
+                // 如果火車已經被隱藏 (物理點被清空了)，就直接跳過
+                if (!train._hitPoints || train._hitPoints.length === 0) continue; 
+                
+                for (let pt of train._hitPoints) {
+                    // 碰撞容錯範圍：X 軸 5px，Y 軸 8px
+                    if (Math.abs(pt.x - camera.x - mouseX) < 5 && 
+                        Math.abs(pt.y - camera.y - mouseY) < 8) {
+                        hitTrain = train;
+                        break; // 找到了就跳出內層迴圈
+                    }
+                }
+                if (hitTrain) break; // 找到了就跳出外層迴圈
+            }
+
+            // 🌟 關鍵：如果碰到的火車跟上一秒不一樣，才更新變數並重繪
+            if (hitTrain !== hoveredTrain) {
+                hoveredTrain = hitTrain;
+                if (typeof requestRedraw === 'function') requestRedraw();
+                else if (typeof redrawAll === 'function') redrawAll();
+            }
+
+            // 最後設定游標圖案：碰到火車變「手指👆」，沒碰到就是「手掌🖐️(grab)」
+            wrapper.style.cursor = hitTrain ? 'pointer' : 'grab';
         }
     });
 
