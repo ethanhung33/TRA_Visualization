@@ -2437,18 +2437,42 @@ window.triggerSelectStation = function(st_id) {
 };
 
 // ==========================================
-// 🌟 載入特定日期時刻表 (包含跨夜殘影合成技術)
+// 🌟 載入時刻表 (完美融合雙軌策略 + 跨夜殘影合成技術)
 // ==========================================
-async function loadTimetableData(dateString) {
+async function loadTimetableData(dateOrType) {
     try {
         let dirc_path = currentSystemPath + "json/"; 
-        let formattedDate = dateString.replace(/-/g, ''); 
-        
+        let todayFileUrl = '';
+        let yestFileUrl = '';
+
+        // ------------------------------------------
+        // 0. 根據策略，決定「今天」與「昨天」的檔案路徑
+        // ------------------------------------------
+        if (settings.data_fetch_strategy === "DAILY_FILE") {
+            // 台鐵/高鐵模式 (嚴格日期)
+            let formattedDate = dateOrType.replace(/-/g, ''); 
+            todayFileUrl = `${dirc_path}timetable/timetable_${formattedDate}.json`;
+
+            // 自動計算昨天的實體日期
+            let dateObj = new Date(dateOrType);
+            dateObj.setDate(dateObj.getDate() - 1); 
+            let yyyy = dateObj.getFullYear();
+            let mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            let dd = String(dateObj.getDate()).padStart(2, '0');
+            yestFileUrl = `${dirc_path}timetable/timetable_${yyyy}${mm}${dd}.json`;
+            
+        } else if (settings.data_fetch_strategy === "WEEKEND_FILE") {
+            // 私鐵模式 (平日/土休日)
+            todayFileUrl = `${dirc_path}timetable/timetable_${dateOrType}.json`;
+            // 平假日模式下，昨天的殘影直接借用同一份班表來推算最為合理
+            yestFileUrl = todayFileUrl; 
+        }
+
         // ------------------------------------------
         // 1. 載入「今天」的正班車時刻表
         // ------------------------------------------
-        const timeRes = await fetch(`${dirc_path}timetable/timetable_${formattedDate}.json`);
-        if (!timeRes.ok) throw new Error(`找不到檔案: timetable_${formattedDate}.json`);
+        const timeRes = await fetch(todayFileUrl);
+        if (!timeRes.ok) throw new Error(`找不到檔案: ${todayFileUrl}`);
 
         let todayData = await timeRes.json();
         interpolatePassingStations(todayData, topology);
@@ -2459,20 +2483,12 @@ async function loadTimetableData(dateString) {
         // ------------------------------------------
         let yesterdayData = [];
         try {
-            // 自動計算昨天的日期字串
-            let dateObj = new Date(dateString);
-            dateObj.setDate(dateObj.getDate() - 1); 
-            let yyyy = dateObj.getFullYear();
-            let mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-            let dd = String(dateObj.getDate()).padStart(2, '0');
-            let yestFormatted = `${yyyy}${mm}${dd}`;
-
-            const yestRes = await fetch(`${dirc_path}timetable/timetable_${yestFormatted}.json`);
+            const yestRes = await fetch(yestFileUrl);
             
             if (yestRes.ok) {
                 let rawYesterday = await yestRes.json();
                 interpolatePassingStations(rawYesterday, topology);
-                optimizeTrainTimesForDisplay(rawYesterday); // 讓昨天的跨夜車時間先加上 1440
+                optimizeTrainTimesForDisplay(rawYesterday);
 
                 // 開始篩選並平移昨天的跨夜車
                 rawYesterday.forEach(train => {
@@ -2505,8 +2521,7 @@ async function loadTimetableData(dateString) {
         // 3. 雙劍合璧：將今天與昨天的跨夜殘影合併
         // ------------------------------------------
         timetable = todayData.concat(yesterdayData);
-
-        currentDate = dateString; 
+        currentDate = dateOrType; 
 
         // 大掃除
         selectedTrain = null;
@@ -2519,7 +2534,7 @@ async function loadTimetableData(dateString) {
         redrawAll();
 
     } catch (e) {
-        alert(`無法載入 ${dateString} 的時刻表！\n可能是該日期的資料尚未爬取。`);
+        alert(`無法載入時刻表 (${dateOrType})！\n可能是資料尚未爬取。`);
         console.error(e);
     }
 }
@@ -2783,6 +2798,55 @@ async function init(systemPath) {
             // 啟動時載入我們算出來的這一天
             await loadTimetableData(currentDate);
 
+        } else if (settings.data_fetch_strategy === "WEEKEND_FILE") {
+            // 策略：平假日模式 (Nankai 等私鐵使用)
+            
+            // 1. 隱藏原本的日曆輸入框
+            if (dateInput) {
+                dateInput.style.display = 'none';
+                if (dateInput._flatpickr) dateInput._flatpickr.destroy(); // 銷毀日曆實例
+            }
+
+            // 2. 建立平假日切換按鈕 UI
+            let btnContainer = document.getElementById('weekendSelectContainer');
+            if (!btnContainer) {
+                btnContainer = document.createElement('div');
+                btnContainer.id = 'weekendSelectContainer';
+                btnContainer.className = 'weekend-btn-group';
+                // 將按鈕群組安插在原本日曆的旁邊或取代它的位置
+                dateInput.parentNode.insertBefore(btnContainer, dateInput.nextSibling);
+            }
+            btnContainer.innerHTML = ''; // 清空重建
+
+            const btnWeekday = document.createElement('button');
+            btnWeekday.innerText = '平日';
+            btnWeekday.className = 'weekend-btn active'; // 預設平日
+            
+            const btnHoliday = document.createElement('button');
+            btnHoliday.innerText = '土休日';
+            btnHoliday.className = 'weekend-btn';
+
+            // 3. 綁定按鈕點擊事件
+            btnWeekday.onclick = async () => {
+                btnWeekday.classList.add('active');
+                btnHoliday.classList.remove('active');
+                currentDate = 'weekday'; // 更新全域變數狀態
+                await loadTimetableData('weekday');
+            };
+
+            btnHoliday.onclick = async () => {
+                btnHoliday.classList.add('active');
+                btnWeekday.classList.remove('active');
+                currentDate = 'holiday'; // 更新全域變數狀態
+                await loadTimetableData('holiday');
+            };
+
+            btnContainer.appendChild(btnWeekday);
+            btnContainer.appendChild(btnHoliday);
+
+            // 4. 啟動時預設載入平日時刻表
+            currentDate = 'weekday';
+            await loadTimetableData('weekday');
         } else {
             // 模式 B：單一檔案模式 (維持你原本的寫法)
             const timeRes = await fetch(dirc_path + 'timetable/timetable_20260420.json');

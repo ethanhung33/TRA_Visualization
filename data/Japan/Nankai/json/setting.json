@@ -1,0 +1,90 @@
+{
+  "system_id": "Nankai",
+  "system_name": "南海鐵道",
+  
+  "data_fetch_strategy": "WEEKEND_FILE",
+  
+  "calendar_type": "WEEKEND_SELECT",
+
+  "view_presets": {
+    "main_line": {
+        "name": "南海本線",
+        "lines": ["main_line"],
+        "view_type": "LINEAR",
+        "button_color": ["#2196F3", "#1565C0"]
+    },
+    "airport_line": {
+        "name": "空港線",
+        "lines": ["airport_line"],
+        "view_type": "LINEAR",
+        "button_color": ["#FF5722", "#BF360C"]
+    },
+    "koya_line": {
+        "name": "高野線",
+        "lines": ["koya_line"],
+        "view_type": "LINEAR",
+        "button_color": ["#9C27B0", "#7B1FA2"]
+    },
+    "shiomibashi_line": {
+        "name": "高野線 (汐見橋方面)",
+        "lines": ["shiomibashi_line"],
+        "view_type": "LINEAR",
+        "button_color": ["#E91E63", "#C2185B"]
+    },
+    "kada_line": {
+        "name": "加太線",
+        "lines": ["kada_line"],
+        "view_type": "LINEAR",
+        "button_color": ["#FFC300", "#C79E00"]
+    },
+    "tanagawa_line": {
+        "name": "多奈川線",
+        "lines": ["tanagawa_line"],
+        "view_type": "LINEAR",
+        "button_color": ["#33CCFF", "#1A1AFF"]
+    },
+    "takashino_line": {
+        "name": "高師浜線",
+        "lines": ["takashino_line"],
+        "view_type": "LINEAR",
+        "button_color": ["#581845", "#2E081F"]
+    },
+    "wakayamako_line": {
+        "name": "和歌山港線",
+        "lines": ["wakayamako_line"],
+        "view_type": "LINEAR",
+        "button_color": ["#4CAF50", "#2E7D32"]
+    },
+    "senboku_line": {
+        "name": "泉北線",
+        "lines": ["senboku_line"],
+        "view_type": "LINEAR",
+        "button_color": ["#2196F3", "#1565C0"]
+    },
+    "koyayama_ropeway": {
+        "name": "高野山ケーブル",
+        "lines": ["koyayama_ropeway"],
+        "view_type": "LINEAR",
+        "button_color": ["#FF5722", "#BF360C"]
+    }
+  },
+
+  "train_color": {
+    "特急ラピートα": ["#4DA6FF", "#0000B4"],
+    "特急ラピートβ": ["#4DA6FF", "#0000B4"],
+    "特急ラピート": ["#4DA6FF", "#0000B4"],
+    "特急サザン": ["#00E676", "#00B400"],
+    "特急泉北ライナー": ["#E0B0FF", "#DAA520"],
+    "特急こうや": ["#FF3D57", "#DC143C"],
+    "特急りんかん": ["#FF3D57", "#DC143C"],
+    "特急": ["#FF3D57", "#DC143C"],
+    "空港急行": ["#FF5722", "#FF4500"],
+    "急行": ["#FF9800", "#FF8C00"],
+    "快速急行": ["#FF9800", "#FF8C00"],
+    "區間急行": ["#8BC34A", "#9ACD32"],
+    "準急": ["#68cfef", "#0e6adc"],
+    "各駅停車": ["#B0B0B0", "#969696"],
+    "普通": ["#B0B0B0", "#969696"],
+    "各停 (冬季運休)": ["#B0C4DE", "#3eb1d1"]
+    }
+}
