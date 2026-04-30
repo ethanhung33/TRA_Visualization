@@ -2054,12 +2054,13 @@ function updateBottomPanelStation(st_id) {
                     let depT = seg.t[i * 2 + 1];
                     
                     // 鐵道標準「營業日」時間轉換
-                    let opsNow = currentMinutes < 120 ? currentMinutes + 1440 : currentMinutes;
-                    let opsDep = depT < 120 ? depT + 1440 : depT;
-                    
-                    let diff = opsDep - opsNow;
+                    // 🌟 1. 只有現實時鐘需要跨夜修正 (凌晨時段算作昨天的 24:00 之後)
+                    let absoluteNow = currentMinutes < 120 ? currentMinutes + 1440 : currentMinutes;
 
-                    if (diff >= 0 && opsDep >= opsNow) {
+                    // 🌟 2. 直接算差值 (因為 depT 已經是支援跨日的絕對時間了，不需要再加 1440！)
+                    let diff = depT - absoluteNow;
+
+                    if (diff >= 0) {
                         
                         // ==========================================
                         // 🌟 終極方案：絕對里程判定法 (Data-Driven Radar)
@@ -2143,7 +2144,7 @@ function updateBottomPanelStation(st_id) {
     // 🌟 原本是用 depTime 排序，請改成用 diff (距離現在的分鐘數) 排序！
     upboundTrains.sort((a, b) => a.diff - b.diff);
     downboundTrains.sort((a, b) => a.diff - b.diff);
-    
+
     // ==========================================
     // 🌟 1. 直接使用你原本系統就有的全域變數 isDarkMode！
     // ==========================================
