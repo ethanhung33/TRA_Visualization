@@ -540,52 +540,58 @@ function drawTrains() {
 
                 // 🌟 3. 放下剪刀！讀取剛剛的存檔 (畫布恢復成無限大)
                 ctx.restore();
-                
+
                 // ==========================================
-                // 🌟 新增：線畫完後，如果是 VIP，就在旁邊加上站名與時間！
-                // ==========================================
+                // 畫 VIP 車次的專屬字體
                 if (isVIP) {
-                    ctx.save(); // 保護畫筆狀態，不要干擾到其他車
+                    ctx.save(); 
 
                     for (let i = 0; i < seg.s.length; i++) {
                         let y_raw = unwrappedCoords[i];
                         if (y_raw === null) continue; // 遇到斷點跳過
 
-                        if (seg.v[i] === 2) continue;
+                        if (seg.v[i] === 2) continue; // 通過站不印字
                         
                         let y = y_raw + offsetY;
                         let arrT = seg.t[i * 2];
                         let depT = seg.t[i * 2 + 1];
-                        let x_dep = timeToX(depT); // 文字要對齊出站的 X 座標
+                        let x_dep = timeToX(depT); // 出站的 X 座標
+                        let x_arr = timeToX(arrT); // 抵達的 X 座標
 
+                        // 🌟 1. 定義畫布的絕對邊界 (0:00 ~ 26:00)
+                        let leftBoundary = CONFIG.paddingLeft;
+                        let rightBoundary = CONFIG.paddingLeft + (1560 * CONFIG.scaleX);
 
-                        // --- 2. 準備文字：站名與時間 ---
-                        // ⚠️ A. 取得站名 (請替換成你系統中將 ID 轉成中文的函數)
+                        // 🌟 2. 邊界過濾：如果抵達時間在右邊界之外，或是發車時間在左邊界之外，就直接隱形！
+                        if (x_arr > rightBoundary || x_dep < leftBoundary) {
+                            continue; 
+                        }
+
+                        // --- 3. 準備文字：站名與時間 ---
                         let stationName = getStationName(seg.s[i]);
-                        
-                        // ⚠️ B. 取得時間 (請替換成你系統中將數字轉成 HH:MM 的函數)
-                        // 如果你沒有，請把它丟進下面我附贈的 formatTimeDisplay 函數
                         let arrTimeStr = formatTimeDisplay(arrT); 
                         let depTimeStr = formatTimeDisplay(depT); 
-
-                        // 組裝字串：如果到站=離站(通過/首尾站)，就只顯示一個時間
                         let displayText = `${arrTimeStr} - ${depTimeStr} ${stationName}`;
 
-                        // --- 3. 畫出文字 ---
+                        // --- 4. 畫出文字 (智慧防撞牆版) ---
                         ctx.font = '14px "GlowSans", "Segoe UI", sans-serif'; 
-                        ctx.fillStyle = isDarkMode ? '#FFFFFF' : '#000000'; // 白字或黑字
-                        ctx.textAlign = 'left';
+                        ctx.fillStyle = isDarkMode ? '#FFFFFF' : '#000000'; 
                         ctx.textBaseline = 'middle';
-                        
-                        // 💡 視覺小秘訣：加一點點反色陰影，讓文字在密密麻麻的線條海中不會糊掉
                         ctx.shadowColor = isDarkMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
                         ctx.shadowBlur = 4;
 
-                        // 在 X 座標往右推 8 px 的地方畫字
-                        ctx.fillText(displayText, x_dep + 8, y);
+                        let textWidth = ctx.measureText(displayText).width;
+
+                        if (x_dep + 8 + textWidth > rightBoundary) {
+                            ctx.textAlign = 'right';
+                            ctx.fillText(displayText, x_arr - 8, y);
+                        } else {
+                            ctx.textAlign = 'left';
+                            ctx.fillText(displayText, x_dep + 8, y);
+                        }
                     }
 
-                    ctx.restore(); // 恢復畫筆，準備畫下一台車
+                    ctx.restore(); 
                 }
             }
         });
