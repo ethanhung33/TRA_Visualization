@@ -2427,23 +2427,78 @@ window.triggerSelectStation = function(st_id) {
 };
 
 // ==========================================
-// 🌟 獨立出來的「載入特定日期時刻表」函式
+// 🌟 載入特定日期時刻表 (包含跨夜殘影合成技術)
 // ==========================================
 async function loadTimetableData(dateString) {
     try {
-        let dirc_path = currentSystemPath + "json/"; // 確保路徑正確
-        let formattedDate = dateString.replace(/-/g, ''); // 轉換格式: 2026-04-20 -> 20260420
+        let dirc_path = currentSystemPath + "json/"; 
+        let formattedDate = dateString.replace(/-/g, ''); 
         
+        // ------------------------------------------
+        // 1. 載入「今天」的正班車時刻表
+        // ------------------------------------------
         const timeRes = await fetch(`${dirc_path}timetable/timetable_${formattedDate}.json`);
         if (!timeRes.ok) throw new Error(`找不到檔案: timetable_${formattedDate}.json`);
 
-        timetable = await timeRes.json();
-        interpolatePassingStations(timetable, topology);
-        optimizeTrainTimesForDisplay(timetable);
+        let todayData = await timeRes.json();
+        interpolatePassingStations(todayData, topology);
+        optimizeTrainTimesForDisplay(todayData);
 
-        currentDate = dateString; // 成功載入後，更新當前日期狀態
+        // ------------------------------------------
+        // 2. 🌟 載入「昨天」的時刻表 (捕捉跨夜車殘影)
+        // ------------------------------------------
+        let yesterdayData = [];
+        try {
+            // 自動計算昨天的日期字串
+            let dateObj = new Date(dateString);
+            dateObj.setDate(dateObj.getDate() - 1); 
+            let yyyy = dateObj.getFullYear();
+            let mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            let dd = String(dateObj.getDate()).padStart(2, '0');
+            let yestFormatted = `${yyyy}${mm}${dd}`;
 
-        // 🌟 換日大掃除：清空畫面上點擊的車輛或車站
+            const yestRes = await fetch(`${dirc_path}timetable/timetable_${yestFormatted}.json`);
+            
+            if (yestRes.ok) {
+                let rawYesterday = await yestRes.json();
+                interpolatePassingStations(rawYesterday, topology);
+                optimizeTrainTimesForDisplay(rawYesterday); // 讓昨天的跨夜車時間先加上 1440
+
+                // 開始篩選並平移昨天的跨夜車
+                rawYesterday.forEach(train => {
+                    let hasCrossNight = false;
+                    
+                    // 為了不污染原始資料，做深拷貝
+                    let shiftedTrain = JSON.parse(JSON.stringify(train));
+                    shiftedTrain._isYesterday = true; // 做個記號，代表這是殘影車
+                    
+                    shiftedTrain.segments.forEach(seg => {
+                        // 如果這條線有 >= 1440 的時間，代表它有跨到「今天」
+                        if (seg.t.some(time => time >= 1440)) {
+                            hasCrossNight = true;
+                        }
+                        // 🌟 核心魔法：將所有時間往前推一天 (-24小時)
+                        seg.t = seg.t.map(time => time - 1440);
+                    });
+
+                    // 只有真正跨越午夜的車，才獲准加入今天的畫布
+                    if (hasCrossNight) {
+                        yesterdayData.push(shiftedTrain);
+                    }
+                });
+            }
+        } catch (e) {
+            console.log("無法載入昨天的資料，略過跨夜車呈現。");
+        }
+
+        // ------------------------------------------
+        // 3. 雙劍合璧：將今天與昨天的跨夜殘影合併
+        // ------------------------------------------
+        timetable = todayData.concat(yesterdayData);
+
+        currentDate = dateString; 
+
+        // 大掃除
         selectedTrain = null;
         selectedStation = null;
         hoveredTrain = null;
