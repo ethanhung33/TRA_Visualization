@@ -381,6 +381,17 @@ function drawTrains() {
     ctx.translate(-camera.x, -camera.y);
 
     // ==========================================
+    // 🌟 終極裁切遮罩 (Clip)：切除超界跨夜車與左側重疊
+    // ==========================================
+    ctx.beginPath();
+    // 起點 X：CONFIG.paddingLeft (剛好閃過左邊的站名留白區)
+    // 起點 Y：viewTop (確保上下無限延伸不被切到)
+    // 寬度：1560 * CONFIG.scaleX (從 0:00 完美切齊 26:00 的那一條線)
+    // 高度：viewBottom - viewTop (涵蓋攝影機的可視範圍)
+    ctx.rect(CONFIG.paddingLeft, viewTop, 1560 * CONFIG.scaleX, viewBottom - viewTop);
+    ctx.clip(); // ✂️ 喀嚓！超出這個隱形方塊的火車折線通通不准畫！
+
+    // ==========================================
     // 🌟 新增：把「畫一台車」的邏輯打包起來
     // ==========================================
     // 🌟 在小括號裡面多加一個 isHovered 參數
