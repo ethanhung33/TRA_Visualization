@@ -2,7 +2,7 @@
     "operator_id": "Nankai",
     "segments": [
         {
-            "id": "nankai_main",
+            "id": "main_line",
             "name": "南海本線",
             "stations": [
                 {
@@ -213,7 +213,7 @@
             ]
         },
         {
-            "id": "nankai_airport",
+            "id": "airport_line",
             "name": "空港線",
             "stations": [
                 {
@@ -234,7 +234,7 @@
             ]
         },
         {
-            "id": "nankai_kada",
+            "id": "kada_line",
             "name": "加太線",
             "stations": [
                 {
@@ -280,7 +280,7 @@
             ]
         },
         {
-            "id": "nankai_tanagawa",
+            "id": "tanagawa_line",
             "name": "多奈川線",
             "stations": [
                 {
@@ -306,7 +306,7 @@
             ]
         },
         {
-            "id": "nankai_wakayamako",
+            "id": "wakayamako_line",
             "name": "和歌山港線",
             "stations": [
                 {
@@ -322,7 +322,7 @@
             ]
         },
         {
-            "id": "nankai_takashinohama",
+            "id": "takashinohama_line",
             "name": "高師浜線",
             "stations": [
                 {
@@ -343,7 +343,7 @@
             ]
         },
         {
-            "id": "nankai_koya",
+            "id": "koya_line",
             "name": "高野線",
             "stations": [
                 {
@@ -559,7 +559,7 @@
             ]
         },
         {
-            "id": "semboku_rapid",
+            "id": "semboku_line",
             "name": "泉北線",
             "stations": [
                 {
@@ -595,7 +595,7 @@
             ]
         },
         {
-            "id": "nankai_shiomibashi",
+            "id": "shiomibashi_line",
             "name": "高野線（汐見橋方面）",
             "stations": [
                 {
@@ -631,7 +631,7 @@
             ]
         },
         {
-            "id": "nankai_cable",
+            "id": "koyayama_ropeway",
             "name": "高野山ケーブル",
             "stations": [
                 {

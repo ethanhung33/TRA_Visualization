@@ -150,16 +150,16 @@ topology_data = {
 
 # 定義各路線的英文或拼音 ID
 line_id_mapping = {
-    "南海本線": "nankai_main",
-    "空港線": "nankai_airport",
-    "加太線": "nankai_kada",
-    "多奈川線": "nankai_tanagawa",
-    "和歌山港線": "nankai_wakayamako",
-    "高師浜線": "nankai_takashinohama",
-    "高野線": "nankai_koya",
-    "泉北線": "semboku_rapid",
-    "高野線（汐見橋方面）": "nankai_shiomibashi",
-    "高野山ケーブル": "nankai_cable"
+    "南海本線": "main_line",
+    "空港線": "airport_line",
+    "加太線": "kada_line",
+    "多奈川線": "tanagawa_line",
+    "和歌山港線": "wakayamako_line",
+    "高師浜線": "takashinohama_line",
+    "高野線": "koya_line",
+    "泉北線": "semboku_line",
+    "高野線（汐見橋方面）": "shiomibashi_line",
+    "高野山ケーブル": "koyayama_ropeway"
 }
 
 for line_name, stations_dict in global_distances.items():
