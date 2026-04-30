@@ -381,17 +381,6 @@ function drawTrains() {
     ctx.translate(-camera.x, -camera.y);
 
     // ==========================================
-    // 🌟 終極裁切遮罩 (Clip)：切除超界跨夜車與左側重疊
-    // ==========================================
-    ctx.beginPath();
-    // 起點 X：CONFIG.paddingLeft (剛好閃過左邊的站名留白區)
-    // 起點 Y：viewTop (確保上下無限延伸不被切到)
-    // 寬度：1560 * CONFIG.scaleX (從 0:00 完美切齊 26:00 的那一條線)
-    // 高度：viewBottom - viewTop (涵蓋攝影機的可視範圍)
-    ctx.rect(CONFIG.paddingLeft, viewTop, 1560 * CONFIG.scaleX, viewBottom - viewTop);
-    ctx.clip(); // ✂️ 喀嚓！超出這個隱形方塊的火車折線通通不准畫！
-
-    // ==========================================
     // 🌟 新增：把「畫一台車」的邏輯打包起來
     // ==========================================
     // 🌟 在小括號裡面多加一個 isHovered 參數
@@ -491,6 +480,14 @@ function drawTrains() {
 
                 if (maxX < viewLeft || minX > viewRight || maxY < viewTop || minY > viewBottom) continue; 
                 
+                // 🌟 1. 拿起剪刀前，先存檔！
+                ctx.save(); 
+                
+                // 🌟 2. 設定專屬這條線的裁切邊界
+                ctx.beginPath();
+                ctx.rect(CONFIG.paddingLeft, viewTop, 1560 * CONFIG.scaleX, viewBottom - viewTop);
+                ctx.clip(); // 喀嚓！從現在開始畫的東西超出邊界都會被切掉
+
                 ctx.beginPath();
                 let isDrawing = false; 
 
@@ -540,6 +537,10 @@ function drawTrains() {
                     // 讓畫筆繼續貼在紙上，下一個 lineTo 就會畫出完美的連續直線，不再斷裂！
                 }
                 ctx.stroke();
+
+                // 🌟 3. 放下剪刀！讀取剛剛的存檔 (畫布恢復成無限大)
+                ctx.restore();
+                
                 // ==========================================
                 // 🌟 新增：線畫完後，如果是 VIP，就在旁邊加上站名與時間！
                 // ==========================================
