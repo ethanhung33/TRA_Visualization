@@ -480,6 +480,14 @@ function drawTrains() {
 
                 if (maxX < viewLeft || minX > viewRight || maxY < viewTop || minY > viewBottom) continue; 
                 
+                // 🌟 1. 拿起剪刀前，先存檔！
+                ctx.save(); 
+                
+                // 🌟 2. 設定專屬這條線的裁切邊界
+                ctx.beginPath();
+                ctx.rect(CONFIG.paddingLeft, viewTop, 1560 * CONFIG.scaleX, viewBottom - viewTop);
+                ctx.clip(); // 喀嚓！從現在開始畫的東西超出邊界都會被切掉
+
                 ctx.beginPath();
                 let isDrawing = false; 
 
@@ -529,51 +537,61 @@ function drawTrains() {
                     // 讓畫筆繼續貼在紙上，下一個 lineTo 就會畫出完美的連續直線，不再斷裂！
                 }
                 ctx.stroke();
+
+                // 🌟 3. 放下剪刀！讀取剛剛的存檔 (畫布恢復成無限大)
+                ctx.restore();
+
                 // ==========================================
-                // 🌟 新增：線畫完後，如果是 VIP，就在旁邊加上站名與時間！
-                // ==========================================
+                // 畫 VIP 車次的專屬字體
                 if (isVIP) {
-                    ctx.save(); // 保護畫筆狀態，不要干擾到其他車
+                    ctx.save(); 
 
                     for (let i = 0; i < seg.s.length; i++) {
                         let y_raw = unwrappedCoords[i];
                         if (y_raw === null) continue; // 遇到斷點跳過
 
-                        if (seg.v[i] === 2) continue;
+                        if (seg.v[i] === 2) continue; // 通過站不印字
                         
                         let y = y_raw + offsetY;
                         let arrT = seg.t[i * 2];
                         let depT = seg.t[i * 2 + 1];
-                        let x_dep = timeToX(depT); // 文字要對齊出站的 X 座標
+                        let x_dep = timeToX(depT); // 出站的 X 座標
+                        let x_arr = timeToX(arrT); // 抵達的 X 座標
 
+                        // 🌟 1. 定義畫布的絕對邊界 (0:00 ~ 26:00)
+                        let leftBoundary = CONFIG.paddingLeft;
+                        let rightBoundary = CONFIG.paddingLeft + (1560 * CONFIG.scaleX);
 
-                        // --- 2. 準備文字：站名與時間 ---
-                        // ⚠️ A. 取得站名 (請替換成你系統中將 ID 轉成中文的函數)
+                        // 🌟 2. 邊界過濾：如果抵達時間在右邊界之外，或是發車時間在左邊界之外，就直接隱形！
+                        if (x_arr > rightBoundary || x_dep < leftBoundary) {
+                            continue; 
+                        }
+
+                        // --- 3. 準備文字：站名與時間 ---
                         let stationName = getStationName(seg.s[i]);
-                        
-                        // ⚠️ B. 取得時間 (請替換成你系統中將數字轉成 HH:MM 的函數)
-                        // 如果你沒有，請把它丟進下面我附贈的 formatTimeDisplay 函數
                         let arrTimeStr = formatTimeDisplay(arrT); 
                         let depTimeStr = formatTimeDisplay(depT); 
-
-                        // 組裝字串：如果到站=離站(通過/首尾站)，就只顯示一個時間
                         let displayText = `${arrTimeStr} - ${depTimeStr} ${stationName}`;
 
-                        // --- 3. 畫出文字 ---
+                        // --- 4. 畫出文字 (智慧防撞牆版) ---
                         ctx.font = '14px "GlowSans", "Segoe UI", sans-serif'; 
-                        ctx.fillStyle = isDarkMode ? '#FFFFFF' : '#000000'; // 白字或黑字
-                        ctx.textAlign = 'left';
+                        ctx.fillStyle = isDarkMode ? '#FFFFFF' : '#000000'; 
                         ctx.textBaseline = 'middle';
-                        
-                        // 💡 視覺小秘訣：加一點點反色陰影，讓文字在密密麻麻的線條海中不會糊掉
                         ctx.shadowColor = isDarkMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
                         ctx.shadowBlur = 4;
 
-                        // 在 X 座標往右推 8 px 的地方畫字
-                        ctx.fillText(displayText, x_dep + 8, y);
+                        let textWidth = ctx.measureText(displayText).width;
+
+                        if (x_dep + 8 + textWidth > rightBoundary) {
+                            ctx.textAlign = 'right';
+                            ctx.fillText(displayText, x_arr - 8, y);
+                        } else {
+                            ctx.textAlign = 'left';
+                            ctx.fillText(displayText, x_dep + 8, y);
+                        }
                     }
 
-                    ctx.restore(); // 恢復畫筆，準備畫下一台車
+                    ctx.restore(); 
                 }
             }
         });
@@ -1784,22 +1802,23 @@ function requestRedraw() {
     }
 }
 
-// 將分鐘數轉換為 HH:MM 格式
+// ==========================================
+// 將分鐘數轉換為 HH:MM 格式 (純淨版，支援負數校正)
+// ==========================================
 function formatTimeDisplay(minutesRaw) {
     if (minutesRaw === undefined || minutesRaw === null) return "--:--";
     
-    // 如果有跨夜 (超過 1440 分鐘)，可以選擇減掉或者保留 25:00 這種格式
-    // 這裡我們示範標準 24 小時制 (如果有跨夜需求請自行拿掉 % 1440)
-    let totalMinutes = Math.floor(minutesRaw) % 1440; 
+    // 利用 ((x % 1440) + 1440) % 1440 讓負數時間也能完美回到 24 小時制的正確循環
+    let wrappedMinutes = ((Math.floor(minutesRaw) % 1440) + 1440) % 1440; 
     
-    let hours = Math.floor(totalMinutes / 60);
-    let mins = totalMinutes % 60;
+    let hours = Math.floor(wrappedMinutes / 60);
+    let mins = wrappedMinutes % 60;
     
-    // 補零 (例如 8 -> 08)
     let hStr = hours.toString().padStart(2, '0');
     let mStr = mins.toString().padStart(2, '0');
     
-    return `${hStr}:${mStr}`; // 配合你的截圖，回傳 "0815" 這種格式
+    // 直接回傳純時間，不加任何標籤
+    return `${hStr}:${mStr}`; 
 }
 
 // ==========================================
@@ -2035,12 +2054,13 @@ function updateBottomPanelStation(st_id) {
                     let depT = seg.t[i * 2 + 1];
                     
                     // 鐵道標準「營業日」時間轉換
-                    let opsNow = currentMinutes < 120 ? currentMinutes + 1440 : currentMinutes;
-                    let opsDep = depT < 120 ? depT + 1440 : depT;
-                    
-                    let diff = opsDep - opsNow;
+                    // 🌟 1. 只有現實時鐘需要跨夜修正 (凌晨時段算作昨天的 24:00 之後)
+                    let absoluteNow = currentMinutes < 120 ? currentMinutes + 1440 : currentMinutes;
 
-                    if (diff >= 0 && opsDep >= opsNow) {
+                    // 🌟 2. 直接算差值 (因為 depT 已經是支援跨日的絕對時間了，不需要再加 1440！)
+                    let diff = depT - absoluteNow;
+
+                    if (diff >= 0) {
                         
                         // ==========================================
                         // 🌟 終極方案：絕對里程判定法 (Data-Driven Radar)
@@ -2121,8 +2141,9 @@ function updateBottomPanelStation(st_id) {
     });
 
     // 2. 依照發車時間排序
-    upboundTrains.sort((a, b) => a.depTime - b.depTime);
-    downboundTrains.sort((a, b) => a.depTime - b.depTime);
+    // 🌟 原本是用 depTime 排序，請改成用 diff (距離現在的分鐘數) 排序！
+    upboundTrains.sort((a, b) => a.diff - b.diff);
+    downboundTrains.sort((a, b) => a.diff - b.diff);
 
     // ==========================================
     // 🌟 1. 直接使用你原本系統就有的全域變數 isDarkMode！
@@ -2416,23 +2437,78 @@ window.triggerSelectStation = function(st_id) {
 };
 
 // ==========================================
-// 🌟 獨立出來的「載入特定日期時刻表」函式
+// 🌟 載入特定日期時刻表 (包含跨夜殘影合成技術)
 // ==========================================
 async function loadTimetableData(dateString) {
     try {
-        let dirc_path = currentSystemPath + "json/"; // 確保路徑正確
-        let formattedDate = dateString.replace(/-/g, ''); // 轉換格式: 2026-04-20 -> 20260420
+        let dirc_path = currentSystemPath + "json/"; 
+        let formattedDate = dateString.replace(/-/g, ''); 
         
+        // ------------------------------------------
+        // 1. 載入「今天」的正班車時刻表
+        // ------------------------------------------
         const timeRes = await fetch(`${dirc_path}timetable/timetable_${formattedDate}.json`);
         if (!timeRes.ok) throw new Error(`找不到檔案: timetable_${formattedDate}.json`);
 
-        timetable = await timeRes.json();
-        interpolatePassingStations(timetable, topology);
-        optimizeTrainTimesForDisplay(timetable);
+        let todayData = await timeRes.json();
+        interpolatePassingStations(todayData, topology);
+        optimizeTrainTimesForDisplay(todayData);
 
-        currentDate = dateString; // 成功載入後，更新當前日期狀態
+        // ------------------------------------------
+        // 2. 🌟 載入「昨天」的時刻表 (捕捉跨夜車殘影)
+        // ------------------------------------------
+        let yesterdayData = [];
+        try {
+            // 自動計算昨天的日期字串
+            let dateObj = new Date(dateString);
+            dateObj.setDate(dateObj.getDate() - 1); 
+            let yyyy = dateObj.getFullYear();
+            let mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            let dd = String(dateObj.getDate()).padStart(2, '0');
+            let yestFormatted = `${yyyy}${mm}${dd}`;
 
-        // 🌟 換日大掃除：清空畫面上點擊的車輛或車站
+            const yestRes = await fetch(`${dirc_path}timetable/timetable_${yestFormatted}.json`);
+            
+            if (yestRes.ok) {
+                let rawYesterday = await yestRes.json();
+                interpolatePassingStations(rawYesterday, topology);
+                optimizeTrainTimesForDisplay(rawYesterday); // 讓昨天的跨夜車時間先加上 1440
+
+                // 開始篩選並平移昨天的跨夜車
+                rawYesterday.forEach(train => {
+                    let hasCrossNight = false;
+                    
+                    // 為了不污染原始資料，做深拷貝
+                    let shiftedTrain = JSON.parse(JSON.stringify(train));
+                    shiftedTrain._isYesterday = true; // 做個記號，代表這是殘影車
+                    
+                    shiftedTrain.segments.forEach(seg => {
+                        // 如果這條線有 >= 1440 的時間，代表它有跨到「今天」
+                        if (seg.t.some(time => time >= 1440)) {
+                            hasCrossNight = true;
+                        }
+                        // 🌟 核心魔法：將所有時間往前推一天 (-24小時)
+                        seg.t = seg.t.map(time => time - 1440);
+                    });
+
+                    // 只有真正跨越午夜的車，才獲准加入今天的畫布
+                    if (hasCrossNight) {
+                        yesterdayData.push(shiftedTrain);
+                    }
+                });
+            }
+        } catch (e) {
+            console.log("無法載入昨天的資料，略過跨夜車呈現。");
+        }
+
+        // ------------------------------------------
+        // 3. 雙劍合璧：將今天與昨天的跨夜殘影合併
+        // ------------------------------------------
+        timetable = todayData.concat(yesterdayData);
+
+        currentDate = dateString; 
+
+        // 大掃除
         selectedTrain = null;
         selectedStation = null;
         hoveredTrain = null;
@@ -2647,10 +2723,9 @@ async function init(systemPath) {
         }
 
         // ==========================================
-        // 🌟 3. 判斷時刻表載入策略
+        // 🌟 3. 判斷時刻表載入策略 (智慧定位「今天」版)
         // ==========================================
         if (settings.data_fetch_strategy === "DAILY_FILE") {
-            // 🌟 加上 ?t=${Date.now()} 確保每次抓到的都是該系統最新的日期
             const dateRes = await fetch(dirc_path + 'available_dates.json?t=' + Date.now());
             
             if (dateRes.ok) {
@@ -2660,27 +2735,42 @@ async function init(systemPath) {
                 availableDates = ["2026-04-20"]; 
             }
 
-            // 預設載入最後一天 (最新的一天)
+            // -----------------------------------------------------
+            // 🌟 核心修改：取得今天的實體日期，並尋找最適合的預設天
+            // -----------------------------------------------------
+            let todayObj = new Date();
+            let yyyy = todayObj.getFullYear();
+            let mm = String(todayObj.getMonth() + 1).padStart(2, '0');
+            let dd = String(todayObj.getDate()).padStart(2, '0');
+            let todayStr = `${yyyy}-${mm}-${dd}`;
+
+            // 預設先假定要載入清單的最後一天 (舊版邏輯兜底)
             currentDate = availableDates[availableDates.length - 1];
 
-            // ==========================================
-            // 🌟 偵錯版：強制更新日曆並印出狀態
-            // ==========================================
+            // 檢查今天是不是在我們抓好的清單裡面？
+            if (availableDates.includes(todayStr)) {
+                // 如果有今天，霸氣地直接設定為今天！
+                currentDate = todayStr;
+            } else {
+                // 如果沒有今天 (可能是舊資料，或未來還沒抓)
+                // 找出清單中「大於等於今天」的第一個日期
+                let futureDates = availableDates.filter(d => d >= todayStr);
+                if (futureDates.length > 0) {
+                    currentDate = futureDates[0]; // 載入最近的未來
+                }
+            }
+            // -----------------------------------------------------
 
-            // 🌟 這裡也同樣改用 getElementById
             const dateInput = document.getElementById('datePicker');
 
             if (dateInput) {
-
-                // 2. 清空數值與摧毀實體
                 dateInput.value = ""; 
                 if (dateInput._flatpickr) {
                     dateInput._flatpickr.destroy();
                 }
 
-                // 3. 重新建立
                 flatpickr(dateInput, {
-                    defaultDate: currentDate,
+                    defaultDate: currentDate, // 🌟 這裡就會吃我們剛才算出來的最佳日期
                     enable: availableDates, 
                     dateFormat: "Y-m-d",
                     disableMobile: "true",
@@ -2690,8 +2780,7 @@ async function init(systemPath) {
                 });
             }
 
-
-            // 啟動時先載入預設的第一張時刻表
+            // 啟動時載入我們算出來的這一天
             await loadTimetableData(currentDate);
 
         } else {

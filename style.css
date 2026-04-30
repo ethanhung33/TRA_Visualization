@@ -611,3 +611,27 @@ body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
     .pill-btn { font-size: 14px !important; padding: 8px 14px !important; margin-bottom: 8px !important; }
     input#datePicker.flatpickr-input { font-size: 16px !important; padding: 10px !important; }
 }
+
+/* =======================================================
+   ✨ 日曆 UI 強化：極簡版 (只標示不可選，可選保持乾淨)
+   ======================================================= */
+
+/* 1. 沒資料的天數 (不可選)：極度透明 + 加上刪除線 */
+.flatpickr-day.flatpickr-disabled {
+    opacity: 0.2 !important; 
+    text-decoration: line-through !important; 
+    cursor: not-allowed !important;
+}
+
+/* 2. 有資料的天數 (可選)：拿掉框框，只保持加粗，維持版面乾淨 */
+.flatpickr-day:not(.flatpickr-disabled):not(.today):not(.selected) {
+    background-color: transparent !important; /* 取消底色 */
+    border: none !important; /* 取消邊框 */
+    font-weight: bold !important; /* 稍微加粗讓它比灰底字明顯 */
+}
+
+/* 3. 滑鼠懸停特效：游標滑過去時，才亮起微光 */
+.flatpickr-day:not(.flatpickr-disabled):not(.today):not(.selected):hover {
+    background-color: rgba(100, 180, 255, 0.2) !important;
+    border-radius: 8px !important;
+}
