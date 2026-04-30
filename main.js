@@ -2325,16 +2325,33 @@ function optimizeTrainTimesForDisplay(trainsData) {
             // 🌟 1. 跨夜防呆：確保時間絕對不會「倒流」
             let lastT = seg.t[0];
             for (let i = 1; i < seg.t.length; i++) {
-                // 如果時間突然往回掉 (例如 1435 分掉到 5 分)
                 if (seg.t[i] < lastT && (lastT - seg.t[i]) > 300) { 
-                    seg.t[i] += 1440; // 把隔天的時間強制加上 24 小時
+                    seg.t[i] += 1440; 
                 }
-                lastT = Math.max(lastT, seg.t[i]); // 更新進度水位線
+                lastT = Math.max(lastT, seg.t[i]); 
             }
 
-            // 🌟 2. 撐開停靠站的水平線
+            // ==========================================
+            // 🌟 2. 新增：防止 0 分鐘瞬移 (垂直線掉落)
+            // ==========================================
+            for (let i = 2; i < seg.t.length; i += 2) {
+                let prevDep = seg.t[i - 1]; // 上一站發車時間
+                let currArr = seg.t[i];     // 這站到達時間
+                
+                // 如果這站的到達時間 <= 上一站的發車時間 (行車時間為 0)
+                if (currArr <= prevDep) {
+                    // 強制給予 0.5 分鐘的物理行駛時間，產生合理的斜率
+                    seg.t[i] = prevDep + 0.5; 
+                    
+                    // 如果到達時間被往後推，擠到了這站原本的發車時間，發車時間也要順延
+                    if (seg.t[i + 1] < seg.t[i]) {
+                        seg.t[i + 1] = seg.t[i];
+                    }
+                }
+            }
+
+            // 🌟 3. 撐開停靠站的水平線 (維持不變)
             for (let i = 0; i < seg.t.length; i += 2) {
-                // (順便修復一個小 Bug：v 的長度是 t 的一半，所以索引要是 i / 2)
                 if (seg.t[i] === seg.t[i + 1] && seg.v[i / 2] !== 2) {
                     seg.t[i + 1] += 0.5; 
                 }
