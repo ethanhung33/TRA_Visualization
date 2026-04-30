@@ -611,3 +611,36 @@ body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
     .pill-btn { font-size: 14px !important; padding: 8px 14px !important; margin-bottom: 8px !important; }
     input#datePicker.flatpickr-input { font-size: 16px !important; padding: 10px !important; }
 }
+
+/* =======================================================
+   ✨ 日曆 UI 強化：有/無時刻表天數極大化對比
+   ======================================================= */
+
+/* 1. 沒資料的天數 (不可選)：極度透明 + 加上刪除線 */
+.flatpickr-day.flatpickr-disabled {
+    opacity: 0.2 !important; /* 降到幾乎快看不見 */
+    text-decoration: line-through !important; /* 加上刪除線，一看就知道不能點 */
+    cursor: not-allowed !important;
+}
+
+/* 2. 有資料的天數 (可選)：加上淡藍色底框，讓它看起來像個按鈕 */
+/* (注意：這裡刻意排除 .today 和 .selected，以免蓋掉今天和已選取日期的預設高亮色) */
+.flatpickr-day:not(.flatpickr-disabled):not(.today):not(.selected) {
+    background-color: rgba(100, 180, 255, 0.15) !important;
+    border: 1px solid rgba(100, 180, 255, 0.3) !important;
+    border-radius: 8px !important; /* 稍微有一點方圓角，和日曆預設的圓形做區隔 */
+    font-weight: bold !important;
+}
+
+/* 3. 有資料的天數：滑鼠懸停時的高光特效 */
+.flatpickr-day:not(.flatpickr-disabled):not(.today):not(.selected):hover {
+    background-color: rgba(100, 180, 255, 0.3) !important;
+    border-color: rgba(100, 180, 255, 0.6) !important;
+}
+
+/* 4. 淺色模式適配 (配合你 JS 裡的 body.light-mode) */
+body.light-mode .flatpickr-day:not(.flatpickr-disabled):not(.today):not(.selected) {
+    background-color: rgba(0, 100, 200, 0.08) !important;
+    border: 1px solid rgba(0, 100, 200, 0.2) !important;
+    color: #000000 !important;
+}
