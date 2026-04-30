@@ -4,7 +4,6 @@ from io import StringIO
 import re
 import json
 import os
-from bs4 import BeautifulSoup
 
 WIKI_URLS = {
     "南海本線": "https://ja.wikipedia.org/wiki/南海本線",
@@ -22,107 +21,112 @@ WIKI_URLS = {
 headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 global_distances = {line: {} for line in WIKI_URLS.keys()}
 
-def clean_name_or_id(name):
+def clean_station_name(name):
     if pd.isna(name): return name
-    # 1. 移除維基百科的引用備註，如 [* 1]
     name = re.sub(r'\[.*?\]', '', str(name))
-    
-    # 2. 移除所有類型的括號及其內容
     name = re.sub(r'\(.*?\)', '', name) 
     name = re.sub(r'（.*?）', '', name) 
-    
-    # 3. 移除「駅」字、待避站符號「#」並修剪空白
     name = name.replace("駅", "").replace("#", "").strip()
     return name
 
-print("🚀 開始爬取南海全家族里程 (包含官方車站代碼)...\n")
+print("🚀 開始爬取南海里程 (基於你的版本進行對齊修正)...\n")
+
+# ... (前面的 WIKI_URLS 與 clean_station_name 函數維持不變)
 
 for line_name, url in WIKI_URLS.items():
     print(f"正在掃描: {line_name} ...")
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status() 
-        
-        # 💡 放棄尋找 HTML 標籤，直接用「指紋」過濾表格
-        if line_name == "高野線（汐見橋方面）":
-            try:
-                tables = pd.read_html(StringIO(response.text), match="芦原町")
-            except ValueError:
-                print("  ❌ 找不到包含「芦原町」的專屬表格")
-                tables = []
-        else:
-            tables = pd.read_html(StringIO(response.text))
+        tables = pd.read_html(StringIO(response.text))
             
         target_df = None
+        st_col = dist_col = id_col = None 
+        is_cumulative = False
+
         for df in tables:
-            # 壓平多層表頭並解決欄位重複問題
+            # 1. 壓平多層表頭 (完全模擬你 test.py 的邏輯)
             df.columns = ['_'.join(str(c) for c in col).strip() if isinstance(col, tuple) else str(col) for col in df.columns]
             df = df.loc[:, ~df.columns.duplicated()]
             
-            col_str = "".join(df.columns)
-            if "駅名" in col_str and "キロ" in col_str:
+            col_list = df.columns.tolist()
+
+            # 🌟 策略 A：高野線 (主線) - 精準鎖定 Index 13
+            if line_name == "高野線":
+                # 診斷顯示：這張表有 '営業キロ_難波 から' 這個特定欄位
+                if "営業キロ_難波 から" in col_list:
+                    target_df = df
+                    st_col = "駅名_駅名" 
+                    dist_col = "営業キロ_難波 から" # 🎯 鎖定此欄，岸里玉出才是 3.9km
+                    id_col = "駅番号_駅番号"
+                    is_cumulative = True
+                    break
+
+            # 🌟 策略 B：汐見橋支線 - 精準鎖定 Index 14
+            elif line_name == "高野線（汐見橋方面）":
+                # 診斷顯示：內容有 '芦原町' 且欄位名很單純
+                if "駅名" in col_list and df.stack().astype(str).str.contains('芦原町').any():
+                    # 額外檢查：確保這不是 Index 13 那張大表
+                    if "営業キロ_難波 から" not in col_list:
+                        target_df = df
+                        st_col = "駅名"
+                        dist_col = "営業キロ"
+                        id_col = "駅番号"
+                        is_cumulative = True
+                        break
+
+            # 🌟 策略 C：其他一般線路
+            elif "駅名" in "".join(col_list) and "キロ" in "".join(col_list):
                 target_df = df
+                st_col = next((c for c in df.columns if "駅名" in c), None)
+                dist_col = next((c for c in df.columns if "駅間" in c and "キロ" in c), None)
+                id_col = next((c for c in df.columns if "駅番号" in c), None)
+                is_cumulative = False
+                if not dist_col:
+                    dist_col = next((c for c in df.columns if "キロ" in c or "距離" in c), None)
+                    is_cumulative = True
                 break
                 
         if target_df is None:
-            print(f"  ❌ 找不到 {line_name} 的車站表格")
+            print(f"  ❌ 找不到 {line_name} 的符合表格")
             continue
-            
-        st_col = next((c for c in target_df.columns if "駅名" in c), None)
-        dist_col = next((c for c in target_df.columns if "駅間" in c and "キロ" in c), None)
-        
-        # 🌟 尋找官方車站編號欄位 (駅番号)
-        id_col = next((c for c in target_df.columns if "駅番号" in c), None)
-        
-        is_cumulative = False
-        if not dist_col:
-            dist_col = next((c for c in target_df.columns if "キロ" in c), None)
-            is_cumulative = True
             
         count = 0
         current_cumulative_dist = 0.0 
         
         for index, row in target_df.iterrows():
-            raw_st = row[st_col]
-            st_name = clean_name_or_id(raw_st)
-            dist_val = row[dist_col]
+            raw_st = row[st_col] 
+            st_name = clean_station_name(raw_st)
+
             
             if pd.notna(st_name) and st_name != "nan":
                 if "駅名" in st_name or st_name == "": continue
-                
-                # 號誌站殺手 (全線通用)
-                if "信号" in st_name:
-                    continue
+                if "信号" in st_name: continue
+                if "分岐点" in st_name: continue
+                if "分界点" in st_name: continue
 
-                # 加太線專屬過濾器
-                if line_name == "加太線" and st_name == "和歌山市":
-                    continue
-
-                # 專屬南海本線的實體過濾器：移除今宮戎、萩ノ茶屋
+                # 共線段過濾邏輯
                 if line_name == "南海本線" and st_name in ["今宮戎", "萩ノ茶屋"]:
                     try:
-                        val_str = str(dist_val).replace("km", "").strip()
+                        val_str = str(row[dist_col]).replace("km", "").strip()
                         if val_str not in ["-", "−", "", "nan"]:
                             current_cumulative_dist += float(val_str)
                     except: pass
                     continue
                 
                 try:
-                    val_str = str(dist_val).replace("km", "").strip()
-                    if val_str in ["-", "−", "", "nan"]:
-                        val = 0.0
-                    else:
-                        val = float(val_str)
+                    val_str = str(row[dist_col]).replace("km", "").strip().replace("−", "-")
+                    # 處理維基百科的引用標記 [* 1]
+                    val = 0.0 if val_str in ["-", "", "nan"] else float(re.sub(r'[^\d.]', '', val_str))
                     
                     if not is_cumulative:
                         current_cumulative_dist += val
                     else:
                         current_cumulative_dist = val 
                     
-                    # 🌟 優先取得官方代碼 (如 NK01)，若無則退回使用站名
                     st_id = st_name
                     if id_col and pd.notna(row[id_col]):
-                        cleaned_id = clean_name_or_id(row[id_col])
+                        cleaned_id = clean_station_name(row[id_col])
                         if cleaned_id and cleaned_id != "nan":
                             st_id = cleaned_id
                             
@@ -131,8 +135,7 @@ for line_name, url in WIKI_URLS.items():
                         "km": round(current_cumulative_dist, 1)
                     }
                     count += 1
-                    
-                except ValueError:
+                except:
                     pass 
                     
         print(f"  ✅ 成功抓取並累加 {count} 個車站！")
@@ -140,58 +143,31 @@ for line_name, url in WIKI_URLS.items():
     except Exception as e:
         print(f"  ❌ 請求 {line_name} 失敗: {e}")
 
-# ==========================================
-# 轉換為你的專屬 topology.json 標準格式
-# ==========================================
-topology_data = {
-    "operator_id": "Nankai", 
-    "segments": []
-}
+# ... (JSON 儲存邏輯)
+# ... (後續儲存 topology.json 的邏輯)
 
-# 定義各路線的英文或拼音 ID
+# ==========================================
+# 輸出 Topology JSON
+# ==========================================
+topology_data = {"operator_id": "Nankai", "segments": []}
 line_id_mapping = {
-    "南海本線": "main_line",
-    "空港線": "airport_line",
-    "加太線": "kada_line",
-    "多奈川線": "tanagawa_line",
-    "和歌山港線": "wakayamako_line",
-    "高師浜線": "takashinohama_line",
-    "高野線": "koya_line",
-    "泉北線": "semboku_line",
-    "高野線（汐見橋方面）": "shiomibashi_line",
+    "南海本線": "main_line", "空港線": "airport_line", "加太線": "kada_line",
+    "多奈川線": "tanagawa_line", "和歌山港線": "wakayamako_line", "高師浜線": "takashinohama_line",
+    "高野線": "koya_line", "泉北線": "semboku_line", "高野線（汐見橋方面）": "shiomibashi_line",
     "高野山ケーブル": "koyayama_ropeway"
 }
 
 for line_name, stations_dict in global_distances.items():
-    if not stations_dict: 
-        continue 
-        
-    segment = {
-        "id": line_id_mapping.get(line_name, "unknown_line"),
-        "name": line_name,
-        "stations": []
-    }
-    
+    if not stations_dict: continue
+    segment = {"id": line_id_mapping.get(line_name, "unknown"), "name": line_name, "stations": []}
     for st_name, data in stations_dict.items():
-        segment["stations"].append({
-            "id": data["id"],   # 🌟 現在會優先使用如 NK01 的官方代碼
-            "name": st_name,
-            "km": data["km"]
-        })
-        
+        segment["stations"].append({"id": data["id"], "name": st_name, "km": data["km"]})
     topology_data["segments"].append(segment)
 
-# 🌟 自動定位儲存路徑
 script_dir = os.path.dirname(os.path.abspath(__file__))
 output_file = os.path.join(os.path.dirname(script_dir), "json", "topology.json")
-
 os.makedirs(os.path.dirname(output_file), exist_ok=True)
-
 with open(output_file, "w", encoding="utf-8") as f:
     json.dump(topology_data, f, ensure_ascii=False, indent=4)
 
-print(f"\n🎉 處理完畢！")
-print(f"1. 所有的 '#' 已移除。")
-print(f"2. 南海本線已剔除 今宮戎、萩ノ茶屋。")
-print(f"3. 🌟 已成功從維基百科擷取官方 Station ID (駅番号)！")
-print(f"4. 檔案已儲存至: {output_file}")
+print(f"\n🎉 完美大功告成！檔案存於: {output_file}")
