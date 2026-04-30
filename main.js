@@ -2475,8 +2475,9 @@ async function loadTimetableData(dateOrType) {
         if (!timeRes.ok) throw new Error(`找不到檔案: ${todayFileUrl}`);
 
         let todayData = await timeRes.json();
-        interpolatePassingStations(todayData, topology);
         optimizeTrainTimesForDisplay(todayData);
+        interpolatePassingStations(todayData, topology);
+        
 
         // ------------------------------------------
         // 2. 🌟 載入「昨天」的時刻表 (捕捉跨夜車殘影)
