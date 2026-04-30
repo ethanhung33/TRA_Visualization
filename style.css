@@ -378,7 +378,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    z-index: 100; /* 確保它蓋在畫布最上面 */
+    z-index: 9999; /* 確保它蓋在畫布最上面 */
+    pointer-events: auto; /* 顯示時攔截點擊 */
     transition: opacity 0.5s ease, visibility 0.5s ease; /* 消失時會有柔和的淡出動畫 */
 }
 

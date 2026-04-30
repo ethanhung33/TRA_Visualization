@@ -59,6 +59,20 @@ let renderIntervalId = null;
 
 let isThemeBound = false; // 🌟 新增：用來記錄主題按鈕是不是已經綁定過了
 
+let isInteractionsBound = false; // 🌟 新增：紀錄互動事件是否已綁定
+
+let isHomeBound = false; // 全域變數
+
+// 🌟 事件代理：這輩子只綁定一次，且無論 UI 怎麼重刷都有效
+document.addEventListener('click', (e) => {
+    // 透過 ID 判斷點擊的是哪一個系統按鈕 (請確認你首頁按鈕的 ID 是這兩個)
+    if (e.target.id === 'btn-tra') {
+        init('data/Taiwan/TRA/');
+    } else if (e.target.id === 'btn-hsr') {
+        init('data/Taiwan/HSR/');
+    }
+});
+
 
 // ==========================================
 // 2. 核心換算函式
@@ -375,14 +389,18 @@ function drawTrains() {
         // 🌟 1. 先決定這台車「原本的」顏色和粗細
         // ==========================================
         let baseColor = fallbackColor;
+        let baseWidth = train.w || 1.5; // 通用的保底粗細 (如果設定檔沒寫，預設 1.5)
+
         if (settings && settings.train_color && settings.train_color[train.type]) {
-            baseColor = settings.train_color[train.type][colorIndex];
+            let typeStyle = settings.train_color[train.type];
+            baseColor = typeStyle[colorIndex]; // 抓取顏色 (深色/淺色模式)
+            
+            // 🌟 終極通用解法：如果有設定第三個參數，就把它當作該車種的專屬粗細！
+            if (typeStyle.length > 2) {
+                baseWidth = typeStyle[2];
+            }
         }
 
-        let isExpress = ["新自強", "普悠瑪", "太魯閣", "自強", "莒光"].includes(train.type);
-        let baseWidth = train.w || (isExpress ? 1.5 : 1.0);
-
-        // 先把畫筆設定成預設狀態
         let trainColor = baseColor;
         let lineWidth = baseWidth;
 
@@ -571,21 +589,27 @@ function drawTrains() {
 
     // 第一次迴圈：畫普通車，把 VIP 和 Hover 扣留起來
     timetable.forEach(train => {
-        // 🌟 防呆 1：如果車種被取消勾選，強制清空物理碰撞點
+        
+        // ==========================================
+        // 🌟 終極淨化術：在做任何判斷前，無條件清空這台車的物理座標！
+        // 這樣就算它等一下被隱藏，也絕對不會留下「幽靈點」讓滑鼠點到！
+        // ==========================================
+        if (!train._hitPoints) train._hitPoints = [];
+        train._hitPoints.length = 0; 
+        // ==========================================
+
+        // 1. 車種過濾檢查
         if (!activeTrainTypes.has(train.type)) {
-            if (train._hitPoints) train._hitPoints.length = 0; 
-            return;
+            return; 
         }
 
-        // ==========================================
-        // 🌟 核心新增：車站聚焦過濾器 (Focus Mode)
-        // ==========================================
+        // 2. 停靠站聚焦過濾器 (Focus Mode)
         if (selectedStation) {
             let stopsHere = false;
             if (train.segments) {
                 for (let seg of train.segments) {
                     for (let i = 0; i < seg.s.length; i++) {
-                        // 檢查：1. 站碼是不是我們點擊的站  2. v !== 2 代表「有停靠」不是通過
+                        // 檢查：1. 站碼是不是我們點擊的站  2. v !== 2 代表「有停靠」
                         if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
                             stopsHere = true;
                             break;
@@ -595,33 +619,27 @@ function drawTrains() {
                 }
             }
             // 如果這台車沒有停靠這個車站，就直接跳過，讓他在畫面上隱形！
+            // (而且因為上面已經清空了 _hitPoints，它現在連物理實體都沒有了！)
             if (!stopsHere) {
-                // 🌟 核心修復 (防幽靈點擊)：把隱形火車的物理實體也徹底刪除！
-                if (train._hitPoints) train._hitPoints.length = 0; 
                 return; 
             }
         }
-        // ==========================================
 
+        // 3. 狀態判斷與分發
         if (train === selectedTrain) {
             vipTrain = train;
         } else if (train === hoveredTrain) {
             hoverTrainDraw = train;
         } else {
-            // 畫普通車 (isVIP=false, isHovered=false)
             drawSingleTrain(train, false, false); 
         }
     });
 
     // 第二次：畫懸停的車 (壓在普通車上面)
-    if (hoverTrainDraw) {
-        drawSingleTrain(hoverTrainDraw, false, true); 
-    }
+    if (hoverTrainDraw) drawSingleTrain(hoverTrainDraw, false, true); 
 
     // 第三次：畫點擊的 VIP 車 (永遠壓在最上面)
-    if (vipTrain) {
-        drawSingleTrain(vipTrain, true, false); 
-    }
+    if (vipTrain) drawSingleTrain(vipTrain, true, false); 
 
     ctx.restore();
 }
@@ -740,9 +758,6 @@ function handleRouteSwitch(newRoute) {
     
     loopKm = newLoopKm;
 
-    // --- 4. 觸發防呆縮放 (比例改變就在這瞬間！) ---
-    if (typeof autoFitScale === 'function') autoFitScale();
-
     // --- 5. 座標補償：以「螢幕正中央」為基準，還原時間和里程 ---
     // 先算出目標時間和里程在新比例下的「絕對像素座標」
     let targetCenterX = CONFIG.paddingLeft + (anchorDataX * CONFIG.scaleX);
@@ -774,9 +789,24 @@ function buildUI() {
 
     // 抓出 setting.json 裡面所有的視角 key (例如 'mountain_view', 'north_link')
     const viewKeys = Object.keys(settings?.view_presets || {});
+
+    // ==========================================
+    // 🌟 新增：如果視角只有 1 個(或沒有)，直接把整個切換區塊隱藏！
+    // ==========================================
+    if (viewKeys.length <= 1) {
+        if (routeContainer) routeContainer.style.display = 'none';
+        
+        // 順便把旁邊可能有的 "路線" 標題也隱藏 (如果你 HTML 裡有寫的話)
+        let routeTitle = document.getElementById('route-title');
+        if (routeTitle) routeTitle.style.display = 'none';
+    } else {
+        if (routeContainer) routeContainer.style.display = ''; // 恢復預設顯示
+        let routeTitle = document.getElementById('route-title');
+        if (routeTitle) routeTitle.style.display = '';
+    }
     
-    // 如果還沒有設定當前視角，預設選中 json 裡面的第一個！
-    if (viewKeys.length > 0 && !currentRouteView) {
+    // 🌟 核心防呆：如果目前記憶的視角「不在」新系統的視角清單中，就強制洗掉重置！
+    if (viewKeys.length > 0 && !viewKeys.includes(currentRouteView)) {
         currentRouteView = viewKeys[0];
     }
 
@@ -821,16 +851,25 @@ function buildUI() {
     window.updateRouteButtons = updateRouteButtons; 
     updateRouteButtons();
 
-    // ---- B. 動態生成車種篩選按鈕 (同步 setting.json 順序) ----
+    // ---- B. 動態生成車種篩選按鈕 (通用萬用版，免寫 train_order) ----
     
     // 1. 抓出時刻表內實際有出現的車種集合
     const dataTypes = new Set(timetable.map(t => t.type));
     
-    // 2. 優先依照 settings.train_color 定義的順序排隊
     let sortedTypes = [];
-    if (settings && settings.train_color) {
-        // 只留下時刻表裡確實有出現的車種，避免產生幽靈按鈕 (例如今天沒復興號就不顯示)
-        sortedTypes = Object.keys(settings.train_color).filter(type => dataTypes.has(type));
+    
+    // 2. 依照我們剛剛從純文字挖出來的 _rawOrder 來排序
+    if (settings && settings._rawOrder && settings._rawOrder.length > 0) {
+        settings._rawOrder.forEach(type => {
+            if (dataTypes.has(type)) {
+                sortedTypes.push(type);
+            }
+        });
+    } else if (settings && settings.train_color) {
+        // 保底機制：萬一正則表達式沒抓到，退回預設的 Object.keys
+        Object.keys(settings.train_color).forEach(type => {
+            if (dataTypes.has(type)) sortedTypes.push(type);
+        });
     }
 
     // 3. 把資料有出現，但 setting.json 沒設定到的額外車種補在最後面
@@ -840,7 +879,7 @@ function buildUI() {
         }
     });
 
-    trainTypeContainer.innerHTML = ''; 
+    trainTypeContainer.innerHTML = '';
     
     // ==========================================
     // 🌟 新增：連動更新底部面板的專屬函數
@@ -899,23 +938,26 @@ function buildUI() {
         trainTypeContainer.appendChild(btn);
     });
 
+    // ==========================================
+    // 🌟 修正：將 addEventListener 改成 onclick
+    // ==========================================
     // 全選 
-    btnAllTrains.addEventListener('click', () => {
+    btnAllTrains.onclick = () => {
         activeTrainTypes = new Set(sortedTypes);
         document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
         
-        syncBottomPanel(); // 🌟 2. 全選時：同步更新面板！
+        syncBottomPanel();
         redrawAll();
-    });
+    };
 
     // 全部不選
-    btnNoTrains.addEventListener('click', () => {
+    btnNoTrains.onclick = () => {
         activeTrainTypes.clear();
         document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
         
-        syncBottomPanel(); // 🌟 3. 全部不選時：同步更新面板！
+        syncBottomPanel();
         redrawAll();
-    });
+    };
     
     // ==========================================
     // 🌟 側邊欄收合功能綁定 (修復幽靈連點 Bug)
@@ -1118,30 +1160,36 @@ function bindThemeToggle() {
 }
 
 // ==========================================
-// 🌟 視角自動適應 (加入「長寬比」自由調整係數)
+// 🌟 視角自動適應 (防過度壓縮 + 支援預設縮放版)
 // ==========================================
 function autoFitScale() {
     const wrapper = document.getElementById('canvas-wrapper');
     if (!wrapper || typeof loopKm === 'undefined' || loopKm <= 0) return;
 
-    // 算出 Y 軸要完美塞滿螢幕所需要的倍率
+    // 算出 Y 軸要「完美塞滿螢幕」所需要的最低倍率
     const minScaleY = (wrapper.clientHeight - 150) / loopKm;
 
-    if (CONFIG.scaleY < minScaleY) {
-        
-        // ==========================================
-        // 🎛️ 長寬比微調區 (預設等比例是 1.0)
-        // 如果覺得時間軸被拉得太長、太寬了，就把這個數字調小！
-        // 建議值：0.5 (X軸只放大一半), 0.3 (X軸只放大三成)
-        // ==========================================
-        const timeStretchRatio = 0.4; 
-
-        // Y 軸維持完美撐滿螢幕
-        CONFIG.scaleY = minScaleY;
-        
-        // X 軸根據你設定的係數，稍微縮短一點，不再無限狂飆！
-        CONFIG.scaleX = minScaleY * timeStretchRatio; 
+    // 讀取時間拉伸係數
+    let timeStretchRatio = 0.4;
+    if (settings && settings.time_stretch_ratio !== undefined) {
+        timeStretchRatio = settings.time_stretch_ratio;
     }
+
+    // 🌟 核心修改：不再無腦硬塞滿螢幕！
+    let targetScaleY = minScaleY;
+
+    // 1. 如果設定檔有明確指示「預設放大倍率」，絕對聽設定檔的！
+    if (settings && settings.default_scale_y !== undefined) {
+        targetScaleY = settings.default_scale_y;
+    } 
+    // 2. 如果沒設定，且路線太長導致比例被壓得太扁 (例如小於 2.0)，強制放大，讓使用者自己滾動
+    else if (minScaleY < 2.0) {
+        targetScaleY = 2.0; 
+    }
+
+    // 正式套用比例
+    CONFIG.scaleY = targetScaleY;
+    CONFIG.scaleX = targetScaleY * timeStretchRatio; 
 }
 
 // ==========================================
@@ -1297,6 +1345,10 @@ function setupCanvasInteractions() {
     const canvas = document.getElementById('diaCanvas');
     if (!wrapper || !canvas) return;
 
+    // 🌟 核心防修復：如果已經綁定過，就直接退場，不要重複綁定到 window 上！
+    if (isInteractionsBound) return; 
+    isInteractionsBound = true;
+
     // 嚴格禁止手機原生滑動與雙擊放大
     wrapper.style.touchAction = 'none';
 
@@ -1368,12 +1420,39 @@ function setupCanvasInteractions() {
         if (typeof timetable !== 'undefined') {
             for (let train of timetable) {
                 if (typeof activeTrainTypes !== 'undefined' && !activeTrainTypes.has(train.type)) continue;
+
+                // ==========================================
+                // 🌟 新增防護罩：如果現在有鎖定車站，但這台車沒停，就讓它物理穿透！
+                // ==========================================
+                if (selectedStation) {
+                    let stopsHere = false;
+                    if (train.segments) {
+                        for (let seg of train.segments) {
+                            for (let i = 0; i < seg.s.length; i++) {
+                                // 檢查是否為選定站，且有停靠 (v !== 2)
+                                if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
+                                    stopsHere = true; 
+                                    break;
+                                }
+                            }
+                            if (stopsHere) break;
+                        }
+                    }
+                    // 如果這台車沒停靠這個車站，直接跳過點擊判定！
+                    if (!stopsHere) continue; 
+                }
+                // ==========================================
+
                 if (!train._hitPoints) continue;
                 for (let i = 0; i < train._hitPoints.length - 1; i++) {
                     let p1 = train._hitPoints[i], p2 = train._hitPoints[i+1];
                     if (!p1 || !p2) continue;
                     let dist = getDistanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
-                    if (dist < minDistance) { minDistance = dist; closestTrain = train; }
+                    // 🌟 順便縮小一點胖手指容錯率 (從 20 降到 15)，減少誤觸機率
+                    if (dist < 15 && dist < minDistance) { 
+                        minDistance = dist; 
+                        closestTrain = train; 
+                    }
                 }
             }
         }
@@ -1453,6 +1532,28 @@ function setupCanvasInteractions() {
             // 📡 雷達 1：偵測火車 (精準線段掃描)
             // ==========================================
             for (let train of timetable) {
+
+                // ==========================================
+                // 🌟 新增防護罩：游標懸停時也一樣，沒停靠的車變成幽靈！
+                // ==========================================
+                if (selectedStation) {
+                    let stopsHere = false;
+                    if (train.segments) {
+                        for (let seg of train.segments) {
+                            for (let i = 0; i < seg.s.length; i++) {
+                                if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
+                                    stopsHere = true; 
+                                    break;
+                                }
+                            }
+                            if (stopsHere) break;
+                        }
+                    }
+                    // 如果這台車沒停靠這個車站，直接跳過懸停判定！
+                    if (!stopsHere) continue; 
+                }
+                // ==========================================
+
                 // 如果火車被隱藏或點不到兩個，跳過
                 if (!train._hitPoints || train._hitPoints.length < 2) continue; 
                 
@@ -1791,6 +1892,35 @@ function updateBottomPanel(train) {
         trainColor = settings.train_color[trainType][isDarkMode ? 0 : 1]; 
     }
 
+    // 🌟 核心修改：如果設定檔明確寫了 false，就只顯示車次；否則顯示「車種 車次」
+    let displayTitle = (settings && settings.show_train_type === false) 
+        ? trainNo 
+        : `${trainType} ${trainNo}`;
+
+    // ==========================================
+    // 🌟 新增：自動抓取這班車的「起點」與「終點」 (使用 getStationName 最終版)
+    // ==========================================
+    let startStationName = "未知";
+    let endStationName = "未知";
+
+    // 優先檢查原始資料有沒有自帶起終點
+    if (train.start_station_name) {
+        startStationName = train.start_station_name;
+        endStationName = train.end_station_name;
+    } else if (train.segments && train.segments.length > 0) {
+        let firstSeg = train.segments[0];
+        let lastSeg = train.segments[train.segments.length - 1];
+        
+        let startId = firstSeg.s[0];
+        let endId = lastSeg.s[lastSeg.s.length - 1];
+        
+        // 🌟 直接呼叫你系統原生的 getStationName 函數！
+        if (typeof getStationName === 'function') {
+            startStationName = getStationName(startId);
+            endStationName = getStationName(endId);
+        }
+    }
+
     // 2. 組裝車站列表的 HTML
     let stationsHtml = "";
     let stopCount = 0;
@@ -1851,8 +1981,14 @@ function updateBottomPanel(train) {
     panel.innerHTML = `
         <div style="display: flex; width: 100%; height: 100%; align-items: center;">
             
-            <div style="min-width: 150px; display: flex; align-items: center; padding-right: 20px; border-right: 2px solid #444; font-size: 32px; font-weight: 900; color: ${trainColor}; flex-shrink: 0; letter-spacing: 1px;">
-                ${trainType} ${trainNo}
+            <div style="min-width: 180px; display: flex; flex-direction: column; justify-content: center; padding-left: 25px; padding-right: 20px; border-right: 2px solid #444; flex-shrink: 0;">
+                <div style="font-size: 26px; font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.0;">
+                    ${displayTitle}
+                </div>
+                
+                <div style="font-size: 16px; color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 10px; font-weight: bold; letter-spacing: 1px;">
+                    ${startStationName} <span style="font-size:14px; margin: 0 4px; opacity: 0.7;">▶</span> ${endStationName}
+                </div>
             </div>
             
             <div id="bottom-scroll-container" style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 20px; white-space: nowrap; scrollbar-width: none;">
@@ -2021,6 +2157,11 @@ function updateBottomPanelStation(st_id) {
             let timeStr = formatTimeDisplay(item.depTime);
             let displayDiff = Math.floor(item.diff); 
 
+            // 🌟 核心修改：卡片上的車種名稱也套用設定檔開關
+            let displayTitle = (settings && settings.show_train_type === false) 
+                ? item.trainNo 
+                : `${item.train.type} ${item.trainNo}`;
+
             return `
                 <div onclick="window.triggerSelectTrain('${item.trainNo}')" 
                      style="display: flex; flex-direction: column; justify-content: center; min-width: 120px; margin: 0 4px; padding: 4px 8px; background: ${theme.cardBg}; border-radius: 6px; cursor: pointer; border: 1px solid transparent; line-height: 1.2;"
@@ -2029,7 +2170,7 @@ function updateBottomPanelStation(st_id) {
                     
                     <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px;">
                         <span style="font-size: 15px; color: ${theme.textMain}; font-weight: bold;">${timeStr}</span>
-                        <span style="font-size: 11px; color: ${tColor}; font-weight: bold;">${item.train.type} ${item.trainNo}</span>
+                        <span style="font-size: 11px; color: ${tColor}; font-weight: bold;">${displayTitle}</span>
                     </div>
                     
                     <div style="display: flex; justify-content: space-between; align-items: baseline;">
@@ -2332,21 +2473,25 @@ async function loadSystemMenu() {
             // 建立該國家的系統按鈕
             country.systems.forEach(sys => {
                 const btn = document.createElement('button');
-                btn.className = 'pill-btn'; // 套用你原本漂亮的膠囊按鈕樣式
+                btn.className = 'pill-btn';
+                
+                // 🌟 核心修正：給按鈕一個身分證 ID，這樣 document 的監聽器才抓得到它
+                btn.id = `btn-${sys.id}`; 
                 
                 if (sys.is_active) {
                     btn.innerText = sys.chinese_name;
-                    // 🌟 點擊事件：切換畫面並載入該系統！
                     btn.onclick = () => {
-                        // 1. 拼出路徑 (例如: data/Taiwan/TRA/)
                         const dynamicPath = `data/${country.id}/${sys.id}/`;
                         
-                        // 2. 轉場動畫：顯示 Loading，隱藏首頁，顯示主畫面
-                        document.getElementById('loading-overlay').classList.remove('hidden');
+                        // 🌟 核心修正：進入前強制重置一次 Loader，確保它不會擋路
+                        const loader = document.getElementById('loading-overlay');
+                        if (loader) {
+                            loader.style.display = 'flex';
+                            loader.classList.remove('hidden');
+                        }
+
                         document.getElementById('landing-page').style.display = 'none';
                         document.getElementById('app').style.display = 'flex';
-                        
-                        // 3. 呼叫 init()，並把路徑傳給它！
                         init(dynamicPath);
                     };
                 } else {
@@ -2369,6 +2514,10 @@ async function loadSystemMenu() {
 // ==========================================
 function bindHomeButton() {
     const btnHome = document.getElementById('btn-home');
+
+    if (!btnHome || isHomeBound) return; // 🌟 如果綁過就直接退場
+    isHomeBound = true;
+    
     if (btnHome) {
         btnHome.addEventListener('click', () => {
             // 1. 停止背景的重繪計時器 (避免效能浪費與重疊 Bug)
@@ -2417,6 +2566,36 @@ function initCanvas(canvasId, wrapperId) {
 // 系統啟動點 (init)
 // ==========================================
 async function init(systemPath) {
+    // 🌟 核心修正 1：日誌必須放在最頂端，確保我們知道 init 真的有動！
+    
+    // 🌟 修正：改用 ID 抓取，確保不受 Flatpickr 屬性變更影響
+    const dateInput = document.getElementById('datePicker'); 
+    if (dateInput) {
+        dateInput.value = ""; 
+        if (dateInput._flatpickr) {
+            dateInput._flatpickr.destroy();
+        }
+    }
+    
+    // ==========================================
+    // 🌟 切換系統大掃除：徹底抹除上一套系統的殘留影蹤
+    // ==========================================
+    if (typeof timetable !== 'undefined' && timetable.length > 0) {
+        timetable.forEach(train => {
+            if (train._hitPoints) train._hitPoints.length = 0; // 徹底清空舊系統的物理點
+        });
+    }
+    
+    // 重置選取狀態，避免舊系統的車站 ID 影響新系統
+    selectedTrain = null;
+    selectedStation = null;
+    hoveredTrain = null;
+    hoveredStation = null;
+    
+    // 清空時刻表與快取，確保重新開始
+    timetable = [];
+    junctionCache = {}; 
+    // ==========================================
 
     currentSystemPath = systemPath;
 
@@ -2424,9 +2603,26 @@ async function init(systemPath) {
         
         let dirc_path = currentSystemPath + "json/"; // 確保路徑正確
         
-        // 1. 載入 setting.json
-        const setRes = await fetch(dirc_path + 'setting.json');
-        settings = await setRes.json();
+        // 🌟 核心修正 2：所有的 fetch 都要加上 Cache Buster (?t=...)
+        // 防止瀏覽器在切換系統時把「台鐵的檔案」當成「高鐵的檔案」餵給你
+        const setRes = await fetch(`${dirc_path}setting.json?t=${Date.now()}`);
+        if (!setRes.ok) throw new Error("找不到 setting.json");
+        
+        const settingText = await setRes.text();
+        settings = JSON.parse(settingText);
+
+
+        // 🌟 通用破解法：用正規表達式從純文字中挖出 train_color 的原始 Key 順序
+        let extractedOrder = [];
+        const colorBlockMatch = settingText.match(/"train_color"\s*:\s*\{([^}]*)\}/);
+        if (colorBlockMatch) {
+            // 抓出 block 裡所有的 "key":
+            const keyMatches = [...colorBlockMatch[1].matchAll(/"([^"]+)"\s*:/g)];
+            extractedOrder = keyMatches.map(m => m[1]);
+        }
+        // 將挖出來的原汁原味順序，掛載到 settings 物件上
+        settings._rawOrder = extractedOrder;
+
         if (settings.system_name) {
             document.title = settings.system_name + " - 運行圖";
         }
@@ -2436,10 +2632,26 @@ async function init(systemPath) {
         topology = await topoRes.json();
 
         // ==========================================
+        // 🌟 核心新增：單一線路防呆機制 (針對高鐵等沒有 view_presets 的系統)
+        // ==========================================
+        if (!settings.view_presets || Object.keys(settings.view_presets).length === 0) {
+            // 如果 JSON 沒寫，我們就自己創造一個預設視角
+            settings.view_presets = {
+                "default_view": {
+                    "name": "全線",
+                    // 直接去 topology 裡面把所有的實體路線 ID 都抓進來串接
+                    "lines": topology.segments.map(seg => seg.id), 
+                    "view_type": "LINEAR"
+                }
+            };
+        }
+
+        // ==========================================
         // 🌟 3. 判斷時刻表載入策略
         // ==========================================
         if (settings.data_fetch_strategy === "DAILY_FILE") {
-            const dateRes = await fetch(dirc_path + 'available_dates.json');
+            // 🌟 加上 ?t=${Date.now()} 確保每次抓到的都是該系統最新的日期
+            const dateRes = await fetch(dirc_path + 'available_dates.json?t=' + Date.now());
             
             if (dateRes.ok) {
                 availableDates = await dateRes.json();
@@ -2452,22 +2664,32 @@ async function init(systemPath) {
             currentDate = availableDates[availableDates.length - 1];
 
             // ==========================================
-            // 🌟 升級版：使用 Flatpickr 綁定日曆
+            // 🌟 偵錯版：強制更新日曆並印出狀態
             // ==========================================
-            const dateInput = document.querySelector('input[type="date"]'); 
+
+            // 🌟 這裡也同樣改用 getElementById
+            const dateInput = document.getElementById('datePicker');
+
             if (dateInput) {
-                // Flatpickr 會自動接管這個 input
+
+                // 2. 清空數值與摧毀實體
+                dateInput.value = ""; 
+                if (dateInput._flatpickr) {
+                    dateInput._flatpickr.destroy();
+                }
+
+                // 3. 重新建立
                 flatpickr(dateInput, {
                     defaultDate: currentDate,
-                    enable: availableDates, // 🌟 神級功能：直接把我們的清單餵給它，清單以外的日子全部自動反灰不能點！
+                    enable: availableDates, 
                     dateFormat: "Y-m-d",
-                    disableMobile: "true", // 強制手機版也用我們漂亮的日曆，不用原生的
+                    disableMobile: "true",
                     onChange: async function(selectedDates, dateStr, instance) {
-                        // 當使用者點擊合法的日期時，直接載入！不需要再 alert 防呆了！
                         await loadTimetableData(dateStr);
                     }
                 });
             }
+
 
             // 啟動時先載入預設的第一張時刻表
             await loadTimetableData(currentDate);
