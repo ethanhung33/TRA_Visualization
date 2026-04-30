@@ -2140,9 +2140,10 @@ function updateBottomPanelStation(st_id) {
     });
 
     // 2. 依照發車時間排序
-    upboundTrains.sort((a, b) => a.depTime - b.depTime);
-    downboundTrains.sort((a, b) => a.depTime - b.depTime);
-
+    // 🌟 原本是用 depTime 排序，請改成用 diff (距離現在的分鐘數) 排序！
+    upboundTrains.sort((a, b) => a.diff - b.diff);
+    downboundTrains.sort((a, b) => a.diff - b.diff);
+    
     // ==========================================
     // 🌟 1. 直接使用你原本系統就有的全域變數 isDarkMode！
     // ==========================================
