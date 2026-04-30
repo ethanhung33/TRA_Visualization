@@ -212,6 +212,8 @@ def main():
             }
             global_train_counter += 1
             
+        raw_segments = [] # 🌟 先用一個暫存陣列把所有配對到的路線裝起來
+        
         for line_name, line_stations in MASTER_LINES.items():
             intersect = [st for st in t_stops_order if st in line_stations]
             if len(intersect) < 2: continue
@@ -247,19 +249,43 @@ def main():
                 if i == 0: v_val = 0
                 elif i == len(intersect_in_order) - 1: v_val = 3
                 
-                # 🌟 使用官方代碼作為 s 陣列的值 (若找不到則退回用站名)
                 s_list.append(STATION_ID_MAP.get(st, st))
                 t_list.extend([final_am, final_dm])
                 v_list.append(v_val)
 
             if s_list:
-                segment = {
+                raw_segments.append({
                     "id": LINE_ID_MAPPING.get(line_name, "unknown"),
                     "s": s_list,
                     "t": t_list,
-                    "v": v_list
-                }
-                trains_by_tx[tx]["segments"].append(segment)
+                    "v": v_list,
+                    "_s_set": set(s_list) # 🌟 偷塞一個 Set，方便等一下做子集合比對
+                })
+
+        # ==========================================
+        # 🌟 核心過濾邏輯：剃除重疊的幽靈路線
+        # ==========================================
+        filtered_segments = []
+        for i, seg_i in enumerate(raw_segments):
+            is_subset = False
+            for j, seg_j in enumerate(raw_segments):
+                # 如果 seg_i 的車站完全被包含在 seg_j 裡面
+                if i != j and seg_i["_s_set"].issubset(seg_j["_s_set"]):
+                    # 避免完全一樣的路線互相刪除，只刪除站數較少，或是順序排在後面的
+                    if len(seg_i["_s_set"]) < len(seg_j["_s_set"]) or i > j:
+                        is_subset = True
+                        break
+            
+            if not is_subset:
+                filtered_segments.append(seg_i)
+
+        # 🌟 等所有路線都互相檢查完，再來大掃除！
+        for seg in filtered_segments:
+            if "_s_set" in seg:
+                del seg["_s_set"]
+
+        if filtered_segments:
+            trains_by_tx[tx]["segments"] = filtered_segments
 
     flat_json_output = list(trains_by_tx.values())
 
