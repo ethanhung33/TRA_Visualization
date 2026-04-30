@@ -1795,22 +1795,23 @@ function requestRedraw() {
     }
 }
 
-// 將分鐘數轉換為 HH:MM 格式
+// ==========================================
+// 將分鐘數轉換為 HH:MM 格式 (純淨版，支援負數校正)
+// ==========================================
 function formatTimeDisplay(minutesRaw) {
     if (minutesRaw === undefined || minutesRaw === null) return "--:--";
     
-    // 如果有跨夜 (超過 1440 分鐘)，可以選擇減掉或者保留 25:00 這種格式
-    // 這裡我們示範標準 24 小時制 (如果有跨夜需求請自行拿掉 % 1440)
-    let totalMinutes = Math.floor(minutesRaw) % 1440; 
+    // 利用 ((x % 1440) + 1440) % 1440 讓負數時間也能完美回到 24 小時制的正確循環
+    let wrappedMinutes = ((Math.floor(minutesRaw) % 1440) + 1440) % 1440; 
     
-    let hours = Math.floor(totalMinutes / 60);
-    let mins = totalMinutes % 60;
+    let hours = Math.floor(wrappedMinutes / 60);
+    let mins = wrappedMinutes % 60;
     
-    // 補零 (例如 8 -> 08)
     let hStr = hours.toString().padStart(2, '0');
     let mStr = mins.toString().padStart(2, '0');
     
-    return `${hStr}:${mStr}`; // 配合你的截圖，回傳 "0815" 這種格式
+    // 直接回傳純時間，不加任何標籤
+    return `${hStr}:${mStr}`; 
 }
 
 // ==========================================
