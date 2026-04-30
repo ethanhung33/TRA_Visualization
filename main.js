@@ -2723,10 +2723,9 @@ async function init(systemPath) {
         }
 
         // ==========================================
-        // 🌟 3. 判斷時刻表載入策略
+        // 🌟 3. 判斷時刻表載入策略 (智慧定位「今天」版)
         // ==========================================
         if (settings.data_fetch_strategy === "DAILY_FILE") {
-            // 🌟 加上 ?t=${Date.now()} 確保每次抓到的都是該系統最新的日期
             const dateRes = await fetch(dirc_path + 'available_dates.json?t=' + Date.now());
             
             if (dateRes.ok) {
@@ -2736,27 +2735,42 @@ async function init(systemPath) {
                 availableDates = ["2026-04-20"]; 
             }
 
-            // 預設載入最後一天 (最新的一天)
+            // -----------------------------------------------------
+            // 🌟 核心修改：取得今天的實體日期，並尋找最適合的預設天
+            // -----------------------------------------------------
+            let todayObj = new Date();
+            let yyyy = todayObj.getFullYear();
+            let mm = String(todayObj.getMonth() + 1).padStart(2, '0');
+            let dd = String(todayObj.getDate()).padStart(2, '0');
+            let todayStr = `${yyyy}-${mm}-${dd}`;
+
+            // 預設先假定要載入清單的最後一天 (舊版邏輯兜底)
             currentDate = availableDates[availableDates.length - 1];
 
-            // ==========================================
-            // 🌟 偵錯版：強制更新日曆並印出狀態
-            // ==========================================
+            // 檢查今天是不是在我們抓好的清單裡面？
+            if (availableDates.includes(todayStr)) {
+                // 如果有今天，霸氣地直接設定為今天！
+                currentDate = todayStr;
+            } else {
+                // 如果沒有今天 (可能是舊資料，或未來還沒抓)
+                // 找出清單中「大於等於今天」的第一個日期
+                let futureDates = availableDates.filter(d => d >= todayStr);
+                if (futureDates.length > 0) {
+                    currentDate = futureDates[0]; // 載入最近的未來
+                }
+            }
+            // -----------------------------------------------------
 
-            // 🌟 這裡也同樣改用 getElementById
             const dateInput = document.getElementById('datePicker');
 
             if (dateInput) {
-
-                // 2. 清空數值與摧毀實體
                 dateInput.value = ""; 
                 if (dateInput._flatpickr) {
                     dateInput._flatpickr.destroy();
                 }
 
-                // 3. 重新建立
                 flatpickr(dateInput, {
-                    defaultDate: currentDate,
+                    defaultDate: currentDate, // 🌟 這裡就會吃我們剛才算出來的最佳日期
                     enable: availableDates, 
                     dateFormat: "Y-m-d",
                     disableMobile: "true",
@@ -2766,8 +2780,7 @@ async function init(systemPath) {
                 });
             }
 
-
-            // 啟動時先載入預設的第一張時刻表
+            // 啟動時載入我們算出來的這一天
             await loadTimetableData(currentDate);
 
         } else {
