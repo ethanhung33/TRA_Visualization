@@ -2548,6 +2548,9 @@ async function loadTimetableData(dateOrType) {
         hoveredStation = null;
         updateBottomPanel(null);
 
+        // 🌟 破案關鍵：切換平假日後，必須重新掃描新班表，生出專屬的車種按鈕！
+        buildUI();
+
         // 重新繪製新的一天的畫布
         redrawAll();
 

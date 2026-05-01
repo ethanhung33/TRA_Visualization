@@ -6,6 +6,8 @@
   
   "calendar_type": "WEEKEND_SELECT",
 
+  "time_stretch_ratio": 0.5,
+
   "view_presets": {
     "main_line": {
         "name": "南海本線",
