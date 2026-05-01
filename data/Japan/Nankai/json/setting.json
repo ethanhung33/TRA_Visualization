@@ -10,61 +10,66 @@
 
   "view_presets": {
     "main_line": {
-        "name": "南海本線",
+        "name": "南海本線 (難波-和歌山市)",
         "lines": ["main_line"],
         "view_type": "LINEAR",
         "button_color": ["#2196F3", "#1565C0"]
     },
     "airport_line": {
-        "name": "空港線",
-        "lines": ["airport_line"],
+        "name": "南海本線·空港線 (難波-関西空港)",
+        "lines": [
+            {"id": "main_line", "start": "難波", "end": "泉佐野"},
+            "airport_line"],
         "view_type": "LINEAR",
         "button_color": ["#FF5722", "#BF360C"]
     },
     "koya_line": {
-        "name": "高野線",
+        "name": "高野線 (難波-極楽橋)",
         "lines": ["koya_line"],
         "view_type": "LINEAR",
         "button_color": ["#9C27B0", "#7B1FA2"]
     },
     "shiomibashi_line": {
-        "name": "高野線 (汐見橋方面)",
+        "name": "高野線 (汐見橋方面) (汐見橋-岸里玉出)",
         "lines": ["shiomibashi_line"],
         "view_type": "LINEAR",
         "button_color": ["#E91E63", "#C2185B"]
     },
     "kada_line": {
-        "name": "加太線",
-        "lines": ["kada_line"],
+        "name": "加太線 (和歌山市-紀ノ川-加太)",
+        "lines": [
+            {"id": "main_line", "start": "和歌山市", "end": "紀ノ川"},
+            "kada_line"
+        ],
         "view_type": "LINEAR",
         "button_color": ["#FFC300", "#C79E00"]
     },
     "tanagawa_line": {
-        "name": "多奈川線",
+        "name": "多奈川線 (みさき公園-多奈川)",
         "lines": ["tanagawa_line"],
         "view_type": "LINEAR",
         "button_color": ["#33CCFF", "#1A1AFF"]
     },
     "takashinohama_line": {
-        "name": "高師浜線",
+        "name": "高師浜線 (羽衣-高師浜)",
         "lines": ["takashinohama_line"],
         "view_type": "LINEAR",
         "button_color": ["#581845", "#2E081F"]
     },
     "wakayamako_line": {
-        "name": "和歌山港線",
+        "name": "和歌山港線 (和歌山市-和歌山港)",
         "lines": ["wakayamako_line"],
         "view_type": "LINEAR",
         "button_color": ["#4CAF50", "#2E7D32"]
     },
     "semboku_line": {
-        "name": "泉北線",
+        "name": "泉北線 (中百舌鳥-和泉中央)",
         "lines": ["semboku_line"],
         "view_type": "LINEAR",
         "button_color": ["#2196F3", "#1565C0"]
     },
     "koyayama_ropeway": {
-        "name": "高野山ケーブル",
+        "name": "高野山ケーブル (極楽橋-高野山)",
         "lines": ["koyayama_ropeway"],
         "view_type": "LINEAR",
         "button_color": ["#FF5722", "#BF360C"]
