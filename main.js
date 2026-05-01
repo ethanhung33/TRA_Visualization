@@ -792,6 +792,8 @@ function handleRouteSwitch(newRoute) {
 
     // --- 7. 安全重繪最終畫面 ---
     redrawAll();
+
+    updateTrainTypeVisibility();
 }
 
 function buildUI() {
@@ -2672,6 +2674,44 @@ function initCanvas(canvasId, wrapperId) {
     ctx.scale(dpr, dpr);
 
     return { canvas, ctx };
+}
+
+// ==========================================
+// 🌟 動態過濾車種按鈕顯示
+// ==========================================
+function updateTrainTypeVisibility() {
+    // 1. 找出「目前畫布上」真正有在跑的車種清單
+    let visibleTypes = new Set();
+    
+    timetable.forEach(train => {
+        if (!train.segments) return;
+        
+        // ⚠️ 關鍵：請把 activeRoutes 替換成你程式中用來記錄「目前勾選路線」的變數！
+        // (例如 selectedLines, currentRoutes 等等)
+        let isOnActiveRoute = train.segments.some(seg => activeRoutes.has(seg.id));
+        
+        if (isOnActiveRoute) {
+            visibleTypes.add(train.type);
+        }
+    });
+
+    // 2. 掃描右側面板的所有車種按鈕，控制顯示或隱藏
+    // ⚠️ 關鍵：請把 '.train-type-btn' 替換成你車種按鈕實際的 class 或選擇器
+    let typeButtons = document.querySelectorAll('.train-type-btn'); 
+    
+    typeButtons.forEach(btn => {
+        // 假設你的車種名稱是直接寫在按鈕上的文字 (例如 "区間急行")
+        // 如果你有綁定 data-type，也可以改成 btn.getAttribute('data-type')
+        let typeName = btn.innerText.trim(); 
+        
+        if (visibleTypes.has(typeName)) {
+            // 在目前路線上 ➔ 顯示 (如果原本是 flex 或 grid 也可以對應修改)
+            btn.style.display = 'inline-block'; 
+        } else {
+            // 不在目前路線上 ➔ 隱藏
+            btn.style.display = 'none'; 
+        }
+    });
 }
 
 // ==========================================
