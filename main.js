@@ -2897,8 +2897,6 @@ async function init(systemPath) {
             }
             // -----------------------------------------------------
 
-            const dateInput = document.getElementById('datePicker');
-
             if (dateInput) {
                 dateInput.value = ""; 
                 if (dateInput._flatpickr) {
