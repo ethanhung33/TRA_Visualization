@@ -1,0 +1,196 @@
+{
+  "system_id": "Kintetsu",
+  "system_name": "近畿日本鉄道",
+  
+  "data_fetch_strategy": "WEEKEND_FILE",
+  
+  "calendar_type": "WEEKEND_SELECT",
+
+  "time_stretch_ratio": 0.2,
+
+  "show_train_id": false,
+
+  "view_presets": {
+    "osaka_nagoya": {
+        "name": "大阪線·名古屋線 (大阪難波-名古屋)",
+        "lines": [
+            "namba_line",
+            "osaka_line", 
+            "nagoya_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#2196F3", "#1565C0"]
+    },
+    "osaka_shima": {
+        "name": "大阪線・山田線・鳥羽線・志摩線 (大阪難波-賢島)",
+        "lines": [
+            "namba_line",
+            "osaka_line", 
+            "yamada_line", 
+            "toba_line", 
+            "shima_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#FF5722", "#BF360C"]
+    },
+    "osaka_nara": {
+        "name": "奈良線 (大阪難波-奈良)",
+        "lines": [
+            "namba_line",
+            {"id": "osaka_line", "start": "大阪上本町", "end": "布施"},
+            "nara_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#9C27B0", "#7B1FA2"]
+    },
+    "kyoto_kashihara": {
+        "name": "京都線·橿原線 (京都-橿原神宮前)",
+        "lines": [
+            "kyoto_line",
+            "kashihara_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#E91E63", "#C2185B"]
+    },
+    "minamiosaka_yoshino": {
+        "name": "南大阪線·吉野線 (大阪阿部野橋-吉野)",
+        "lines": [
+            "minamiosaka_line",
+            "yoshino_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#FFC300", "#C79E00"]
+    },
+    "keihanna": {
+        "name": "けいはんな線 (学研奈良登美ヶ丘-生駒)",
+        "lines": [
+            "keihanna_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#33CCFF", "#1A1AFF"]
+    },
+    "ikoma_line": {
+        "name": "生駒線 (生駒-王寺)",
+        "lines": [
+            "ikoma_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#581845", "#2E081F"]
+    },
+    "tenri": {
+        "name": "天理線 (天理-平端)",
+        "lines": [
+            "tenri_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#4CAF50", "#2E7D32"]
+    },
+    "tawaramoto": {
+        "name": "田原本線 (新王寺-西田原本)",
+        "lines": [
+            "tawaramoto_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#9E9E9E", "#616161"]
+    },
+    "shigi": {
+        "name": "信貴線 (河内山本-信貴山口)",
+        "lines": [
+            "shigi_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#795548", "#4E342E"]
+    },
+    "yunokuni": {
+        "name": "湯の山線 (近鉄四日市-湯の山温泉)",
+        "lines": [
+            "yunokuni_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#607D8B", "#263238"]
+    },
+    "suzuka": {
+        "name": "鈴鹿線 (伊勢若松-平田町)",
+        "lines": [
+            "suzuka_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#009688", "#004D40"]
+    },
+    "domyoji": {
+        "name": "道明寺線 (道明寺-柏原)",
+        "lines": [
+            "domyoji_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#CDDC39", "#827717"]
+    },
+    "nagano": {
+        "name": "長野線 (古市-河內長野)",
+        "lines": [
+            "nagano_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#3F51B5", "#1A237E"]
+    },
+    "gose": {
+        "name": "御所線 (尺土-近鉄御所)",
+        "lines": [
+            "gose_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#FF9800", "#E65100"]
+    },
+    "ikoma_cable": {
+        "name": "生駒鋼索線 (鳥居前-生駒山上)",
+        "lines": [
+            "ikoma_cable_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#9C27B0", "#7B1FA2"]
+    },
+    "nishishigi_cable": {
+        "name": "西信貴鋼索線 (信貴山口-高安山)",
+        "lines": [
+            "nishishigi_cable_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#E91E63", "#C2185B"]
+    }
+  },
+
+  "train_color": {
+    "普通": ["#607D8B", "#B0BEC5"],
+    "区間準急": ["#1E8449", "#82E0AA"],
+    "準急": ["#117A65", "#2ECC71"],
+    "急行": ["#D35400", "#F39C12"],
+    "快速急行": ["#C0392B", "#E74C3C"],
+    "特急": ["#922B21", "#EC7063"],
+    "特急（車いす対応車両）": ["#922B21", "#EC7063"],
+    "特急ビスタカー": ["#CA6F1E", "#EB984E"],
+    "特急アーバンライナー（車いす対応車両）": ["#9A7D0A", "#F4D03F"],
+    "特急伊勢志摩ライナー（車いす対応車両）": ["#D68910", "#F5B041"],
+    "観光特急あをによし（車いす対応車両・車内販売）": ["#512E5F", "#BB8FCE"],
+    "観光特急しまかぜ（大阪難波発着）（車いす対応車両・車内販売）": ["#1A5276", "#5DADE2"],
+    "特急ひのとり（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり6列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり7列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり8列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり9列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり10列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり11列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり12列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり13列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり14列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり15列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり16列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり17列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり18列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり19列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり20列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり308列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり310列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり620列車（車いす対応車両）": ["#7B241C", "#F1948A"],
+    "特急ひのとり621列車（車いす対応車両）": ["#7B241C", "#F1948A"]
+  }
+}

@@ -24,6 +24,11 @@
                     "id": "Nankai",
                     "chinese_name": "南海電鐵",
                     "is_active": true
+                },
+                {
+                    "id": "Kintetsu",
+                    "chinese_name": "近畿日本鐵道",
+                    "is_active": false
                 }
             ]
         }
