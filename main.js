@@ -2790,16 +2790,15 @@ function initCanvas(canvasId, wrapperId) {
 }
 
 // ==========================================
-// 🌟 動態過濾車種按鈕顯示 (終極精準雷達版)
-// 解決共用線路導致無關車種按鈕出現的問題
+// 🌟 動態過濾車種按鈕顯示 (嚴格檢驗停靠版)
+// 確保只停 1 站的轉乘車 (空港急行) 會顯示，但通過不停的車 (ラピート) 會隱藏
 // ==========================================
 function updateTrainTypeVisibility() {
     if (!settings || !settings.view_presets || !currentRouteView) return;
 
     let selectedSegments = settings.view_presets[currentRouteView].lines || [];
     
-    // 🌟 1. 取得當前視角「真正有畫出來的」所有車站 ID
-    // 利用你系統內建的智慧整理器，精準抓出畫布上的車站
+    // 1. 取得當前視角「真正有畫出來的」所有車站 ID
     let segmentsData = getProcessedSegments(selectedSegments, topology);
     let activeStationIds = new Set();
     
@@ -2809,31 +2808,36 @@ function updateTrainTypeVisibility() {
         });
     });
 
-    // 🌟 2. 找出「目前畫布上」真正有交集的車種清單
+    // 2. 找出「目前畫布上」真正有交集的車種清單
     let visibleTypes = new Set();
     
     timetable.forEach(train => {
         if (!train.segments) return;
         
-        let isOnActiveRoute = false;
+        let hasValidStop = false;
         
-        // 嚴格檢查：這班車經過的任何一個站，有在我們的畫布上嗎？
+        // 嚴格檢查這班車的每一個停靠紀錄
         for (let seg of train.segments) {
-            for (let st_id of seg.s) {
-                if (activeStationIds.has(String(st_id))) {
-                    isOnActiveRoute = true;
-                    break; // 只要有一個站踩在畫布上，就算有出現！
+            for (let i = 0; i < seg.s.length; i++) {
+                let st_id = String(seg.s[i]);
+                let v_status = seg.v[i]; // 取出這個站的停靠狀態
+                
+                // 🌟 核心升級：必須踩在畫布的車站上，而且「絕對不能是通過站 (v !== 2)」！
+                if (activeStationIds.has(st_id) && v_status !== 2) {
+                    hasValidStop = true;
+                    break; 
                 }
             }
-            if (isOnActiveRoute) break;
+            if (hasValidStop) break;
         }
         
-        if (isOnActiveRoute) {
+        // 只要有任何一個「實質停靠」，就放行！
+        if (hasValidStop) {
             visibleTypes.add(train.type);
         }
     });
 
-    // 🌟 3. 掃描右側面板的所有車種按鈕，控制顯示或隱藏
+    // 3. 掃描右側面板的所有車種按鈕，控制顯示或隱藏
     let typeButtons = document.querySelectorAll('#train-type-container .pill-btn'); 
     
     typeButtons.forEach(btn => {
