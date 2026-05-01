@@ -31,8 +31,6 @@ def clean_station_name(name):
 
 print("🚀 開始爬取南海里程 (基於你的版本進行對齊修正)...\n")
 
-# ... (前面的 WIKI_URLS 與 clean_station_name 函數維持不變)
-
 for line_name, url in WIKI_URLS.items():
     print(f"正在掃描: {line_name} ...")
     try:
@@ -45,28 +43,25 @@ for line_name, url in WIKI_URLS.items():
         is_cumulative = False
 
         for df in tables:
-            # 1. 壓平多層表頭 (完全模擬你 test.py 的邏輯)
+            # 1. 壓平多層表頭
             df.columns = ['_'.join(str(c) for c in col).strip() if isinstance(col, tuple) else str(col) for col in df.columns]
             df = df.loc[:, ~df.columns.duplicated()]
             
             col_list = df.columns.tolist()
 
-            # 🌟 策略 A：高野線 (主線) - 精準鎖定 Index 13
+            # 🌟 策略 A：高野線 (主線)
             if line_name == "高野線":
-                # 診斷顯示：這張表有 '営業キロ_難波 から' 這個特定欄位
                 if "営業キロ_難波 から" in col_list:
                     target_df = df
                     st_col = "駅名_駅名" 
-                    dist_col = "営業キロ_難波 から" # 🎯 鎖定此欄，岸里玉出才是 3.9km
+                    dist_col = "営業キロ_難波 から"
                     id_col = "駅番号_駅番号"
                     is_cumulative = True
                     break
 
-            # 🌟 策略 B：汐見橋支線 - 精準鎖定 Index 14
+            # 🌟 策略 B：汐見橋支線
             elif line_name == "高野線（汐見橋方面）":
-                # 診斷顯示：內容有 '芦原町' 且欄位名很單純
                 if "駅名" in col_list and df.stack().astype(str).str.contains('芦原町').any():
-                    # 額外檢查：確保這不是 Index 13 那張大表
                     if "営業キロ_難波 から" not in col_list:
                         target_df = df
                         st_col = "駅名"
@@ -91,13 +86,27 @@ for line_name, url in WIKI_URLS.items():
             print(f"  ❌ 找不到 {line_name} 的符合表格")
             continue
             
+        # ==========================================
+        # 🌟 加太線特判：從「紀ノ川」開始裁切 DataFrame
+        # ==========================================
+        if line_name == "加太線":
+            start_idx = None
+            for idx, row in target_df.iterrows():
+                if pd.notna(row[st_col]) and "紀ノ川" in clean_station_name(row[st_col]):
+                    start_idx = idx
+                    break
+            
+            if start_idx is not None:
+                # 一刀切！只保留紀ノ川以後的資料
+                target_df = target_df.loc[start_idx:]
+        # ==========================================
+
         count = 0
         current_cumulative_dist = 0.0 
         
         for index, row in target_df.iterrows():
             raw_st = row[st_col] 
             st_name = clean_station_name(raw_st)
-
             
             if pd.notna(st_name) and st_name != "nan":
                 if "駅名" in st_name or st_name == "": continue
@@ -143,9 +152,6 @@ for line_name, url in WIKI_URLS.items():
     except Exception as e:
         print(f"  ❌ 請求 {line_name} 失敗: {e}")
 
-# ... (JSON 儲存邏輯)
-# ... (後續儲存 topology.json 的邏輯)
-
 # ==========================================
 # 輸出 Topology JSON
 # ==========================================
@@ -167,6 +173,7 @@ for line_name, stations_dict in global_distances.items():
 script_dir = os.path.dirname(os.path.abspath(__file__))
 output_file = os.path.join(os.path.dirname(script_dir), "json", "topology.json")
 os.makedirs(os.path.dirname(output_file), exist_ok=True)
+
 with open(output_file, "w", encoding="utf-8") as f:
     json.dump(topology_data, f, ensure_ascii=False, indent=4)
 
