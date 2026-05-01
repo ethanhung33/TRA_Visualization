@@ -69,6 +69,12 @@
         "view_type": "LINEAR",
         "button_color": ["#009688", "#00796B"]
     },
+    "shalun": {
+        "name": "沙崙線 (台南-沙崙)",
+        "lines": ["shalun"],
+        "view_type": "LINEAR",
+        "button_color": ["#FF9800", "#F57C00"]
+    },
     "taichung-circular": {
         "name": "台中環線 (經由成追線)",
         "lines": [
