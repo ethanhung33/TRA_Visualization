@@ -45,9 +45,9 @@
         "view_type": "LINEAR",
         "button_color": ["#33CCFF", "#1A1AFF"]
     },
-    "takashino_line": {
+    "takashinohama_line": {
         "name": "高師浜線",
-        "lines": ["takashino_line"],
+        "lines": ["takashinohama_line"],
         "view_type": "LINEAR",
         "button_color": ["#581845", "#2E081F"]
     },
@@ -57,9 +57,9 @@
         "view_type": "LINEAR",
         "button_color": ["#4CAF50", "#2E7D32"]
     },
-    "senboku_line": {
+    "semboku_line": {
         "name": "泉北線",
-        "lines": ["senboku_line"],
+        "lines": ["semboku_line"],
         "view_type": "LINEAR",
         "button_color": ["#2196F3", "#1565C0"]
     },
