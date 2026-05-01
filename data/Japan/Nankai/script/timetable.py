@@ -285,6 +285,12 @@ def main():
                 del seg["_s_set"]
 
         if filtered_segments:
+            # ==========================================
+            # 🌟 終極修正：依照該線段的「第一個發車/抵達時間」進行排序
+            # 確保跨線列車 (如泉北線直通高野線) 的線段順序完美符合行車時間軸
+            # ==========================================
+            filtered_segments.sort(key=lambda seg: seg["t"][0] if seg["t"] else 9999)
+            
             trains_by_tx[tx]["segments"] = filtered_segments
 
     flat_json_output = list(trains_by_tx.values())
