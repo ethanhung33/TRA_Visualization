@@ -1913,10 +1913,22 @@ function updateBottomPanel(train) {
         trainColor = settings.train_color[trainType][isDarkMode ? 0 : 1]; 
     }
 
-    // 🌟 核心修改：如果設定檔明確寫了 false，就只顯示車次；否則顯示「車種 車次」
-    let displayTitle = (settings && settings.show_train_type === false) 
-        ? trainNo 
-        : `${trainType} ${trainNo}`;
+    // ==========================================
+    // 🌟 核心升級：支援 show_train_type 與 show_train_id 自由開關
+    // ==========================================
+    let showType = !(settings && settings.show_train_type === false); // 預設 true
+    let showId = !(settings && settings.show_train_id === false);     // 預設 true
+
+    let displayTitle = "";
+    if (showType && showId) {
+        displayTitle = `${trainType} ${trainNo}`;
+    } else if (showType && !showId) {
+        displayTitle = `${trainType}`; // 👈 南海模式：只顯示「区間急行」
+    } else if (!showType && showId) {
+        displayTitle = `${trainNo}`;   // 只顯示車次
+    } else {
+        displayTitle = "列車";         // 兩個都關掉的保底防呆
+    }
 
     // ==========================================
     // 🌟 新增：自動抓取這班車的「起點」與「終點」 (使用 getStationName 最終版)
@@ -2180,10 +2192,22 @@ function updateBottomPanelStation(st_id) {
             let timeStr = formatTimeDisplay(item.depTime);
             let displayDiff = Math.floor(item.diff); 
 
-            // 🌟 核心修改：卡片上的車種名稱也套用設定檔開關
-            let displayTitle = (settings && settings.show_train_type === false) 
-                ? item.trainNo 
-                : `${item.train.type} ${item.trainNo}`;
+            // ==========================================
+            // 🌟 核心升級：支援 show_train_type 與 show_train_id 自由開關
+            // ==========================================
+            let showType = !(settings && settings.show_train_type === false); // 預設 true
+            let showId = !(settings && settings.show_train_id === false);     // 預設 true
+
+            let displayTitle = "";
+            if (showType && showId) {
+                displayTitle = `${item.train.type} ${item.trainNo}`;
+            } else if (showType && !showId) {
+                displayTitle = `${item.train.type}`; // 👈 南海模式：只顯示「区間急行」
+            } else if (!showType && showId) {
+                displayTitle = `${item.trainNo}`;    // 只顯示車次
+            } else {
+                displayTitle = "列車";
+            }
 
             return `
                 <div onclick="window.triggerSelectTrain('${item.trainNo}')" 
