@@ -2678,14 +2678,18 @@ function initCanvas(canvasId, wrapperId) {
 }
 
 // ==========================================
-// 🌟 動態過濾車種按鈕顯示 (專屬修復版)
+// 🌟 動態過濾車種按鈕顯示 (台日雙棲防呆版)
 // ==========================================
 function updateTrainTypeVisibility() {
     if (!settings || !settings.view_presets || !currentRouteView) return;
 
-    // 1. 抓出「當前視角 (例如高野線)」所包含的所有「實體路線段 ID」
+    // 1. 抓出「當前視角」所包含的所有實體路線段
     let currentLines = settings.view_presets[currentRouteView].lines || [];
-    let activeLineIds = new Set(currentLines);
+    
+    // 🌟 核心修復：如果設定檔寫的是 Object (例如包含 start, end)，就只把 id 抽出來！
+    let activeLineIds = new Set(
+        currentLines.map(line => typeof line === 'string' ? line : line.id)
+    );
 
     // 2. 找出「目前畫布上」真正有在跑的車種清單
     let visibleTypes = new Set();
@@ -2693,7 +2697,7 @@ function updateTrainTypeVisibility() {
     timetable.forEach(train => {
         if (!train.segments) return;
         
-        // 檢查這班車的任何一段，是否有跑在當前視角的路線上
+        // 只要這班車的任何一個線段，有踩在目前視角的路線 ID 上，就判定為出現！
         let isOnActiveRoute = train.segments.some(seg => activeLineIds.has(seg.id));
         
         if (isOnActiveRoute) {
@@ -2707,14 +2711,55 @@ function updateTrainTypeVisibility() {
     typeButtons.forEach(btn => {
         let typeName = btn.innerText.trim(); 
         
-        // 特殊處理：全選 / 全部不選 的按鈕不要隱藏
+        // 🌟 防呆：全選 / 全部不選 的按鈕絕對不能被隱藏！
         if (btn.id === 'btn-all-trains' || btn.id === 'btn-no-trains') return;
 
         if (visibleTypes.has(typeName)) {
-            // 在目前路線上 ➔ 顯示
             btn.style.display = 'inline-block'; 
         } else {
-            // 不在目前路線上 ➔ 隱藏
+            btn.style.display = 'none'; 
+        }
+    });
+}// ==========================================
+// 🌟 動態過濾車種按鈕顯示 (台日雙棲防呆版)
+// ==========================================
+function updateTrainTypeVisibility() {
+    if (!settings || !settings.view_presets || !currentRouteView) return;
+
+    // 1. 抓出「當前視角」所包含的所有實體路線段
+    let currentLines = settings.view_presets[currentRouteView].lines || [];
+    
+    // 🌟 核心修復：如果設定檔寫的是 Object (例如包含 start, end)，就只把 id 抽出來！
+    let activeLineIds = new Set(
+        currentLines.map(line => typeof line === 'string' ? line : line.id)
+    );
+
+    // 2. 找出「目前畫布上」真正有在跑的車種清單
+    let visibleTypes = new Set();
+    
+    timetable.forEach(train => {
+        if (!train.segments) return;
+        
+        // 只要這班車的任何一個線段，有踩在目前視角的路線 ID 上，就判定為出現！
+        let isOnActiveRoute = train.segments.some(seg => activeLineIds.has(seg.id));
+        
+        if (isOnActiveRoute) {
+            visibleTypes.add(train.type);
+        }
+    });
+
+    // 3. 掃描右側面板的所有車種按鈕，控制顯示或隱藏
+    let typeButtons = document.querySelectorAll('#train-type-container .pill-btn'); 
+    
+    typeButtons.forEach(btn => {
+        let typeName = btn.innerText.trim(); 
+        
+        // 🌟 防呆：全選 / 全部不選 的按鈕絕對不能被隱藏！
+        if (btn.id === 'btn-all-trains' || btn.id === 'btn-no-trains') return;
+
+        if (visibleTypes.has(typeName)) {
+            btn.style.display = 'inline-block'; 
+        } else {
             btn.style.display = 'none'; 
         }
     });
@@ -2808,6 +2853,16 @@ async function init(systemPath) {
         // 🌟 3. 判斷時刻表載入策略 (智慧定位「今天」版)
         // ==========================================
         if (settings.data_fetch_strategy === "DAILY_FILE") {
+
+            // 🌟 【新增：系統切換大掃除】
+            // 1. 把日本系統留下來的「平假日按鈕」拔掉
+            const btnContainer = document.getElementById('weekendSelectContainer');
+            if (btnContainer) btnContainer.remove();
+            
+            // 2. 把被隱藏的「日曆輸入框」重新叫出來
+            const dateInput = document.getElementById('datePicker');
+            if (dateInput) dateInput.style.display = '';
+
             const dateRes = await fetch(dirc_path + 'available_dates.json?t=' + Date.now());
             
             if (dateRes.ok) {
