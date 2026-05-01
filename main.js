@@ -2790,83 +2790,56 @@ function initCanvas(canvasId, wrapperId) {
 }
 
 // ==========================================
-// 🌟 動態過濾車種按鈕顯示 (台日雙棲防呆版)
+// 🌟 動態過濾車種按鈕顯示 (終極精準雷達版)
+// 解決共用線路導致無關車種按鈕出現的問題
 // ==========================================
 function updateTrainTypeVisibility() {
     if (!settings || !settings.view_presets || !currentRouteView) return;
 
-    // 1. 抓出「當前視角」所包含的所有實體路線段
-    let currentLines = settings.view_presets[currentRouteView].lines || [];
+    let selectedSegments = settings.view_presets[currentRouteView].lines || [];
     
-    // 🌟 核心修復：如果設定檔寫的是 Object (例如包含 start, end)，就只把 id 抽出來！
-    let activeLineIds = new Set(
-        currentLines.map(line => typeof line === 'string' ? line : line.id)
-    );
+    // 🌟 1. 取得當前視角「真正有畫出來的」所有車站 ID
+    // 利用你系統內建的智慧整理器，精準抓出畫布上的車站
+    let segmentsData = getProcessedSegments(selectedSegments, topology);
+    let activeStationIds = new Set();
+    
+    segmentsData.forEach(data => {
+        data.stations.forEach(st => {
+            activeStationIds.add(String(st.id));
+        });
+    });
 
-    // 2. 找出「目前畫布上」真正有在跑的車種清單
+    // 🌟 2. 找出「目前畫布上」真正有交集的車種清單
     let visibleTypes = new Set();
     
     timetable.forEach(train => {
         if (!train.segments) return;
         
-        // 只要這班車的任何一個線段，有踩在目前視角的路線 ID 上，就判定為出現！
-        let isOnActiveRoute = train.segments.some(seg => activeLineIds.has(seg.id));
+        let isOnActiveRoute = false;
+        
+        // 嚴格檢查：這班車經過的任何一個站，有在我們的畫布上嗎？
+        for (let seg of train.segments) {
+            for (let st_id of seg.s) {
+                if (activeStationIds.has(String(st_id))) {
+                    isOnActiveRoute = true;
+                    break; // 只要有一個站踩在畫布上，就算有出現！
+                }
+            }
+            if (isOnActiveRoute) break;
+        }
         
         if (isOnActiveRoute) {
             visibleTypes.add(train.type);
         }
     });
 
-    // 3. 掃描右側面板的所有車種按鈕，控制顯示或隱藏
+    // 🌟 3. 掃描右側面板的所有車種按鈕，控制顯示或隱藏
     let typeButtons = document.querySelectorAll('#train-type-container .pill-btn'); 
     
     typeButtons.forEach(btn => {
         let typeName = btn.innerText.trim(); 
         
-        // 🌟 防呆：全選 / 全部不選 的按鈕絕對不能被隱藏！
-        if (btn.id === 'btn-all-trains' || btn.id === 'btn-no-trains') return;
-
-        if (visibleTypes.has(typeName)) {
-            btn.style.display = 'inline-block'; 
-        } else {
-            btn.style.display = 'none'; 
-        }
-    });
-}// ==========================================
-// 🌟 動態過濾車種按鈕顯示 (台日雙棲防呆版)
-// ==========================================
-function updateTrainTypeVisibility() {
-    if (!settings || !settings.view_presets || !currentRouteView) return;
-
-    // 1. 抓出「當前視角」所包含的所有實體路線段
-    let currentLines = settings.view_presets[currentRouteView].lines || [];
-    
-    // 🌟 核心修復：如果設定檔寫的是 Object (例如包含 start, end)，就只把 id 抽出來！
-    let activeLineIds = new Set(
-        currentLines.map(line => typeof line === 'string' ? line : line.id)
-    );
-
-    // 2. 找出「目前畫布上」真正有在跑的車種清單
-    let visibleTypes = new Set();
-    
-    timetable.forEach(train => {
-        if (!train.segments) return;
-        
-        // 只要這班車的任何一個線段，有踩在目前視角的路線 ID 上，就判定為出現！
-        let isOnActiveRoute = train.segments.some(seg => activeLineIds.has(seg.id));
-        
-        if (isOnActiveRoute) {
-            visibleTypes.add(train.type);
-        }
-    });
-
-    // 3. 掃描右側面板的所有車種按鈕，控制顯示或隱藏
-    let typeButtons = document.querySelectorAll('#train-type-container .pill-btn'); 
-    
-    typeButtons.forEach(btn => {
-        let typeName = btn.innerText.trim(); 
-        
-        // 🌟 防呆：全選 / 全部不選 的按鈕絕對不能被隱藏！
+        // 防呆：全選 / 全部不選 的按鈕絕對不能被隱藏
         if (btn.id === 'btn-all-trains' || btn.id === 'btn-no-trains') return;
 
         if (visibleTypes.has(typeName)) {
