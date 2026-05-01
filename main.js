@@ -2575,12 +2575,14 @@ async function loadTimetableData(dateOrType) {
         
         // 🌟 1. 先把跨線車的斷點縫合起來 (補上中百舌鳥等交會站)
         stitchTrainSegments(todayData, topology);
+
+        // 🌟 3. 最後進行時間顯示優化
+        optimizeTrainTimesForDisplay(todayData);
         
         // 🌟 2. 再去把各段路線中間漏掉的小站補齊
         interpolatePassingStations(todayData, topology);
         
-        // 🌟 3. 最後進行時間顯示優化
-        optimizeTrainTimesForDisplay(todayData);
+        
         
 
         // ------------------------------------------
@@ -2593,8 +2595,8 @@ async function loadTimetableData(dateOrType) {
             if (yestRes.ok) {
                 let rawYesterday = await yestRes.json();
                 stitchTrainSegments(rawYesterday, topology);
-                interpolatePassingStations(rawYesterday, topology);
                 optimizeTrainTimesForDisplay(rawYesterday);
+                interpolatePassingStations(rawYesterday, topology);
 
                 // 開始篩選並平移昨天的跨夜車
                 rawYesterday.forEach(train => {
@@ -3056,8 +3058,8 @@ async function init(systemPath) {
             // 模式 B：單一檔案模式 (維持你原本的寫法)
             const timeRes = await fetch(dirc_path + 'timetable/timetable_20260420.json');
             timetable = await timeRes.json();
-            interpolatePassingStations(timetable, topology);
             optimizeTrainTimesForDisplay(timetable);
+            interpolatePassingStations(timetable, topology);
         }
         // ==========================================
 
