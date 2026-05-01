@@ -792,6 +792,8 @@ function handleRouteSwitch(newRoute) {
 
     // --- 7. 安全重繪最終畫面 ---
     redrawAll();
+
+    updateTrainTypeVisibility();
 }
 
 function buildUI() {
@@ -1911,10 +1913,22 @@ function updateBottomPanel(train) {
         trainColor = settings.train_color[trainType][isDarkMode ? 0 : 1]; 
     }
 
-    // 🌟 核心修改：如果設定檔明確寫了 false，就只顯示車次；否則顯示「車種 車次」
-    let displayTitle = (settings && settings.show_train_type === false) 
-        ? trainNo 
-        : `${trainType} ${trainNo}`;
+    // ==========================================
+    // 🌟 核心升級：支援 show_train_type 與 show_train_id 自由開關
+    // ==========================================
+    let showType = !(settings && settings.show_train_type === false); // 預設 true
+    let showId = !(settings && settings.show_train_id === false);     // 預設 true
+
+    let displayTitle = "";
+    if (showType && showId) {
+        displayTitle = `${trainType} ${trainNo}`;
+    } else if (showType && !showId) {
+        displayTitle = `${trainType}`; // 👈 南海模式：只顯示「区間急行」
+    } else if (!showType && showId) {
+        displayTitle = `${trainNo}`;   // 只顯示車次
+    } else {
+        displayTitle = "列車";         // 兩個都關掉的保底防呆
+    }
 
     // ==========================================
     // 🌟 新增：自動抓取這班車的「起點」與「終點」 (使用 getStationName 最終版)
@@ -2178,10 +2192,22 @@ function updateBottomPanelStation(st_id) {
             let timeStr = formatTimeDisplay(item.depTime);
             let displayDiff = Math.floor(item.diff); 
 
-            // 🌟 核心修改：卡片上的車種名稱也套用設定檔開關
-            let displayTitle = (settings && settings.show_train_type === false) 
-                ? item.trainNo 
-                : `${item.train.type} ${item.trainNo}`;
+            // ==========================================
+            // 🌟 核心升級：支援 show_train_type 與 show_train_id 自由開關
+            // ==========================================
+            let showType = !(settings && settings.show_train_type === false); // 預設 true
+            let showId = !(settings && settings.show_train_id === false);     // 預設 true
+
+            let displayTitle = "";
+            if (showType && showId) {
+                displayTitle = `${item.train.type} ${item.trainNo}`;
+            } else if (showType && !showId) {
+                displayTitle = `${item.train.type}`; // 👈 南海模式：只顯示「区間急行」
+            } else if (!showType && showId) {
+                displayTitle = `${item.trainNo}`;    // 只顯示車次
+            } else {
+                displayTitle = "列車";
+            }
 
             return `
                 <div onclick="window.triggerSelectTrain('${item.trainNo}')" 
@@ -2315,6 +2341,84 @@ function interpolatePassingStations(timetable, topology) {
 }
 
 // ==========================================
+// 🌟 核心升級：跨線直通車的「交會站」自動縫合 (Stitch Segments)
+// 解決直通車因為不停靠交會站，導致畫布上路線斷裂未畫出邊界的問題
+// ==========================================
+function stitchTrainSegments(trainsData, topology) {
+    if (!topology || !topology.segments) return;
+
+    // 輔助函數：取得車站里程
+    const getStationKm = (stId, lineId) => {
+        let seg = topology.segments.find(s => String(s.id) === String(lineId));
+        if (seg) {
+            let st = seg.stations.find(s => String(s.id) === String(stId));
+            if (st && st.km !== undefined) return st.km;
+        }
+        return null;
+    };
+
+    trainsData.forEach(train => {
+        if (!train.segments || train.segments.length < 2) return;
+
+        // 確保線段依照時間排序 (避免前後接錯)
+        train.segments.sort((a, b) => {
+            let tA = (a.t && a.t[0] !== null && a.t[0] !== undefined) ? a.t[0] : 0;
+            let tB = (b.t && b.t[0] !== null && b.t[0] !== undefined) ? b.t[0] : 0;
+            return tA - tB;
+        });
+
+        for (let i = 0; i < train.segments.length - 1; i++) {
+            let segA = train.segments[i];
+            let segB = train.segments[i + 1];
+
+            let lastStA = segA.s[segA.s.length - 1];
+            let firstStB = segB.s[0];
+
+            // 如果兩段路線沒有完美接在一起 (有斷層)
+            if (String(lastStA) !== String(firstStB)) {
+                // 呼叫系統內建的交會站尋找器 (尋找 深井 與 堺東 的共同交集)
+                let juncId = getJunction(lastStA, firstStB);
+                
+                if (juncId && juncId !== lastStA && juncId !== firstStB) {
+                    let tA = segA.t[segA.t.length - 1]; // 上一段的最後發車時間
+                    let tB = segB.t[0];                 // 下一段的第一個到達時間
+
+                    let kmA = getStationKm(lastStA, segA.id);
+                    let kmJ_A = getStationKm(juncId, segA.id);
+                    
+                    let kmJ_B = getStationKm(juncId, segB.id);
+                    let kmB = getStationKm(firstStB, segB.id);
+
+                    if (kmA !== null && kmJ_A !== null && kmJ_B !== null && kmB !== null) {
+                        // 🧮 依「里程比例」計算通過交會站的時間
+                        let distA_J = Math.abs(kmJ_A - kmA);
+                        let distJ_B = Math.abs(kmB - kmJ_B);
+                        let totalDist = distA_J + distJ_B;
+
+                        let passTime = tA;
+                        if (totalDist > 0) {
+                            let tB_adj = tB < tA ? tB + 1440 : tB; // 跨夜處理
+                            passTime = tA + (tB_adj - tA) * (distA_J / totalDist);
+                            if (passTime >= 1440) passTime -= 1440;
+                        }
+
+                        // 1. 縫合到上一段 (泉北線) 的尾巴
+                        segA.s.push(juncId);
+                        segA.t.push(passTime, passTime);
+                        segA.v.push(2); // 2 代表通過
+
+                        // 2. 縫合到下一段 (高野線) 的開頭
+                        segB.s.unshift(juncId);
+                        segB.t.unshift(passTime, passTime);
+                        segB.v.unshift(2); // 2 代表通過
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ==========================================
 // 🎨 視覺優化濾鏡與時間校正
 // ==========================================
 function optimizeTrainTimesForDisplay(trainsData) {
@@ -2325,16 +2429,33 @@ function optimizeTrainTimesForDisplay(trainsData) {
             // 🌟 1. 跨夜防呆：確保時間絕對不會「倒流」
             let lastT = seg.t[0];
             for (let i = 1; i < seg.t.length; i++) {
-                // 如果時間突然往回掉 (例如 1435 分掉到 5 分)
                 if (seg.t[i] < lastT && (lastT - seg.t[i]) > 300) { 
-                    seg.t[i] += 1440; // 把隔天的時間強制加上 24 小時
+                    seg.t[i] += 1440; 
                 }
-                lastT = Math.max(lastT, seg.t[i]); // 更新進度水位線
+                lastT = Math.max(lastT, seg.t[i]); 
             }
 
-            // 🌟 2. 撐開停靠站的水平線
+            // ==========================================
+            // 🌟 2. 新增：防止 0 分鐘瞬移 (垂直線掉落)
+            // ==========================================
+            for (let i = 2; i < seg.t.length; i += 2) {
+                let prevDep = seg.t[i - 1]; // 上一站發車時間
+                let currArr = seg.t[i];     // 這站到達時間
+                
+                // 如果這站的到達時間 <= 上一站的發車時間 (行車時間為 0)
+                if (currArr <= prevDep) {
+                    // 強制給予 0.5 分鐘的物理行駛時間，產生合理的斜率
+                    seg.t[i] = prevDep + 0.5; 
+                    
+                    // 如果到達時間被往後推，擠到了這站原本的發車時間，發車時間也要順延
+                    if (seg.t[i + 1] < seg.t[i]) {
+                        seg.t[i + 1] = seg.t[i];
+                    }
+                }
+            }
+
+            // 🌟 3. 撐開停靠站的水平線 (維持不變)
             for (let i = 0; i < seg.t.length; i += 2) {
-                // (順便修復一個小 Bug：v 的長度是 t 的一半，所以索引要是 i / 2)
                 if (seg.t[i] === seg.t[i + 1] && seg.v[i / 2] !== 2) {
                     seg.t[i + 1] += 0.5; 
                 }
@@ -2437,42 +2558,69 @@ window.triggerSelectStation = function(st_id) {
 };
 
 // ==========================================
-// 🌟 載入特定日期時刻表 (包含跨夜殘影合成技術)
+// 🌟 載入時刻表 (完美融合雙軌策略 + 跨夜殘影合成技術)
 // ==========================================
-async function loadTimetableData(dateString) {
+async function loadTimetableData(dateOrType) {
     try {
         let dirc_path = currentSystemPath + "json/"; 
-        let formattedDate = dateString.replace(/-/g, ''); 
-        
+        let todayFileUrl = '';
+        let yestFileUrl = '';
+
+        // ------------------------------------------
+        // 0. 根據策略，決定「今天」與「昨天」的檔案路徑
+        // ------------------------------------------
+        if (settings.data_fetch_strategy === "DAILY_FILE") {
+            // 台鐵/高鐵模式 (嚴格日期)
+            let formattedDate = dateOrType.replace(/-/g, ''); 
+            todayFileUrl = `${dirc_path}timetable/timetable_${formattedDate}.json`;
+
+            // 自動計算昨天的實體日期
+            let dateObj = new Date(dateOrType);
+            dateObj.setDate(dateObj.getDate() - 1); 
+            let yyyy = dateObj.getFullYear();
+            let mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            let dd = String(dateObj.getDate()).padStart(2, '0');
+            yestFileUrl = `${dirc_path}timetable/timetable_${yyyy}${mm}${dd}.json`;
+            
+        } else if (settings.data_fetch_strategy === "WEEKEND_FILE") {
+            // 私鐵模式 (平日/土休日)
+            todayFileUrl = `${dirc_path}timetable/timetable_${dateOrType}.json`;
+            // 平假日模式下，昨天的殘影直接借用同一份班表來推算最為合理
+            yestFileUrl = todayFileUrl; 
+        }
+
         // ------------------------------------------
         // 1. 載入「今天」的正班車時刻表
         // ------------------------------------------
-        const timeRes = await fetch(`${dirc_path}timetable/timetable_${formattedDate}.json`);
-        if (!timeRes.ok) throw new Error(`找不到檔案: timetable_${formattedDate}.json`);
+        const timeRes = await fetch(todayFileUrl);
+        if (!timeRes.ok) throw new Error(`找不到檔案: ${todayFileUrl}`);
 
         let todayData = await timeRes.json();
-        interpolatePassingStations(todayData, topology);
+        
+        // 🌟 1. 先把跨線車的斷點縫合起來 (補上中百舌鳥等交會站)
+        stitchTrainSegments(todayData, topology);
+
+        // 🌟 3. 最後進行時間顯示優化
         optimizeTrainTimesForDisplay(todayData);
+        
+        // 🌟 2. 再去把各段路線中間漏掉的小站補齊
+        interpolatePassingStations(todayData, topology);
+        
+        
+        
 
         // ------------------------------------------
         // 2. 🌟 載入「昨天」的時刻表 (捕捉跨夜車殘影)
         // ------------------------------------------
         let yesterdayData = [];
         try {
-            // 自動計算昨天的日期字串
-            let dateObj = new Date(dateString);
-            dateObj.setDate(dateObj.getDate() - 1); 
-            let yyyy = dateObj.getFullYear();
-            let mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-            let dd = String(dateObj.getDate()).padStart(2, '0');
-            let yestFormatted = `${yyyy}${mm}${dd}`;
-
-            const yestRes = await fetch(`${dirc_path}timetable/timetable_${yestFormatted}.json`);
+            const yestRes = await fetch(yestFileUrl);
             
             if (yestRes.ok) {
                 let rawYesterday = await yestRes.json();
+                stitchTrainSegments(rawYesterday, topology);
+                optimizeTrainTimesForDisplay(rawYesterday);
                 interpolatePassingStations(rawYesterday, topology);
-                optimizeTrainTimesForDisplay(rawYesterday); // 讓昨天的跨夜車時間先加上 1440
 
                 // 開始篩選並平移昨天的跨夜車
                 rawYesterday.forEach(train => {
@@ -2505,8 +2653,7 @@ async function loadTimetableData(dateString) {
         // 3. 雙劍合璧：將今天與昨天的跨夜殘影合併
         // ------------------------------------------
         timetable = todayData.concat(yesterdayData);
-
-        currentDate = dateString; 
+        currentDate = dateOrType; 
 
         // 大掃除
         selectedTrain = null;
@@ -2515,11 +2662,15 @@ async function loadTimetableData(dateString) {
         hoveredStation = null;
         updateBottomPanel(null);
 
+        // 🌟 破案關鍵：切換平假日後，必須重新掃描新班表，生出專屬的車種按鈕！
+        buildUI();
+        updateTrainTypeVisibility();
+
         // 重新繪製新的一天的畫布
         redrawAll();
 
     } catch (e) {
-        alert(`無法載入 ${dateString} 的時刻表！\n可能是該日期的資料尚未爬取。`);
+        alert(`無法載入時刻表 (${dateOrType})！\n可能是資料尚未爬取。`);
         console.error(e);
     }
 }
@@ -2639,6 +2790,71 @@ function initCanvas(canvasId, wrapperId) {
 }
 
 // ==========================================
+// 🌟 動態過濾車種按鈕顯示 (嚴格檢驗停靠版)
+// 確保只停 1 站的轉乘車 (空港急行) 會顯示，但通過不停的車 (ラピート) 會隱藏
+// ==========================================
+function updateTrainTypeVisibility() {
+    if (!settings || !settings.view_presets || !currentRouteView) return;
+
+    let selectedSegments = settings.view_presets[currentRouteView].lines || [];
+    
+    // 1. 取得當前視角「真正有畫出來的」所有車站 ID
+    let segmentsData = getProcessedSegments(selectedSegments, topology);
+    let activeStationIds = new Set();
+    
+    segmentsData.forEach(data => {
+        data.stations.forEach(st => {
+            activeStationIds.add(String(st.id));
+        });
+    });
+
+    // 2. 找出「目前畫布上」真正有交集的車種清單
+    let visibleTypes = new Set();
+    
+    timetable.forEach(train => {
+        if (!train.segments) return;
+        
+        let hasValidStop = false;
+        
+        // 嚴格檢查這班車的每一個停靠紀錄
+        for (let seg of train.segments) {
+            for (let i = 0; i < seg.s.length; i++) {
+                let st_id = String(seg.s[i]);
+                let v_status = seg.v[i]; // 取出這個站的停靠狀態
+                
+                // 🌟 核心升級：必須踩在畫布的車站上，而且「絕對不能是通過站 (v !== 2)」！
+                if (activeStationIds.has(st_id) && v_status !== 2) {
+                    hasValidStop = true;
+                    break; 
+                }
+            }
+            if (hasValidStop) break;
+        }
+        
+        // 只要有任何一個「實質停靠」，就放行！
+        if (hasValidStop) {
+            visibleTypes.add(train.type);
+        }
+    });
+
+    // 3. 掃描右側面板的所有車種按鈕，控制顯示或隱藏
+    let typeButtons = document.querySelectorAll('#train-type-container .pill-btn'); 
+    
+    typeButtons.forEach(btn => {
+        let typeName = btn.innerText.trim(); 
+        
+        // 防呆：全選 / 全部不選 的按鈕絕對不能被隱藏
+        if (btn.id === 'btn-all-trains' || btn.id === 'btn-no-trains') return;
+
+        if (visibleTypes.has(typeName)) {
+            btn.style.display = 'inline-block'; 
+        } else {
+            btn.style.display = 'none'; 
+        }
+    });
+}
+
+// ==========================================
 // 系統啟動點 (init)
 // ==========================================
 async function init(systemPath) {
@@ -2726,6 +2942,15 @@ async function init(systemPath) {
         // 🌟 3. 判斷時刻表載入策略 (智慧定位「今天」版)
         // ==========================================
         if (settings.data_fetch_strategy === "DAILY_FILE") {
+
+            // 🌟 【新增：系統切換大掃除】
+            // 1. 把日本系統留下來的「平假日按鈕」拔掉
+            const btnContainer = document.getElementById('weekendSelectContainer');
+            if (btnContainer) btnContainer.remove();
+            
+            // 2. 把被隱藏的「日曆輸入框」重新叫出來
+            if (dateInput) dateInput.style.display = '';
+
             const dateRes = await fetch(dirc_path + 'available_dates.json?t=' + Date.now());
             
             if (dateRes.ok) {
@@ -2761,8 +2986,6 @@ async function init(systemPath) {
             }
             // -----------------------------------------------------
 
-            const dateInput = document.getElementById('datePicker');
-
             if (dateInput) {
                 dateInput.value = ""; 
                 if (dateInput._flatpickr) {
@@ -2783,12 +3006,61 @@ async function init(systemPath) {
             // 啟動時載入我們算出來的這一天
             await loadTimetableData(currentDate);
 
+        } else if (settings.data_fetch_strategy === "WEEKEND_FILE") {
+            // 策略：平假日模式 (Nankai 等私鐵使用)
+            
+            // 1. 隱藏原本的日曆輸入框
+            if (dateInput) {
+                dateInput.style.display = 'none';
+                if (dateInput._flatpickr) dateInput._flatpickr.destroy(); // 銷毀日曆實例
+            }
+
+            // 2. 建立平假日切換按鈕 UI
+            let btnContainer = document.getElementById('weekendSelectContainer');
+            if (!btnContainer) {
+                btnContainer = document.createElement('div');
+                btnContainer.id = 'weekendSelectContainer';
+                btnContainer.className = 'weekend-btn-group';
+                // 將按鈕群組安插在原本日曆的旁邊或取代它的位置
+                dateInput.parentNode.insertBefore(btnContainer, dateInput.nextSibling);
+            }
+            btnContainer.innerHTML = ''; // 清空重建
+
+            const btnWeekday = document.createElement('button');
+            btnWeekday.innerText = '平日';
+            btnWeekday.className = 'weekend-btn active'; // 預設平日
+            
+            const btnHoliday = document.createElement('button');
+            btnHoliday.innerText = '土休日';
+            btnHoliday.className = 'weekend-btn';
+
+            // 3. 綁定按鈕點擊事件
+            btnWeekday.onclick = async () => {
+                btnWeekday.classList.add('active');
+                btnHoliday.classList.remove('active');
+                currentDate = 'weekday'; // 更新全域變數狀態
+                await loadTimetableData('weekday');
+            };
+
+            btnHoliday.onclick = async () => {
+                btnHoliday.classList.add('active');
+                btnWeekday.classList.remove('active');
+                currentDate = 'holiday'; // 更新全域變數狀態
+                await loadTimetableData('holiday');
+            };
+
+            btnContainer.appendChild(btnWeekday);
+            btnContainer.appendChild(btnHoliday);
+
+            // 4. 啟動時預設載入平日時刻表
+            currentDate = 'weekday';
+            await loadTimetableData('weekday');
         } else {
             // 模式 B：單一檔案模式 (維持你原本的寫法)
             const timeRes = await fetch(dirc_path + 'timetable/timetable_20260420.json');
             timetable = await timeRes.json();
-            interpolatePassingStations(timetable, topology);
             optimizeTrainTimesForDisplay(timetable);
+            interpolatePassingStations(timetable, topology);
         }
         // ==========================================
 

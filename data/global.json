@@ -22,8 +22,8 @@
             "systems": [
                 {
                     "id": "Nankai",
-                    "chinese_name": "南海鐵道",
-                    "is_active": false
+                    "chinese_name": "南海電鐵",
+                    "is_active": true
                 }
             ]
         }

@@ -635,3 +635,51 @@ body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
     background-color: rgba(100, 180, 255, 0.2) !important;
     border-radius: 8px !important;
 }
+
+/* =======================================================
+   ✨ 平假日切換按鈕樣式 (WEEKEND_SELECT)
+   ======================================================= */
+.weekend-btn-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.weekend-btn {
+    background-color: transparent;
+    color: #aaaaaa;
+    border: 1px solid #555555;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.weekend-btn:hover {
+    border-color: #888888;
+    color: #ffffff;
+}
+
+/* 被選中的狀態 */
+.weekend-btn.active {
+    background-color: rgba(100, 180, 255, 0.2);
+    border-color: #64b4ff;
+    color: #64b4ff;
+    font-weight: bold;
+}
+
+/* 淺色模式適配 */
+body.light-mode .weekend-btn {
+    color: #555555;
+    border-color: #cccccc;
+}
+body.light-mode .weekend-btn:hover {
+    border-color: #888888;
+    color: #000000;
+}
+body.light-mode .weekend-btn.active {
+    background-color: rgba(0, 100, 200, 0.1);
+    border-color: #0064c8;
+    color: #0064c8;
+}
