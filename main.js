@@ -2552,6 +2552,7 @@ async function loadTimetableData(dateOrType) {
 
         // 🌟 破案關鍵：切換平假日後，必須重新掃描新班表，生出專屬的車種按鈕！
         buildUI();
+        updateTrainTypeVisibility();
 
         // 重新繪製新的一天的畫布
         redrawAll();
@@ -2677,35 +2678,40 @@ function initCanvas(canvasId, wrapperId) {
 }
 
 // ==========================================
-// 🌟 動態過濾車種按鈕顯示
+// 🌟 動態過濾車種按鈕顯示 (專屬修復版)
 // ==========================================
 function updateTrainTypeVisibility() {
-    // 1. 找出「目前畫布上」真正有在跑的車種清單
+    if (!settings || !settings.view_presets || !currentRouteView) return;
+
+    // 1. 抓出「當前視角 (例如高野線)」所包含的所有「實體路線段 ID」
+    let currentLines = settings.view_presets[currentRouteView].lines || [];
+    let activeLineIds = new Set(currentLines);
+
+    // 2. 找出「目前畫布上」真正有在跑的車種清單
     let visibleTypes = new Set();
     
     timetable.forEach(train => {
         if (!train.segments) return;
         
-        // ⚠️ 關鍵：請把 activeRoutes 替換成你程式中用來記錄「目前勾選路線」的變數！
-        // (例如 selectedLines, currentRoutes 等等)
-        let isOnActiveRoute = train.segments.some(seg => activeRoutes.has(seg.id));
+        // 檢查這班車的任何一段，是否有跑在當前視角的路線上
+        let isOnActiveRoute = train.segments.some(seg => activeLineIds.has(seg.id));
         
         if (isOnActiveRoute) {
             visibleTypes.add(train.type);
         }
     });
 
-    // 2. 掃描右側面板的所有車種按鈕，控制顯示或隱藏
-    // ⚠️ 關鍵：請把 '.train-type-btn' 替換成你車種按鈕實際的 class 或選擇器
-    let typeButtons = document.querySelectorAll('.train-type-btn'); 
+    // 3. 掃描右側面板的所有車種按鈕，控制顯示或隱藏
+    let typeButtons = document.querySelectorAll('#train-type-container .pill-btn'); 
     
     typeButtons.forEach(btn => {
-        // 假設你的車種名稱是直接寫在按鈕上的文字 (例如 "区間急行")
-        // 如果你有綁定 data-type，也可以改成 btn.getAttribute('data-type')
         let typeName = btn.innerText.trim(); 
         
+        // 特殊處理：全選 / 全部不選 的按鈕不要隱藏
+        if (btn.id === 'btn-all-trains' || btn.id === 'btn-no-trains') return;
+
         if (visibleTypes.has(typeName)) {
-            // 在目前路線上 ➔ 顯示 (如果原本是 flex 或 grid 也可以對應修改)
+            // 在目前路線上 ➔ 顯示
             btn.style.display = 'inline-block'; 
         } else {
             // 不在目前路線上 ➔ 隱藏
