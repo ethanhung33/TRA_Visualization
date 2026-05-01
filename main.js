@@ -2860,7 +2860,6 @@ async function init(systemPath) {
             if (btnContainer) btnContainer.remove();
             
             // 2. 把被隱藏的「日曆輸入框」重新叫出來
-            const dateInput = document.getElementById('datePicker');
             if (dateInput) dateInput.style.display = '';
 
             const dateRes = await fetch(dirc_path + 'available_dates.json?t=' + Date.now());
