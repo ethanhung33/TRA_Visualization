@@ -2317,6 +2317,84 @@ function interpolatePassingStations(timetable, topology) {
 }
 
 // ==========================================
+// 🌟 核心升級：跨線直通車的「交會站」自動縫合 (Stitch Segments)
+// 解決直通車因為不停靠交會站，導致畫布上路線斷裂未畫出邊界的問題
+// ==========================================
+function stitchTrainSegments(trainsData, topology) {
+    if (!topology || !topology.segments) return;
+
+    // 輔助函數：取得車站里程
+    const getStationKm = (stId, lineId) => {
+        let seg = topology.segments.find(s => String(s.id) === String(lineId));
+        if (seg) {
+            let st = seg.stations.find(s => String(s.id) === String(stId));
+            if (st && st.km !== undefined) return st.km;
+        }
+        return null;
+    };
+
+    trainsData.forEach(train => {
+        if (!train.segments || train.segments.length < 2) return;
+
+        // 確保線段依照時間排序 (避免前後接錯)
+        train.segments.sort((a, b) => {
+            let tA = (a.t && a.t[0] !== null && a.t[0] !== undefined) ? a.t[0] : 0;
+            let tB = (b.t && b.t[0] !== null && b.t[0] !== undefined) ? b.t[0] : 0;
+            return tA - tB;
+        });
+
+        for (let i = 0; i < train.segments.length - 1; i++) {
+            let segA = train.segments[i];
+            let segB = train.segments[i + 1];
+
+            let lastStA = segA.s[segA.s.length - 1];
+            let firstStB = segB.s[0];
+
+            // 如果兩段路線沒有完美接在一起 (有斷層)
+            if (String(lastStA) !== String(firstStB)) {
+                // 呼叫系統內建的交會站尋找器 (尋找 深井 與 堺東 的共同交集)
+                let juncId = getJunction(lastStA, firstStB);
+                
+                if (juncId && juncId !== lastStA && juncId !== firstStB) {
+                    let tA = segA.t[segA.t.length - 1]; // 上一段的最後發車時間
+                    let tB = segB.t[0];                 // 下一段的第一個到達時間
+
+                    let kmA = getStationKm(lastStA, segA.id);
+                    let kmJ_A = getStationKm(juncId, segA.id);
+                    
+                    let kmJ_B = getStationKm(juncId, segB.id);
+                    let kmB = getStationKm(firstStB, segB.id);
+
+                    if (kmA !== null && kmJ_A !== null && kmJ_B !== null && kmB !== null) {
+                        // 🧮 依「里程比例」計算通過交會站的時間
+                        let distA_J = Math.abs(kmJ_A - kmA);
+                        let distJ_B = Math.abs(kmB - kmJ_B);
+                        let totalDist = distA_J + distJ_B;
+
+                        let passTime = tA;
+                        if (totalDist > 0) {
+                            let tB_adj = tB < tA ? tB + 1440 : tB; // 跨夜處理
+                            passTime = tA + (tB_adj - tA) * (distA_J / totalDist);
+                            if (passTime >= 1440) passTime -= 1440;
+                        }
+
+                        // 1. 縫合到上一段 (泉北線) 的尾巴
+                        segA.s.push(juncId);
+                        segA.t.push(passTime, passTime);
+                        segA.v.push(2); // 2 代表通過
+
+                        // 2. 縫合到下一段 (高野線) 的開頭
+                        segB.s.unshift(juncId);
+                        segB.t.unshift(passTime, passTime);
+                        segB.v.unshift(2); // 2 代表通過
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ==========================================
 // 🎨 視覺優化濾鏡與時間校正
 // ==========================================
 function optimizeTrainTimesForDisplay(trainsData) {
@@ -2494,8 +2572,15 @@ async function loadTimetableData(dateOrType) {
         if (!timeRes.ok) throw new Error(`找不到檔案: ${todayFileUrl}`);
 
         let todayData = await timeRes.json();
-        optimizeTrainTimesForDisplay(todayData);
+        
+        // 🌟 1. 先把跨線車的斷點縫合起來 (補上中百舌鳥等交會站)
+        stitchTrainSegments(todayData, topology);
+        
+        // 🌟 2. 再去把各段路線中間漏掉的小站補齊
         interpolatePassingStations(todayData, topology);
+        
+        // 🌟 3. 最後進行時間顯示優化
+        optimizeTrainTimesForDisplay(todayData);
         
 
         // ------------------------------------------
@@ -2507,6 +2592,7 @@ async function loadTimetableData(dateOrType) {
             
             if (yestRes.ok) {
                 let rawYesterday = await yestRes.json();
+                stitchTrainSegments(rawYesterday, topology);
                 interpolatePassingStations(rawYesterday, topology);
                 optimizeTrainTimesForDisplay(rawYesterday);
 
