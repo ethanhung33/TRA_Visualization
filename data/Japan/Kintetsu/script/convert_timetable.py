@@ -45,12 +45,40 @@ EXTERNAL_NETWORKS = {
 MISSING_STATIONS = set()
 
 def clean_station_name(name):
+    """
+    清理站名：
+    1. 提早攔截：如果是免責聲明備註或未通車車站，直接回傳 "SKIP_STATION"。
+    2. 特判保護：防止「九条（阪神）」的括號被誤刪，導致與近鐵九条(B29)撞名。
+    3. 清洗多餘的備註與空白，並套用 STATION_MAPPING。
+    """
+    # ==========================================
+    # 🛑 1. 提早攔截 (Early Exit)
+    # ==========================================
+    # 過濾超長免責聲明與備註
+    if "ご覧ください" in name or "変更" in name:
+        return "SKIP_STATION"
+    
+    # 過濾未通車的萬博會場幽靈車站
+    if name == "夢洲":
+        return "SKIP_STATION"
+        
+    # ==========================================
+    # 🛡️ 2. 特判保護 (Protection)
+    # ==========================================
+    # 防止阪神的九条被切掉括號，變成近鐵橿原線的九条(B29)
+    if "九条（阪神）" in name or "九条(阪神)" in name:
+        return "九条（阪神）"
+
+    # ==========================================
+    # 🧹 3. 正規清洗與翻譯 (Cleaning & Mapping)
+    # ==========================================
     name = re.sub(r'\[.*?\]', '', name)
     name = re.sub(r'（.*?）', '', name)
     name = name.replace('\u3000', '').replace(' ', '')
     if name.endswith("駅"):
         name = name[:-1]
     name = name.strip()
+    
     return STATION_MAPPING.get(name, name)
 
 def clean_train_type(raw_type):
@@ -96,18 +124,17 @@ def build_segment_dict(seg_id, stops, station_map):
     v_arr = []
     
     for i, stop in enumerate(stops):
-        st_name = clean_station_name(stop["station"])
+        # ✅ 直接讀取剛剛存入的乾淨站名
+        st_name = stop["clean_name"]
         st_id = station_map.get(st_name, {}).get("id", "Unknown")
 
         arr = parse_time(stop.get("arr"))
         dep = parse_time(stop.get("dep"))
         
-        # 補齊缺少的時間 (例如始發站只有出發時間)
         if arr is None and dep is not None: arr = dep
         if dep is None and arr is not None: dep = arr
         if arr is None and dep is None: arr, dep = 0, 0
         
-        # 標記起訖點狀態
         if i == 0: v = 0
         elif i == len(stops) - 1: v = 3
         else: v = 1
@@ -122,25 +149,42 @@ def format_nankai_style(raw_train, station_map, train_idx, day_type):
     stop_data = raw_train.get("data", [])
     if not stop_data: return None
 
-    # 過濾外網車站
+    # ==========================================
+    # 🧹 階段 A：全面清洗站名與過濾
+    # ==========================================
     valid_stops = []
     for stop in stop_data:
+        # 1. 統一清洗站名
         st_name = clean_station_name(stop["station"])
+        
+        # 2. 攔截魔術字串
+        if st_name == "SKIP_STATION":
+            continue
+            
+        # 3. 把清洗好的乾淨站名「覆蓋」回去，這樣後面的函式就不用再清一次了！
+        stop["clean_name"] = st_name
+
+        # 4. 判斷是否為近鐵自家人
         if st_name in station_map:
             valid_stops.append(stop)
         elif st_name not in EXTERNAL_NETWORKS and st_name not in MISSING_STATIONS:
+            # 這裡只會記錄真正的未知外網站名
             MISSING_STATIONS.add(st_name)
 
     if len(valid_stops) < 2:
         return None
 
+    # ==========================================
+    # 🧩 階段 B：打包 Segments
+    # ==========================================
     segments = []
     current_segment_stops = []
     current_possible_lines = set()
 
     for i in range(len(valid_stops)):
         stop = valid_stops[i]
-        st_name = clean_station_name(stop["station"])
+        # ✅ 直接使用我們剛剛準備好的 clean_name
+        st_name = stop["clean_name"] 
         st_lines = station_map.get(st_name, {}).get("lines", set())
         
         if not current_segment_stops:
@@ -156,7 +200,7 @@ def format_nankai_style(raw_train, station_map, train_idx, day_type):
                 segments.append(build_segment_dict(seg_id, current_segment_stops, station_map))
                 
                 last_stop = current_segment_stops[-1]
-                last_st_name = clean_station_name(last_stop["station"])
+                last_st_name = last_stop["clean_name"] # ✅ 直接使用
                 last_st_lines = station_map.get(last_st_name, {}).get("lines", set())
                 
                 current_segment_stops = [last_stop, stop]
@@ -168,7 +212,6 @@ def format_nankai_style(raw_train, station_map, train_idx, day_type):
         seg_id = list(current_possible_lines)[0] if current_possible_lines else "unknown_line"
         segments.append(build_segment_dict(seg_id, current_segment_stops, station_map))
 
-    # 生成車次編號，加上 H (Holiday) 或 W (Weekday) 方便識別
     prefix = "W" if "平日" in day_type else "H"
     train_no = raw_train.get("no", f"1-{prefix}{train_idx:04d}")
 
