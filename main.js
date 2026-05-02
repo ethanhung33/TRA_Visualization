@@ -1048,6 +1048,115 @@ function buildUI() {
 }
 
 // ==========================================
+// 🌟 搜尋功能整合 (車站與車次即時比對)
+// ==========================================
+let isSearchBound = false;
+
+function setupSearch() {
+    if (isSearchBound) return;
+    isSearchBound = true;
+
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    if (!searchInput || !searchResults) return;
+
+    // 點擊空白處時自動收起搜尋結果
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            searchResults.style.display = 'none';
+        }
+    });
+
+    // 監聽輸入事件
+    searchInput.addEventListener('input', (e) => {
+        const keyword = e.target.value.trim().toLowerCase();
+        
+        // 如果清空輸入框，就隱藏結果
+        if (keyword.length === 0) {
+            searchResults.style.display = 'none';
+            return;
+        }
+
+        let resultsHtml = [];
+
+        // --- 1. 搜尋車站 (比對 topology 底層實體資料庫) ---
+        let matchedStations = new Map(); 
+        if (topology && topology.segments) {
+            topology.segments.forEach(seg => {
+                seg.stations.forEach(st => {
+                    if ((st.name && st.name.toLowerCase().includes(keyword)) ||
+                        (st.id && String(st.id).toLowerCase().includes(keyword))) {
+                        // 利用 Map 確保同名的交會站不會重複出現
+                        if (!matchedStations.has(st.name)) {
+                            matchedStations.set(st.name, st.id);
+                        }
+                    }
+                });
+            });
+        }
+        
+        matchedStations.forEach((id, name) => {
+            resultsHtml.push(`
+                <div class="search-item" onclick="triggerSearchSelect('station', '${id}', this)">
+                    <span class="search-item-badge badge-station">車站</span> ${name}
+                </div>
+            `);
+        });
+
+        // --- 2. 搜尋車次 (比對 timetable 今日時刻表) ---
+        if (timetable) {
+            let matchedTrains = new Set(); // 防止跨夜車重複
+            timetable.forEach(train => {
+                let trainNo = String(train.no || train.train_no || "");
+                if (trainNo.toLowerCase().includes(keyword)) {
+                    if (!matchedTrains.has(trainNo)) {
+                        matchedTrains.add(trainNo);
+                        let trainType = train.type || "";
+                        resultsHtml.push(`
+                            <div class="search-item" onclick="triggerSearchSelect('train', '${trainNo}', this)">
+                                <span class="search-item-badge badge-train">車次</span> ${trainType} ${trainNo}
+                            </div>
+                        `);
+                    }
+                }
+            });
+        }
+
+        // --- 3. 渲染結果 ---
+        if (resultsHtml.length > 0) {
+            searchResults.innerHTML = resultsHtml.join('');
+        } else {
+            searchResults.innerHTML = `<div class="search-item" style="color: #888; justify-content: center; cursor: default;">找不到相符的車站或車次</div>`;
+        }
+        searchResults.style.display = 'block';
+    });
+}
+
+// 供搜尋面板專用的全域觸發器
+window.triggerSearchSelect = function(type, id, element) {
+    // 1. 隱藏下拉選單並清空輸入框
+    const searchResults = document.getElementById('search-results');
+    const searchInput = document.getElementById('search-input');
+    if (searchResults) searchResults.style.display = 'none';
+    if (searchInput) searchInput.value = ''; // 清空讓下次搜尋更方便
+
+    if (type === 'station') {
+        // 呼叫您原本寫好的超強跳轉函數
+        window.triggerSelectStation(id);
+    } else if (type === 'train') {
+        // 🌟 智慧防呆：如果這班車的車種被使用者隱藏了，自動幫他打勾開啟！
+        let targetTrain = timetable.find(t => String(t.no || t.train_no) === String(id));
+        if (targetTrain && !activeTrainTypes.has(targetTrain.type)) {
+            activeTrainTypes.add(targetTrain.type);
+            // 觸發按鈕顏色更新
+            document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
+        }
+        // 呼叫原本寫好的車次跳轉函數
+        window.triggerSelectTrain(id);
+    }
+};
+
+// ==========================================
 // 🖱️ 底部面板：將滑鼠上下滾輪轉換為左右滑動
 // ==========================================
 function setupBottomBarScrolling() {
@@ -3283,6 +3392,7 @@ async function init(systemPath) {
         bindThemeToggle(); // 啟動主題切換按鈕
         setupCanvasInteractions();
         setupBottomBarScrolling();
+        setupSearch();
 
         // ==========================================
         // 🌟 終極修復：等待 CSS 排版完全穩定！
