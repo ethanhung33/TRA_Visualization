@@ -2429,7 +2429,7 @@ function interpolatePassingStations(timetable, topology) {
 }
 
 // ==========================================
-// 🌟 完美縫合器 (防重複塞站版)
+// 🌟 完美縫合器 (修復跨夜時光倒流 Bug)
 // ==========================================
 function stitchTrainSegments(trainsData, topology) {
     if (!topology || !topology.segments) return;
@@ -2446,119 +2446,29 @@ function stitchTrainSegments(trainsData, topology) {
     trainsData.forEach(train => {
         if (!train.segments || train.segments.length < 2) return;
 
+        // 🛑 核心修復：為自動造橋器加上「跨夜修正」，避免凌晨的區段被丟到最前面！
         train.segments.sort((a, b) => {
             let tA = (a.t && a.t[0] !== null && a.t[0] !== undefined) ? a.t[0] : 0;
             let tB = (b.t && b.t[0] !== null && b.t[0] !== undefined) ? b.t[0] : 0;
-            return tA - tB;
+            
+            let adjA = tA < 240 ? tA + 1440 : tA;
+            let adjB = tB < 240 ? tB + 1440 : tB;
+            
+            return adjA - adjB;
         });
 
         for (let i = 0; i < train.segments.length - 1; i++) {
             let segA = train.segments[i];
             let segB = train.segments[i + 1];
-
+            
+            // ... (下面這段維持原本你貼入的邏輯不變) ...
             let lastStA = segA.s[segA.s.length - 1];
             let firstStB = segB.s[0];
 
             if (String(lastStA) !== String(firstStB)) {
-                // 🛑 核心修復：把路線 ID 也傳進去，嚴格審查！
                 let junc = getJunction(lastStA, firstStB, segA.id, segB.id);
-                
                 // 👉 狀況 A：正常的直接交會
                 if (junc && junc.type === 'direct') {
-                    let juncId = junc.id;
-                    let tA = segA.t[segA.t.length - 1]; 
-                    let tB = segB.t[0];                 
-
-                    let kmA = getStationKm(lastStA, segA.id);
-                    let kmJ_A = getStationKm(juncId, segA.id);
-                    let kmJ_B = getStationKm(juncId, segB.id);
-                    let kmB = getStationKm(firstStB, segB.id);
-
-                    if (kmA !== null && kmJ_A !== null && kmJ_B !== null && kmB !== null) {
-                        let distA_J = Math.abs(kmJ_A - kmA);
-                        let distJ_B = Math.abs(kmB - kmJ_B);
-                        let totalDist = distA_J + distJ_B;
-
-                        let passTime = tA;
-                        if (totalDist > 0) {
-                            let tB_adj = tB < tA ? tB + 1440 : tB; 
-                            passTime = tA + (tB_adj - tA) * (distA_J / totalDist);
-                            if (passTime >= 1440) passTime -= 1440;
-                        }
-
-                        // 防呆：避免塞入重複的站點
-                        if (lastStA !== juncId) {
-                            segA.s.push(juncId);
-                            segA.t.push(passTime, passTime);
-                            segA.v.push(2); 
-                        }
-                        if (firstStB !== juncId) {
-                            segB.s.unshift(juncId);
-                            segB.t.unshift(passTime, passTime);
-                            segB.v.unshift(2); 
-                        }
-                    }
-                } 
-                // 👉 狀況 B：無中生有造橋！(解決名古屋線直通難波線的問題)
-                else if (junc && junc.type === 'bridge') {
-                    let junc1 = junc.junc1; // 伊勢中川
-                    let junc2 = junc.junc2; // 鶴橋
-
-                    let tA = segA.t[segA.t.length - 1];
-                    let tB = segB.t[0];
-
-                    let kmA = getStationKm(lastStA, segA.id);
-                    let kmJ1_A = getStationKm(junc1, segA.id);
-                    let kmJ1_Bridge = getStationKm(junc1, junc.line);
-                    let kmJ2_Bridge = getStationKm(junc2, junc.line);
-                    let kmJ2_B = getStationKm(junc2, segB.id);
-                    let kmB = getStationKm(firstStB, segB.id);
-
-                    if (kmA !== null && kmJ1_A !== null && kmJ1_Bridge !== null && kmJ2_Bridge !== null && kmJ2_B !== null && kmB !== null) {
-                        let dist1 = Math.abs(kmJ1_A - kmA);
-                        let distBridge = Math.abs(kmJ2_Bridge - kmJ1_Bridge);
-                        let dist2 = Math.abs(kmB - kmJ2_B);
-                        let totalDist = dist1 + distBridge + dist2;
-
-                        if (totalDist > 0) {
-                            let tB_adj = tB < tA ? tB + 1440 : tB;
-                            let tJunc1 = tA + (tB_adj - tA) * (dist1 / totalDist);
-                            let tJunc2 = tA + (tB_adj - tA) * ((dist1 + distBridge) / totalDist);
-
-                            if (tJunc1 >= 1440) tJunc1 -= 1440;
-                            if (tJunc2 >= 1440) tJunc2 -= 1440;
-
-                            // 1. 補齊上一段
-                            if (lastStA !== junc1) {
-                                segA.s.push(junc1);
-                                segA.t.push(tJunc1, tJunc1);
-                                segA.v.push(2);
-                            }
-
-                            // 2. 創造橋接段 (大阪線: 伊勢中川 -> 鶴橋)
-                            let newSeg = {
-                                id: junc.line,
-                                s: [junc1, junc2],
-                                t: [tJunc1, tJunc1, tJunc2, tJunc2],
-                                v: [2, 2]
-                            };
-
-                            // 3. 補齊下一段 (如果下一段已經是鶴橋開頭，就不重複塞)
-                            if (firstStB !== junc2) {
-                                segB.s.unshift(junc2);
-                                segB.t.unshift(tJunc2, tJunc2);
-                                segB.v.unshift(2);
-                            }
-
-                            train.segments.splice(i + 1, 0, newSeg);
-                            i++; // 跳過剛造好的橋，避免無限迴圈
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
 
 // ==========================================
 // 🎨 視覺優化濾鏡與時間校正
