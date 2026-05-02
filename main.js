@@ -311,12 +311,14 @@ function drawGrid(viewKey, layer = 'all') {
                 ctx.fillStyle = maskBg;
                 ctx.fillRect(x - textWidth/2 - 5, labelYTop - 15, textWidth + 10, 22);
                 ctx.fillStyle = textColor;
+                ctx.textAlign = "center";
                 ctx.fillText(timeStr, x, labelYTop + 2);
 
                 // 畫底部
                 ctx.fillStyle = maskBg;
                 ctx.fillRect(x - textWidth/2 - 5, labelYBottom - 15, textWidth + 10, 22);
                 ctx.fillStyle = textColor;
+                ctx.textAlign = "center";
                 ctx.fillText(timeStr, x, labelYBottom + 2);
             }
         }
