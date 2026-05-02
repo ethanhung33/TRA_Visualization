@@ -1481,41 +1481,35 @@ function setupCanvasInteractions() {
         const rect = canvas.getBoundingClientRect();
         const worldX = (clientX - rect.left) + camera.x;
         const worldY = (clientY - rect.top) + camera.y;
+        const wrapperW = wrapper.clientWidth;
 
-        let closestTrain = null, minDistance = 20; // 胖手指容錯率加大
+        let closestTrain = null, minDistance = 15; 
 
+        // --- 1. 掃描火車 ---
         if (typeof timetable !== 'undefined') {
             for (let train of timetable) {
                 if (typeof activeTrainTypes !== 'undefined' && !activeTrainTypes.has(train.type)) continue;
 
-                // ==========================================
-                // 🌟 新增防護罩：如果現在有鎖定車站，但這台車沒停，就讓它物理穿透！
-                // ==========================================
                 if (selectedStation) {
                     let stopsHere = false;
                     if (train.segments) {
                         for (let seg of train.segments) {
                             for (let i = 0; i < seg.s.length; i++) {
-                                // 檢查是否為選定站，且有停靠 (v !== 2)
                                 if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
-                                    stopsHere = true; 
-                                    break;
+                                    stopsHere = true; break;
                                 }
                             }
                             if (stopsHere) break;
                         }
                     }
-                    // 如果這台車沒停靠這個車站，直接跳過點擊判定！
                     if (!stopsHere) continue; 
                 }
-                // ==========================================
 
                 if (!train._hitPoints) continue;
                 for (let i = 0; i < train._hitPoints.length - 1; i++) {
                     let p1 = train._hitPoints[i], p2 = train._hitPoints[i+1];
                     if (!p1 || !p2) continue;
                     let dist = getDistanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
-                    // 🌟 順便縮小一點胖手指容錯率 (從 20 降到 15)，減少誤觸機率
                     if (dist < 15 && dist < minDistance) { 
                         minDistance = dist; 
                         closestTrain = train; 
@@ -1524,40 +1518,78 @@ function setupCanvasInteractions() {
             }
         }
 
-        if (closestTrain) {
-            selectedTrain = closestTrain; selectedStation = null;
-            if (typeof updateBottomPanel === 'function') updateBottomPanel(selectedTrain);
-        } else {
-            let closestStationId = null, minStationDist = 10; 
-            let isCircular = false;
-            if (typeof settings !== 'undefined' && settings?.view_presets?.[currentRouteView]?.view_type === "CIRCULAR") {
-                isCircular = true;
-            }
-            
-            let safeLoopH = (typeof loopHeight !== 'undefined') ? loopHeight : 0;
+        // --- 2. 🌟 精準掃描車站 (區分「橫線」與「文字框」) ---
+        let closestStationLineId = null; 
+        let closestStationTextId = null;
+        let minStationDist = 12; 
+        let isCircular = settings?.view_presets?.[currentRouteView]?.view_type === "CIRCULAR";
+        let safeLoopH = (typeof loopHeight !== 'undefined') ? loopHeight : 0;
 
-            if (typeof lookupY !== 'undefined') {
-                for (let st_id in lookupY) {
-                    for (let opt of lookupY[st_id]) {
-                        for (let copy = (isCircular ? -1 : 0); copy <= (isCircular ? 1 : 0); copy++) {
-                            let offsetY = isCircular ? ((copy * safeLoopH) + CONFIG.paddingTop + safeLoopH) : CONFIG.paddingTop;
-                            if (Math.abs(worldY - (opt.y + offsetY)) < minStationDist) {
-                                minStationDist = Math.abs(worldY - (opt.y + offsetY));
-                                closestStationId = st_id;
+        if (typeof lookupY !== 'undefined') {
+            // 借用畫筆來測量站名文字的真實寬度
+            const tempCtx = canvas.getContext('2d');
+            tempCtx.font = "bold 16px 'GlowSans', sans-serif";
+
+            for (let st_id in lookupY) {
+                let stName = getStationName(st_id);
+                let textWidth = tempCtx.measureText(stName).width; // 量測文字寬度
+
+                for (let opt of lookupY[st_id]) {
+                    for (let copy = (isCircular ? -1 : 0); copy <= (isCircular ? 1 : 0); copy++) {
+                        let offsetY = isCircular ? ((copy * safeLoopH) + CONFIG.paddingTop + safeLoopH) : CONFIG.paddingTop;
+                        let stationY = opt.y + offsetY;
+                        
+                        // 偵測 A：是否點在車站橫線上
+                        if (Math.abs(worldY - stationY) < minStationDist) {
+                            minStationDist = Math.abs(worldY - stationY);
+                            closestStationLineId = st_id;
+                        }
+
+                        // 偵測 B：是否「精準」點擊在浮動文字框內！(高度容錯給 15px)
+                        if (Math.abs(worldY - stationY) <= 15) {
+                            // 左側文字座標範圍
+                            let labelXLeft = Math.max(0, camera.x + 10);
+                            let leftBound = labelXLeft - 5;
+                            let rightBound = labelXLeft + textWidth + 15;
+
+                            // 右側文字座標範圍
+                            let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + wrapperW - 10);
+                            let rLeftBound = labelXRight - textWidth - 15;
+                            let rRightBound = labelXRight + 5;
+
+                            if ((worldX >= leftBound && worldX <= rightBound) || 
+                                (worldX >= rLeftBound && worldX <= rRightBound)) {
+                                closestStationTextId = st_id;
                             }
                         }
                     }
                 }
             }
-
-            if (closestStationId) {
-                selectedStation = closestStationId; selectedTrain = null;
-                if (typeof updateBottomPanelStation === 'function') updateBottomPanelStation(selectedStation);
-            } else {
-                selectedTrain = null; selectedStation = null;
-                if (typeof updateBottomPanel === 'function') updateBottomPanel(null);
-            }
         }
+
+        // --- 3. 🌟 終極權重裁決 ---
+        if (closestStationTextId) {
+            // 👉 最高優先級：點中站名文字！(無視火車)
+            selectedStation = closestStationTextId; 
+            selectedTrain = null;
+            if (typeof updateBottomPanelStation === 'function') updateBottomPanelStation(selectedStation);
+        } else if (closestTrain) {
+            // 👉 次高優先級：點中火車線
+            selectedTrain = closestTrain; 
+            selectedStation = null;
+            if (typeof updateBottomPanel === 'function') updateBottomPanel(selectedTrain);
+        } else if (closestStationLineId) {
+            // 👉 最低優先級：沒點到火車，只點到背景橫線
+            selectedStation = closestStationLineId; 
+            selectedTrain = null;
+            if (typeof updateBottomPanelStation === 'function') updateBottomPanelStation(selectedStation);
+        } else {
+            // 👉 什麼都沒點到
+            selectedTrain = null; 
+            selectedStation = null;
+            if (typeof updateBottomPanel === 'function') updateBottomPanel(null);
+        }
+
         if (typeof redrawAll === 'function') redrawAll();
     };
 
@@ -1584,86 +1616,80 @@ function setupCanvasInteractions() {
         } else if (e.target === canvas || e.target === wrapper) {
             
             const rect = wrapper.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            
-            // 🌟 將滑鼠座標轉換為「真實世界座標」(加上攝影機的偏移量)
-            // 這樣不管是找火車還是找車站，數學計算都會更精準簡單！
-            const worldX = mouseX + camera.x;
-            const worldY = mouseY + camera.y;
+            const worldX = (e.clientX - rect.left) + camera.x;
+            const worldY = (e.clientY - rect.top) + camera.y;
+            const wrapperW = wrapper.clientWidth;
 
             let hitTrain = null;
-            let hitStation = null;
-
-            // ==========================================
-            // 📡 雷達 1：偵測火車 (精準線段掃描)
-            // ==========================================
+            
+            // --- 1. 偵測火車 ---
             for (let train of timetable) {
-
-                // ==========================================
-                // 🌟 新增防護罩：游標懸停時也一樣，沒停靠的車變成幽靈！
-                // ==========================================
                 if (selectedStation) {
                     let stopsHere = false;
                     if (train.segments) {
                         for (let seg of train.segments) {
                             for (let i = 0; i < seg.s.length; i++) {
                                 if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
-                                    stopsHere = true; 
-                                    break;
+                                    stopsHere = true; break;
                                 }
                             }
                             if (stopsHere) break;
                         }
                     }
-                    // 如果這台車沒停靠這個車站，直接跳過懸停判定！
                     if (!stopsHere) continue; 
                 }
-                // ==========================================
 
-                // 如果火車被隱藏或點不到兩個，跳過
                 if (!train._hitPoints || train._hitPoints.length < 2) continue; 
-                
                 for (let i = 0; i < train._hitPoints.length - 1; i++) {
-                    let p1 = train._hitPoints[i];
-                    let p2 = train._hitPoints[i+1];
-                    
-                    // 防呆：如果遇到 null (代表路線斷開)，就跳過這段不計算
+                    let p1 = train._hitPoints[i], p2 = train._hitPoints[i+1];
                     if (!p1 || !p2) continue; 
-                    
-                    // 🌟 核心升級：使用「點到線段的垂直距離」來計算！
                     let dist = getDistanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
-                    
-                    // 容錯範圍：只要距離線條小於 6 像素，就視為碰到火車！
                     if (dist < 6) {
-                        hitTrain = train;
-                        break; 
+                        hitTrain = train; break; 
                     }
                 }
                 if (hitTrain) break; 
             }
 
-            // ==========================================
-            // 📡 雷達 2：偵測車站 (掃描 Y 軸座標)
-            // 只有在沒碰到火車時，才去尋找車站 (火車優先級較高)
-            // ==========================================
-            if (!hitTrain) {
-                let minStationDist = 12; // 🌟 車站的垂直感應範圍 (12px)
-                let isCircular = settings?.view_presets?.[currentRouteView]?.view_type === "CIRCULAR";
-                let safeLoopH = loopHeight || 0;
+            // --- 2. 🌟 精準偵測車站 (文字框 vs 橫線) ---
+            let hitStationLine = null;
+            let hitStationText = null;
+            let minStationDist = 12; 
+            let isCircular = settings?.view_presets?.[currentRouteView]?.view_type === "CIRCULAR";
+            let safeLoopH = loopHeight || 0;
 
-                if (typeof lookupY !== 'undefined') {
-                    for (let st_id in lookupY) {
-                        for (let opt of lookupY[st_id]) {
-                            // 檢查本尊與上下影分身 (環狀線)
-                            for (let copy = (isCircular ? -1 : 0); copy <= (isCircular ? 1 : 0); copy++) {
-                                let offsetY = isCircular ? ((copy * safeLoopH) + CONFIG.paddingTop + safeLoopH) : CONFIG.paddingTop;
-                                let stationY = opt.y + offsetY;
-                                
-                                // 如果滑鼠的 Y 座標距離這條車站橫線很近！
-                                if (Math.abs(worldY - stationY) < minStationDist) {
-                                    minStationDist = Math.abs(worldY - stationY);
-                                    hitStation = st_id;
+            if (typeof lookupY !== 'undefined') {
+                const tempCtx = canvas.getContext('2d');
+                tempCtx.font = "bold 16px 'GlowSans', sans-serif";
+
+                for (let st_id in lookupY) {
+                    let stName = getStationName(st_id);
+                    let textWidth = tempCtx.measureText(stName).width;
+
+                    for (let opt of lookupY[st_id]) {
+                        for (let copy = (isCircular ? -1 : 0); copy <= (isCircular ? 1 : 0); copy++) {
+                            let offsetY = isCircular ? ((copy * safeLoopH) + CONFIG.paddingTop + safeLoopH) : CONFIG.paddingTop;
+                            let stationY = opt.y + offsetY;
+                            
+                            // A. 滑鼠碰到車站橫線
+                            if (Math.abs(worldY - stationY) < minStationDist) {
+                                minStationDist = Math.abs(worldY - stationY);
+                                hitStationLine = st_id;
+                            }
+
+                            // B. 滑鼠精準碰到站名文字框
+                            if (Math.abs(worldY - stationY) <= 15) {
+                                let labelXLeft = Math.max(0, camera.x + 10);
+                                let leftBound = labelXLeft - 5;
+                                let rightBound = labelXLeft + textWidth + 15;
+
+                                let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + wrapperW - 10);
+                                let rLeftBound = labelXRight - textWidth - 15;
+                                let rRightBound = labelXRight + 5;
+
+                                if ((worldX >= leftBound && worldX <= rightBound) || 
+                                    (worldX >= rLeftBound && worldX <= rRightBound)) {
+                                    hitStationText = st_id;
                                 }
                             }
                         }
@@ -1671,26 +1697,28 @@ function setupCanvasInteractions() {
                 }
             }
 
-            // ==========================================
-            // 🌟 狀態更新與重繪判定
-            // ==========================================
-            let statusChanged = false;
-            
-            if (hitTrain !== hoveredTrain) {
-                hoveredTrain = hitTrain;
-                statusChanged = true;
-            }
-            
-            if (hitStation !== hoveredStation) {
-                hoveredStation = hitStation;
-                statusChanged = true;
+            // --- 3. 🌟 權重裁決 ---
+            let finalHitTrain = null;
+            let finalHitStation = null;
+
+            if (hitStationText) {
+                // 滑鼠在站名字體上方 -> 絕對車站優先 (無視火車線)
+                finalHitStation = hitStationText;
+            } else if (hitTrain) {
+                // 滑鼠在圖表區，碰到火車 -> 火車優先
+                finalHitTrain = hitTrain;
+            } else if (hitStationLine) {
+                // 滑鼠在圖表區，沒碰到火車 -> 橫線優先
+                finalHitStation = hitStationLine;
             }
 
-            // 只要火車或車站任何一個的 Hover 狀態改變了，就立刻重繪！
+            // --- 4. 狀態更新與重繪 ---
+            let statusChanged = false;
+            if (finalHitTrain !== hoveredTrain) { hoveredTrain = finalHitTrain; statusChanged = true; }
+            if (finalHitStation !== hoveredStation) { hoveredStation = finalHitStation; statusChanged = true; }
+
             if (statusChanged) {
-                // 如果碰到火車或車站，游標變成手指 👆
                 wrapper.style.cursor = (hoveredTrain || hoveredStation) ? 'pointer' : 'grab';
-                
                 if (typeof requestRedraw === 'function') requestRedraw();
                 else redrawAll();
             }
