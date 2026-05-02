@@ -145,6 +145,21 @@ def build_segment_dict(seg_id, stops, station_map):
         
     return {"id": seg_id, "s": s_arr, "t": t_arr, "v": v_arr}
 
+
+def save_compact_json(data, output_path):
+    """以一班車一行的緊湊格式寫入 JSON"""
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write("[\n")
+        for i, train in enumerate(data):
+            train_json_str = json.dumps(train, ensure_ascii=False, separators=(',', ':'))
+            f.write(f"  {train_json_str}")
+            if i < len(data) - 1:
+                f.write(",\n")
+            else:
+                f.write("\n")
+        f.write("]\n")
+
 def format_nankai_style(raw_train, station_map, train_idx, day_type):
     stop_data = raw_train.get("data", [])
     if not stop_data: return None
@@ -154,21 +169,14 @@ def format_nankai_style(raw_train, station_map, train_idx, day_type):
     # ==========================================
     valid_stops = []
     for stop in stop_data:
-        # 1. 統一清洗站名
         st_name = clean_station_name(stop["station"])
-        
-        # 2. 攔截魔術字串
         if st_name == "SKIP_STATION":
             continue
             
-        # 3. 把清洗好的乾淨站名「覆蓋」回去，這樣後面的函式就不用再清一次了！
         stop["clean_name"] = st_name
-
-        # 4. 判斷是否為近鐵自家人
         if st_name in station_map:
             valid_stops.append(stop)
         elif st_name not in EXTERNAL_NETWORKS and st_name not in MISSING_STATIONS:
-            # 這裡只會記錄真正的未知外網站名
             MISSING_STATIONS.add(st_name)
 
     if len(valid_stops) < 2:
@@ -183,7 +191,6 @@ def format_nankai_style(raw_train, station_map, train_idx, day_type):
 
     for i in range(len(valid_stops)):
         stop = valid_stops[i]
-        # ✅ 直接使用我們剛剛準備好的 clean_name
         st_name = stop["clean_name"] 
         st_lines = station_map.get(st_name, {}).get("lines", set())
         
@@ -200,7 +207,7 @@ def format_nankai_style(raw_train, station_map, train_idx, day_type):
                 segments.append(build_segment_dict(seg_id, current_segment_stops, station_map))
                 
                 last_stop = current_segment_stops[-1]
-                last_st_name = last_stop["clean_name"] # ✅ 直接使用
+                last_st_name = last_stop["clean_name"]
                 last_st_lines = station_map.get(last_st_name, {}).get("lines", set())
                 
                 current_segment_stops = [last_stop, stop]
@@ -215,84 +222,91 @@ def format_nankai_style(raw_train, station_map, train_idx, day_type):
     prefix = "W" if "平日" in day_type else "H"
     train_no = raw_train.get("no", f"1-{prefix}{train_idx:04d}")
 
-    return {
+    formatted_train = {
         "no": train_no, 
         "type": clean_train_type(raw_train.get("type", "Unknown")), 
         "segments": segments
     }
+    
+    # ==========================================
+    # 🧬 階段 C：產生這班車的「唯一身分證 (Signature)」
+    # ==========================================
+    dir_str = raw_train.get("dir", "Unknown") # 例如 "近鉄奈良行き（始発駅：尼崎）"
+    last_stop = valid_stops[-1]
+    last_st_name = last_stop["clean_name"]
+    last_arr = parse_time(last_stop.get("arr"))
+    
+    # 簽名組合：(方向與始發, 終點站, 終點抵達時間)
+    # 物理上絕對不可能有兩班不同起點的車，在同一分鐘抵達同一個終點月台
+    signature = (dir_str, last_st_name, last_arr)
 
-def save_compact_json(data, output_path):
-    """以一班車一行的緊湊格式寫入 JSON"""
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write("[\n")
-        for i, train in enumerate(data):
-            train_json_str = json.dumps(train, ensure_ascii=False, separators=(',', ':'))
-            f.write(f"  {train_json_str}")
-            if i < len(data) - 1:
-                f.write(",\n")
-            else:
-                f.write("\n")
-        f.write("]\n")
+    # 回傳：格式化後的資料, 這筆資料的有效停靠站數量, 唯一身分證
+    return formatted_train, len(valid_stops), signature
+
 
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     json_dir = os.path.join(script_dir, '..', 'json')
     
     topology_path = os.path.join(json_dir, 'topology.json')
-    # 讀取你同學抓下來的檔案
     input_file_path = os.path.join(json_dir, 'raw_timetable.json') 
     
-    # 分別設定平日與假日的輸出路徑
     weekday_output_path = os.path.join(json_dir, 'timetable', 'timetable_weekday.json')
     holiday_output_path = os.path.join(json_dir, 'timetable', 'timetable_holiday.json')
 
-    # 1. 載入 Topology
     print("📂 載入 Topology 資料...")
     try:
         with open(topology_path, 'r', encoding='utf-8') as f:
             topology_data = json.load(f)
         station_map = build_station_map(topology_data)
     except FileNotFoundError:
-        print(f"❌ 找不到 topology.json，請確認路徑: {topology_path}")
+        print(f"❌ 找不到 topology.json，請確認路徑")
         return
 
-    # 2. 載入原始時刻表
     print(f"📂 載入原始時刻表: {input_file_path}")
     try:
         with open(input_file_path, 'r', encoding='utf-8') as f:
             raw_timetable = json.load(f)
     except FileNotFoundError:
-        print(f"❌ 找不到原始資料，請確認檔案是否命名為 raw_timetable.json 並放在: {input_file_path}")
+        print(f"❌ 找不到原始資料")
         return
 
-    # 3. 開始轉換與分流
-    print(f"🔄 開始轉換並分流 {len(raw_timetable)} 筆車次資料...")
-    weekday_timetable = []
-    holiday_timetable = []
+    print(f"🔄 開始轉換、去重並分流 {len(raw_timetable)} 筆車次資料...")
+    
+    # 使用 Dictionary 來做去重：Key 是簽名，Value 是 {車次資料, 站點數}
+    weekday_dict = {}
+    holiday_dict = {}
     
     for idx, raw_train in enumerate(raw_timetable, start=1):
-        # 讀取 date 欄位，預設視為平日
         date_type = raw_train.get("date", "平日")
         
-        formatted_train = format_nankai_style(raw_train, station_map, idx, date_type)
-        if formatted_train:
-            # 依照 "平日" 或 "假日(土休日)" 進行分流
-            if "平日" in date_type:
-                weekday_timetable.append(formatted_train)
-            else:
-                holiday_timetable.append(formatted_train)
+        result = format_nankai_style(raw_train, station_map, idx, date_type)
+        if not result:
+            continue
+            
+        formatted_train, stop_count, signature = result
+        target_dict = weekday_dict if "平日" in date_type else holiday_dict
+        
+        # 👑 核心去重邏輯：如果沒看過這班車就存起來；如果看過，只保留停站數最多的！
+        if signature not in target_dict:
+            target_dict[signature] = {"data": formatted_train, "count": stop_count}
+        else:
+            if stop_count > target_dict[signature]["count"]:
+                target_dict[signature] = {"data": formatted_train, "count": stop_count}
 
-    # 4. 輸出檔案
+    # 把 Dictionary 轉回乾淨的 List
+    weekday_timetable = [v["data"] for v in weekday_dict.values()]
+    holiday_timetable = [v["data"] for v in holiday_dict.values()]
+
     print("💾 正在寫入 平日 JSON 檔案...")
     save_compact_json(weekday_timetable, weekday_output_path)
     
     print("💾 正在寫入 假日 JSON 檔案...")
     save_compact_json(holiday_timetable, holiday_output_path)
 
-    print(f"🎉 轉換完成！")
-    print(f"   ▶ 平日車次: {len(weekday_timetable)} 班")
-    print(f"   ▶ 假日車次: {len(holiday_timetable)} 班")
+    print(f"🎉 轉換與去重完成！")
+    print(f"   ▶ 平日去重後車次: {len(weekday_timetable)} 班")
+    print(f"   ▶ 假日去重後車次: {len(holiday_timetable)} 班")
 
     if MISSING_STATIONS:
         print("\n" + "="*60)
