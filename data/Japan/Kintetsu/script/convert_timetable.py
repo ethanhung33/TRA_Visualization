@@ -29,7 +29,7 @@ STATION_MAPPING = {
 
 # 🛡️ 直通運轉黑名單 (過濾外網車站)
 EXTERNAL_NETWORKS = {
-    "桜川", "ドーム前", "九条", "西九条", "千鳥橋", "伝法", "福", "出来島", "大物", "尼崎",
+    "桜川", "ドーム前", "九条（京都地下鉄）", "九条（阪神）", "西九条", "千鳥橋", "伝法", "福", "出来島", "大物", "尼崎",
     "尼崎センタープール前", "武庫川", "鳴尾・武庫川女子大前", "甲子園", "久寿川", "今津", 
     "西宮", "香櫨園", "打出", "芦屋", "深江", "青木", "魚崎", "住吉", "御影", "石屋川", 
     "新在家", "大石", "西灘", "岩屋", "西代", "神戸三宮", "元町", "神戸高速",
@@ -52,6 +52,20 @@ def clean_station_name(name):
         name = name[:-1]
     name = name.strip()
     return STATION_MAPPING.get(name, name)
+
+def clean_train_type(raw_type):
+    """清理車種名稱，移除括號備註與ひのとり的車次編號"""
+    if not raw_type:
+        return "Unknown"
+        
+    # 1. 移除全形或半形括號及其內部所有文字 (例如: （車いす対応車両・車内販売）)
+    cleaned = re.sub(r'（.*?）|\(.*?\)', '', raw_type)
+    
+    # 2. 移除「特急ひのとり」後面的「XX列車」字眼 (例如: 10列車)
+    cleaned = re.sub(r'\d+列車', '', cleaned)
+    
+    # 3. 移除多餘的空白
+    return cleaned.strip()
 
 def parse_time(t_val):
     """處理時間欄位，應對整數或類似 '−' 的字串"""
@@ -160,7 +174,7 @@ def format_nankai_style(raw_train, station_map, train_idx, day_type):
 
     return {
         "no": train_no, 
-        "type": raw_train.get("type", "Unknown"), 
+        "type": clean_train_type(raw_train.get("type", "Unknown")), 
         "segments": segments
     }
 
