@@ -138,7 +138,7 @@ function getProcessedSegments(selectedSegments, topology) {
 // ==========================================
 // 繪製背景網格 (攤平展開版)
 // ==========================================
-function drawGrid(viewKey) {
+function drawGrid(viewKey, layer = 'all') {
     lookupY = {}; 
     let currentAccumulatedKm = 0; 
     let presetKey = viewKey; 
@@ -192,9 +192,6 @@ function drawGrid(viewKey) {
     const viewLeft = camera.x - 100;
     const viewRight = camera.x + wrapperW + 100;
 
-    // 🌟 因為我們沒呼叫 initCanvas 了，所以這裡要負責把上一幀的舊圖擦掉
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
 
@@ -214,57 +211,49 @@ function drawGrid(viewKey) {
             if (y < viewTop || y > viewBottom) return;
 
             // --- 畫背景橫線 ---
-            let isHovered = (st.id === hoveredStation);
-            let isSelected = (st.id === selectedStation);
+            if (layer === 'lines' || layer === 'all') {
+                let isHovered = (st.id === hoveredStation);
+                let isSelected = (st.id === selectedStation);
 
-            if (isSelected) {
-                ctx.strokeStyle = "#FFD700"; // 點擊選中：亮黃色
-                ctx.lineWidth = 2.0;
-            } else if (isHovered) {
-                ctx.strokeStyle = isDarkMode ? "#555555" : "#D0D0D0"; // 懸停：高反差白色/黑色
-                ctx.lineWidth = 1.5;
-            } else {
-                ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0"; // 預設：低調的灰色
-                ctx.lineWidth = 1.0;
+                if (isSelected) {
+                    ctx.strokeStyle = "#FFD700";
+                    ctx.lineWidth = 2.0;
+                } else if (isHovered) {
+                    ctx.strokeStyle = isDarkMode ? "#555555" : "#D0D0D0";
+                    ctx.lineWidth = 1.5;
+                } else {
+                    ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
+                    ctx.lineWidth = 1.0;
+                }
+
+                ctx.beginPath();
+                ctx.moveTo(CONFIG.paddingLeft, y);
+                ctx.lineTo(CONFIG.paddingLeft + (1560 * CONFIG.scaleX), y);
+                ctx.stroke();
             }
 
-            ctx.beginPath();
-            ctx.moveTo(CONFIG.paddingLeft, y);
-            ctx.lineTo(CONFIG.paddingLeft + (1560 * CONFIG.scaleX), y);
-            ctx.stroke();
-
             // --- 🌟 左右雙向懸浮站名 ---
-            
-            let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
-            let textColor = isDarkMode ? "#FFFFFF" : "#000000";
-            let textWidth = ctx.measureText(st.name).width;
+            if (layer === 'labels' || layer === 'all') {
+                let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
+                let textColor = isDarkMode ? "#FFFFFF" : "#000000";
+                let textWidth = ctx.measureText(st.name).width;
 
-            // --- 左側站名 ---
-            // 🌟 讓標籤跟隨攝影機，且距離左緣僅 10px
-            let labelXLeft = Math.max(0, camera.x + 10); 
-            ctx.fillStyle = maskBg;
-            ctx.fillRect(labelXLeft - 5, y - 12, textWidth + 10, 24);
-            ctx.fillStyle = textColor;
-            ctx.textAlign = "left";
-            ctx.fillText(st.name, labelXLeft, y);
+                // --- 左側站名 ---
+                let labelXLeft = Math.max(0, camera.x + 10); 
+                ctx.fillStyle = maskBg;
+                ctx.fillRect(labelXLeft - 5, y - 12, textWidth + 10, 24);
+                ctx.fillStyle = textColor;
+                ctx.textAlign = "left";
+                ctx.fillText(st.name, labelXLeft, y);
 
-            // --- 右側站名 ---
-            // 🌟 距離右邊緣僅 10px
-            let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + wrapperW - 10);
-            ctx.fillStyle = maskBg;
-            ctx.fillRect(labelXRight - textWidth - 5, y - 12, textWidth + 10, 24);
-            ctx.fillStyle = textColor;
-            ctx.textAlign = "right";
-            ctx.fillText(st.name, labelXRight, y);
-
-            // --- 浮水印 (保持淡色) ---
-            // ctx.font = "bold 24px 'GlowSans', sans-serif";
-            // ctx.fillStyle = isDarkMode ? "rgba(200, 200, 200, 0.2)" : "rgba(100, 100, 100, 0.15)";
-            // ctx.textAlign = "left";
-            // for (let h = 1; h < 24; h += 2) { 
-            //     let textX = timeToX(h * 60) + 5;
-            //     if (textX > viewLeft && textX < viewRight) ctx.fillText(st.name, textX, y - 8); 
-            // }
+                // --- 右側站名 ---
+                let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + wrapperW - 10);
+                ctx.fillStyle = maskBg;
+                ctx.fillRect(labelXRight - textWidth - 5, y - 12, textWidth + 10, 24);
+                ctx.fillStyle = textColor;
+                ctx.textAlign = "right";
+                ctx.fillText(st.name, labelXRight, y);
+            }
         });
     }
 
@@ -284,52 +273,52 @@ function drawGrid(viewKey) {
         if (x < viewLeft - 50 || x > viewRight + 50) continue; 
 
         let isHourLine = (m % 60 === 0);
-        ctx.beginPath();
-        if (isHourLine) {
-            ctx.strokeStyle = isDarkMode ? "#888888" : "#777777";
-            ctx.lineWidth = 2.0;
-        } else {
-            ctx.setLineDash([3, 5]);
-            ctx.strokeStyle = isDarkMode ? "#444444" : "#DDDDDD";
-            ctx.lineWidth = 1.2;
+
+        // --- 畫背景直線 ---
+        if (layer === 'lines' || layer === 'all') {
+            ctx.beginPath();
+            if (isHourLine) {
+                ctx.strokeStyle = isDarkMode ? "#888888" : "#777777";
+                ctx.lineWidth = 2.0;
+            } else {
+                ctx.setLineDash([3, 5]);
+                ctx.strokeStyle = isDarkMode ? "#444444" : "#DDDDDD";
+                ctx.lineWidth = 1.2;
+            }
+
+            ctx.moveTo(x, lineTop);                 
+            ctx.lineTo(x, lineBottom);     
+            ctx.stroke();
+            ctx.setLineDash([]); 
         }
-        
-        // 🌟 使用新的邊界來畫線！
-        ctx.moveTo(x, lineTop);                 
-        ctx.lineTo(x, lineBottom);     
-        ctx.stroke();
-        ctx.setLineDash([]); 
 
-        if (isHourLine) {
-            let hour = m / 60;
-            let timeStr = `${hour}:00`;
-            ctx.font = "bold 18px 'GlowSans', sans-serif";
-            ctx.textAlign = "center";
-            let textWidth = ctx.measureText(timeStr).width;
-            let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
-            let textColor = isDarkMode ? "#FFFFFF" : "#000000";
+        // --- 🌟 上下時間標籤 ---
+        if (layer === 'labels' || layer === 'all') {
+            if (isHourLine) {
+                let hour = m / 60;
+                let timeStr = `${hour}:00`;
+                ctx.font = "bold 18px 'GlowSans', sans-serif";
+                ctx.textAlign = "center";
+                let textWidth = ctx.measureText(timeStr).width;
+                let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
+                let textColor = isDarkMode ? "#FFFFFF" : "#000000";
 
-            // 🌟 頂部時間：貼近螢幕頂部，但不會超過路線最頂端
-            let labelYTop = isCircular 
-                ? Math.max(CONFIG.paddingTop - 25, camera.y + 30) 
-                : Math.max(routeStartY - 25, Math.min(camera.y + 30, routeEndY));
+                // (保留原本計算 labelYTop 與 labelYBottom 的邏輯)
+                let labelYTop = isCircular ? Math.max(CONFIG.paddingTop - 25, camera.y + 30) : Math.max(routeStartY - 25, Math.min(camera.y + 30, routeEndY));
+                let labelYBottom = isCircular ? camera.y + wrapperH - 30 : Math.min(camera.y + wrapperH - 30, routeEndY + 30);
 
-            // 🌟 底部時間：貼近螢幕底部，但如果路線很短，會自動「吸附」在路線底下，不會掉進黑洞！
-            let labelYBottom = isCircular 
-                ? camera.y + wrapperH - 30 
-                : Math.min(camera.y + wrapperH - 30, routeEndY + 30);
+                // 畫頂部
+                ctx.fillStyle = maskBg;
+                ctx.fillRect(x - textWidth/2 - 5, labelYTop - 15, textWidth + 10, 22);
+                ctx.fillStyle = textColor;
+                ctx.fillText(timeStr, x, labelYTop + 2);
 
-            // 畫頂部
-            ctx.fillStyle = maskBg;
-            ctx.fillRect(x - textWidth/2 - 5, labelYTop - 15, textWidth + 10, 22);
-            ctx.fillStyle = textColor;
-            ctx.fillText(timeStr, x, labelYTop + 2);
-
-            // 畫底部
-            ctx.fillStyle = maskBg;
-            ctx.fillRect(x - textWidth/2 - 5, labelYBottom - 15, textWidth + 10, 22);
-            ctx.fillStyle = textColor;
-            ctx.fillText(timeStr, x, labelYBottom + 2);
+                // 畫底部
+                ctx.fillStyle = maskBg;
+                ctx.fillRect(x - textWidth/2 - 5, labelYBottom - 15, textWidth + 10, 22);
+                ctx.fillStyle = textColor;
+                ctx.fillText(timeStr, x, labelYBottom + 2);
+            }
         }
     }
     ctx.restore(); 
@@ -1117,20 +1106,27 @@ window.addEventListener('resize', () => {
     // 主要工作已經交給 ResizeObserver 了，這裡可以安心留空
 });
 
-// 統整重繪動作 (清空 -> 畫網格 -> 畫火車)
+// 統整重繪動作
 function redrawAll() {
     clampCamera();
     
-    // ==========================================
-    // 🌟 終極防模糊殺手鐧：強制攝影機對齊「實體像素」！
-    // 徹底消滅因為小數點座標造成的次像素模糊 (Sub-pixel blur)
-    // ==========================================
+    // 強制攝影機對齊「實體像素」，防模糊
     camera.x = Math.round(camera.x);
     camera.y = Math.round(camera.y);
 
+    // 🌟 在最一開始統一清空畫布
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawGrid(currentRouteView); 
+    
+    // 1. 先畫最底層：網格線
+    drawGrid(currentRouteView, 'lines'); 
+    
+    // 2. 中間層：畫火車線 (會蓋在網格線上)
     drawTrains();
+    
+    // 3. 最上層：畫站名與時間標籤 (會壓在火車線上方！)
+    drawGrid(currentRouteView, 'labels');
+    
+    // 4. 現在時間的紅線 (永遠在最高層)
     drawCurrentTimeLine();      
 }
 
