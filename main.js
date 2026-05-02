@@ -298,28 +298,29 @@ function drawGrid(viewKey, layer = 'all') {
                 let hour = m / 60;
                 let timeStr = `${hour}:00`;
                 ctx.font = "bold 18px 'GlowSans', sans-serif";
-                ctx.textAlign = "center";
-                let textWidth = ctx.measureText(timeStr).width;
-                let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
+                
+                // 🌟 因為不畫方塊了，所以 textWidth 跟 maskBg 可以直接刪除，保持程式碼乾淨
                 let textColor = isDarkMode ? "#FFFFFF" : "#000000";
 
                 // (保留原本計算 labelYTop 與 labelYBottom 的邏輯)
                 let labelYTop = isCircular ? Math.max(CONFIG.paddingTop - 25, camera.y + 30) : Math.max(routeStartY - 25, Math.min(camera.y + 30, routeEndY));
                 let labelYBottom = isCircular ? camera.y + wrapperH - 30 : Math.min(camera.y + wrapperH - 30, routeEndY + 30);
 
+                // 🌟 1. 統一設定對齊方式與描邊 (Stroke) 樣式
+                ctx.textAlign = "center";      // 左右置中
+                ctx.textBaseline = "middle";   // 上下置中
+                ctx.lineWidth = 4;             // 文字外框的粗細
+                ctx.strokeStyle = isDarkMode ? "#000000" : "#FFFFFF"; // 深色模式用黑邊，淺色用白邊
+
                 // 畫頂部
-                ctx.fillStyle = maskBg;
-                ctx.fillRect(x - textWidth/2 - 5, labelYTop - 15, textWidth + 10, 22);
+                ctx.strokeText(timeStr, x, labelYTop);  // 先畫外框 (注意：+2 已經拿掉了)
                 ctx.fillStyle = textColor;
-                ctx.textAlign = "center";
-                ctx.fillText(timeStr, x, labelYTop + 2);
+                ctx.fillText(timeStr, x, labelYTop);    // 再畫文字
 
                 // 畫底部
-                ctx.fillStyle = maskBg;
-                ctx.fillRect(x - textWidth/2 - 5, labelYBottom - 15, textWidth + 10, 22);
+                ctx.strokeText(timeStr, x, labelYBottom); // 先畫外框 (注意：+2 已經拿掉了)
                 ctx.fillStyle = textColor;
-                ctx.textAlign = "center";
-                ctx.fillText(timeStr, x, labelYBottom + 2);
+                ctx.fillText(timeStr, x, labelYBottom);   // 再畫文字
             }
         }
     }
