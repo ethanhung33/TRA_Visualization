@@ -2256,6 +2256,78 @@ function updateBottomPanelStation(st_id) {
 }
 
 // ==========================================
+// 🌟 核心升級：通用折返路線拆解器 (Switchback Splitter)
+// 專門解決前端內插法遇到「V字折返(如近鐵奈良)」會把折返點刪除的致命 Bug
+// ==========================================
+function splitSwitchbackSegments(trainsData, topology) {
+    if (!topology || !topology.segments) return;
+
+    trainsData.forEach(train => {
+        if (!train.segments) return;
+        let newSegments = [];
+
+        train.segments.forEach(seg => {
+            let topoSeg = topology.segments.find(t => String(t.id) === String(seg.id));
+            // 如果找不到實體路線，或停靠站少於 3 個(不可能折返)，直接放行
+            if (!topoSeg || seg.s.length < 3) {
+                newSegments.push(seg);
+                return;
+            }
+
+            // 1. 查出這條線所有停靠站在 topology 中的「絕對索引值」
+            let indices = seg.s.map(st_id => topoSeg.stations.findIndex(t_st => String(t_st.id) === String(st_id)));
+
+            let splitPoints = [];
+            let currentDir = null; // 1 代表數值遞增(往東/南)，-1 代表遞減(往西/北)
+
+            // 2. 掃描陣列，偵測「行駛方向」是否發生逆轉！
+            for (let i = 0; i < indices.length - 1; i++) {
+                let idx1 = indices[i];
+                let idx2 = indices[i+1];
+                if (idx1 === -1 || idx2 === -1) continue;
+
+                let dir = idx2 > idx1 ? 1 : (idx2 < idx1 ? -1 : 0);
+                if (dir !== 0) {
+                    if (currentDir === null) {
+                        currentDir = dir;
+                    } else if (currentDir !== dir) {
+                        // 💥 抓到了！方向逆轉了！把這個轉折點記下來！
+                        splitPoints.push(i);
+                        currentDir = dir;
+                    }
+                }
+            }
+
+            // 3. 根據轉折點，把這段路線狠狠劈成兩半 (或多半)
+            if (splitPoints.length === 0) {
+                newSegments.push(seg);
+            } else {
+                let startIndex = 0;
+                for (let sp of splitPoints) {
+                    newSegments.push({
+                        id: seg.id,
+                        s: seg.s.slice(startIndex, sp + 1),
+                        t: seg.t.slice(startIndex * 2, (sp + 1) * 2),
+                        v: seg.v.slice(startIndex, sp + 1)
+                    });
+                    startIndex = sp;
+                }
+                // 把最後剩下的尾巴也推入
+                newSegments.push({
+                    id: seg.id,
+                    s: seg.s.slice(startIndex),
+                    t: seg.t.slice(startIndex * 2),
+                    v: seg.v.slice(startIndex)
+                });
+            }
+        });
+        
+        // 用拆解完的安全路段覆蓋原本的資料
+        train.segments = newSegments;
+    });
+}
+
+// ==========================================
 // 🌟 核心升級：時刻表自動補點 (空間線性內插法)
 // 解決快車未紀錄通過站，導致畫布支線(如內灣線)斷線的問題
 // ==========================================
@@ -2596,6 +2668,9 @@ async function loadTimetableData(dateOrType) {
         if (!timeRes.ok) throw new Error(`找不到檔案: ${todayFileUrl}`);
 
         let todayData = await timeRes.json();
+
+        // 🌟 0. 【新增】先把所有「折返路線」劈成兩半，避免後續內插法錯亂！
+        splitSwitchbackSegments(todayData, topology);
         
         // 🌟 1. 先把跨線車的斷點縫合起來 (補上中百舌鳥等交會站)
         stitchTrainSegments(todayData, topology);
