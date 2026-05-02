@@ -819,35 +819,31 @@ function buildUI() {
         return isDarkMode ? colorsArray[0] : colorsArray[1];
     }
 
-    // ---- A. 🌟 動態產生路線切換按鈕 ----
+    // ---- A. 🌟 動態產生路線切換按鈕 (支援超過10條自動轉為下拉選單) ----
     const routeContainer = document.getElementById('route-type-container');
     if (routeContainer) routeContainer.innerHTML = ''; 
 
-    // 抓出 setting.json 裡面所有的視角 key (例如 'mountain_view', 'north_link')
+    // 抓出 setting.json 裡面所有的視角 key
     const viewKeys = Object.keys(settings?.view_presets || {});
 
-    // ==========================================
-    // 🌟 新增：如果視角只有 1 個(或沒有)，直接把整個切換區塊隱藏！
-    // ==========================================
+    // 如果視角只有 1 個(或沒有)，直接把整個切換區塊隱藏
     if (viewKeys.length <= 1) {
         if (routeContainer) routeContainer.style.display = 'none';
-        
-        // 順便把旁邊可能有的 "路線" 標題也隱藏 (如果你 HTML 裡有寫的話)
         let routeTitle = document.getElementById('route-title');
         if (routeTitle) routeTitle.style.display = 'none';
     } else {
-        if (routeContainer) routeContainer.style.display = ''; // 恢復預設顯示
+        if (routeContainer) routeContainer.style.display = ''; 
         let routeTitle = document.getElementById('route-title');
         if (routeTitle) routeTitle.style.display = '';
     }
     
-    // 🌟 核心防呆：如果目前記憶的視角「不在」新系統的視角清單中，就強制洗掉重置！
+    // 核心防呆：如果目前記憶的視角「不在」新系統的視角清單中，強制洗掉重置
     if (viewKeys.length > 0 && !viewKeys.includes(currentRouteView)) {
         currentRouteView = viewKeys[0];
     }
 
-    // 建立一個陣列把產生的按鈕存起來，方便切換時改顏色
     const dynamicRouteBtns = [];
+    let routeSelectBox = null; // 🌟 紀錄下拉選單物件
 
     const updateRouteButtons = () => {
         let defaultBg = isDarkMode ? "#444444" : "#E0E0E0";
@@ -855,10 +851,10 @@ function buildUI() {
         let defaultText = isDarkMode ? "#CCCCCC" : "#000000";
         let selectedText = isDarkMode ? "#000000" : "#FFFFFF";
 
+        // 更新按鈕樣式 (如果當前是按鈕模式)
         dynamicRouteBtns.forEach(item => {
             let btn = item.btn;
             if (currentRouteView === item.key) {
-                // 如果是被選中的路線，就抓 json 裡設定的專屬顏色
                 let routeColor = getColor(settings.view_presets[item.key].button_color);
                 btn.style.backgroundColor = routeColor;
                 btn.style.borderColor = routeColor;
@@ -869,23 +865,59 @@ function buildUI() {
                 btn.style.color = defaultText;
             }
         });
+
+        // 🌟 更新下拉選單的選中狀態與邊框顏色 (如果當前是選單模式)
+        if (routeSelectBox) {
+            routeSelectBox.value = currentRouteView;
+            let routeColor = getColor(settings?.view_presets?.[currentRouteView]?.button_color);
+            // 如果該路線有特殊設定顏色，就讓選單外框發光，否則套用預設邊框
+            routeSelectBox.style.borderColor = routeColor !== (isDarkMode ? "#555" : "#CCC") ? routeColor : defaultBorder;
+        }
     };
 
-    // 迴圈跑出所有按鈕
-    viewKeys.forEach(key => {
-        const preset = settings.view_presets[key];
-        const btn = document.createElement('button');
-        btn.className = 'pill-btn';
-        btn.textContent = preset.name; // 這裡會印出 "山線環島鐵路" 或 "縱貫線北段"
+    // ==========================================
+    // 🌟 核心判斷：超過 10 條用下拉選單，否則用按鈕
+    // ==========================================
+    if (viewKeys.length > 10) {
+        if (routeContainer) routeContainer.className = 'select-group'; // 拔掉 flex 避免排版跑位
         
-        btn.addEventListener('click', () => handleRouteSwitch(key));
+        routeSelectBox = document.createElement('select');
+        routeSelectBox.className = 'route-select'; // 掛上專屬 CSS
         
-        if (routeContainer) routeContainer.appendChild(btn);
-        dynamicRouteBtns.push({ key: key, btn: btn });
-    });
+        viewKeys.forEach(key => {
+            const preset = settings.view_presets[key];
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = preset.name;
+            routeSelectBox.appendChild(option);
+        });
+
+        // 當下拉選單改變時，觸發跳轉
+        routeSelectBox.addEventListener('change', (e) => {
+            handleRouteSwitch(e.target.value);
+        });
+
+        if (routeContainer) routeContainer.appendChild(routeSelectBox);
+
+    } else {
+        if (routeContainer) routeContainer.className = 'btn-group'; // 恢復按鈕排版
+        
+        viewKeys.forEach(key => {
+            const preset = settings.view_presets[key];
+            const btn = document.createElement('button');
+            btn.className = 'pill-btn';
+            btn.textContent = preset.name; 
+            
+            btn.addEventListener('click', () => handleRouteSwitch(key));
+            
+            if (routeContainer) routeContainer.appendChild(btn);
+            dynamicRouteBtns.push({ key: key, btn: btn });
+        });
+    }
 
     window.updateRouteButtons = updateRouteButtons; 
     updateRouteButtons();
+    // ---- 路線切換區塊結束 ----
 
     // ---- B. 動態生成車種篩選按鈕 (通用萬用版，免寫 train_order) ----
     
