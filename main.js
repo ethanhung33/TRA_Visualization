@@ -868,9 +868,9 @@ function buildUI() {
     };
 
     // ==========================================
-    // 🌟 核心判斷：超過 10 條用下拉選單，否則用按鈕
+    // 🌟 核心判斷：超過 1 條用下拉選單，否則用按鈕
     // ==========================================
-    if (viewKeys.length > 10) {
+    if (viewKeys.length > 1) {
         if (routeContainer) routeContainer.className = 'select-group'; // 拔掉 flex 避免排版跑位
         
         routeSelectBox = document.createElement('select');
