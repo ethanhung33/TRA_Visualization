@@ -1072,14 +1072,16 @@ function setupSearch() {
     });
 
     searchInput.addEventListener('input', (e) => {
-        const keyword = e.target.value.trim().toLowerCase();
+        const rawKeyword = e.target.value.trim().toLowerCase();
         
-        if (keyword.length === 0) {
+        if (rawKeyword.length === 0) {
             searchResults.style.display = 'none';
             return;
         }
 
-        // 🌟 建立一個陣列來收集結果並計分
+        // 🌟 臺台互通：將輸入的關鍵字裡的「臺」全部視為「台」
+        const keyword = rawKeyword.replace(/臺/g, '台');
+
         let searchData = [];
 
         // --- 3. 搜尋車站 ---
@@ -1089,7 +1091,9 @@ function setupSearch() {
                 seg.stations.forEach(st => {
                     let stName = st.name || "";
                     let stId = String(st.id || "");
-                    let nameLower = stName.toLowerCase();
+                    
+                    // 🌟 臺台互通：將資料庫裡的站名也轉成「台」來當作比對基準
+                    let nameLower = stName.toLowerCase().replace(/臺/g, '台');
                     let idLower = stId.toLowerCase();
 
                     // 🌟 計分邏輯 (完全相符=3, 開頭相符=2, 包含=1)
@@ -1100,6 +1104,7 @@ function setupSearch() {
 
                     if (score > 0) {
                         if (!matchedStations.has(stName)) {
+                            // 🌟 注意：存入 Map 準備顯示在畫面上的，依然是原本原汁原味的 stName！
                             matchedStations.set(stName, { id: stId, name: stName, score: score });
                         } else if (score > matchedStations.get(stName).score) {
                             matchedStations.get(stName).score = score; // 保留最高分
@@ -1113,7 +1118,7 @@ function setupSearch() {
             searchData.push({ type: 'station', id: data.id, name: data.name, score: data.score });
         });
 
-        // --- 4. 搜尋車次 ---
+        // --- 4. 搜尋車次 (維持不變) ---
         let currentShowId = !(settings && settings.show_train_id === false);
         if (currentShowId && timetable) {
             let matchedTrains = new Map(); 
@@ -1121,7 +1126,6 @@ function setupSearch() {
                 let trainNo = String(train.no || train.train_no || "");
                 let noLower = trainNo.toLowerCase();
 
-                // 🌟 計分邏輯
                 let score = noLower === keyword ? 3 : (noLower.startsWith(keyword) ? 2 : (noLower.includes(keyword) ? 1 : 0));
 
                 if (score > 0 && !matchedTrains.has(trainNo)) {
@@ -1134,12 +1138,11 @@ function setupSearch() {
             });
         }
 
-        // --- 5. 🌟 執行排序 (分數高的在前面，分數一樣時字數少的在前面) ---
+        // --- 5. 執行排序 ---
         searchData.sort((a, b) => {
             if (b.score !== a.score) {
                 return b.score - a.score; 
             }
-            // 分數一樣時，短的排前面 (例如 111 會排在 1110 前面)
             let aStr = a.type === 'station' ? a.name : a.id;
             let bStr = b.type === 'station' ? b.name : b.id;
             return aStr.length - bStr.length;
