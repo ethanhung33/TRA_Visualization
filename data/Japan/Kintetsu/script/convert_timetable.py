@@ -183,7 +183,19 @@ def format_nankai_style(raw_train, station_map, train_idx, day_type):
         return None
 
     # ==========================================
-    # 🧩 階段 B：打包 Segments
+    # 🛡️ 階段 A-2：剔除「下游截短」的殘骸車次
+    # ==========================================
+    first_station = valid_stops[0]["clean_name"]
+    dir_str = raw_train.get("dir", "")
+    match = re.search(r'始発駅[：:]\s*([^）\)]+)', dir_str)
+    
+    if match:
+        clean_origin = clean_station_name(match.group(1))
+        if clean_origin in station_map and first_station != clean_origin:
+            return None
+
+    # ==========================================
+    # 🧩 階段 B：打包 Segments (✅ 放手交給前端縫合)
     # ==========================================
     segments = []
     current_segment_stops = []
@@ -199,22 +211,38 @@ def format_nankai_style(raw_train, station_map, train_idx, day_type):
             current_possible_lines = set(st_lines)
         else:
             new_possible_lines = current_possible_lines.intersection(st_lines)
+            
+            # 🛑 強制切斷「折返 (Switchback)」路線
+            if len(current_segment_stops) > 1 and current_segment_stops[-1]["clean_name"] == "近鉄奈良":
+                new_possible_lines = set() 
+                
             if new_possible_lines:
                 current_segment_stops.append(stop)
                 current_possible_lines = new_possible_lines
             else:
+                # 1. 結算上一段路線
                 seg_id = list(current_possible_lines)[0] if current_possible_lines else "unknown_line"
                 segments.append(build_segment_dict(seg_id, current_segment_stops, station_map))
                 
+                # 2. 準備下一段路線
                 last_stop = current_segment_stops[-1]
                 last_st_name = last_stop["clean_name"]
                 last_st_lines = station_map.get(last_st_name, {}).get("lines", set())
                 
-                current_segment_stops = [last_stop, stop]
-                current_possible_lines = last_st_lines.intersection(st_lines)
-                if not current_possible_lines:
+                # 🛑 核心修復：嚴格檢查「上一站」是否真的存在於「這站」的路線上！
+                shared_lines = last_st_lines.intersection(st_lines)
+                
+                if shared_lines:
+                    # 👉 正常交會站 (如: 西大寺)：它存在於兩條線上，合法傳承
+                    current_segment_stops = [last_stop, stop]
+                    current_possible_lines = shared_lines
+                else:
+                    # 👉 斷層直通車 (如: 津 -> 鶴橋)：沒有共同路線，拒絕硬塞！
+                    # 讓這個 Segment 乾淨地從「鶴橋」開始，把造橋的工作交給前端
+                    current_segment_stops = [stop]
                     current_possible_lines = set(st_lines)
 
+    # 結算最後一段
     if len(current_segment_stops) > 1:
         seg_id = list(current_possible_lines)[0] if current_possible_lines else "unknown_line"
         segments.append(build_segment_dict(seg_id, current_segment_stops, station_map))
@@ -229,20 +257,12 @@ def format_nankai_style(raw_train, station_map, train_idx, day_type):
     }
     
     # ==========================================
-    # 🧬 階段 C：產生這班車的「唯一身分證 (Signature)」
+    # 🧬 階段 C：升級版「唯一身分證」
     # ==========================================
-    dir_str = raw_train.get("dir", "Unknown") # 例如 "近鉄奈良行き（始発駅：尼崎）"
-    last_stop = valid_stops[-1]
-    last_st_name = last_stop["clean_name"]
-    last_arr = parse_time(last_stop.get("arr"))
-    
-    # 簽名組合：(方向與始發, 終點站, 終點抵達時間)
-    # 物理上絕對不可能有兩班不同起點的車，在同一分鐘抵達同一個終點月台
-    signature = (dir_str, last_st_name, last_arr)
+    first_dep = parse_time(valid_stops[0].get("dep"))
+    signature = (dir_str, first_station, first_dep)
 
-    # 回傳：格式化後的資料, 這筆資料的有效停靠站數量, 唯一身分證
     return formatted_train, len(valid_stops), signature
-
 
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
