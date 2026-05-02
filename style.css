@@ -820,3 +820,18 @@ body.light-mode .search-item:hover {
 }
 body.light-mode .badge-station { color: #0082CC; border-color: #0082CC; background-color: rgba(0, 130, 204, 0.1); }
 body.light-mode .badge-train { color: #D16700; border-color: #D16700; background-color: rgba(209, 103, 0, 0.1); }
+
+/* 🌟 鍵盤上下鍵選中時的高亮狀態 */
+.search-item.search-item-active {
+    background-color: #555555;
+    /* 給它一點特別的視覺提示，例如左側加一條發光的線 */
+    border-left: 4px solid #FFA500; 
+    padding-left: 10px; /* 因為加了 4px 的邊框，把 padding 退一點保持平衡 */
+}
+
+/* 🌞 淺色模式的鍵盤焦點狀態 */
+body.light-mode .search-item.search-item-active {
+    background-color: #f5f5f5;
+    border-left: 4px solid #FFA500;
+    padding-left: 10px;
+}

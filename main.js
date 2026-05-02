@@ -1048,7 +1048,7 @@ function buildUI() {
 }
 
 // ==========================================
-// 🌟 搜尋功能整合 (車站與車次即時比對 - 權重排序防呆版)
+// 🌟 搜尋功能整合 (支援鍵盤上下鍵與 Enter)
 // ==========================================
 let isSearchBound = false;
 
@@ -1057,13 +1057,14 @@ function setupSearch() {
     const searchResults = document.getElementById('search-results');
     if (!searchInput || !searchResults) return;
 
-    // --- 1. 動態更新輸入框提示文字 (套用您的台北/東京設定) ---
     let showId = !(settings && settings.show_train_id === false);
     searchInput.placeholder = showId ? "輸入車站名或車次 (如: 台北, 111)" : "輸入車站名 (如: 東京)";
 
-    // --- 2. 防重複綁定鎖 ---
     if (isSearchBound) return;
     isSearchBound = true;
+
+    // 🌟 新增：用來記錄目前鍵盤選到了第幾個選項 (-1 代表沒選)
+    let currentFocus = -1; 
 
     document.addEventListener('click', (e) => {
         if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
@@ -1079,24 +1080,22 @@ function setupSearch() {
             return;
         }
 
-        // 🌟 臺台互通：將輸入的關鍵字裡的「臺」全部視為「台」
-        const keyword = rawKeyword.replace(/臺/g, '台');
+        // 每次重新輸入字，就把鍵盤焦點重置
+        currentFocus = -1; 
 
+        const keyword = rawKeyword.replace(/臺/g, '台');
         let searchData = [];
 
-        // --- 3. 搜尋車站 ---
+        // --- 搜尋車站 ---
         let matchedStations = new Map(); 
         if (topology && topology.segments) {
             topology.segments.forEach(seg => {
                 seg.stations.forEach(st => {
                     let stName = st.name || "";
                     let stId = String(st.id || "");
-                    
-                    // 🌟 臺台互通：將資料庫裡的站名也轉成「台」來當作比對基準
                     let nameLower = stName.toLowerCase().replace(/臺/g, '台');
                     let idLower = stId.toLowerCase();
 
-                    // 🌟 計分邏輯 (完全相符=3, 開頭相符=2, 包含=1)
                     let score = Math.max(
                         nameLower === keyword ? 3 : (nameLower.startsWith(keyword) ? 2 : (nameLower.includes(keyword) ? 1 : 0)),
                         idLower === keyword ? 3 : (idLower.startsWith(keyword) ? 2 : (idLower.includes(keyword) ? 1 : 0))
@@ -1104,10 +1103,9 @@ function setupSearch() {
 
                     if (score > 0) {
                         if (!matchedStations.has(stName)) {
-                            // 🌟 注意：存入 Map 準備顯示在畫面上的，依然是原本原汁原味的 stName！
                             matchedStations.set(stName, { id: stId, name: stName, score: score });
                         } else if (score > matchedStations.get(stName).score) {
-                            matchedStations.get(stName).score = score; // 保留最高分
+                            matchedStations.get(stName).score = score; 
                         }
                     }
                 });
@@ -1118,16 +1116,14 @@ function setupSearch() {
             searchData.push({ type: 'station', id: data.id, name: data.name, score: data.score });
         });
 
-        // --- 4. 搜尋車次 (維持不變) ---
+        // --- 搜尋車次 ---
         let currentShowId = !(settings && settings.show_train_id === false);
         if (currentShowId && timetable) {
             let matchedTrains = new Map(); 
             timetable.forEach(train => {
                 let trainNo = String(train.no || train.train_no || "");
                 let noLower = trainNo.toLowerCase();
-
                 let score = noLower === keyword ? 3 : (noLower.startsWith(keyword) ? 2 : (noLower.includes(keyword) ? 1 : 0));
-
                 if (score > 0 && !matchedTrains.has(trainNo)) {
                     matchedTrains.set(trainNo, { typeStr: train.type || "", no: trainNo, score: score });
                 }
@@ -1138,22 +1134,20 @@ function setupSearch() {
             });
         }
 
-        // --- 5. 執行排序 ---
+        // --- 排序 ---
         searchData.sort((a, b) => {
-            if (b.score !== a.score) {
-                return b.score - a.score; 
-            }
+            if (b.score !== a.score) return b.score - a.score; 
             let aStr = a.type === 'station' ? a.name : a.id;
             let bStr = b.type === 'station' ? b.name : b.id;
             return aStr.length - bStr.length;
         });
 
-        // --- 6. 渲染結果 ---
+        // --- 渲染結果 ---
         if (searchData.length > 0) {
             let resultsHtml = searchData.map(item => {
                 if (item.type === 'station') {
                     return `
-                        <div class="search-item" onclick="triggerSearchSelect('station', '${item.id}', this)">
+                        <div class="search-item selectable-item" onclick="triggerSearchSelect('station', '${item.id}', this)">
                             <span class="search-item-badge badge-station">車站</span> 
                             <span>${item.name}</span>
                             <span style="opacity: 0.5; font-size: 13px; margin-left: 8px; font-family: monospace;">(${item.id})</span>
@@ -1161,7 +1155,7 @@ function setupSearch() {
                     `;
                 } else {
                     return `
-                        <div class="search-item" onclick="triggerSearchSelect('train', '${item.id}', this)">
+                        <div class="search-item selectable-item" onclick="triggerSearchSelect('train', '${item.id}', this)">
                             <span class="search-item-badge badge-train">車次</span> ${item.typeStr} ${item.id}
                         </div>
                     `;
@@ -1170,11 +1164,66 @@ function setupSearch() {
             searchResults.innerHTML = resultsHtml.join('');
         } else {
             let notFoundText = currentShowId ? "找不到相符的車站或車次" : "找不到相符的車站";
+            // 🌟 找不到結果時，這條項目不會有 selectable-item 標籤，就不會被鍵盤選到
             searchResults.innerHTML = `<div class="search-item" style="color: #888; justify-content: center; cursor: default;">${notFoundText}</div>`;
         }
         
         searchResults.style.display = 'block';
     });
+
+    // ==========================================
+    // 🌟 新增：攔截鍵盤事件 (上下鍵與 Enter)
+    // ==========================================
+    searchInput.addEventListener('keydown', (e) => {
+        // 只抓取我們有標記為 selectable-item 的選項
+        let items = searchResults.querySelectorAll('.selectable-item');
+        if (searchResults.style.display === 'none' || items.length === 0) return;
+
+        if (e.key === "ArrowDown") {
+            e.preventDefault(); // 防止游標在輸入框裡亂跑
+            currentFocus++;
+            addActive(items);
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault(); 
+            currentFocus--;
+            addActive(items);
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            // 如果有選中項目，就模擬點擊它
+            if (currentFocus > -1) {
+                if (items[currentFocus]) {
+                    items[currentFocus].click();
+                }
+            } else if (items.length > 0) {
+                // 🌟 貼心功能：如果使用者沒有按上下鍵，直接按 Enter，就預設幫他點擊第一筆資料！
+                items[0].click();
+            }
+        }
+    });
+
+    // 處理增加焦點樣式的函數
+    function addActive(items) {
+        if (!items) return false;
+        // 先清除所有人的焦點
+        removeActive(items);
+        
+        // 如果到底了就回到最上面，如果在最上面按上，就跳到最下面
+        if (currentFocus >= items.length) currentFocus = 0;
+        if (currentFocus < 0) currentFocus = (items.length - 1);
+        
+        // 加上焦點 CSS
+        items[currentFocus].classList.add("search-item-active");
+        
+        // 🌟 核心：確保選中的項目會自動捲動到畫面可見範圍內！
+        items[currentFocus].scrollIntoView({ block: 'nearest' });
+    }
+
+    // 處理移除焦點樣式的函數
+    function removeActive(items) {
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove("search-item-active");
+        }
+    }
 }
 
 // 供搜尋面板專用的全域觸發器
