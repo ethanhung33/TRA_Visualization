@@ -101,10 +101,10 @@
         "view_type": "LINEAR",
         "button_color": ["#795548", "#4E342E"]
     },
-    "yunokuni": {
+    "yunoyama": {
         "name": "湯の山線 (近鉄四日市-湯の山温泉)",
         "lines": [
-            "yunokuni_line"
+            "yunoyama_line"
         ],
         "view_type": "LINEAR",
         "button_color": ["#607D8B", "#263238"]
@@ -144,7 +144,7 @@
     "ikoma_cable": {
         "name": "生駒鋼索線 (鳥居前-生駒山上)",
         "lines": [
-            "ikoma_cable_line"
+            "ikoma_cable"
         ],
         "view_type": "LINEAR",
         "button_color": ["#9C27B0", "#7B1FA2"]
@@ -152,7 +152,7 @@
     "nishishigi_cable": {
         "name": "西信貴鋼索線 (信貴山口-高安山)",
         "lines": [
-            "nishishigi_cable_line"
+            "nishishigi_cable"
         ],
         "view_type": "LINEAR",
         "button_color": ["#E91E63", "#C2185B"]
