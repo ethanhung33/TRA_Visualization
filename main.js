@@ -3247,6 +3247,10 @@ async function init(systemPath) {
         console.log("資料載入完成！建構 UI 與渲染畫布...");
         
         buildUI();         // 建立側邊欄按鈕
+
+        // 🌟🌟🌟 補上這一行：確保初始化時強制執行按鈕過濾！
+        updateTrainTypeVisibility();
+
         updateBottomPanel(null); // 初始化底部面板
         bindThemeToggle(); // 啟動主題切換按鈕
         setupCanvasInteractions();
