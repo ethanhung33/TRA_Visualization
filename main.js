@@ -1048,7 +1048,7 @@ function buildUI() {
 }
 
 // ==========================================
-// 🌟 搜尋功能整合 (車站與車次即時比對 - 動態適應版)
+// 🌟 搜尋功能整合 (車站與車次即時比對 - 權重排序防呆版)
 // ==========================================
 let isSearchBound = false;
 
@@ -1057,87 +1057,119 @@ function setupSearch() {
     const searchResults = document.getElementById('search-results');
     if (!searchInput || !searchResults) return;
 
-    // --- 1. 🌟 動態更新輸入框提示文字 (不受綁定鎖限制，每次切換系統都會更新) ---
+    // --- 1. 動態更新輸入框提示文字 (套用您的台北/東京設定) ---
     let showId = !(settings && settings.show_train_id === false);
-    searchInput.placeholder = showId ? "輸入車站名或車次 (如: 鶴橋, 106)" : "輸入車站名 (如: 鶴橋)";
+    searchInput.placeholder = showId ? "輸入車站名或車次 (如: 台北, 111)" : "輸入車站名 (如: 東京)";
 
     // --- 2. 防重複綁定鎖 ---
     if (isSearchBound) return;
     isSearchBound = true;
 
-    // 點擊空白處時自動收起搜尋結果
     document.addEventListener('click', (e) => {
         if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
             searchResults.style.display = 'none';
         }
     });
 
-    // 監聽輸入事件
     searchInput.addEventListener('input', (e) => {
         const keyword = e.target.value.trim().toLowerCase();
         
-        // 如果清空輸入框，就隱藏結果
         if (keyword.length === 0) {
             searchResults.style.display = 'none';
             return;
         }
 
-        let resultsHtml = [];
+        // 🌟 建立一個陣列來收集結果並計分
+        let searchData = [];
 
-        // --- 3. 搜尋車站 (比對 topology 底層實體資料庫) ---
+        // --- 3. 搜尋車站 ---
         let matchedStations = new Map(); 
         if (topology && topology.segments) {
             topology.segments.forEach(seg => {
                 seg.stations.forEach(st => {
-                    if ((st.name && st.name.toLowerCase().includes(keyword)) ||
-                        (st.id && String(st.id).toLowerCase().includes(keyword))) {
-                        if (!matchedStations.has(st.name)) {
-                            matchedStations.set(st.name, st.id);
+                    let stName = st.name || "";
+                    let stId = String(st.id || "");
+                    let nameLower = stName.toLowerCase();
+                    let idLower = stId.toLowerCase();
+
+                    // 🌟 計分邏輯 (完全相符=3, 開頭相符=2, 包含=1)
+                    let score = Math.max(
+                        nameLower === keyword ? 3 : (nameLower.startsWith(keyword) ? 2 : (nameLower.includes(keyword) ? 1 : 0)),
+                        idLower === keyword ? 3 : (idLower.startsWith(keyword) ? 2 : (idLower.includes(keyword) ? 1 : 0))
+                    );
+
+                    if (score > 0) {
+                        if (!matchedStations.has(stName)) {
+                            matchedStations.set(stName, { id: stId, name: stName, score: score });
+                        } else if (score > matchedStations.get(stName).score) {
+                            matchedStations.get(stName).score = score; // 保留最高分
                         }
                     }
                 });
             });
         }
         
-        matchedStations.forEach((id, name) => {
-            resultsHtml.push(`
-                <div class="search-item" onclick="triggerSearchSelect('station', '${id}', this)">
-                    <span class="search-item-badge badge-station">車站</span> 
-                    <span>${name}</span>
-                    <span style="opacity: 0.5; font-size: 13px; margin-left: 8px; font-family: monospace;">(${id})</span>
-                </div>
-            `);
+        matchedStations.forEach(data => {
+            searchData.push({ type: 'station', id: data.id, name: data.name, score: data.score });
         });
 
-        // --- 4. 🌟 搜尋車次 (嚴格檢查當前系統是否允許顯示車次) ---
-        // 每次輸入時即時抓取狀態，確保跨系統切換後邏輯依然正確
+        // --- 4. 搜尋車次 ---
         let currentShowId = !(settings && settings.show_train_id === false);
-        
         if (currentShowId && timetable) {
-            let matchedTrains = new Set(); // 防止跨夜車重複
+            let matchedTrains = new Map(); 
             timetable.forEach(train => {
                 let trainNo = String(train.no || train.train_no || "");
-                if (trainNo.toLowerCase().includes(keyword)) {
-                    if (!matchedTrains.has(trainNo)) {
-                        matchedTrains.add(trainNo);
-                        let trainType = train.type || "";
-                        resultsHtml.push(`
-                            <div class="search-item" onclick="triggerSearchSelect('train', '${trainNo}', this)">
-                                <span class="search-item-badge badge-train">車次</span> ${trainType} ${trainNo}
-                            </div>
-                        `);
-                    }
+                let noLower = trainNo.toLowerCase();
+
+                // 🌟 計分邏輯
+                let score = noLower === keyword ? 3 : (noLower.startsWith(keyword) ? 2 : (noLower.includes(keyword) ? 1 : 0));
+
+                if (score > 0 && !matchedTrains.has(trainNo)) {
+                    matchedTrains.set(trainNo, { typeStr: train.type || "", no: trainNo, score: score });
                 }
+            });
+
+            matchedTrains.forEach(data => {
+                searchData.push({ type: 'train', id: data.no, typeStr: data.typeStr, score: data.score });
             });
         }
 
-        // --- 5. 渲染結果 ---
-        if (resultsHtml.length > 0) {
+        // --- 5. 🌟 執行排序 (分數高的在前面，分數一樣時字數少的在前面) ---
+        searchData.sort((a, b) => {
+            if (b.score !== a.score) {
+                return b.score - a.score; 
+            }
+            // 分數一樣時，短的排前面 (例如 111 會排在 1110 前面)
+            let aStr = a.type === 'station' ? a.name : a.id;
+            let bStr = b.type === 'station' ? b.name : b.id;
+            return aStr.length - bStr.length;
+        });
+
+        // --- 6. 渲染結果 ---
+        if (searchData.length > 0) {
+            let resultsHtml = searchData.map(item => {
+                if (item.type === 'station') {
+                    return `
+                        <div class="search-item" onclick="triggerSearchSelect('station', '${item.id}', this)">
+                            <span class="search-item-badge badge-station">車站</span> 
+                            <span>${item.name}</span>
+                            <span style="opacity: 0.5; font-size: 13px; margin-left: 8px; font-family: monospace;">(${item.id})</span>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="search-item" onclick="triggerSearchSelect('train', '${item.id}', this)">
+                            <span class="search-item-badge badge-train">車次</span> ${item.typeStr} ${item.id}
+                        </div>
+                    `;
+                }
+            });
             searchResults.innerHTML = resultsHtml.join('');
         } else {
             let notFoundText = currentShowId ? "找不到相符的車站或車次" : "找不到相符的車站";
             searchResults.innerHTML = `<div class="search-item" style="color: #888; justify-content: center; cursor: default;">${notFoundText}</div>`;
         }
+        
         searchResults.style.display = 'block';
     });
 }
