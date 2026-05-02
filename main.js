@@ -1048,17 +1048,22 @@ function buildUI() {
 }
 
 // ==========================================
-// 🌟 搜尋功能整合 (車站與車次即時比對)
+// 🌟 搜尋功能整合 (車站與車次即時比對 - 動態適應版)
 // ==========================================
 let isSearchBound = false;
 
 function setupSearch() {
-    if (isSearchBound) return;
-    isSearchBound = true;
-
     const searchInput = document.getElementById('search-input');
     const searchResults = document.getElementById('search-results');
     if (!searchInput || !searchResults) return;
+
+    // --- 1. 🌟 動態更新輸入框提示文字 (不受綁定鎖限制，每次切換系統都會更新) ---
+    let showId = !(settings && settings.show_train_id === false);
+    searchInput.placeholder = showId ? "輸入車站名或車次 (如: 鶴橋, 106)" : "輸入車站名 (如: 鶴橋)";
+
+    // --- 2. 防重複綁定鎖 ---
+    if (isSearchBound) return;
+    isSearchBound = true;
 
     // 點擊空白處時自動收起搜尋結果
     document.addEventListener('click', (e) => {
@@ -1079,14 +1084,13 @@ function setupSearch() {
 
         let resultsHtml = [];
 
-        // --- 1. 搜尋車站 (比對 topology 底層實體資料庫) ---
+        // --- 3. 搜尋車站 (比對 topology 底層實體資料庫) ---
         let matchedStations = new Map(); 
         if (topology && topology.segments) {
             topology.segments.forEach(seg => {
                 seg.stations.forEach(st => {
                     if ((st.name && st.name.toLowerCase().includes(keyword)) ||
                         (st.id && String(st.id).toLowerCase().includes(keyword))) {
-                        // 利用 Map 確保同名的交會站不會重複出現
                         if (!matchedStations.has(st.name)) {
                             matchedStations.set(st.name, st.id);
                         }
@@ -1098,13 +1102,18 @@ function setupSearch() {
         matchedStations.forEach((id, name) => {
             resultsHtml.push(`
                 <div class="search-item" onclick="triggerSearchSelect('station', '${id}', this)">
-                    <span class="search-item-badge badge-station">車站</span> ${name}
+                    <span class="search-item-badge badge-station">車站</span> 
+                    <span>${name}</span>
+                    <span style="opacity: 0.5; font-size: 13px; margin-left: 8px; font-family: monospace;">(${id})</span>
                 </div>
             `);
         });
 
-        // --- 2. 搜尋車次 (比對 timetable 今日時刻表) ---
-        if (timetable) {
+        // --- 4. 🌟 搜尋車次 (嚴格檢查當前系統是否允許顯示車次) ---
+        // 每次輸入時即時抓取狀態，確保跨系統切換後邏輯依然正確
+        let currentShowId = !(settings && settings.show_train_id === false);
+        
+        if (currentShowId && timetable) {
             let matchedTrains = new Set(); // 防止跨夜車重複
             timetable.forEach(train => {
                 let trainNo = String(train.no || train.train_no || "");
@@ -1122,11 +1131,12 @@ function setupSearch() {
             });
         }
 
-        // --- 3. 渲染結果 ---
+        // --- 5. 渲染結果 ---
         if (resultsHtml.length > 0) {
             searchResults.innerHTML = resultsHtml.join('');
         } else {
-            searchResults.innerHTML = `<div class="search-item" style="color: #888; justify-content: center; cursor: default;">找不到相符的車站或車次</div>`;
+            let notFoundText = currentShowId ? "找不到相符的車站或車次" : "找不到相符的車站";
+            searchResults.innerHTML = `<div class="search-item" style="color: #888; justify-content: center; cursor: default;">${notFoundText}</div>`;
         }
         searchResults.style.display = 'block';
     });
