@@ -1070,6 +1070,8 @@ let isSearchBound = false;
 function setupSearch() {
     const searchInput = document.getElementById('search-input');
     const searchResults = document.getElementById('search-results');
+    const clearBtn = document.getElementById('search-clear-btn'); // 🌟 新增：抓取叉叉按鈕
+    
     if (!searchInput || !searchResults) return;
 
     // 🌟 修正 1：移到綁定檢查之前
@@ -1079,6 +1081,40 @@ function setupSearch() {
 
     if (isSearchBound) return;
     isSearchBound = true;
+
+    // ==========================================
+    // 🌟 新增：綁定叉叉按鈕的點擊事件 (功能 100% 等同 ESC 鍵)
+    // ==========================================
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            let needsRedraw = false;
+
+            // 1. 清空火車與車站的選取狀態，並重置底部面板
+            if (selectedTrain || selectedStation) {
+                selectedTrain = null;
+                selectedStation = null;
+                if (typeof updateBottomPanel === 'function') updateBottomPanel(null);
+                needsRedraw = true;
+            }
+
+            // 2. 清空搜尋框、隱藏下拉選單、隱藏叉叉自己
+            searchInput.value = '';
+            searchResults.style.display = 'none';
+            clearBtn.style.display = 'none'; 
+
+            // 3. 解除路線過濾模式
+            if (activeRouteFilterTrains !== null) {
+                activeRouteFilterTrains = null;
+                needsRedraw = true;
+            }
+
+            // 4. 重繪乾淨的畫布
+            if (needsRedraw) {
+                if (typeof requestRedraw === 'function') requestRedraw();
+                else if (typeof redrawAll === 'function') redrawAll();
+            }
+        });
+    }
 
     let currentFocus = -1; 
 
@@ -1090,6 +1126,11 @@ function setupSearch() {
 
     searchInput.addEventListener('input', (e) => {
         const rawText = e.target.value.trim().toLowerCase();
+
+        // 🌟 新增：有打字就顯示叉叉，沒字就隱藏叉叉
+        if (clearBtn) {
+            clearBtn.style.display = rawText.length > 0 ? 'block' : 'none';
+        }
         
         if (rawText.length === 0) {
             searchResults.style.display = 'none';
@@ -1294,8 +1335,20 @@ window.triggerSearchSelect = function(type, id, element) {
     // 1. 隱藏下拉選單並清空輸入框
     const searchResults = document.getElementById('search-results');
     const searchInput = document.getElementById('search-input');
+    const clearBtn = document.getElementById('search-clear-btn'); // 🌟 新增
+
     if (searchResults) searchResults.style.display = 'none';
     if (searchInput) searchInput.value = ''; // 清空讓下次搜尋更方便
+
+    if (clearBtn) {
+        clearBtn.style.display = 'none'; // 🌟 新增：輸入框清空了，叉叉也要跟著功成身退！
+    }
+
+    // 🌟 原本解除過濾的邏輯維持不變
+    if (typeof activeRouteFilterTrains !== 'undefined' && activeRouteFilterTrains !== null) {
+        activeRouteFilterTrains = null;
+        if (typeof redrawAll === 'function') redrawAll(); 
+    }
 
     if (type === 'station') {
         // 呼叫您原本寫好的超強跳轉函數

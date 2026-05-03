@@ -62,7 +62,10 @@
                 <div class="control-section">
                     <h3>搜尋</h3>
                     <div class="search-wrapper" style="position: relative;">
-                        <input type="text" id="search-input" placeholder="輸入車站名或車次 (如: 台北, 1103)">
+                        <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                            <input type="text" id="search-input" placeholder="車站、車次 或 路線找車" style="width: 100%; padding-right: 30px;" autocomplete="off">
+                            <span id="search-clear-btn" style="position: absolute; right: 10px; cursor: pointer; color: #888; font-size: 16px; font-weight: bold; display: none;">✕</span>
+                        </div>
                         <div id="search-results" class="search-dropdown" style="display: none;"></div>
                     </div>
                 </div>
