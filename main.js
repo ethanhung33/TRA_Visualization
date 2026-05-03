@@ -1330,39 +1330,37 @@ function setupSearch() {
     function removeActive(items) { for (let i = 0; i < items.length; i++) items[i].classList.remove("search-item-active"); }
 }
 
-// 供搜尋面板專用的全域觸發器
+// ==========================================
+// 🌟 供搜尋面板專用的全域觸發器 (保留文字與過濾狀態版)
+// ==========================================
 window.triggerSearchSelect = function(type, id, element) {
-    // 1. 隱藏下拉選單並清空輸入框
     const searchResults = document.getElementById('search-results');
-    const searchInput = document.getElementById('search-input');
-    const clearBtn = document.getElementById('search-clear-btn'); // 🌟 新增
 
+    // 1. 只有點擊後隱藏下拉選單，絕對「不」清空輸入框，也「不」隱藏叉叉按鈕！
     if (searchResults) searchResults.style.display = 'none';
-    if (searchInput) searchInput.value = ''; // 清空讓下次搜尋更方便
 
-    if (clearBtn) {
-        clearBtn.style.display = 'none'; // 🌟 新增：輸入框清空了，叉叉也要跟著功成身退！
-    }
+    // 🌟 這裡原本清空字體、隱藏叉叉、解除畫布過濾的邏輯全部拔除，
+    // 把控制權完全還給右上角的 ✕ 按鈕與 ESC 鍵！
 
-    // 🌟 原本解除過濾的邏輯維持不變
-    if (typeof activeRouteFilterTrains !== 'undefined' && activeRouteFilterTrains !== null) {
-        activeRouteFilterTrains = null;
-        if (typeof redrawAll === 'function') redrawAll(); 
-    }
-
+    // 2. 執行跳轉與選取
     if (type === 'station') {
-        // 呼叫您原本寫好的超強跳轉函數
-        window.triggerSelectStation(id);
+        if (typeof window.triggerSelectStation === 'function') {
+            window.triggerSelectStation(id);
+        }
     } else if (type === 'train') {
-        // 🌟 智慧防呆：如果這班車的車種被使用者隱藏了，自動幫他打勾開啟！
-        let targetTrain = timetable.find(t => String(t.no || t.train_no) === String(id));
+        // 智慧防呆：如果這班車所屬的車種剛好被使用者隱藏了，自動幫他打勾開啟！
+        let targetTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(id));
         if (targetTrain && !activeTrainTypes.has(targetTrain.type)) {
             activeTrainTypes.add(targetTrain.type);
-            // 觸發按鈕顏色更新
-            document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
+            document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { 
+                if(b._updateStyle) b._updateStyle(); 
+            });
         }
-        // 呼叫原本寫好的車次跳轉函數
-        window.triggerSelectTrain(id);
+        
+        // 呼叫原本寫好的車次跳轉函數，飛到那班車的位置並發光！
+        if (typeof window.triggerSelectTrain === 'function') {
+            window.triggerSelectTrain(id);
+        }
     }
 };
 
