@@ -1304,18 +1304,42 @@ function setupSearch() {
         searchResults.style.display = 'block';
     });
 
+    // --- 攔截鍵盤事件 (上下鍵與智慧 Enter) ---
     searchInput.addEventListener('keydown', (e) => {
         let items = searchResults.querySelectorAll('.selectable-item');
-        if (searchResults.style.display === 'none' || items.length === 0) return;
 
-        if (e.key === "ArrowDown") {
-            e.preventDefault(); currentFocus++; addActive(items);
-        } else if (e.key === "ArrowUp") {
-            e.preventDefault(); currentFocus--; addActive(items);
-        } else if (e.key === "Enter") {
-            e.preventDefault();
-            if (currentFocus > -1) { if (items[currentFocus]) items[currentFocus].click(); }
-            else if (items.length > 0) { items[0].click(); }
+        // 🌟 智慧 Enter 邏輯
+        if (e.key === "Enter") {
+            e.preventDefault(); // 防止表單預設送出
+
+            // 狀況 A：如果此時選單是隱藏的，強制觸發一次輸入事件來「喚醒」選單！
+            if (searchResults.style.display === 'none') {
+                searchInput.dispatchEvent(new Event('input'));
+                return;
+            } 
+            // 狀況 B：如果選單已經開著，就執行選取動作
+            else {
+                if (currentFocus > -1) { 
+                    if (items[currentFocus]) items[currentFocus].click(); 
+                }
+                else if (items.length > 0) { 
+                    items[0].click(); 
+                }
+            }
+        } 
+        // 🌟 上下鍵邏輯 (只有在選單開啟時才生效)
+        else {
+            if (searchResults.style.display === 'none' || items.length === 0) return;
+
+            if (e.key === "ArrowDown") {
+                e.preventDefault(); 
+                currentFocus++; 
+                addActive(items);
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault(); 
+                currentFocus--; 
+                addActive(items);
+            }
         }
     });
 
