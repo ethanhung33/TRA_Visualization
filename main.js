@@ -1270,15 +1270,23 @@ function setupSearch() {
             let bStr = b.type === 'station' ? b.name : b.id;
             return aStr.length - bStr.length;
         });
-
+        // --- 渲染結果 ---
         if (searchData.length > 0) {
             let resultsHtml = searchData.map(item => {
                 if (item.type === 'station') {
                     return `<div class="search-item selectable-item" onclick="triggerSearchSelect('station', '${item.id}', this)"><span class="search-item-badge badge-station">車站</span> <span>${item.name}</span><span style="opacity: 0.5; font-size: 13px; margin-left: 8px; font-family: monospace;">(${item.id})</span></div>`;
                 } else {
                     let routeBadge = keywords.length >= 2 ? `<span style="font-size: 12px; color: #FFA500; margin-left: 8px;">(直達)</span>` : "";
+                    
+                    // 🌟 核心升級：同時讀取 Type 和 ID 的顯示設定
+                    let currentShowType = !(settings && settings.show_train_type === false);
                     let trainLabel = currentShowId ? "車次" : "列車";
-                    let displayId = currentShowId ? item.id : ""; 
+                    
+                    // 🌟 智慧組合：根據設定決定要顯示什麼，並自動處理中間的空白
+                    let displayParts = [];
+                    if (currentShowType && item.typeStr) displayParts.push(item.typeStr);
+                    if (currentShowId && item.id) displayParts.push(item.id);
+                    let trainDisplayText = displayParts.join(' '); 
                     
                     let timeHtml = "";
                     if (item.startTime !== undefined && item.endTime !== undefined) {
@@ -1289,7 +1297,7 @@ function setupSearch() {
 
                     return `<div class="search-item selectable-item" style="display: flex; align-items: center;" onclick="triggerSearchSelect('train', '${item.id}', this)">
                         <span class="search-item-badge badge-train">${trainLabel}</span> 
-                        <span style="margin-right: 4px;">${item.typeStr} ${displayId}</span> 
+                        <span style="margin-right: 4px;">${trainDisplayText}</span> 
                         ${routeBadge} 
                         ${timeHtml}
                     </div>`;
