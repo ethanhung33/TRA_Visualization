@@ -617,20 +617,20 @@ function drawTrains() {
     timetable.forEach(train => {
         
         // ==========================================
-        // 🌟 新增：路線過濾器 (A站~B站 直達車篩選)
-        // ==========================================
-        let trainNoStr = String(train.no || train.train_no || "");
-        if (activeRouteFilterTrains !== null && !activeRouteFilterTrains.has(trainNoStr)) {
-            return; // 如果啟用了路線過濾，且這班車不在直達名單內，直接隱藏！
-        }
-
-        // ==========================================
-        // 🌟 終極淨化術：在做任何判斷前，無條件清空這台車的物理座標！
-        // 這樣就算它等一下被隱藏，也絕對不會留下「幽靈點」讓滑鼠點到！
+        // 🌟 第一步：終極淨化術必須放最前面！
+        // 無條件清空這台車的物理座標，確保被隱藏的車絕對不會留下「幽靈點」！
         // ==========================================
         if (!train._hitPoints) train._hitPoints = [];
         train._hitPoints.length = 0; 
+
         // ==========================================
+        // 🌟 第二步：路線過濾器 (A站~B站 直達車篩選)
+        // (這裡也順便為您補上了 train.id 的日本私鐵支援)
+        // ==========================================
+        let trainNoStr = String(train.no || train.train_no || train.id || "");
+        if (activeRouteFilterTrains !== null && !activeRouteFilterTrains.has(trainNoStr)) {
+            return; // 不在名單內，直接隱藏！因為上面已經清空座標，它現在連實體都沒了！
+        }
 
         // 1. 車種過濾檢查
         if (!activeTrainTypes.has(train.type)) {
