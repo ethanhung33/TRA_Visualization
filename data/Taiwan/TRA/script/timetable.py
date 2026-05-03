@@ -301,8 +301,8 @@ def main():
         '6000-臺東', '7000-花蓮', '7130-蘇澳新', '7190-宜蘭', '7360-瑞芳'
     ]
     
-    start_date = "2026/05/16" 
-    end_date = "2026/05/31" # 假設抓一個禮拜
+    start_date = "2026/05/03" 
+    end_date = "2026/05/06" # 假設抓一個禮拜
     
     date_list = get_date_range(start_date, end_date)
     print(f"🗓️ 準備進行快取優化抓取: {start_date} ~ {end_date} (共 {len(date_list)} 天)")
