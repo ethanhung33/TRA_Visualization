@@ -1193,6 +1193,8 @@ function setupSearch() {
                             type: 'train',
                             id: trainNo,
                             typeStr: train.type || "",
+                            startTime: startTime, // 🌟 新增：把起點時間打包
+                            endTime: endTime,     // 🌟 新增：把終點時間打包
                             score: 3 
                         });
                     }
@@ -1208,22 +1210,43 @@ function setupSearch() {
 
         searchData.sort((a, b) => {
             if (b.score !== a.score) return b.score - a.score; 
+
+            // 🌟 新增：如果是兩站搜尋，請乖乖照著「發車時間」排好隊！
+            if (a.startTime !== undefined && b.startTime !== undefined) {
+                return a.startTime - b.startTime;
+            }
+
             let aStr = a.type === 'station' ? a.name : a.id;
             let bStr = b.type === 'station' ? b.name : b.id;
             return aStr.length - bStr.length;
         });
 
-        // 🌟 渲染結果選單
+        // --- 渲染結果 ---
         if (searchData.length > 0) {
             let resultsHtml = searchData.map(item => {
                 if (item.type === 'station') {
                     return `<div class="search-item selectable-item" onclick="triggerSearchSelect('station', '${item.id}', this)"><span class="search-item-badge badge-station">車站</span> <span>${item.name}</span><span style="opacity: 0.5; font-size: 13px; margin-left: 8px; font-family: monospace;">(${item.id})</span></div>`;
                 } else {
                     let routeBadge = keywords.length >= 2 ? `<span style="font-size: 12px; color: #FFA500; margin-left: 8px;">(直達)</span>` : "";
-                    // 🌟 動態判斷：如果系統不顯示車次，我們就只印出「列車 | 快速急行 (直達)」，不要把醜醜的內部 ID 印出來！
                     let trainLabel = currentShowId ? "車次" : "列車";
                     let displayId = currentShowId ? item.id : ""; 
-                    return `<div class="search-item selectable-item" onclick="triggerSearchSelect('train', '${item.id}', this)"><span class="search-item-badge badge-train">${trainLabel}</span> ${item.typeStr} ${displayId} ${routeBadge}</div>`;
+                    
+                    // 🌟 新增：利用系統內建的 formatTimeDisplay 幫時間化妝
+                    let timeHtml = "";
+                    if (item.startTime !== undefined && item.endTime !== undefined) {
+                        let fStart = formatTimeDisplay(item.startTime);
+                        let fEnd = formatTimeDisplay(item.endTime);
+                        // margin-left: auto 可以把時間完美推到選單的最右邊對齊！
+                        timeHtml = `<span style="font-size: 13px; opacity: 0.8; margin-left: auto; font-family: monospace;">${fStart} ➔ ${fEnd}</span>`;
+                    }
+
+                    // 將最外層加上 display: flex，確保左右排版完美
+                    return `<div class="search-item selectable-item" style="display: flex; align-items: center;" onclick="triggerSearchSelect('train', '${item.id}', this)">
+                        <span class="search-item-badge badge-train">${trainLabel}</span> 
+                        <span style="margin-right: 4px;">${item.typeStr} ${displayId}</span> 
+                        ${routeBadge} 
+                        ${timeHtml}
+                    </div>`;
                 }
             });
             searchResults.innerHTML = resultsHtml.join('');
