@@ -206,70 +206,76 @@ def compile_train_data(raw_stops):
     return compiled_segments
 
 # ==========================================
-# 3. 執行緒工作任務 (🌟 終極破解版：WAF 探測與長冷卻機制)
+# 3. 執行緒工作任務 (🌟 終極破解版：日期自動回溯與 WAF 精準探測)
 # ==========================================
-def fetch_worker(t_type, t_no, date, max_retries=3):
-    url = f"https://www.railway.gov.tw/tra-tip-web/tip/tip001/tip112/querybytrainno?rideDate={date}&trainNo={t_no}"
+def fetch_worker(t_type, t_no, seen_dates, max_retries=3):
+    # 🌟 產生「候選日期清單」：包含它出現在看板上的每一天，以及「前一天」(破解跨夜車)
+    dates_to_try = set()
+    for d in seen_dates:
+        dates_to_try.add(d)
+        dt = datetime.strptime(d, "%Y/%m/%d")
+        prev_dt = dt - timedelta(days=1)
+        dates_to_try.add(prev_dt.strftime("%Y/%m/%d"))
     
-    for attempt in range(max_retries):
-        try:
-            # 🌟 基礎延遲拉長，避免對台鐵過度施壓
-            time.sleep(1)
-            
-            resp = SESSION.get(url, timeout=15)
-            resp.raise_for_status() 
-            
-            soup = BeautifulSoup(resp.text, "html.parser")
-            tbodies = soup.find_all("tbody")
-            
-            # 🌟 核心破解邏輯：分辨「真的查無此車」與「被防火牆擋住」
-            if len(tbodies) < 2: 
-                # 如果台鐵正常回傳沒這班車，頁面通常會帶有以下字眼
-                if any(msg in resp.text for msg in ["查無", "沒有找到", "無法查詢", "系統錯誤"]):
-                    return None # 這是真的幽靈車次，安全放生
-                else:
-                    # 沒有表格，也沒有台鐵的錯誤提示，100% 是被防火牆的驗證畫面擋住了！
-                    raise ValueError("取得異常空白網頁，遭遇台鐵 WAF 防火牆阻擋")
-            
-            raw_stops, last_time = [], -1
-
-            for tbody in tbodies[1:]:
-                for row in tbody.find_all("tr"):
-                    cols = row.find_all("td")
-                    if len(cols) < 3: continue
-                    name = cols[0].get_text().strip()
-                    arr, dep = time_to_min(cols[1].get_text()), time_to_min(cols[2].get_text())
-                    
-                    if arr < last_time: arr += 1440
-                    if dep < arr: dep += 1440
-                    last_time = dep
-                    
-                    raw_stops.append({"name": name, "arr": arr, "dep": dep, "is_pass": False})
-            
-            raw_stops = patch_chengzhui(raw_stops)
-            segments = compile_train_data(raw_stops)
-            
-            if not segments: 
-                return None
-                
-            return {"no": t_no, "type": t_type, "segments": segments}
-            
-        except Exception as e: 
-            # 🌟 遭遇防火牆阻擋時的「龜息大法」
-            # 清空 Cookie 銷毀被盯上的身分
-            SESSION.cookies.clear()
-            # 強制冷卻 15 秒！讓台鐵防火牆對您的 IP 解除警戒
-            time.sleep(15) 
-            
+    # 排序一下，從最早的日期開始試
+    dates_to_try = sorted(list(dates_to_try))
+    
+    for date in dates_to_try:
+        url = f"https://www.railway.gov.tw/tra-tip-web/tip/tip001/tip112/querybytrainno?rideDate={date}&trainNo={t_no}"
+        
+        for attempt in range(max_retries):
             try:
-                # 重新拜訪台鐵首頁，領取一張全新的乾淨 Cookie 通行證
-                SESSION.get("https://www.railway.gov.tw/tra-tip-web/tip", timeout=10)
-            except:
-                pass
+                time.sleep(1) # 溫柔一點，避免過度施壓
+                resp = SESSION.get(url, timeout=15)
+                resp.raise_for_status() 
                 
-            if attempt == max_retries - 1:
-                print(f"\n❌ 車次 {t_no} ({date}) 重試 3 次皆失敗: {e}")
-            
+                soup = BeautifulSoup(resp.text, "html.parser")
+                tbodies = soup.find_all("tbody")
+                
+                # 🌟 核心破解邏輯：分辨「真的查無此車」與「被防火牆擋住」
+                if len(tbodies) < 2: 
+                    if any(msg in resp.text for msg in ["查無", "沒有找到", "無法查詢", "alert"]):
+                        # 這是真的沒資料 (例如拿抵達日去查跨夜車)，直接換下一個日期試！
+                        break 
+                    else:
+                        # 這是被台鐵 WAF 擋了，觸發龜息大法
+                        raise ValueError("WAF")
+                
+                raw_stops, last_time = [], -1
+
+                for tbody in tbodies[1:]:
+                    for row in tbody.find_all("tr"):
+                        cols = row.find_all("td")
+                        if len(cols) < 3: continue
+                        name = cols[0].get_text().strip()
+                        arr, dep = time_to_min(cols[1].get_text()), time_to_min(cols[2].get_text())
+                        
+                        if arr < last_time: arr += 1440
+                        if dep < arr: dep += 1440
+                        last_time = dep
+                        
+                        raw_stops.append({"name": name, "arr": arr, "dep": dep, "is_pass": False})
+                
+                raw_stops = patch_chengzhui(raw_stops)
+                segments = compile_train_data(raw_stops)
+                
+                if not segments: 
+                    return None
+                    
+                return {"no": t_no, "type": t_type, "segments": segments}
+                
+            except ValueError:
+                # 遭遇防火牆阻擋的龜息大法
+                SESSION.cookies.clear()
+                time.sleep(10) # 強制冷卻 10 秒
+                try: SESSION.get("https://www.railway.gov.tw/tra-tip-web/tip", timeout=10)
+                except: pass
+                if attempt == max_retries - 1:
+                    print(f"\n❌ 車次 {t_no} ({date}) 遭遇嚴格防護，跳過。")
+            except Exception as e: 
+                time.sleep(2)
+                
+    # 所有日期都試過了還是沒有
     return None
 
 # ==========================================
@@ -301,8 +307,8 @@ def main():
         '6000-臺東', '7000-花蓮', '7130-蘇澳新', '7190-宜蘭', '7360-瑞芳'
     ]
     
-    start_date = "2026/05/03" 
-    end_date = "2026/05/06" # 假設抓一個禮拜
+    start_date = "2026/05/19" 
+    end_date = "2026/05/31" # 假設抓一個禮拜
     
     date_list = get_date_range(start_date, end_date)
     print(f"🗓️ 準備進行快取優化抓取: {start_date} ~ {end_date} (共 {len(date_list)} 天)")
@@ -310,8 +316,8 @@ def main():
     # ---------------------------------------------------------
     # 🌟 階段一：地毯式掃描，建立「每日出勤表」與「不重複大名單」
     # ---------------------------------------------------------
-    daily_train_registry = {}    # 紀錄每一天有哪些車次 { "2026/05/01": ["111", "112"...] }
-    unique_trains_to_fetch = {}  # 紀錄需要去抓的獨立車次 { "111": {"type": "新自強", "valid_date": "2026/05/01"} }
+    daily_train_registry = {}    
+    unique_trains_to_fetch = {}  
 
     print("\n🔍 [階段一] 正在掃描各日期的車站看板，確認出勤車次...")
     for date in date_list:
@@ -335,16 +341,18 @@ def main():
                                 t_no = numbers[-1]
                                 daily_t_nos.add(t_no)
                                 
-                                # 如果這個車次是第一次看到，把它加入待抓取名單，並記錄「它有開的這天」當作查詢參數
+                                # 🌟 核心修改：不再只記錄第一天，而是記錄它出現的「每一天」
                                 if t_no not in unique_trains_to_fetch:
                                     if "自強(3000)" in t_text: t_type = "新自強"
                                     elif any(x in t_text for x in ["區間快", "普悠瑪", "太魯閣"]): t_type = t_text[:3]
                                     else: t_type = t_text[:2]
                                     
-                                    unique_trains_to_fetch[t_no] = {"type": t_type, "valid_date": date}
+                                    unique_trains_to_fetch[t_no] = {"type": t_type, "seen_dates": set([date])}
+                                else:
+                                    unique_trains_to_fetch[t_no]["seen_dates"].add(date)
             except Exception as e: 
                 continue
-            time.sleep(0.3) # 稍微降低延遲，因為只抓簡單的 HTML
+            time.sleep(0.3) 
             
         daily_train_registry[date] = daily_t_nos
 
@@ -354,18 +362,18 @@ def main():
     # 🌟 階段二：精準打擊，針對不重複車次下載一次時刻表
     # ---------------------------------------------------------
     print(f"\n⚡ [階段二] 開始下載時刻表 (僅需抓取 {len(unique_trains_to_fetch)} 次)...")
-    train_database = {} # 用來當作記憶體快取庫
+    train_database = {} 
     
+    # 🌟 火力稍微調降到 3，穩定最重要
     with ThreadPoolExecutor(max_workers=3) as executor:
-        # 注意：這裡把 valid_date 傳進去，確保查的是該車次「有開的那天」，才不會查不到
-        futures = {executor.submit(fetch_worker, info["type"], t_no, info["valid_date"], 3): t_no 
+        # 🌟 注意這裡傳入的是 info["seen_dates"]
+        futures = {executor.submit(fetch_worker, info["type"], t_no, info["seen_dates"], 3): t_no 
                    for t_no, info in unique_trains_to_fetch.items()}
         
         for f in tqdm(as_completed(futures), total=len(futures), desc="下載與編譯"):
             res = f.result()
             if res:
-                # 把抓回來的資料存入快取庫
-                train_database[res["no"]] = res 
+                train_database[res["no"]] = res
 
     # ---------------------------------------------------------
     # 🌟 階段三：組裝與分發存檔
