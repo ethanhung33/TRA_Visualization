@@ -1048,7 +1048,7 @@ function buildUI() {
 }
 
 // ==========================================
-// 🌟 搜尋功能整合 (支援鍵盤上下鍵與 Enter)
+// 🌟 搜尋功能整合 (支援兩站找車 + 鍵盤導航)
 // ==========================================
 let isSearchBound = false;
 
@@ -1058,13 +1058,23 @@ function setupSearch() {
     if (!searchInput || !searchResults) return;
 
     let showId = !(settings && settings.show_train_id === false);
-    searchInput.placeholder = showId ? "輸入車站名或車次 (如: 台北, 111)" : "輸入車站名 (如: 東京)";
+    // 🌟 更新提示文字，告訴使用者可以加空格
+    searchInput.placeholder = showId ? "車站、車次 或 兩站找車 (如: 台北~花蓮)" : "輸入車站 或 兩站找車 (如: 東京~大阪)";
 
     if (isSearchBound) return;
     isSearchBound = true;
 
-    // 🌟 新增：用來記錄目前鍵盤選到了第幾個選項 (-1 代表沒選)
     let currentFocus = -1; 
+
+    // 🌟 預先建立車站 ID 對照表 (用來將車次的停靠 ID 轉回站名比對)
+    let stationIdToNameMap = new Map();
+    if (topology && topology.segments) {
+        topology.segments.forEach(seg => {
+            seg.stations.forEach(st => {
+                stationIdToNameMap.set(String(st.id), st.name);
+            });
+        });
+    }
 
     document.addEventListener('click', (e) => {
         if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
@@ -1073,65 +1083,116 @@ function setupSearch() {
     });
 
     searchInput.addEventListener('input', (e) => {
-        const rawKeyword = e.target.value.trim().toLowerCase();
-        
-        if (rawKeyword.length === 0) {
+        const rawText = e.target.value.trim().toLowerCase();
+        if (rawText.length === 0) {
             searchResults.style.display = 'none';
             return;
         }
 
-        // 每次重新輸入字，就把鍵盤焦點重置
         currentFocus = -1; 
 
-        const keyword = rawKeyword.replace(/臺/g, '台');
+        // 🌟 支援用「波浪號(~)、橫槓(-)、空格、逗號」來分割多個關鍵字
+        const keywords = rawText.replace(/臺/g, '台').split(/[~\-\s,，、]+/).filter(k => k.length > 0);
         let searchData = [];
+        let currentShowId = !(settings && settings.show_train_id === false);
 
-        // --- 搜尋車站 ---
-        let matchedStations = new Map(); 
-        if (topology && topology.segments) {
-            topology.segments.forEach(seg => {
-                seg.stations.forEach(st => {
-                    let stName = st.name || "";
-                    let stId = String(st.id || "");
-                    let nameLower = stName.toLowerCase().replace(/臺/g, '台');
-                    let idLower = stId.toLowerCase();
+        // ==========================================
+        // 模式 A：單關鍵字搜尋 (找單站或找車次)
+        // ==========================================
+        if (keywords.length === 1) {
+            const keyword = keywords[0];
+            
+            // --- 搜尋車站 ---
+            let matchedStations = new Map(); 
+            if (topology && topology.segments) {
+                topology.segments.forEach(seg => {
+                    seg.stations.forEach(st => {
+                        let stName = st.name || "";
+                        let stId = String(st.id || "");
+                        let nameLower = stName.toLowerCase().replace(/臺/g, '台');
+                        let idLower = stId.toLowerCase();
 
-                    let score = Math.max(
-                        nameLower === keyword ? 3 : (nameLower.startsWith(keyword) ? 2 : (nameLower.includes(keyword) ? 1 : 0)),
-                        idLower === keyword ? 3 : (idLower.startsWith(keyword) ? 2 : (idLower.includes(keyword) ? 1 : 0))
-                    );
+                        let score = Math.max(
+                            nameLower === keyword ? 3 : (nameLower.startsWith(keyword) ? 2 : (nameLower.includes(keyword) ? 1 : 0)),
+                            idLower === keyword ? 3 : (idLower.startsWith(keyword) ? 2 : (idLower.includes(keyword) ? 1 : 0))
+                        );
 
-                    if (score > 0) {
-                        if (!matchedStations.has(stName)) {
-                            matchedStations.set(stName, { id: stId, name: stName, score: score });
-                        } else if (score > matchedStations.get(stName).score) {
-                            matchedStations.get(stName).score = score; 
+                        if (score > 0) {
+                            if (!matchedStations.has(stName)) {
+                                matchedStations.set(stName, { id: stId, name: stName, score: score });
+                            } else if (score > matchedStations.get(stName).score) {
+                                matchedStations.get(stName).score = score; 
+                            }
                         }
+                    });
+                });
+            }
+            matchedStations.forEach(data => {
+                searchData.push({ type: 'station', id: data.id, name: data.name, score: data.score });
+            });
+
+            // --- 搜尋車次 ---
+            if (currentShowId && timetable) {
+                let matchedTrains = new Map(); 
+                timetable.forEach(train => {
+                    let trainNo = String(train.no || train.train_no || "");
+                    let noLower = trainNo.toLowerCase();
+                    let score = noLower === keyword ? 3 : (noLower.startsWith(keyword) ? 2 : (noLower.includes(keyword) ? 1 : 0));
+                    if (score > 0 && !matchedTrains.has(trainNo)) {
+                        matchedTrains.set(trainNo, { typeStr: train.type || "", no: trainNo, score: score });
                     }
                 });
-            });
-        }
-        
-        matchedStations.forEach(data => {
-            searchData.push({ type: 'station', id: data.id, name: data.name, score: data.score });
-        });
+                matchedTrains.forEach(data => {
+                    searchData.push({ type: 'train', id: data.no, typeStr: data.typeStr, score: data.score });
+                });
+            }
+        } 
+        // ==========================================
+        // 模式 B：多關鍵字搜尋 (A站到B站的路線尋找)
+        // ==========================================
+        else if (keywords.length >= 2) {
+            if (currentShowId && timetable) {
+                timetable.forEach(train => {
+                    let trainStops = new Set();
+                    let trainStopIds = new Set();
 
-        // --- 搜尋車次 ---
-        let currentShowId = !(settings && settings.show_train_id === false);
-        if (currentShowId && timetable) {
-            let matchedTrains = new Map(); 
-            timetable.forEach(train => {
-                let trainNo = String(train.no || train.train_no || "");
-                let noLower = trainNo.toLowerCase();
-                let score = noLower === keyword ? 3 : (noLower.startsWith(keyword) ? 2 : (noLower.includes(keyword) ? 1 : 0));
-                if (score > 0 && !matchedTrains.has(trainNo)) {
-                    matchedTrains.set(trainNo, { typeStr: train.type || "", no: trainNo, score: score });
-                }
-            });
+                    // 1. 收集這班車「有實際停靠」的所有車站
+                    if (train.segments) {
+                        train.segments.forEach(seg => {
+                            if (seg.s && seg.v) {
+                                seg.s.forEach((stId, idx) => {
+                                    // 🌟 這裡完美運用了您的爬蟲邏輯：v !== 2 才代表有停靠！
+                                    if (seg.v[idx] !== 2) {
+                                        trainStopIds.add(String(stId).toLowerCase());
+                                        let stName = stationIdToNameMap.get(String(stId));
+                                        if (stName) {
+                                            trainStops.add(stName.toLowerCase().replace(/臺/g, '台'));
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    }
 
-            matchedTrains.forEach(data => {
-                searchData.push({ type: 'train', id: data.no, typeStr: data.typeStr, score: data.score });
-            });
+                    // 2. 檢查這班車是否「同時停靠」輸入的 每一個 關鍵字 (交集)
+                    let isMatch = keywords.every(kw => {
+                        let matchName = Array.from(trainStops).some(stop => stop.includes(kw));
+                        let matchId = Array.from(trainStopIds).some(id => id === kw || id.includes(kw));
+                        return matchName || matchId;
+                    });
+
+                    // 3. 如果都停靠，加入結果！
+                    if (isMatch) {
+                        let trainNo = String(train.no || train.train_no || "");
+                        searchData.push({
+                            type: 'train',
+                            id: trainNo,
+                            typeStr: train.type || "",
+                            score: 3 // 多站吻合的車次，一律給滿分讓它排到最前面
+                        });
+                    }
+                });
+            }
         }
 
         // --- 排序 ---
@@ -1154,33 +1215,31 @@ function setupSearch() {
                         </div>
                     `;
                 } else {
+                    // 🌟 如果是多站搜尋，我們給它加一個特殊的小提示
+                    let routeBadge = keywords.length >= 2 ? `<span style="font-size: 12px; color: #FFA500; margin-left: 8px;">(直達)</span>` : "";
                     return `
                         <div class="search-item selectable-item" onclick="triggerSearchSelect('train', '${item.id}', this)">
-                            <span class="search-item-badge badge-train">車次</span> ${item.typeStr} ${item.id}
+                            <span class="search-item-badge badge-train">車次</span> ${item.typeStr} ${item.id} ${routeBadge}
                         </div>
                     `;
                 }
             });
             searchResults.innerHTML = resultsHtml.join('');
         } else {
-            let notFoundText = currentShowId ? "找不到相符的車站或車次" : "找不到相符的車站";
-            // 🌟 找不到結果時，這條項目不會有 selectable-item 標籤，就不會被鍵盤選到
+            let notFoundText = keywords.length >= 2 ? "找不到同時停靠這些車站的直達車" : (currentShowId ? "找不到相符的車站或車次" : "找不到相符的車站");
             searchResults.innerHTML = `<div class="search-item" style="color: #888; justify-content: center; cursor: default;">${notFoundText}</div>`;
         }
         
         searchResults.style.display = 'block';
     });
 
-    // ==========================================
-    // 🌟 新增：攔截鍵盤事件 (上下鍵與 Enter)
-    // ==========================================
+    // --- 攔截鍵盤事件 (上下鍵與 Enter) ---
     searchInput.addEventListener('keydown', (e) => {
-        // 只抓取我們有標記為 selectable-item 的選項
         let items = searchResults.querySelectorAll('.selectable-item');
         if (searchResults.style.display === 'none' || items.length === 0) return;
 
         if (e.key === "ArrowDown") {
-            e.preventDefault(); // 防止游標在輸入框裡亂跑
+            e.preventDefault(); 
             currentFocus++;
             addActive(items);
         } else if (e.key === "ArrowUp") {
@@ -1189,36 +1248,23 @@ function setupSearch() {
             addActive(items);
         } else if (e.key === "Enter") {
             e.preventDefault();
-            // 如果有選中項目，就模擬點擊它
             if (currentFocus > -1) {
-                if (items[currentFocus]) {
-                    items[currentFocus].click();
-                }
+                if (items[currentFocus]) items[currentFocus].click();
             } else if (items.length > 0) {
-                // 🌟 貼心功能：如果使用者沒有按上下鍵，直接按 Enter，就預設幫他點擊第一筆資料！
                 items[0].click();
             }
         }
     });
 
-    // 處理增加焦點樣式的函數
     function addActive(items) {
         if (!items) return false;
-        // 先清除所有人的焦點
         removeActive(items);
-        
-        // 如果到底了就回到最上面，如果在最上面按上，就跳到最下面
         if (currentFocus >= items.length) currentFocus = 0;
         if (currentFocus < 0) currentFocus = (items.length - 1);
-        
-        // 加上焦點 CSS
         items[currentFocus].classList.add("search-item-active");
-        
-        // 🌟 核心：確保選中的項目會自動捲動到畫面可見範圍內！
         items[currentFocus].scrollIntoView({ block: 'nearest' });
     }
 
-    // 處理移除焦點樣式的函數
     function removeActive(items) {
         for (let i = 0; i < items.length; i++) {
             items[i].classList.remove("search-item-active");
