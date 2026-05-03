@@ -3373,6 +3373,19 @@ async function init(systemPath) {
     junctionCache = {}; 
     // ==========================================
 
+    // ==========================================
+    // 🌟 新增：跨系統搜尋大掃除！
+    // 確保切換系統時，自動解除路線過濾模式並清空搜尋框
+    // ==========================================
+    if (typeof activeRouteFilterTrains !== 'undefined') {
+        activeRouteFilterTrains = null; // 解除畫布過濾
+    }
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    if (searchInput) searchInput.value = '';             // 清空輸入框字體
+    if (searchResults) searchResults.style.display = 'none'; // 收起下拉選單
+    // ==========================================
+
     currentSystemPath = systemPath;
 
     try {
