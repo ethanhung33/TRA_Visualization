@@ -132,33 +132,39 @@ function getCurrentSystemMinutes() {
 }
 
 // ==========================================
-// 🌟 動態計算車站權重 (停靠次數統計)
+// 🌟 全域變數：純數據快車加權計算結果
 // ==========================================
+window.globalStationWeights = {};
+
 function calculateStationWeights() {
-    if (!topology || !topology.segments || !timetable) return;
+    window.globalStationWeights = {};
+    if (!timetable) return;
 
-    let stopCounts = {};
-
-    // 1. 掃描目前的時刻表，統計每站的停靠次數
     timetable.forEach(train => {
         if (!train.segments) return;
+
+        // 1. 算出這班車的「快車等級」 (通過的站越多，等級越高)
+        let passCount = 0;
         train.segments.forEach(seg => {
             for (let i = 0; i < seg.s.length; i++) {
-                // 只要不是通過站 (v !== 2)，就算一次實質停靠
-                if (seg.v[i] !== 2) {
+                if (seg.v[i] === 2) passCount++;
+            }
+        });
+
+        // 2. 權重放大器：停靠基本 1 分，每超越一站 +2 分 (讓普悠瑪/新幹線的權重暴增)
+        let trainScore = 1 + (passCount * 2);
+
+        // 3. 把超高分數灌給這班車有停靠的車站
+        train.segments.forEach(seg => {
+            for (let i = 0; i < seg.s.length; i++) {
+                if (seg.v[i] !== 2) { 
                     let stId = String(seg.s[i]);
-                    stopCounts[stId] = (stopCounts[stId] || 0) + 1;
+                    window.globalStationWeights[stId] = (window.globalStationWeights[stId] || 0) + trainScore;
                 }
             }
         });
     });
-
-    // 2. 將算好的權重，悄悄掛載到內存的 topology 身上
-    topology.segments.forEach(seg => {
-        seg.stations.forEach(st => {
-            st.weight = stopCounts[String(st.id)] || 0;
-        });
-    });
+    console.log("📊 全域車站權重計算完成！", window.globalStationWeights);
 }
 
 
@@ -306,38 +312,24 @@ function drawGrid(viewKey, layer = 'all') {
         ctx.textBaseline = "middle";
 
         // ==========================================
-        // 🌟 核心升級：基於權重的空間競爭碰撞偵測 (Greedy Label Placement)
+        // 🌟 核心邏輯：全域排序與空間競爭 (Greedy Label Placement)
         // ==========================================
-        // 1. 把視窗內的車站抓出來，並帶上真實的 Y 座標
+        // 1. 抓出畫面上的車站，並注入我們剛才算好的「全域權重」
         let labelCandidates = uniqueStations.map(st => {
-            // 🌟 終極防彈：強制回到源頭 topology 挖取真實權重！
-            let stWeight = 0;
-            if (topology && topology.segments) {
-                for (let seg of topology.segments) {
-                    let foundSt = seg.stations.find(s => String(s.id) === String(st.id));
-                    // 只要有算過權重，就把它抓出來
-                    if (foundSt && foundSt.weight !== undefined) {
-                        stWeight = foundSt.weight;
-                        break;
-                    }
-                }
-            }
             return {
-                id: st.id,
-                name: st.name,
-                baseY: st.baseY,
+                ...st,
                 y: st.baseY + offsetY,
-                weight: stWeight // 👈 關鍵！確保權重絕對跟著走
+                weight: window.globalStationWeights[String(st.id)] || 0 
             };
         }).filter(st => st.y >= viewTop - 20 && st.y <= viewBottom + 20);
 
-        // 2. 依照「權重 (停靠次數)」由大到小排序。權重一樣的就照原本的座標排。
+        // 2. 全域排序：權重由大到小！(確保含金量最高的大站優先處理)
         labelCandidates.sort((a, b) => (b.weight - a.weight) || (a.baseY - b.baseY));
 
         let drawnYList = [];
-        const MIN_SPACING = 18; 
+        const MIN_SPACING = 18; // 🌟 容許的最小垂直距離
 
-        // 3. 霸主先選位！
+        // 3. 依序放入：大站先選位，後面的小站如果發現位子被大站佔走(相撞)，就乖乖隱藏
         labelCandidates.forEach(cand => {
             let isCollision = drawnYList.some(drawnY => Math.abs(drawnY - cand.y) < MIN_SPACING);
             cand.showLabel = !isCollision; 
@@ -348,7 +340,7 @@ function drawGrid(viewKey, layer = 'all') {
 
         let showLabelMap = new Map(labelCandidates.map(c => [c.id, c.showLabel]));
         // ==========================================
-
+        
         uniqueStations.forEach(st => {
             let y = st.baseY + offsetY;
             if (y < viewTop || y > viewBottom) return;
