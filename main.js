@@ -63,6 +63,43 @@ let isInteractionsBound = false; // 🌟 新增：紀錄互動事件是否已綁
 
 let isHomeBound = false; // 全域變數
 
+// ==========================================
+// 🌟 台日異體字與漢字轉換字典
+// ==========================================
+const KANJI_MAP = {
+    '臺': '台',   // 台臺互通
+    '関': '關',   // 関西、関東
+    '静': '靜',   // 静岡
+    '広': '廣',   // 広島
+    '沢': '澤',   // 軽井沢、金沢
+    '浜': '濱',   // 浜松、横浜
+    '鉄': '鐵',   // 電鉄
+    '豊': '豐',   // 豊橋
+    '姫': '姬',   // 姫路
+    '桜': '櫻',   // 桜島
+    '渋': '澀',   // 渋谷
+    '条': '條',   // 九条
+    '乗': '乘',   // 乗車
+    '気': '氣',   // 電気
+    '区': '區',   // 都区内
+    '国': '國',   // 国鉄
+    '嶋': '島'    // 異體字
+};
+
+/**
+ * 將字串進行正規化，把日文漢字或異體字統一轉為標準繁體字，並轉為小寫
+ */
+function normalizeText(text) {
+    if (!text) return "";
+    let result = text;
+    // 遍歷字典，將所有字串內的異體字無差別替換為標準字
+    for (let jp in KANJI_MAP) {
+        let tw = KANJI_MAP[jp];
+        result = result.split(jp).join(tw);
+    }
+    return result.toLowerCase();
+}
+
 // 🌟 事件代理：這輩子只綁定一次，且無論 UI 怎麼重刷都有效
 document.addEventListener('click', (e) => {
     // 透過 ID 判斷點擊的是哪一個系統按鈕 (請確認你首頁按鈕的 ID 是這兩個)
@@ -1165,7 +1202,7 @@ function setupSearch() {
         }
 
         currentFocus = -1; 
-        const keywords = rawText.replace(/臺/g, '台').split(/[~\-\s,，、]+/).filter(k => k.length > 0);
+        const keywords = normalizeText(rawText).split(/[~\-\s,，、]+/).filter(k => k.length > 0);
         let searchData = [];
         let currentShowId = !(settings && settings.show_train_id === false);
 
@@ -1194,7 +1231,7 @@ function setupSearch() {
                     seg.stations.forEach(st => {
                         let stName = st.name || "";
                         let stId = String(st.id || "");
-                        let nameLower = stName.toLowerCase().replace(/臺/g, '台');
+                        let nameLower = normalizeText(stName);
                         let idLower = stId.toLowerCase();
                         let score = Math.max(
                             nameLower === keyword ? 3 : (nameLower.startsWith(keyword) ? 2 : (nameLower.includes(keyword) ? 1 : 0)),
@@ -1242,7 +1279,7 @@ function setupSearch() {
                                     
                                     if (v_val !== 2) { 
                                         let idStr = String(stId).toLowerCase();
-                                        let nameStr = (stationIdToNameMap.get(String(stId)) || "").toLowerCase().replace(/臺/g, '台');
+                                        let nameStr = normalizeText(stationIdToNameMap.get(String(stId)) || "");
                                         
                                         let isSingleTime = (seg.t.length === seg.s.length);
                                         let arrTime = isSingleTime ? seg.t[idx] : seg.t[idx * 2];
