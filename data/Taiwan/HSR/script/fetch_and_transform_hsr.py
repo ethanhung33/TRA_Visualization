@@ -140,8 +140,8 @@ if __name__ == "__main__":
     JSON_DIR = SCRIPT_DIR.parent / "json"
     
     # 🌟 在這裡設定你想要的「開始日期」與「結束日期」
-    start_date = "2026-04-30"
-    end_date   = "2026-05-01"
+    start_date = "2026-05-02"
+    end_date   = "2026-05-02"
     
     # 程式會自動幫你展開成 ['2026-04-25', '2026-04-26', ..., '2026-05-10']
     dates_to_fetch = generate_date_range(start_date, end_date)

@@ -73,6 +73,27 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// ==========================================
+// 🌍 系統專屬時區轉換器 (Timezone Adapter)
+// ==========================================
+function getCurrentSystemMinutes() {
+    const now = new Date();
+
+    // 防呆：如果 json 沒寫時區，就乖乖用使用者的本地裝置時間
+    if (!settings || settings.timezone_offset === undefined) {
+        return now.getHours() * 60 + now.getMinutes();
+    }
+
+    // 1. 抓出絕對標準的 UTC 世界協調時間 (總分鐘數)
+    let utcMinutesTotal = now.getUTCHours() * 60 + now.getUTCMinutes();
+
+    // 2. 加上該系統專屬的時區偏移量 (例如日本是 +9，9 * 60 = 540 分鐘)
+    let systemMinutes = utcMinutesTotal + (settings.timezone_offset * 60);
+
+    // 3. 處理跨日問題，保證數值完美落在 0 ~ 1439 的區間內循環
+    return ((systemMinutes % 1440) + 1440) % 1440;
+}
+
 
 // ==========================================
 // 2. 核心換算函式
@@ -138,7 +159,7 @@ function getProcessedSegments(selectedSegments, topology) {
 // ==========================================
 // 繪製背景網格 (攤平展開版)
 // ==========================================
-function drawGrid(viewKey) {
+function drawGrid(viewKey, layer = 'all') {
     lookupY = {}; 
     let currentAccumulatedKm = 0; 
     let presetKey = viewKey; 
@@ -192,9 +213,6 @@ function drawGrid(viewKey) {
     const viewLeft = camera.x - 100;
     const viewRight = camera.x + wrapperW + 100;
 
-    // 🌟 因為我們沒呼叫 initCanvas 了，所以這裡要負責把上一幀的舊圖擦掉
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
 
@@ -214,57 +232,49 @@ function drawGrid(viewKey) {
             if (y < viewTop || y > viewBottom) return;
 
             // --- 畫背景橫線 ---
-            let isHovered = (st.id === hoveredStation);
-            let isSelected = (st.id === selectedStation);
+            if (layer === 'lines' || layer === 'all') {
+                let isHovered = (st.id === hoveredStation);
+                let isSelected = (st.id === selectedStation);
 
-            if (isSelected) {
-                ctx.strokeStyle = "#FFD700"; // 點擊選中：亮黃色
-                ctx.lineWidth = 2.0;
-            } else if (isHovered) {
-                ctx.strokeStyle = isDarkMode ? "#555555" : "#D0D0D0"; // 懸停：高反差白色/黑色
-                ctx.lineWidth = 1.5;
-            } else {
-                ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0"; // 預設：低調的灰色
-                ctx.lineWidth = 1.0;
+                if (isSelected) {
+                    ctx.strokeStyle = "#FFD700";
+                    ctx.lineWidth = 2.0;
+                } else if (isHovered) {
+                    ctx.strokeStyle = isDarkMode ? "#555555" : "#D0D0D0";
+                    ctx.lineWidth = 1.5;
+                } else {
+                    ctx.strokeStyle = isDarkMode ? "#333333" : "#E0E0E0";
+                    ctx.lineWidth = 1.0;
+                }
+
+                ctx.beginPath();
+                ctx.moveTo(CONFIG.paddingLeft, y);
+                ctx.lineTo(CONFIG.paddingLeft + (1560 * CONFIG.scaleX), y);
+                ctx.stroke();
             }
 
-            ctx.beginPath();
-            ctx.moveTo(CONFIG.paddingLeft, y);
-            ctx.lineTo(CONFIG.paddingLeft + (1560 * CONFIG.scaleX), y);
-            ctx.stroke();
-
             // --- 🌟 左右雙向懸浮站名 ---
-            
-            let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
-            let textColor = isDarkMode ? "#FFFFFF" : "#000000";
-            let textWidth = ctx.measureText(st.name).width;
+            if (layer === 'labels' || layer === 'all') {
+                let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
+                let textColor = isDarkMode ? "#FFFFFF" : "#000000";
+                let textWidth = ctx.measureText(st.name).width;
 
-            // --- 左側站名 ---
-            // 🌟 讓標籤跟隨攝影機，且距離左緣僅 10px
-            let labelXLeft = Math.max(0, camera.x + 10); 
-            ctx.fillStyle = maskBg;
-            ctx.fillRect(labelXLeft - 5, y - 12, textWidth + 10, 24);
-            ctx.fillStyle = textColor;
-            ctx.textAlign = "left";
-            ctx.fillText(st.name, labelXLeft, y);
+                // --- 左側站名 ---
+                let labelXLeft = Math.max(0, camera.x + 10); 
+                ctx.fillStyle = maskBg;
+                ctx.fillRect(labelXLeft - 5, y - 12, textWidth + 10, 24);
+                ctx.fillStyle = textColor;
+                ctx.textAlign = "left";
+                ctx.fillText(st.name, labelXLeft, y);
 
-            // --- 右側站名 ---
-            // 🌟 距離右邊緣僅 10px
-            let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + wrapperW - 10);
-            ctx.fillStyle = maskBg;
-            ctx.fillRect(labelXRight - textWidth - 5, y - 12, textWidth + 10, 24);
-            ctx.fillStyle = textColor;
-            ctx.textAlign = "right";
-            ctx.fillText(st.name, labelXRight, y);
-
-            // --- 浮水印 (保持淡色) ---
-            // ctx.font = "bold 24px 'GlowSans', sans-serif";
-            // ctx.fillStyle = isDarkMode ? "rgba(200, 200, 200, 0.2)" : "rgba(100, 100, 100, 0.15)";
-            // ctx.textAlign = "left";
-            // for (let h = 1; h < 24; h += 2) { 
-            //     let textX = timeToX(h * 60) + 5;
-            //     if (textX > viewLeft && textX < viewRight) ctx.fillText(st.name, textX, y - 8); 
-            // }
+                // --- 右側站名 ---
+                let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + wrapperW - 10);
+                ctx.fillStyle = maskBg;
+                ctx.fillRect(labelXRight - textWidth - 5, y - 12, textWidth + 10, 24);
+                ctx.fillStyle = textColor;
+                ctx.textAlign = "right";
+                ctx.fillText(st.name, labelXRight, y);
+            }
         });
     }
 
@@ -284,77 +294,96 @@ function drawGrid(viewKey) {
         if (x < viewLeft - 50 || x > viewRight + 50) continue; 
 
         let isHourLine = (m % 60 === 0);
-        ctx.beginPath();
-        if (isHourLine) {
-            ctx.strokeStyle = isDarkMode ? "#888888" : "#777777";
-            ctx.lineWidth = 2.0;
-        } else {
-            ctx.setLineDash([3, 5]);
-            ctx.strokeStyle = isDarkMode ? "#444444" : "#DDDDDD";
-            ctx.lineWidth = 1.2;
+
+        // --- 畫背景直線 ---
+        if (layer === 'lines' || layer === 'all') {
+            ctx.beginPath();
+            if (isHourLine) {
+                ctx.strokeStyle = isDarkMode ? "#888888" : "#777777";
+                ctx.lineWidth = 2.0;
+            } else {
+                ctx.setLineDash([3, 5]);
+                ctx.strokeStyle = isDarkMode ? "#444444" : "#DDDDDD";
+                ctx.lineWidth = 1.2;
+            }
+
+            ctx.moveTo(x, lineTop);                 
+            ctx.lineTo(x, lineBottom);     
+            ctx.stroke();
+            ctx.setLineDash([]); 
         }
-        
-        // 🌟 使用新的邊界來畫線！
-        ctx.moveTo(x, lineTop);                 
-        ctx.lineTo(x, lineBottom);     
-        ctx.stroke();
-        ctx.setLineDash([]); 
 
-        if (isHourLine) {
-            let hour = m / 60;
-            let timeStr = `${hour}:00`;
-            ctx.font = "bold 18px 'GlowSans', sans-serif";
-            ctx.textAlign = "center";
-            let textWidth = ctx.measureText(timeStr).width;
-            let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
-            let textColor = isDarkMode ? "#FFFFFF" : "#000000";
+        // --- 🌟 上下時間標籤 ---
+        if (layer === 'labels' || layer === 'all') {
+            if (isHourLine) {
+                let hour = m / 60;
+                let timeStr = `${hour}:00`;
+                ctx.font = "bold 18px 'GlowSans', sans-serif";
+                
+                // 🌟 因為不畫方塊了，所以 textWidth 跟 maskBg 可以直接刪除，保持程式碼乾淨
+                let textColor = isDarkMode ? "#FFFFFF" : "#000000";
 
-            // 🌟 頂部時間：貼近螢幕頂部，但不會超過路線最頂端
-            let labelYTop = isCircular 
-                ? Math.max(CONFIG.paddingTop - 25, camera.y + 30) 
-                : Math.max(routeStartY - 25, Math.min(camera.y + 30, routeEndY));
+                // (保留原本計算 labelYTop 與 labelYBottom 的邏輯)
+                let labelYTop = isCircular ? Math.max(CONFIG.paddingTop - 25, camera.y + 30) : Math.max(routeStartY - 25, Math.min(camera.y + 30, routeEndY));
+                let labelYBottom = isCircular ? camera.y + wrapperH - 30 : Math.min(camera.y + wrapperH - 30, routeEndY + 30);
 
-            // 🌟 底部時間：貼近螢幕底部，但如果路線很短，會自動「吸附」在路線底下，不會掉進黑洞！
-            let labelYBottom = isCircular 
-                ? camera.y + wrapperH - 30 
-                : Math.min(camera.y + wrapperH - 30, routeEndY + 30);
+                // 🌟 1. 統一設定對齊方式與描邊 (Stroke) 樣式
+                ctx.textAlign = "center";      // 左右置中
+                ctx.textBaseline = "middle";   // 上下置中
+                ctx.lineWidth = 4;             // 文字外框的粗細
+                ctx.strokeStyle = isDarkMode ? "#000000" : "#FFFFFF"; // 深色模式用黑邊，淺色用白邊
 
-            // 畫頂部
-            ctx.fillStyle = maskBg;
-            ctx.fillRect(x - textWidth/2 - 5, labelYTop - 15, textWidth + 10, 22);
-            ctx.fillStyle = textColor;
-            ctx.fillText(timeStr, x, labelYTop + 2);
+                // 畫頂部
+                ctx.strokeText(timeStr, x, labelYTop);  // 先畫外框 (注意：+2 已經拿掉了)
+                ctx.fillStyle = textColor;
+                ctx.fillText(timeStr, x, labelYTop);    // 再畫文字
 
-            // 畫底部
-            ctx.fillStyle = maskBg;
-            ctx.fillRect(x - textWidth/2 - 5, labelYBottom - 15, textWidth + 10, 22);
-            ctx.fillStyle = textColor;
-            ctx.fillText(timeStr, x, labelYBottom + 2);
+                // 畫底部
+                ctx.strokeText(timeStr, x, labelYBottom); // 先畫外框 (注意：+2 已經拿掉了)
+                ctx.fillStyle = textColor;
+                ctx.fillText(timeStr, x, labelYBottom);   // 再畫文字
+            }
         }
     }
     ctx.restore(); 
 }
 
-function getJunction(st1_id, st2_id) {
-    if (!st1_id || !st2_id || st1_id === st2_id) return null;
-    let cacheKey = st1_id + "-" + st2_id;
+// ==========================================
+// 🌟 嚴謹尋路器：嚴格綁定 Line ID，拒絕張冠李戴
+// ==========================================
+function getJunction(st1_id, st2_id, line1_id, line2_id) {
+    let cacheKey = `${st1_id}-${st2_id}-${line1_id}-${line2_id}`;
     if (junctionCache[cacheKey] !== undefined) return junctionCache[cacheKey];
 
-    // 找出包含這兩個站的路線段
-    let segs1 = topology.segments.filter(s => s.stations.some(st => st.id === st1_id));
-    let segs2 = topology.segments.filter(s => s.stations.some(st => st.id === st2_id));
+    let seg1 = topology.segments.find(s => s.id === line1_id);
+    let seg2 = topology.segments.find(s => s.id === line2_id);
+    if (!seg1 || !seg2) return null;
 
-    for (let s1 of segs1) {
-        for (let s2 of segs2) {
-            if (s1.id === s2.id) continue;
-            let ids1 = s1.stations.map(st => st.id);
-            let junc = s2.stations.find(st => ids1.includes(st.id));
-            if (junc) {
-                junctionCache[cacheKey] = junc.id;
-                return junc.id;
-            }
+    // 1. 尋找「直接交會站」
+    let ids1 = seg1.stations.map(st => st.id);
+    let junc = seg2.stations.find(st => ids1.includes(st.id));
+    if (junc) {
+        let result = { type: 'direct', id: junc.id };
+        junctionCache[cacheKey] = result;
+        return result;
+    }
+
+    // 2. 尋找 1-Hop 橋接路線 (例如 名古屋線 -> [大阪線] -> 難波線)
+    for (let bridge of topology.segments) {
+        if (bridge.id === line1_id || bridge.id === line2_id) continue;
+        
+        let bridgeIds = bridge.stations.map(st => st.id);
+
+        let junc1 = seg1.stations.find(st => bridgeIds.includes(st.id));
+        let junc2 = seg2.stations.find(st => bridgeIds.includes(st.id));
+
+        if (junc1 && junc2) {
+            let result = { type: 'bridge', line: bridge.id, junc1: junc1.id, junc2: junc2.id };
+            junctionCache[cacheKey] = result;
+            return result;
         }
     }
+
     junctionCache[cacheKey] = null;
     return null;
 }
@@ -609,17 +638,27 @@ function drawTrains() {
     timetable.forEach(train => {
         
         // ==========================================
-        // 🌟 終極淨化術：在做任何判斷前，無條件清空這台車的物理座標！
-        // 這樣就算它等一下被隱藏，也絕對不會留下「幽靈點」讓滑鼠點到！
+        // 🌟 第一步：終極淨化術必須放最前面！
+        // 無條件清空這台車的物理座標，確保被隱藏的車絕對不會留下「幽靈點」！
         // ==========================================
         if (!train._hitPoints) train._hitPoints = [];
         train._hitPoints.length = 0; 
+
         // ==========================================
+        // 🌟 第二步：路線過濾器 (A站~B站 直達車篩選)
+        // (這裡也順便為您補上了 train.id 的日本私鐵支援)
+        // ==========================================
+        let trainNoStr = String(train.no || train.train_no || train.id || "");
+        if (activeRouteFilterTrains !== null && !activeRouteFilterTrains.has(trainNoStr)) {
+            return; // 不在名單內，直接隱藏！因為上面已經清空座標，它現在連實體都沒了！
+        }
 
         // 1. 車種過濾檢查
         if (!activeTrainTypes.has(train.type)) {
             return; 
         }
+        
+        // ... 下面維持原本的 selectedStation 等邏輯 ...
 
         // 2. 停靠站聚焦過濾器 (Focus Mode)
         if (selectedStation) {
@@ -667,7 +706,7 @@ function drawTrains() {
 // ==========================================
 function drawCurrentTimeLine() {
     const now = new Date();
-    let currentMinutes = now.getHours() * 60 + now.getMinutes();
+    let currentMinutes = getCurrentSystemMinutes();
 
     // 🌟 抓取真實的螢幕高度，而不是被高畫質放大的 canvas.height
     const wrapper = document.getElementById('canvas-wrapper');
@@ -718,7 +757,9 @@ function drawCurrentTimeLine() {
                 ? Math.max(viewTop + 60, CONFIG.paddingTop) 
                 : Math.max(lineTop + 40, Math.min(viewBottom - 30, lineBottom - 20));
             
-            ctx.fillText(now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0'), x + 8, labelY);
+            let displayH = Math.floor(currentMinutes / 60);
+            let displayM = currentMinutes % 60;
+            ctx.fillText(displayH + ":" + displayM.toString().padStart(2, '0'), x + 8, labelY);
         }
     });
 
@@ -803,35 +844,31 @@ function buildUI() {
         return isDarkMode ? colorsArray[0] : colorsArray[1];
     }
 
-    // ---- A. 🌟 動態產生路線切換按鈕 ----
+    // ---- A. 🌟 動態產生路線切換按鈕 (支援超過10條自動轉為下拉選單) ----
     const routeContainer = document.getElementById('route-type-container');
     if (routeContainer) routeContainer.innerHTML = ''; 
 
-    // 抓出 setting.json 裡面所有的視角 key (例如 'mountain_view', 'north_link')
+    // 抓出 setting.json 裡面所有的視角 key
     const viewKeys = Object.keys(settings?.view_presets || {});
 
-    // ==========================================
-    // 🌟 新增：如果視角只有 1 個(或沒有)，直接把整個切換區塊隱藏！
-    // ==========================================
+    // 如果視角只有 1 個(或沒有)，直接把整個切換區塊隱藏
     if (viewKeys.length <= 1) {
         if (routeContainer) routeContainer.style.display = 'none';
-        
-        // 順便把旁邊可能有的 "路線" 標題也隱藏 (如果你 HTML 裡有寫的話)
         let routeTitle = document.getElementById('route-title');
         if (routeTitle) routeTitle.style.display = 'none';
     } else {
-        if (routeContainer) routeContainer.style.display = ''; // 恢復預設顯示
+        if (routeContainer) routeContainer.style.display = ''; 
         let routeTitle = document.getElementById('route-title');
         if (routeTitle) routeTitle.style.display = '';
     }
     
-    // 🌟 核心防呆：如果目前記憶的視角「不在」新系統的視角清單中，就強制洗掉重置！
+    // 核心防呆：如果目前記憶的視角「不在」新系統的視角清單中，強制洗掉重置
     if (viewKeys.length > 0 && !viewKeys.includes(currentRouteView)) {
         currentRouteView = viewKeys[0];
     }
 
-    // 建立一個陣列把產生的按鈕存起來，方便切換時改顏色
     const dynamicRouteBtns = [];
+    let routeSelectBox = null; // 🌟 紀錄下拉選單物件
 
     const updateRouteButtons = () => {
         let defaultBg = isDarkMode ? "#444444" : "#E0E0E0";
@@ -839,10 +876,10 @@ function buildUI() {
         let defaultText = isDarkMode ? "#CCCCCC" : "#000000";
         let selectedText = isDarkMode ? "#000000" : "#FFFFFF";
 
+        // 更新按鈕樣式 (如果當前是按鈕模式)
         dynamicRouteBtns.forEach(item => {
             let btn = item.btn;
             if (currentRouteView === item.key) {
-                // 如果是被選中的路線，就抓 json 裡設定的專屬顏色
                 let routeColor = getColor(settings.view_presets[item.key].button_color);
                 btn.style.backgroundColor = routeColor;
                 btn.style.borderColor = routeColor;
@@ -853,23 +890,59 @@ function buildUI() {
                 btn.style.color = defaultText;
             }
         });
+
+        // 🌟 更新下拉選單的選中狀態與邊框顏色 (如果當前是選單模式)
+        if (routeSelectBox) {
+            routeSelectBox.value = currentRouteView;
+            let routeColor = getColor(settings?.view_presets?.[currentRouteView]?.button_color);
+            // 如果該路線有特殊設定顏色，就讓選單外框發光，否則套用預設邊框
+            routeSelectBox.style.borderColor = routeColor !== (isDarkMode ? "#555" : "#CCC") ? routeColor : defaultBorder;
+        }
     };
 
-    // 迴圈跑出所有按鈕
-    viewKeys.forEach(key => {
-        const preset = settings.view_presets[key];
-        const btn = document.createElement('button');
-        btn.className = 'pill-btn';
-        btn.textContent = preset.name; // 這裡會印出 "山線環島鐵路" 或 "縱貫線北段"
+    // ==========================================
+    // 🌟 核心判斷：超過 1 條用下拉選單，否則用按鈕
+    // ==========================================
+    if (viewKeys.length > 1) {
+        if (routeContainer) routeContainer.className = 'select-group'; // 拔掉 flex 避免排版跑位
         
-        btn.addEventListener('click', () => handleRouteSwitch(key));
+        routeSelectBox = document.createElement('select');
+        routeSelectBox.className = 'route-select'; // 掛上專屬 CSS
         
-        if (routeContainer) routeContainer.appendChild(btn);
-        dynamicRouteBtns.push({ key: key, btn: btn });
-    });
+        viewKeys.forEach(key => {
+            const preset = settings.view_presets[key];
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = preset.name;
+            routeSelectBox.appendChild(option);
+        });
+
+        // 當下拉選單改變時，觸發跳轉
+        routeSelectBox.addEventListener('change', (e) => {
+            handleRouteSwitch(e.target.value);
+        });
+
+        if (routeContainer) routeContainer.appendChild(routeSelectBox);
+
+    } else {
+        if (routeContainer) routeContainer.className = 'btn-group'; // 恢復按鈕排版
+        
+        viewKeys.forEach(key => {
+            const preset = settings.view_presets[key];
+            const btn = document.createElement('button');
+            btn.className = 'pill-btn';
+            btn.textContent = preset.name; 
+            
+            btn.addEventListener('click', () => handleRouteSwitch(key));
+            
+            if (routeContainer) routeContainer.appendChild(btn);
+            dynamicRouteBtns.push({ key: key, btn: btn });
+        });
+    }
 
     window.updateRouteButtons = updateRouteButtons; 
     updateRouteButtons();
+    // ---- 路線切換區塊結束 ----
 
     // ---- B. 動態生成車種篩選按鈕 (通用萬用版，免寫 train_order) ----
     
@@ -1008,6 +1081,373 @@ function buildUI() {
 }
 
 // ==========================================
+// 🌟 全域變數：用來記錄「路線過濾」模式下，目前符合的車次號碼
+// ==========================================
+let activeRouteFilterTrains = null; // null 代表沒有啟用路線過濾，Set() 代表有啟用
+
+// ==========================================
+// 🌟 搜尋功能整合 (修復跨系統閉包陷阱版)
+// ==========================================
+let isSearchBound = false;
+
+function setupSearch() {
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    const clearBtn = document.getElementById('search-clear-btn'); // 🌟 新增：抓取叉叉按鈕
+    
+    if (!searchInput || !searchResults) return;
+
+    // 🌟 修正 1：移到綁定檢查之前
+    // 確保每次切換系統時，提示文字都能正確更新
+    let showId = !(settings && settings.show_train_id === false);
+    searchInput.placeholder = showId ? "車站、車次 或 路線找車 (如: 台北~花蓮)" : "輸入車站 或 路線找車 (如: 難波~奈良)";
+
+    if (isSearchBound) return;
+    isSearchBound = true;
+
+    // ==========================================
+    // 🌟 新增：綁定叉叉按鈕的點擊事件 (功能 100% 等同 ESC 鍵)
+    // ==========================================
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            let needsRedraw = false;
+
+            // 1. 清空火車與車站的選取狀態，並重置底部面板
+            if (selectedTrain || selectedStation) {
+                selectedTrain = null;
+                selectedStation = null;
+                if (typeof updateBottomPanel === 'function') updateBottomPanel(null);
+                needsRedraw = true;
+            }
+
+            // 2. 清空搜尋框、隱藏下拉選單、隱藏叉叉自己
+            searchInput.value = '';
+            searchResults.style.display = 'none';
+            clearBtn.style.display = 'none'; 
+
+            // 3. 解除路線過濾模式
+            if (activeRouteFilterTrains !== null) {
+                activeRouteFilterTrains = null;
+                needsRedraw = true;
+            }
+
+            // 4. 重繪乾淨的畫布
+            if (needsRedraw) {
+                if (typeof requestRedraw === 'function') requestRedraw();
+                else if (typeof redrawAll === 'function') redrawAll();
+            }
+        });
+    }
+
+    let currentFocus = -1; 
+
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            searchResults.style.display = 'none';
+        }
+    });
+
+    searchInput.addEventListener('input', (e) => {
+        const rawText = e.target.value.trim().toLowerCase();
+
+        // 🌟 新增：有打字就顯示叉叉，沒字就隱藏叉叉
+        if (clearBtn) {
+            clearBtn.style.display = rawText.length > 0 ? 'block' : 'none';
+        }
+        
+        if (rawText.length === 0) {
+            searchResults.style.display = 'none';
+            if (activeRouteFilterTrains !== null) {
+                activeRouteFilterTrains = null;
+                if (typeof redrawAll === 'function') redrawAll(); 
+            }
+            return;
+        }
+
+        currentFocus = -1; 
+        const keywords = rawText.replace(/臺/g, '台').split(/[~\-\s,，、]+/).filter(k => k.length > 0);
+        let searchData = [];
+        let currentShowId = !(settings && settings.show_train_id === false);
+
+        let previousFilterState = activeRouteFilterTrains;
+        activeRouteFilterTrains = null; 
+
+        // 🌟 修正 2：移至監聽器內部
+        // 確保每次打字時，都是抓取當前系統最新的 topology (實體路線圖)
+        let stationIdToNameMap = new Map();
+        if (topology && topology.segments) {
+            topology.segments.forEach(seg => {
+                seg.stations.forEach(st => {
+                    stationIdToNameMap.set(String(st.id), st.name);
+                });
+            });
+        }
+
+        // ==========================================
+        // 模式 A：單關鍵字搜尋
+        // ==========================================
+        if (keywords.length === 1) {
+            const keyword = keywords[0];
+            let matchedStations = new Map(); 
+            if (topology && topology.segments) {
+                topology.segments.forEach(seg => {
+                    seg.stations.forEach(st => {
+                        let stName = st.name || "";
+                        let stId = String(st.id || "");
+                        let nameLower = stName.toLowerCase().replace(/臺/g, '台');
+                        let idLower = stId.toLowerCase();
+                        let score = Math.max(
+                            nameLower === keyword ? 3 : (nameLower.startsWith(keyword) ? 2 : (nameLower.includes(keyword) ? 1 : 0)),
+                            idLower === keyword ? 3 : (idLower.startsWith(keyword) ? 2 : (idLower.includes(keyword) ? 1 : 0))
+                        );
+                        if (score > 0) {
+                            if (!matchedStations.has(stName)) matchedStations.set(stName, { id: stId, name: stName, score: score });
+                            else if (score > matchedStations.get(stName).score) matchedStations.get(stName).score = score; 
+                        }
+                    });
+                });
+            }
+            matchedStations.forEach(data => searchData.push({ type: 'station', id: data.id, name: data.name, score: data.score }));
+
+            if (currentShowId && timetable) {
+                let matchedTrains = new Map(); 
+                timetable.forEach(train => {
+                    let trainNo = String(train.no || train.train_no || train.id || "");
+                    let noLower = trainNo.toLowerCase();
+                    let score = noLower === keyword ? 3 : (noLower.startsWith(keyword) ? 2 : (noLower.includes(keyword) ? 1 : 0));
+                    if (score > 0 && !matchedTrains.has(trainNo)) matchedTrains.set(trainNo, { typeStr: train.type || "", no: trainNo, score: score });
+                });
+                matchedTrains.forEach(data => searchData.push({ type: 'train', id: data.no, typeStr: data.typeStr, score: data.score }));
+            }
+        } 
+        // ==========================================
+        // 🌟 模式 B：多關鍵字路線搜尋
+        // ==========================================
+        else if (keywords.length >= 2) {
+            let startKeyword = keywords[0];
+            let endKeyword = keywords[1];
+            let filteredTrainNos = new Set(); 
+            let uniqueSearchKeys = new Set();
+
+            if (timetable) {
+                timetable.forEach(train => {
+                    let startTime = -1;
+                    let endTime = -1;
+
+                    if (train.segments) {
+                        train.segments.forEach(seg => {
+                            if (seg.s && seg.t) { 
+                                seg.s.forEach((stId, idx) => {
+                                    let v_val = (seg.v && seg.v.length > idx) ? seg.v[idx] : 1;
+                                    
+                                    if (v_val !== 2) { 
+                                        let idStr = String(stId).toLowerCase();
+                                        let nameStr = (stationIdToNameMap.get(String(stId)) || "").toLowerCase().replace(/臺/g, '台');
+                                        
+                                        let isSingleTime = (seg.t.length === seg.s.length);
+                                        let arrTime = isSingleTime ? seg.t[idx] : seg.t[idx * 2];
+                                        let depTime = isSingleTime ? seg.t[idx] : seg.t[idx * 2 + 1];
+                                        
+                                        let effDep = (depTime !== undefined && depTime !== null) ? depTime : arrTime;
+                                        let effArr = (arrTime !== undefined && arrTime !== null) ? arrTime : depTime;
+
+                                        if (startTime === -1 && (idStr.includes(startKeyword) || nameStr.includes(startKeyword))) {
+                                            startTime = effDep; 
+                                        }
+                                        else if (startTime !== -1 && endTime === -1 && (idStr.includes(endKeyword) || nameStr.includes(endKeyword))) {
+                                            endTime = effArr; 
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    }
+
+                    if (startTime !== -1 && endTime !== -1 && startTime < endTime) {
+                        
+                        // 🌟 防護 1：如果這段搭車區間「昨天就已經結束了 (抵達時間 < 0)」，直接過濾掉殘影！
+                        if (endTime < 0) return;
+
+                        let trainNo = String(train.no || train.train_no || train.id || "");
+                        
+                        // 🌟 防護 2：建立視覺指紋，避免推入看起來一模一樣的車次
+                        let visualKey = `${trainNo}_${startTime}_${endTime}`;
+                        
+                        if (!uniqueSearchKeys.has(visualKey)) {
+                            uniqueSearchKeys.add(visualKey); // 登記這組視覺指紋
+                            filteredTrainNos.add(trainNo); 
+                            
+                            searchData.push({
+                                type: 'train',
+                                id: trainNo,
+                                typeStr: train.type || "",
+                                startTime: startTime, 
+                                endTime: endTime,     
+                                score: 3 
+                            });
+                        }
+                    }
+                });
+            }
+            
+            activeRouteFilterTrains = filteredTrainNos;
+        }
+
+        if (activeRouteFilterTrains !== previousFilterState) {
+            if (typeof redrawAll === 'function') redrawAll();
+        }
+
+        // 1. 先取得使用者現在的本地時間 (轉換成當天分鐘數)
+        const currentMinutes = getCurrentSystemMinutes();
+
+        searchData.sort((a, b) => {
+            // 優先比對分數
+            if (b.score !== a.score) return b.score - a.score; 
+
+            // 如果都有出發時間，進行「智能環狀時間排序」
+            if (a.startTime !== undefined && b.startTime !== undefined) {
+                
+                // 🌟 核心魔法：如果這班車的發車時間「小於現在時間」，
+                // 代表今天這班車已經開走了！我們將它偷偷 +1440，把它推到「明天」去排隊。
+                // (如果它本來就已經是大於 1440 的跨夜車，就不受影響)
+                let sortTimeA = a.startTime < currentMinutes ? a.startTime + 1440 : a.startTime;
+                let sortTimeB = b.startTime < currentMinutes ? b.startTime + 1440 : b.startTime;
+
+                return sortTimeA - sortTimeB;
+            }
+
+            // 保底機制：比對字串長度
+            let aStr = a.type === 'station' ? a.name : a.id;
+            let bStr = b.type === 'station' ? b.name : b.id;
+            return aStr.length - bStr.length;
+        });
+        // --- 渲染結果 ---
+        if (searchData.length > 0) {
+            let resultsHtml = searchData.map(item => {
+                if (item.type === 'station') {
+                    return `<div class="search-item selectable-item" onclick="triggerSearchSelect('station', '${item.id}', this)"><span class="search-item-badge badge-station">車站</span> <span>${item.name}</span><span style="opacity: 0.5; font-size: 13px; margin-left: 8px; font-family: monospace;">(${item.id})</span></div>`;
+                } else {
+                    let routeBadge = keywords.length >= 2 ? `<span style="font-size: 12px; color: #FFA500; margin-left: 8px;">(直達)</span>` : "";
+                    
+                    // 🌟 核心升級：同時讀取 Type 和 ID 的顯示設定
+                    let currentShowType = !(settings && settings.show_train_type === false);
+                    let trainLabel = currentShowId ? "車次" : "列車";
+                    
+                    // 🌟 智慧組合：根據設定決定要顯示什麼，並自動處理中間的空白
+                    let displayParts = [];
+                    if (currentShowType && item.typeStr) displayParts.push(item.typeStr);
+                    if (currentShowId && item.id) displayParts.push(item.id);
+                    let trainDisplayText = displayParts.join(' '); 
+                    
+                    let timeHtml = "";
+                    if (item.startTime !== undefined && item.endTime !== undefined) {
+                        let fStart = formatTimeDisplay(item.startTime);
+                        let fEnd = formatTimeDisplay(item.endTime);
+                        timeHtml = `<span style="font-size: 13px; opacity: 0.8; margin-left: auto; font-family: monospace;">${fStart} ➔ ${fEnd}</span>`;
+                    }
+
+                    return `<div class="search-item selectable-item" style="display: flex; align-items: center;" onclick="triggerSearchSelect('train', '${item.id}', this)">
+                        <span class="search-item-badge badge-train">${trainLabel}</span> 
+                        <span style="margin-right: 4px;">${trainDisplayText}</span> 
+                        ${routeBadge} 
+                        ${timeHtml}
+                    </div>`;
+                }
+            });
+            searchResults.innerHTML = resultsHtml.join('');
+        } else {
+            let notFoundText = keywords.length >= 2 ? "找不到符合方向的直達車" : (currentShowId ? "找不到相符的車站或車次" : "找不到相符的車站");
+            searchResults.innerHTML = `<div class="search-item" style="color: #888; justify-content: center; cursor: default;">${notFoundText}</div>`;
+        }
+        
+        searchResults.style.display = 'block';
+    });
+
+    // --- 攔截鍵盤事件 (上下鍵與智慧 Enter) ---
+    searchInput.addEventListener('keydown', (e) => {
+        let items = searchResults.querySelectorAll('.selectable-item');
+
+        // 🌟 智慧 Enter 邏輯
+        if (e.key === "Enter") {
+            e.preventDefault(); // 防止表單預設送出
+
+            // 狀況 A：如果此時選單是隱藏的，強制觸發一次輸入事件來「喚醒」選單！
+            if (searchResults.style.display === 'none') {
+                searchInput.dispatchEvent(new Event('input'));
+                return;
+            } 
+            // 狀況 B：如果選單已經開著，就執行選取動作
+            else {
+                if (currentFocus > -1) { 
+                    if (items[currentFocus]) items[currentFocus].click(); 
+                }
+                else if (items.length > 0) { 
+                    items[0].click(); 
+                }
+            }
+        } 
+        // 🌟 上下鍵邏輯 (只有在選單開啟時才生效)
+        else {
+            if (searchResults.style.display === 'none' || items.length === 0) return;
+
+            if (e.key === "ArrowDown") {
+                e.preventDefault(); 
+                currentFocus++; 
+                addActive(items);
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault(); 
+                currentFocus--; 
+                addActive(items);
+            }
+        }
+    });
+
+    function addActive(items) {
+        if (!items) return false;
+        removeActive(items);
+        if (currentFocus >= items.length) currentFocus = 0;
+        if (currentFocus < 0) currentFocus = (items.length - 1);
+        items[currentFocus].classList.add("search-item-active");
+        items[currentFocus].scrollIntoView({ block: 'nearest' });
+    }
+    function removeActive(items) { for (let i = 0; i < items.length; i++) items[i].classList.remove("search-item-active"); }
+}
+
+// ==========================================
+// 🌟 供搜尋面板專用的全域觸發器 (保留文字與過濾狀態版)
+// ==========================================
+window.triggerSearchSelect = function(type, id, element) {
+    const searchResults = document.getElementById('search-results');
+
+    // 1. 只有點擊後隱藏下拉選單，絕對「不」清空輸入框，也「不」隱藏叉叉按鈕！
+    if (searchResults) searchResults.style.display = 'none';
+
+    // 🌟 這裡原本清空字體、隱藏叉叉、解除畫布過濾的邏輯全部拔除，
+    // 把控制權完全還給右上角的 ✕ 按鈕與 ESC 鍵！
+
+    // 2. 執行跳轉與選取
+    if (type === 'station') {
+        if (typeof window.triggerSelectStation === 'function') {
+            window.triggerSelectStation(id);
+        }
+    } else if (type === 'train') {
+        // 智慧防呆：如果這班車所屬的車種剛好被使用者隱藏了，自動幫他打勾開啟！
+        let targetTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(id));
+        if (targetTrain && !activeTrainTypes.has(targetTrain.type)) {
+            activeTrainTypes.add(targetTrain.type);
+            document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { 
+                if(b._updateStyle) b._updateStyle(); 
+            });
+        }
+        
+        // 呼叫原本寫好的車次跳轉函數，飛到那班車的位置並發光！
+        if (typeof window.triggerSelectTrain === 'function') {
+            window.triggerSelectTrain(id);
+        }
+    }
+};
+
+// ==========================================
 // 🖱️ 底部面板：將滑鼠上下滾輪轉換為左右滑動
 // ==========================================
 function setupBottomBarScrolling() {
@@ -1069,20 +1509,27 @@ window.addEventListener('resize', () => {
     // 主要工作已經交給 ResizeObserver 了，這裡可以安心留空
 });
 
-// 統整重繪動作 (清空 -> 畫網格 -> 畫火車)
+// 統整重繪動作
 function redrawAll() {
     clampCamera();
     
-    // ==========================================
-    // 🌟 終極防模糊殺手鐧：強制攝影機對齊「實體像素」！
-    // 徹底消滅因為小數點座標造成的次像素模糊 (Sub-pixel blur)
-    // ==========================================
+    // 強制攝影機對齊「實體像素」，防模糊
     camera.x = Math.round(camera.x);
     camera.y = Math.round(camera.y);
 
+    // 🌟 在最一開始統一清空畫布
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawGrid(currentRouteView); 
+    
+    // 1. 先畫最底層：網格線
+    drawGrid(currentRouteView, 'lines'); 
+    
+    // 2. 中間層：畫火車線 (會蓋在網格線上)
     drawTrains();
+    
+    // 3. 最上層：畫站名與時間標籤 (會壓在火車線上方！)
+    drawGrid(currentRouteView, 'labels');
+    
+    // 4. 現在時間的紅線 (永遠在最高層)
     drawCurrentTimeLine();      
 }
 
@@ -1434,41 +1881,35 @@ function setupCanvasInteractions() {
         const rect = canvas.getBoundingClientRect();
         const worldX = (clientX - rect.left) + camera.x;
         const worldY = (clientY - rect.top) + camera.y;
+        const wrapperW = wrapper.clientWidth;
 
-        let closestTrain = null, minDistance = 20; // 胖手指容錯率加大
+        let closestTrain = null, minDistance = 15; 
 
+        // --- 1. 掃描火車 ---
         if (typeof timetable !== 'undefined') {
             for (let train of timetable) {
                 if (typeof activeTrainTypes !== 'undefined' && !activeTrainTypes.has(train.type)) continue;
 
-                // ==========================================
-                // 🌟 新增防護罩：如果現在有鎖定車站，但這台車沒停，就讓它物理穿透！
-                // ==========================================
                 if (selectedStation) {
                     let stopsHere = false;
                     if (train.segments) {
                         for (let seg of train.segments) {
                             for (let i = 0; i < seg.s.length; i++) {
-                                // 檢查是否為選定站，且有停靠 (v !== 2)
                                 if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
-                                    stopsHere = true; 
-                                    break;
+                                    stopsHere = true; break;
                                 }
                             }
                             if (stopsHere) break;
                         }
                     }
-                    // 如果這台車沒停靠這個車站，直接跳過點擊判定！
                     if (!stopsHere) continue; 
                 }
-                // ==========================================
 
                 if (!train._hitPoints) continue;
                 for (let i = 0; i < train._hitPoints.length - 1; i++) {
                     let p1 = train._hitPoints[i], p2 = train._hitPoints[i+1];
                     if (!p1 || !p2) continue;
                     let dist = getDistanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
-                    // 🌟 順便縮小一點胖手指容錯率 (從 20 降到 15)，減少誤觸機率
                     if (dist < 15 && dist < minDistance) { 
                         minDistance = dist; 
                         closestTrain = train; 
@@ -1477,40 +1918,78 @@ function setupCanvasInteractions() {
             }
         }
 
-        if (closestTrain) {
-            selectedTrain = closestTrain; selectedStation = null;
-            if (typeof updateBottomPanel === 'function') updateBottomPanel(selectedTrain);
-        } else {
-            let closestStationId = null, minStationDist = 10; 
-            let isCircular = false;
-            if (typeof settings !== 'undefined' && settings?.view_presets?.[currentRouteView]?.view_type === "CIRCULAR") {
-                isCircular = true;
-            }
-            
-            let safeLoopH = (typeof loopHeight !== 'undefined') ? loopHeight : 0;
+        // --- 2. 🌟 精準掃描車站 (區分「橫線」與「文字框」) ---
+        let closestStationLineId = null; 
+        let closestStationTextId = null;
+        let minStationDist = 12; 
+        let isCircular = settings?.view_presets?.[currentRouteView]?.view_type === "CIRCULAR";
+        let safeLoopH = (typeof loopHeight !== 'undefined') ? loopHeight : 0;
 
-            if (typeof lookupY !== 'undefined') {
-                for (let st_id in lookupY) {
-                    for (let opt of lookupY[st_id]) {
-                        for (let copy = (isCircular ? -1 : 0); copy <= (isCircular ? 1 : 0); copy++) {
-                            let offsetY = isCircular ? ((copy * safeLoopH) + CONFIG.paddingTop + safeLoopH) : CONFIG.paddingTop;
-                            if (Math.abs(worldY - (opt.y + offsetY)) < minStationDist) {
-                                minStationDist = Math.abs(worldY - (opt.y + offsetY));
-                                closestStationId = st_id;
+        if (typeof lookupY !== 'undefined') {
+            // 借用畫筆來測量站名文字的真實寬度
+            const tempCtx = canvas.getContext('2d');
+            tempCtx.font = "bold 16px 'GlowSans', sans-serif";
+
+            for (let st_id in lookupY) {
+                let stName = getStationName(st_id);
+                let textWidth = tempCtx.measureText(stName).width; // 量測文字寬度
+
+                for (let opt of lookupY[st_id]) {
+                    for (let copy = (isCircular ? -1 : 0); copy <= (isCircular ? 1 : 0); copy++) {
+                        let offsetY = isCircular ? ((copy * safeLoopH) + CONFIG.paddingTop + safeLoopH) : CONFIG.paddingTop;
+                        let stationY = opt.y + offsetY;
+                        
+                        // 偵測 A：是否點在車站橫線上
+                        if (Math.abs(worldY - stationY) < minStationDist) {
+                            minStationDist = Math.abs(worldY - stationY);
+                            closestStationLineId = st_id;
+                        }
+
+                        // 偵測 B：是否「精準」點擊在浮動文字框內！(高度容錯給 15px)
+                        if (Math.abs(worldY - stationY) <= 15) {
+                            // 左側文字座標範圍
+                            let labelXLeft = Math.max(0, camera.x + 10);
+                            let leftBound = labelXLeft - 5;
+                            let rightBound = labelXLeft + textWidth + 15;
+
+                            // 右側文字座標範圍
+                            let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + wrapperW - 10);
+                            let rLeftBound = labelXRight - textWidth - 15;
+                            let rRightBound = labelXRight + 5;
+
+                            if ((worldX >= leftBound && worldX <= rightBound) || 
+                                (worldX >= rLeftBound && worldX <= rRightBound)) {
+                                closestStationTextId = st_id;
                             }
                         }
                     }
                 }
             }
-
-            if (closestStationId) {
-                selectedStation = closestStationId; selectedTrain = null;
-                if (typeof updateBottomPanelStation === 'function') updateBottomPanelStation(selectedStation);
-            } else {
-                selectedTrain = null; selectedStation = null;
-                if (typeof updateBottomPanel === 'function') updateBottomPanel(null);
-            }
         }
+
+        // --- 3. 🌟 終極權重裁決 ---
+        if (closestStationTextId) {
+            // 👉 最高優先級：點中站名文字！(無視火車)
+            selectedStation = closestStationTextId; 
+            selectedTrain = null;
+            if (typeof updateBottomPanelStation === 'function') updateBottomPanelStation(selectedStation);
+        } else if (closestTrain) {
+            // 👉 次高優先級：點中火車線
+            selectedTrain = closestTrain; 
+            selectedStation = null;
+            if (typeof updateBottomPanel === 'function') updateBottomPanel(selectedTrain);
+        } else if (closestStationLineId) {
+            // 👉 最低優先級：沒點到火車，只點到背景橫線
+            selectedStation = closestStationLineId; 
+            selectedTrain = null;
+            if (typeof updateBottomPanelStation === 'function') updateBottomPanelStation(selectedStation);
+        } else {
+            // 👉 什麼都沒點到
+            selectedTrain = null; 
+            selectedStation = null;
+            if (typeof updateBottomPanel === 'function') updateBottomPanel(null);
+        }
+
         if (typeof redrawAll === 'function') redrawAll();
     };
 
@@ -1537,86 +2016,80 @@ function setupCanvasInteractions() {
         } else if (e.target === canvas || e.target === wrapper) {
             
             const rect = wrapper.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            
-            // 🌟 將滑鼠座標轉換為「真實世界座標」(加上攝影機的偏移量)
-            // 這樣不管是找火車還是找車站，數學計算都會更精準簡單！
-            const worldX = mouseX + camera.x;
-            const worldY = mouseY + camera.y;
+            const worldX = (e.clientX - rect.left) + camera.x;
+            const worldY = (e.clientY - rect.top) + camera.y;
+            const wrapperW = wrapper.clientWidth;
 
             let hitTrain = null;
-            let hitStation = null;
-
-            // ==========================================
-            // 📡 雷達 1：偵測火車 (精準線段掃描)
-            // ==========================================
+            
+            // --- 1. 偵測火車 ---
             for (let train of timetable) {
-
-                // ==========================================
-                // 🌟 新增防護罩：游標懸停時也一樣，沒停靠的車變成幽靈！
-                // ==========================================
                 if (selectedStation) {
                     let stopsHere = false;
                     if (train.segments) {
                         for (let seg of train.segments) {
                             for (let i = 0; i < seg.s.length; i++) {
                                 if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
-                                    stopsHere = true; 
-                                    break;
+                                    stopsHere = true; break;
                                 }
                             }
                             if (stopsHere) break;
                         }
                     }
-                    // 如果這台車沒停靠這個車站，直接跳過懸停判定！
                     if (!stopsHere) continue; 
                 }
-                // ==========================================
 
-                // 如果火車被隱藏或點不到兩個，跳過
                 if (!train._hitPoints || train._hitPoints.length < 2) continue; 
-                
                 for (let i = 0; i < train._hitPoints.length - 1; i++) {
-                    let p1 = train._hitPoints[i];
-                    let p2 = train._hitPoints[i+1];
-                    
-                    // 防呆：如果遇到 null (代表路線斷開)，就跳過這段不計算
+                    let p1 = train._hitPoints[i], p2 = train._hitPoints[i+1];
                     if (!p1 || !p2) continue; 
-                    
-                    // 🌟 核心升級：使用「點到線段的垂直距離」來計算！
                     let dist = getDistanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
-                    
-                    // 容錯範圍：只要距離線條小於 6 像素，就視為碰到火車！
                     if (dist < 6) {
-                        hitTrain = train;
-                        break; 
+                        hitTrain = train; break; 
                     }
                 }
                 if (hitTrain) break; 
             }
 
-            // ==========================================
-            // 📡 雷達 2：偵測車站 (掃描 Y 軸座標)
-            // 只有在沒碰到火車時，才去尋找車站 (火車優先級較高)
-            // ==========================================
-            if (!hitTrain) {
-                let minStationDist = 12; // 🌟 車站的垂直感應範圍 (12px)
-                let isCircular = settings?.view_presets?.[currentRouteView]?.view_type === "CIRCULAR";
-                let safeLoopH = loopHeight || 0;
+            // --- 2. 🌟 精準偵測車站 (文字框 vs 橫線) ---
+            let hitStationLine = null;
+            let hitStationText = null;
+            let minStationDist = 12; 
+            let isCircular = settings?.view_presets?.[currentRouteView]?.view_type === "CIRCULAR";
+            let safeLoopH = loopHeight || 0;
 
-                if (typeof lookupY !== 'undefined') {
-                    for (let st_id in lookupY) {
-                        for (let opt of lookupY[st_id]) {
-                            // 檢查本尊與上下影分身 (環狀線)
-                            for (let copy = (isCircular ? -1 : 0); copy <= (isCircular ? 1 : 0); copy++) {
-                                let offsetY = isCircular ? ((copy * safeLoopH) + CONFIG.paddingTop + safeLoopH) : CONFIG.paddingTop;
-                                let stationY = opt.y + offsetY;
-                                
-                                // 如果滑鼠的 Y 座標距離這條車站橫線很近！
-                                if (Math.abs(worldY - stationY) < minStationDist) {
-                                    minStationDist = Math.abs(worldY - stationY);
-                                    hitStation = st_id;
+            if (typeof lookupY !== 'undefined') {
+                const tempCtx = canvas.getContext('2d');
+                tempCtx.font = "bold 16px 'GlowSans', sans-serif";
+
+                for (let st_id in lookupY) {
+                    let stName = getStationName(st_id);
+                    let textWidth = tempCtx.measureText(stName).width;
+
+                    for (let opt of lookupY[st_id]) {
+                        for (let copy = (isCircular ? -1 : 0); copy <= (isCircular ? 1 : 0); copy++) {
+                            let offsetY = isCircular ? ((copy * safeLoopH) + CONFIG.paddingTop + safeLoopH) : CONFIG.paddingTop;
+                            let stationY = opt.y + offsetY;
+                            
+                            // A. 滑鼠碰到車站橫線
+                            if (Math.abs(worldY - stationY) < minStationDist) {
+                                minStationDist = Math.abs(worldY - stationY);
+                                hitStationLine = st_id;
+                            }
+
+                            // B. 滑鼠精準碰到站名文字框
+                            if (Math.abs(worldY - stationY) <= 15) {
+                                let labelXLeft = Math.max(0, camera.x + 10);
+                                let leftBound = labelXLeft - 5;
+                                let rightBound = labelXLeft + textWidth + 15;
+
+                                let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + wrapperW - 10);
+                                let rLeftBound = labelXRight - textWidth - 15;
+                                let rRightBound = labelXRight + 5;
+
+                                if ((worldX >= leftBound && worldX <= rightBound) || 
+                                    (worldX >= rLeftBound && worldX <= rRightBound)) {
+                                    hitStationText = st_id;
                                 }
                             }
                         }
@@ -1624,26 +2097,28 @@ function setupCanvasInteractions() {
                 }
             }
 
-            // ==========================================
-            // 🌟 狀態更新與重繪判定
-            // ==========================================
-            let statusChanged = false;
-            
-            if (hitTrain !== hoveredTrain) {
-                hoveredTrain = hitTrain;
-                statusChanged = true;
-            }
-            
-            if (hitStation !== hoveredStation) {
-                hoveredStation = hitStation;
-                statusChanged = true;
+            // --- 3. 🌟 權重裁決 ---
+            let finalHitTrain = null;
+            let finalHitStation = null;
+
+            if (hitStationText) {
+                // 滑鼠在站名字體上方 -> 絕對車站優先 (無視火車線)
+                finalHitStation = hitStationText;
+            } else if (hitTrain) {
+                // 滑鼠在圖表區，碰到火車 -> 火車優先
+                finalHitTrain = hitTrain;
+            } else if (hitStationLine) {
+                // 滑鼠在圖表區，沒碰到火車 -> 橫線優先
+                finalHitStation = hitStationLine;
             }
 
-            // 只要火車或車站任何一個的 Hover 狀態改變了，就立刻重繪！
+            // --- 4. 狀態更新與重繪 ---
+            let statusChanged = false;
+            if (finalHitTrain !== hoveredTrain) { hoveredTrain = finalHitTrain; statusChanged = true; }
+            if (finalHitStation !== hoveredStation) { hoveredStation = finalHitStation; statusChanged = true; }
+
             if (statusChanged) {
-                // 如果碰到火車或車站，游標變成手指 👆
                 wrapper.style.cursor = (hoveredTrain || hoveredStation) ? 'pointer' : 'grab';
-                
                 if (typeof requestRedraw === 'function') requestRedraw();
                 else redrawAll();
             }
@@ -1766,29 +2241,39 @@ function setupCanvasInteractions() {
     }, { passive: false });
 
     // ==========================================
-    // ⌨️ 全域鍵盤事件：按下 ESC 取消選取
+    // ⌨️ 全域鍵盤事件：按下 ESC 取消選取與解除過濾
     // ==========================================
     window.addEventListener('keydown', (e) => {
         // 檢查按下的鍵是不是 ESC
         if (e.key === 'Escape') {
-            // 如果現在有選取火車或車站，才去執行清空動作
+            let needsRedraw = false;
+
+            // 1. 清空火車與車站的選取狀態
             if (selectedTrain || selectedStation) {
-                
-                // 1. 清空選取狀態變數
                 selectedTrain = null;
                 selectedStation = null;
-                
-                // 2. 恢復底部面板為預設狀態 ("點選列車或車站以顯示資訊")
-                if (typeof updateBottomPanel === 'function') {
-                    updateBottomPanel(null);
-                }
-                
-                // 3. 重新繪製畫布，把黃色高光線條或發光的車站橫線擦掉
-                if (typeof requestRedraw === 'function') {
-                    requestRedraw();
-                } else if (typeof redrawAll === 'function') {
-                    redrawAll();
-                }
+                if (typeof updateBottomPanel === 'function') updateBottomPanel(null);
+                needsRedraw = true;
+            }
+
+            // 🌟 2. 升級：清空搜尋框！
+            const searchInput = document.getElementById('search-input');
+            const searchResults = document.getElementById('search-results');
+            if (searchInput && searchInput.value !== '') {
+                searchInput.value = '';
+                if (searchResults) searchResults.style.display = 'none';
+            }
+            
+            // 🌟 3. 升級：解除路線過濾模式！
+            if (typeof activeRouteFilterTrains !== 'undefined' && activeRouteFilterTrains !== null) {
+                activeRouteFilterTrains = null;
+                needsRedraw = true;
+            }
+
+            // 如果有任何狀態改變，就重繪畫布
+            if (needsRedraw) {
+                if (typeof requestRedraw === 'function') requestRedraw();
+                else if (typeof redrawAll === 'function') redrawAll();
             }
         }
     });
@@ -2039,8 +2524,7 @@ function updateBottomPanelStation(st_id) {
     if (!panel) return;
 
     let stName = getStationName(st_id);
-    const now = new Date();
-    let currentMinutes = now.getHours() * 60 + now.getMinutes();
+    let currentMinutes = getCurrentSystemMinutes();
 
     // 🌟 回歸兩大陣營：只分 上行(北上) 與 下行(南下)
     let upboundTrains = [];
@@ -2211,7 +2695,7 @@ function updateBottomPanelStation(st_id) {
 
             return `
                 <div onclick="window.triggerSelectTrain('${item.trainNo}')" 
-                     style="display: flex; flex-direction: column; justify-content: center; min-width: 120px; margin: 0 4px; padding: 4px 8px; background: ${theme.cardBg}; border-radius: 6px; cursor: pointer; border: 1px solid transparent; line-height: 1.2;"
+                     style="display: flex; flex-direction: column; justify-content: center; min-width: 150px; margin: 0 4px; padding: 4px 8px; background: ${theme.cardBg}; border-radius: 6px; cursor: pointer; border: 1px solid transparent; line-height: 1.2;"
                      onmouseover="this.style.background='${theme.cardHoverBg}'; this.style.borderColor='${tColor}'"
                      onmouseout="this.style.background='${theme.cardBg}'; this.style.borderColor='transparent'">
                     
@@ -2253,6 +2737,78 @@ function updateBottomPanelStation(st_id) {
             </div>
         </div>
     `;
+}
+
+// ==========================================
+// 🌟 核心升級：通用折返路線拆解器 (Switchback Splitter)
+// 專門解決前端內插法遇到「V字折返(如近鐵奈良)」會把折返點刪除的致命 Bug
+// ==========================================
+function splitSwitchbackSegments(trainsData, topology) {
+    if (!topology || !topology.segments) return;
+
+    trainsData.forEach(train => {
+        if (!train.segments) return;
+        let newSegments = [];
+
+        train.segments.forEach(seg => {
+            let topoSeg = topology.segments.find(t => String(t.id) === String(seg.id));
+            // 如果找不到實體路線，或停靠站少於 3 個(不可能折返)，直接放行
+            if (!topoSeg || seg.s.length < 3) {
+                newSegments.push(seg);
+                return;
+            }
+
+            // 1. 查出這條線所有停靠站在 topology 中的「絕對索引值」
+            let indices = seg.s.map(st_id => topoSeg.stations.findIndex(t_st => String(t_st.id) === String(st_id)));
+
+            let splitPoints = [];
+            let currentDir = null; // 1 代表數值遞增(往東/南)，-1 代表遞減(往西/北)
+
+            // 2. 掃描陣列，偵測「行駛方向」是否發生逆轉！
+            for (let i = 0; i < indices.length - 1; i++) {
+                let idx1 = indices[i];
+                let idx2 = indices[i+1];
+                if (idx1 === -1 || idx2 === -1) continue;
+
+                let dir = idx2 > idx1 ? 1 : (idx2 < idx1 ? -1 : 0);
+                if (dir !== 0) {
+                    if (currentDir === null) {
+                        currentDir = dir;
+                    } else if (currentDir !== dir) {
+                        // 💥 抓到了！方向逆轉了！把這個轉折點記下來！
+                        splitPoints.push(i);
+                        currentDir = dir;
+                    }
+                }
+            }
+
+            // 3. 根據轉折點，把這段路線狠狠劈成兩半 (或多半)
+            if (splitPoints.length === 0) {
+                newSegments.push(seg);
+            } else {
+                let startIndex = 0;
+                for (let sp of splitPoints) {
+                    newSegments.push({
+                        id: seg.id,
+                        s: seg.s.slice(startIndex, sp + 1),
+                        t: seg.t.slice(startIndex * 2, (sp + 1) * 2),
+                        v: seg.v.slice(startIndex, sp + 1)
+                    });
+                    startIndex = sp;
+                }
+                // 把最後剩下的尾巴也推入
+                newSegments.push({
+                    id: seg.id,
+                    s: seg.s.slice(startIndex),
+                    t: seg.t.slice(startIndex * 2),
+                    v: seg.v.slice(startIndex)
+                });
+            }
+        });
+        
+        // 用拆解完的安全路段覆蓋原本的資料
+        train.segments = newSegments;
+    });
 }
 
 // ==========================================
@@ -2341,13 +2897,11 @@ function interpolatePassingStations(timetable, topology) {
 }
 
 // ==========================================
-// 🌟 核心升級：跨線直通車的「交會站」自動縫合 (Stitch Segments)
-// 解決直通車因為不停靠交會站，導致畫布上路線斷裂未畫出邊界的問題
+// 🌟 完美縫合器 (修復跨夜時光倒流 Bug)
 // ==========================================
 function stitchTrainSegments(trainsData, topology) {
     if (!topology || !topology.segments) return;
 
-    // 輔助函數：取得車站里程
     const getStationKm = (stId, lineId) => {
         let seg = topology.segments.find(s => String(s.id) === String(lineId));
         if (seg) {
@@ -2360,57 +2914,117 @@ function stitchTrainSegments(trainsData, topology) {
     trainsData.forEach(train => {
         if (!train.segments || train.segments.length < 2) return;
 
-        // 確保線段依照時間排序 (避免前後接錯)
+        // 🛑 核心修復：為自動造橋器加上「跨夜修正」，避免凌晨的區段被丟到最前面！
         train.segments.sort((a, b) => {
             let tA = (a.t && a.t[0] !== null && a.t[0] !== undefined) ? a.t[0] : 0;
             let tB = (b.t && b.t[0] !== null && b.t[0] !== undefined) ? b.t[0] : 0;
-            return tA - tB;
+            
+            let adjA = tA < 240 ? tA + 1440 : tA;
+            let adjB = tB < 240 ? tB + 1440 : tB;
+            
+            return adjA - adjB;
         });
 
         for (let i = 0; i < train.segments.length - 1; i++) {
             let segA = train.segments[i];
             let segB = train.segments[i + 1];
-
+            
+            // ... (下面這段維持原本你貼入的邏輯不變) ...
             let lastStA = segA.s[segA.s.length - 1];
             let firstStB = segB.s[0];
 
-            // 如果兩段路線沒有完美接在一起 (有斷層)
             if (String(lastStA) !== String(firstStB)) {
-                // 呼叫系統內建的交會站尋找器 (尋找 深井 與 堺東 的共同交集)
-                let juncId = getJunction(lastStA, firstStB);
-                
-                if (juncId && juncId !== lastStA && juncId !== firstStB) {
-                    let tA = segA.t[segA.t.length - 1]; // 上一段的最後發車時間
-                    let tB = segB.t[0];                 // 下一段的第一個到達時間
+                let junc = getJunction(lastStA, firstStB, segA.id, segB.id);
+                // 👉 狀況 A：正常的直接交會
+                if (junc && junc.type === 'direct') {
+                    let juncId = junc.id;
+                    let tA = segA.t[segA.t.length - 1]; 
+                    let tB = segB.t[0];                 
 
                     let kmA = getStationKm(lastStA, segA.id);
                     let kmJ_A = getStationKm(juncId, segA.id);
-                    
                     let kmJ_B = getStationKm(juncId, segB.id);
                     let kmB = getStationKm(firstStB, segB.id);
 
                     if (kmA !== null && kmJ_A !== null && kmJ_B !== null && kmB !== null) {
-                        // 🧮 依「里程比例」計算通過交會站的時間
                         let distA_J = Math.abs(kmJ_A - kmA);
                         let distJ_B = Math.abs(kmB - kmJ_B);
                         let totalDist = distA_J + distJ_B;
 
                         let passTime = tA;
                         if (totalDist > 0) {
-                            let tB_adj = tB < tA ? tB + 1440 : tB; // 跨夜處理
+                            let tB_adj = tB < tA ? tB + 1440 : tB; 
                             passTime = tA + (tB_adj - tA) * (distA_J / totalDist);
                             if (passTime >= 1440) passTime -= 1440;
                         }
 
-                        // 1. 縫合到上一段 (泉北線) 的尾巴
-                        segA.s.push(juncId);
-                        segA.t.push(passTime, passTime);
-                        segA.v.push(2); // 2 代表通過
+                        // 防呆：避免塞入重複的站點
+                        if (lastStA !== juncId) {
+                            segA.s.push(juncId);
+                            segA.t.push(passTime, passTime);
+                            segA.v.push(2); 
+                        }
+                        if (firstStB !== juncId) {
+                            segB.s.unshift(juncId);
+                            segB.t.unshift(passTime, passTime);
+                            segB.v.unshift(2); 
+                        }
+                    }
+                } 
+                // 👉 狀況 B：無中生有造橋！(解決名古屋線直通難波線的問題)
+                else if (junc && junc.type === 'bridge') {
+                    let junc1 = junc.junc1; // 伊勢中川
+                    let junc2 = junc.junc2; // 鶴橋
 
-                        // 2. 縫合到下一段 (高野線) 的開頭
-                        segB.s.unshift(juncId);
-                        segB.t.unshift(passTime, passTime);
-                        segB.v.unshift(2); // 2 代表通過
+                    let tA = segA.t[segA.t.length - 1];
+                    let tB = segB.t[0];
+
+                    let kmA = getStationKm(lastStA, segA.id);
+                    let kmJ1_A = getStationKm(junc1, segA.id);
+                    let kmJ1_Bridge = getStationKm(junc1, junc.line);
+                    let kmJ2_Bridge = getStationKm(junc2, junc.line);
+                    let kmJ2_B = getStationKm(junc2, segB.id);
+                    let kmB = getStationKm(firstStB, segB.id);
+
+                    if (kmA !== null && kmJ1_A !== null && kmJ1_Bridge !== null && kmJ2_Bridge !== null && kmJ2_B !== null && kmB !== null) {
+                        let dist1 = Math.abs(kmJ1_A - kmA);
+                        let distBridge = Math.abs(kmJ2_Bridge - kmJ1_Bridge);
+                        let dist2 = Math.abs(kmB - kmJ2_B);
+                        let totalDist = dist1 + distBridge + dist2;
+
+                        if (totalDist > 0) {
+                            let tB_adj = tB < tA ? tB + 1440 : tB;
+                            let tJunc1 = tA + (tB_adj - tA) * (dist1 / totalDist);
+                            let tJunc2 = tA + (tB_adj - tA) * ((dist1 + distBridge) / totalDist);
+
+                            if (tJunc1 >= 1440) tJunc1 -= 1440;
+                            if (tJunc2 >= 1440) tJunc2 -= 1440;
+
+                            // 1. 補齊上一段
+                            if (lastStA !== junc1) {
+                                segA.s.push(junc1);
+                                segA.t.push(tJunc1, tJunc1);
+                                segA.v.push(2);
+                            }
+
+                            // 2. 創造橋接段 (大阪線: 伊勢中川 -> 鶴橋)
+                            let newSeg = {
+                                id: junc.line,
+                                s: [junc1, junc2],
+                                t: [tJunc1, tJunc1, tJunc2, tJunc2],
+                                v: [2, 2]
+                            };
+
+                            // 3. 補齊下一段 (如果下一段已經是鶴橋開頭，就不重複塞)
+                            if (firstStB !== junc2) {
+                                segB.s.unshift(junc2);
+                                segB.t.unshift(tJunc2, tJunc2);
+                                segB.v.unshift(2);
+                            }
+
+                            train.segments.splice(i + 1, 0, newSeg);
+                            i++; // 跳過剛造好的橋，避免無限迴圈
+                        }
                     }
                 }
             }
@@ -2596,6 +3210,9 @@ async function loadTimetableData(dateOrType) {
         if (!timeRes.ok) throw new Error(`找不到檔案: ${todayFileUrl}`);
 
         let todayData = await timeRes.json();
+
+        // 🌟 0. 【新增】先把所有「折返路線」劈成兩半，避免後續內插法錯亂！
+        splitSwitchbackSegments(todayData, topology);
         
         // 🌟 1. 先把跨線車的斷點縫合起來 (補上中百舌鳥等交會站)
         stitchTrainSegments(todayData, topology);
@@ -2889,6 +3506,19 @@ async function init(systemPath) {
     junctionCache = {}; 
     // ==========================================
 
+    // ==========================================
+    // 🌟 新增：跨系統搜尋大掃除！
+    // 確保切換系統時，自動解除路線過濾模式並清空搜尋框
+    // ==========================================
+    if (typeof activeRouteFilterTrains !== 'undefined') {
+        activeRouteFilterTrains = null; // 解除畫布過濾
+    }
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    if (searchInput) searchInput.value = '';             // 清空輸入框字體
+    if (searchResults) searchResults.style.display = 'none'; // 收起下拉選單
+    // ==========================================
+
     currentSystemPath = systemPath;
 
     try {
@@ -3067,10 +3697,15 @@ async function init(systemPath) {
         console.log("資料載入完成！建構 UI 與渲染畫布...");
         
         buildUI();         // 建立側邊欄按鈕
+
+        // 🌟🌟🌟 補上這一行：確保初始化時強制執行按鈕過濾！
+        updateTrainTypeVisibility();
+
         updateBottomPanel(null); // 初始化底部面板
         bindThemeToggle(); // 啟動主題切換按鈕
         setupCanvasInteractions();
         setupBottomBarScrolling();
+        setupSearch();
 
         // ==========================================
         // 🌟 終極修復：等待 CSS 排版完全穩定！
@@ -3103,9 +3738,7 @@ async function init(systemPath) {
         autoFitScale();   // 算出最完美的 Y 軸拉伸比例
         camera.y = -50;   // 把畫面推到最頂端
 
-        // --- 🌟 核心新增：X 軸時間自動置中 ---
-        const now = new Date();
-        let currentMinutes = now.getHours() * 60 + now.getMinutes();
+        let currentMinutes = getCurrentSystemMinutes();
         
         // 鐵道標準跨夜處理：如果是凌晨 00:00 ~ 01:59，視為圖表上的 24:00 ~ 25:59
         if (currentMinutes < 120) {

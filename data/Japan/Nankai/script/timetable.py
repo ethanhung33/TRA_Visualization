@@ -193,8 +193,8 @@ def main():
             t7_pool[tx]["stops"] = stops
     print("\n✅ 所有列車資料下載完成！\n")
 
-    print("4. 🌟 正在完美建構相容 TRA 的 Segments JSON 格式...")
-    trains_by_tx = {}
+    print("4. 🌟 正在完美建構相容 TRA 的 Segments JSON 格式 (搭載物理指紋去重)...")
+    unique_trains = {} # 🌟 改用這個來存唯一車次
     global_train_counter = 1001
 
     for tx, t_info in t7_pool.items():
@@ -202,17 +202,28 @@ def main():
         if not stops: continue
         
         t_stops_order = list(stops.keys())
-        
-        if tx not in trains_by_tx:
-            trains_by_tx[tx] = {
-                "no": str(global_train_counter),
-                "type": t_info["type"],
-                "drive": t_info["day"],
-                "segments": []
-            }
-            global_train_counter += 1
+
+        # ==========================================
+        # 🌟 核心修復：跨夜時間「預處理 (Pre-calculation)」
+        # 順著火車實際開的順序，把所有時間一次算成絕對分鐘數 (包含 +1440)
+        # ==========================================
+        global_p_mins = 0
+        for st in t_stops_order:
+            arr_str = stops[st].get("arrival", "−")
+            dep_str = stops[st].get("departure", "−")
             
-        raw_segments = [] # 🌟 先用一個暫存陣列把所有配對到的路線裝起來
+            am = time_to_minutes(arr_str, global_p_mins)
+            if am is not None:
+                stops[st]["abs_arr"] = am
+                global_p_mins = am
+                
+            dm = time_to_minutes(dep_str, global_p_mins)
+            if dm is not None:
+                stops[st]["abs_dep"] = dm
+                global_p_mins = dm
+        # ==========================================
+
+        raw_segments = []
         
         for line_name, line_stations in MASTER_LINES.items():
             intersect = [st for st in t_stops_order if st in line_stations]
@@ -226,19 +237,15 @@ def main():
             s_list = []
             t_list = []
             v_list = []
-            p_mins = 0
             
             intersect_in_order = [s for s in ordered_stations if s in stops]
             
             for i, st in enumerate(intersect_in_order):
                 d = stops[st]
-                arr_str = d.get("arrival", "−")
-                dep_str = d.get("departure", "−")
                 
-                am = time_to_minutes(arr_str, p_mins)
-                if am: p_mins = am
-                dm = time_to_minutes(dep_str, p_mins)
-                if dm: p_mins = dm
+                # 🌟 直接讀取預處理算好的跨夜絕對時間！
+                am = d.get("abs_arr")
+                dm = d.get("abs_dep")
                 
                 final_am = am if am is not None else dm
                 final_dm = dm if dm is not None else am
@@ -263,7 +270,7 @@ def main():
                 })
 
         # ==========================================
-        # 🌟 核心過濾邏輯：剃除重疊的幽靈路線
+        # 🌟 核心過濾邏輯：剃除重疊的幽靈路線 (搭載智慧車名辨識)
         # ==========================================
         filtered_segments = []
         for i, seg_i in enumerate(raw_segments):
@@ -271,10 +278,34 @@ def main():
             for j, seg_j in enumerate(raw_segments):
                 # 如果 seg_i 的車站完全被包含在 seg_j 裡面
                 if i != j and seg_i["_s_set"].issubset(seg_j["_s_set"]):
-                    # 避免完全一樣的路線互相刪除，只刪除站數較少，或是順序排在後面的
-                    if len(seg_i["_s_set"]) < len(seg_j["_s_set"]) or i > j:
+                    
+                    # 1. 站數較少，絕對是附屬的，刪除！
+                    if len(seg_i["_s_set"]) < len(seg_j["_s_set"]):
                         is_subset = True
                         break
+                        
+                    # 2. 站數一模一樣 (例如: 難波~天下茶屋 同時有本線與高野線)
+                    elif len(seg_i["_s_set"]) == len(seg_j["_s_set"]):
+                        # 💡 啟動 Tie-breaker：用「車名」判斷誰才是正牌路線！
+                        score_i, score_j = 0, 0
+                        t_type = t_info.get("type", "")
+                        
+                        # 給 i 打分數
+                        if "koya" in seg_i["id"].lower() and any(x in t_type for x in ["泉北", "高野", "りんかん", "こうや"]):
+                            score_i += 10
+                        if "main" in seg_i["id"].lower() and any(x in t_type for x in ["空港", "サザン", "ラピート"]):
+                            score_i += 10
+                            
+                        # 給 j 打分數
+                        if "koya" in seg_j["id"].lower() and any(x in t_type for x in ["泉北", "高野", "りんかん", "こうや"]):
+                            score_j += 10
+                        if "main" in seg_j["id"].lower() and any(x in t_type for x in ["空港", "サザン", "ラピート"]):
+                            score_j += 10
+
+                        # 分數低的被淘汰；如果分數一樣，就照舊淘汰排在後面的
+                        if score_i < score_j or (score_i == score_j and i > j):
+                            is_subset = True
+                            break
             
             if not is_subset:
                 filtered_segments.append(seg_i)
@@ -285,15 +316,28 @@ def main():
                 del seg["_s_set"]
 
         if filtered_segments:
-            # ==========================================
-            # 🌟 終極修正：依照該線段的「第一個發車/抵達時間」進行排序
-            # 確保跨線列車 (如泉北線直通高野線) 的線段順序完美符合行車時間軸
-            # ==========================================
+            # 依照該線段的第一個發車時間進行排序
             filtered_segments.sort(key=lambda seg: seg["t"][0] if seg["t"] else 9999)
             
-            trains_by_tx[tx]["segments"] = filtered_segments
+            # 🌟 終極去重武器：建立列車「物理指紋」
+            first_st = t_stops_order[0]
+            last_st = t_stops_order[-1]
+            first_dep = stops[first_st].get("departure", "−")
+            last_arr = stops[last_st].get("arrival", "−")
+            
+            signature = f"{t_info['day']}_{t_info['type']}_{first_st}_{first_dep}_{last_st}_{last_arr}"
+            
+            # 🛑 只有沒看過的指紋，才准許放行寫入 JSON
+            if signature not in unique_trains:
+                unique_trains[signature] = {
+                    "no": str(global_train_counter),
+                    "type": t_info["type"],
+                    "drive": t_info["day"],
+                    "segments": filtered_segments
+                }
+                global_train_counter += 1
 
-    flat_json_output = list(trains_by_tx.values())
+    flat_json_output = list(unique_trains.values())
 
     weekday_data = [t for t in flat_json_output if t.get("drive") == "平日"]
     holiday_data = [t for t in flat_json_output if t.get("drive") == "土休日"]

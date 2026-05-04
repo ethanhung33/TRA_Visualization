@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>台鐵運行圖渲染引擎</title>
+    <title>台日鐵路運行圖</title>
     <link rel="icon" href="data:,">
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -18,7 +18,7 @@
     </div>
 
     <div id="landing-page">
-        <h1 style="color: white; margin-bottom: 20px; font-family: 'GlowSans', sans-serif;">鐵道運行圖引擎</h1>
+        <h1 style="color: white; margin-bottom: 20px; font-family: 'GlowSans', sans-serif;">台日鐵路運行圖</h1>
         <div id="system-menu-container" class="btn-group">
             </div>
     </div>
@@ -59,7 +59,16 @@
                     <div class="btn-group" id="route-type-container">
                         </div>
                 </div>
-
+                <div class="control-section">
+                    <h3>搜尋</h3>
+                    <div class="search-wrapper" style="position: relative;">
+                        <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                            <input type="text" id="search-input" placeholder="車站、車次 或 路線找車" style="width: 100%; padding-right: 30px;" autocomplete="off">
+                            <span id="search-clear-btn" style="position: absolute; right: 10px; cursor: pointer; color: #888; font-size: 16px; font-weight: bold; display: none;">✕</span>
+                        </div>
+                        <div id="search-results" class="search-dropdown" style="display: none;"></div>
+                    </div>
+                </div>
                 <div class="control-section">
                     <h3>車種</h3>
                     <div class="btn-group" style="margin-bottom: 10px;">
