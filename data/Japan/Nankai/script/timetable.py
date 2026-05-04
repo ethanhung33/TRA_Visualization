@@ -202,6 +202,27 @@ def main():
         if not stops: continue
         
         t_stops_order = list(stops.keys())
+
+        # ==========================================
+        # 🌟 核心修復：跨夜時間「預處理 (Pre-calculation)」
+        # 順著火車實際開的順序，把所有時間一次算成絕對分鐘數 (包含 +1440)
+        # ==========================================
+        global_p_mins = 0
+        for st in t_stops_order:
+            arr_str = stops[st].get("arrival", "−")
+            dep_str = stops[st].get("departure", "−")
+            
+            am = time_to_minutes(arr_str, global_p_mins)
+            if am is not None:
+                stops[st]["abs_arr"] = am
+                global_p_mins = am
+                
+            dm = time_to_minutes(dep_str, global_p_mins)
+            if dm is not None:
+                stops[st]["abs_dep"] = dm
+                global_p_mins = dm
+        # ==========================================
+
         raw_segments = []
         
         for line_name, line_stations in MASTER_LINES.items():
@@ -216,19 +237,15 @@ def main():
             s_list = []
             t_list = []
             v_list = []
-            p_mins = 0
             
             intersect_in_order = [s for s in ordered_stations if s in stops]
             
             for i, st in enumerate(intersect_in_order):
                 d = stops[st]
-                arr_str = d.get("arrival", "−")
-                dep_str = d.get("departure", "−")
                 
-                am = time_to_minutes(arr_str, p_mins)
-                if am: p_mins = am
-                dm = time_to_minutes(dep_str, p_mins)
-                if dm: p_mins = dm
+                # 🌟 直接讀取預處理算好的跨夜絕對時間！
+                am = d.get("abs_arr")
+                dm = d.get("abs_dep")
                 
                 final_am = am if am is not None else dm
                 final_dm = dm if dm is not None else am
