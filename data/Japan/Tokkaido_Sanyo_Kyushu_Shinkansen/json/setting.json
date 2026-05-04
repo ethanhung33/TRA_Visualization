@@ -8,7 +8,7 @@
 
   "time_stretch_ratio": 3.0,
 
-  "show_train_id": false,
+  "show_train_id": true,
 
   "timezone_offset": 9,
 
