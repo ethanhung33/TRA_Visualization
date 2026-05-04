@@ -305,11 +305,40 @@ function drawGrid(viewKey, layer = 'all') {
         ctx.font = "bold 16px 'GlowSans', sans-serif";
         ctx.textBaseline = "middle";
 
+        // ==========================================
+        // 🌟 核心升級：基於權重的空間競爭碰撞偵測 (Greedy Label Placement)
+        // ==========================================
+        // 1. 把視窗內的車站抓出來，並帶上真實的 Y 座標
+        let labelCandidates = uniqueStations.map(st => ({
+            ...st,
+            y: st.baseY + offsetY
+        })).filter(st => st.y >= viewTop - 20 && st.y <= viewBottom + 20); // 只算螢幕附近的
+
+        // 2. 依照「權重 (停靠次數)」由大到小排序。權重一樣的就照原本的座標排。
+        labelCandidates.sort((a, b) => (b.weight - a.weight) || (a.baseY - b.baseY));
+
+        let drawnYList = [];
+        const MIN_SPACING = 18; // 🌟 容許的最小垂直距離 (剛好是字體 16px + 2px 留白)
+
+        // 3. 霸主先選位！權重高的大站先佔領 Y 座標，後面的小站如果撞到就只能隱身
+        labelCandidates.forEach(cand => {
+            // 檢查自己想站的 Y 座標，有沒有撞到已經被佔領的領域
+            let isCollision = drawnYList.some(drawnY => Math.abs(drawnY - cand.y) < MIN_SPACING);
+            cand.showLabel = !isCollision; // 沒撞到就能活下來
+            if (!isCollision) {
+                drawnYList.push(cand.y); // 佔領這個座標！
+            }
+        });
+
+        // 轉成 Map 方便快速查表
+        let showLabelMap = new Map(labelCandidates.map(c => [c.id, c.showLabel]));
+        // ==========================================
+
         uniqueStations.forEach(st => {
             let y = st.baseY + offsetY;
             if (y < viewTop || y > viewBottom) return;
 
-            // --- 畫背景橫線 ---
+            // --- 畫背景橫線 (小站雖然字隱形，但橫線軌道還是要畫出來) ---
             if (layer === 'lines' || layer === 'all') {
                 let isHovered = (st.id === hoveredStation);
                 let isSelected = (st.id === selectedStation);
@@ -333,24 +362,9 @@ function drawGrid(viewKey, layer = 'all') {
 
             // --- 🌟 左右雙向懸浮站名 ---
             if (layer === 'labels' || layer === 'all') {
-
-                // ==========================================
-                // 🌟 核心過濾：動態隱藏流量不夠的小站
-                // ==========================================
-                let importance = st.weight / maxWeight; // 計算重要性 (0.0 ~ 1.0)
-                let threshold = 0;
                 
-                // 根據目前的縮放比例，決定及格門檻
-                if (CONFIG.scaleY < 1.0) threshold = 0.5;      // 縮到極小，只留超級大站 (流量>50%)
-                else if (CONFIG.scaleY < 1.5) threshold = 0.2; // 中等縮小，留中大站 (流量>20%)
-                else if (CONFIG.scaleY < 2.5) threshold = 0.05;// 稍微縮小，留大部分 (流量>5%)
-                else threshold = 0;                            // 放大時，門檻降為0，全部顯示
-                
-                // 如果這個站的重要性達不到門檻，直接放棄印出它的名字！(但原本的橫線還是會畫)
-                if (importance < threshold && threshold > 0) {
-                    return; 
-                }
-                // ==========================================
+                // 🌟 檢查剛剛的生存戰，如果小站被大站擠掉了，就不印字直接跳過！
+                if (showLabelMap.get(st.id) !== true) return;
 
                 let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
                 let textColor = isDarkMode ? "#FFFFFF" : "#000000";
