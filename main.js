@@ -132,7 +132,7 @@ function getCurrentSystemMinutes() {
 }
 
 // ==========================================
-// 🌟 全域變數：純數據快車加權計算結果
+// 🌟 全域變數：純停靠次數權重 (防交會站重複計算版)
 // ==========================================
 window.globalStationWeights = {};
 
@@ -143,28 +143,28 @@ function calculateStationWeights() {
     timetable.forEach(train => {
         if (!train.segments) return;
 
-        // 1. 算出這班車的「快車等級」 (通過的站越多，等級越高)
-        let passCount = 0;
+        // 🌟 準備一個袋子 (Set)，用來記錄這班車「已經給過分數」的車站
+        let countedStations = new Set();
+
         train.segments.forEach(seg => {
             for (let i = 0; i < seg.s.length; i++) {
-                if (seg.v[i] === 2) passCount++;
-            }
-        });
-
-        // 2. 權重放大器：停靠基本 1 分，每超越一站 +2 分 (讓普悠瑪/新幹線的權重暴增)
-        let trainScore = 1 + (passCount * 2);
-
-        // 3. 把超高分數灌給這班車有停靠的車站
-        train.segments.forEach(seg => {
-            for (let i = 0; i < seg.s.length; i++) {
-                if (seg.v[i] !== 2) { 
+                // v !== 2 代表這站有停靠
+                if (seg.v[i] !== 2) {
                     let stId = String(seg.s[i]);
-                    window.globalStationWeights[stId] = (window.globalStationWeights[stId] || 0) + trainScore;
+                    
+                    // 🌟 核心防護：如果這班車「還沒」幫這個站加過分，才加分！
+                    if (!countedStations.has(stId)) {
+                        // 單純計數：每停一班車就 +1 分
+                        window.globalStationWeights[stId] = (window.globalStationWeights[stId] || 0) + 1;
+                        
+                        // 登記：這班車已經給過這個站分數了，下次同班車再看到它(跨線交會)就不給了！
+                        countedStations.add(stId); 
+                    }
                 }
             }
         });
     });
-    console.log("📊 全域車站權重計算完成！", window.globalStationWeights);
+    console.log("📊 修正版單純停靠次數統計完成！", window.globalStationWeights);
 }
 
 
@@ -340,7 +340,7 @@ function drawGrid(viewKey, layer = 'all') {
 
         let showLabelMap = new Map(labelCandidates.map(c => [c.id, c.showLabel]));
         // ==========================================
-        
+
         uniqueStations.forEach(st => {
             let y = st.baseY + offsetY;
             if (y < viewTop || y > viewBottom) return;
