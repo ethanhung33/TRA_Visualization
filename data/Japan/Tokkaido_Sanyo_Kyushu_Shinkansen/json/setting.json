@@ -6,7 +6,7 @@
   
   "calendar_type": "WEEKDAY_BITMAP",
 
-  "time_stretch_ratio": 2.0,
+  "time_stretch_ratio": 3.0,
 
   "show_train_id": false,
 
@@ -28,7 +28,7 @@
   },
 
   "train_color": {
-    "のぞみ": ["#FFFF88", "#FFFF88"],
+    "のぞみ": ["#FFFF88", "#FFFF88", 1.5],
     "ひかり": ["#FF8989", "#FF8989"],
     "こだま": ["#8A8AFF", "#8A8AFF"],
     "みずほ": ["#FFAB0E", "#FFAB0E"],
