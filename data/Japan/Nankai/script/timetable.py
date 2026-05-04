@@ -270,7 +270,7 @@ def main():
                 })
 
         # ==========================================
-        # 🌟 核心過濾邏輯：剃除重疊的幽靈路線
+        # 🌟 核心過濾邏輯：剃除重疊的幽靈路線 (搭載智慧車名辨識)
         # ==========================================
         filtered_segments = []
         for i, seg_i in enumerate(raw_segments):
@@ -278,10 +278,34 @@ def main():
             for j, seg_j in enumerate(raw_segments):
                 # 如果 seg_i 的車站完全被包含在 seg_j 裡面
                 if i != j and seg_i["_s_set"].issubset(seg_j["_s_set"]):
-                    # 避免完全一樣的路線互相刪除，只刪除站數較少，或是順序排在後面的
-                    if len(seg_i["_s_set"]) < len(seg_j["_s_set"]) or i > j:
+                    
+                    # 1. 站數較少，絕對是附屬的，刪除！
+                    if len(seg_i["_s_set"]) < len(seg_j["_s_set"]):
                         is_subset = True
                         break
+                        
+                    # 2. 站數一模一樣 (例如: 難波~天下茶屋 同時有本線與高野線)
+                    elif len(seg_i["_s_set"]) == len(seg_j["_s_set"]):
+                        # 💡 啟動 Tie-breaker：用「車名」判斷誰才是正牌路線！
+                        score_i, score_j = 0, 0
+                        t_type = t_info.get("type", "")
+                        
+                        # 給 i 打分數
+                        if "koya" in seg_i["id"].lower() and any(x in t_type for x in ["泉北", "高野", "りんかん", "こうや"]):
+                            score_i += 10
+                        if "main" in seg_i["id"].lower() and any(x in t_type for x in ["空港", "サザン", "ラピート"]):
+                            score_i += 10
+                            
+                        # 給 j 打分數
+                        if "koya" in seg_j["id"].lower() and any(x in t_type for x in ["泉北", "高野", "りんかん", "こうや"]):
+                            score_j += 10
+                        if "main" in seg_j["id"].lower() and any(x in t_type for x in ["空港", "サザン", "ラピート"]):
+                            score_j += 10
+
+                        # 分數低的被淘汰；如果分數一樣，就照舊淘汰排在後面的
+                        if score_i < score_j or (score_i == score_j and i > j):
+                            is_subset = True
+                            break
             
             if not is_subset:
                 filtered_segments.append(seg_i)
