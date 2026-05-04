@@ -309,28 +309,43 @@ function drawGrid(viewKey, layer = 'all') {
         // 🌟 核心升級：基於權重的空間競爭碰撞偵測 (Greedy Label Placement)
         // ==========================================
         // 1. 把視窗內的車站抓出來，並帶上真實的 Y 座標
-        let labelCandidates = uniqueStations.map(st => ({
-            ...st,
-            y: st.baseY + offsetY
-        })).filter(st => st.y >= viewTop - 20 && st.y <= viewBottom + 20); // 只算螢幕附近的
+        let labelCandidates = uniqueStations.map(st => {
+            // 🌟 終極防彈：強制回到源頭 topology 挖取真實權重！
+            let stWeight = 0;
+            if (topology && topology.segments) {
+                for (let seg of topology.segments) {
+                    let foundSt = seg.stations.find(s => String(s.id) === String(st.id));
+                    // 只要有算過權重，就把它抓出來
+                    if (foundSt && foundSt.weight !== undefined) {
+                        stWeight = foundSt.weight;
+                        break;
+                    }
+                }
+            }
+            return {
+                id: st.id,
+                name: st.name,
+                baseY: st.baseY,
+                y: st.baseY + offsetY,
+                weight: stWeight // 👈 關鍵！確保權重絕對跟著走
+            };
+        }).filter(st => st.y >= viewTop - 20 && st.y <= viewBottom + 20);
 
         // 2. 依照「權重 (停靠次數)」由大到小排序。權重一樣的就照原本的座標排。
         labelCandidates.sort((a, b) => (b.weight - a.weight) || (a.baseY - b.baseY));
 
         let drawnYList = [];
-        const MIN_SPACING = 18; // 🌟 容許的最小垂直距離 (剛好是字體 16px + 2px 留白)
+        const MIN_SPACING = 18; 
 
-        // 3. 霸主先選位！權重高的大站先佔領 Y 座標，後面的小站如果撞到就只能隱身
+        // 3. 霸主先選位！
         labelCandidates.forEach(cand => {
-            // 檢查自己想站的 Y 座標，有沒有撞到已經被佔領的領域
             let isCollision = drawnYList.some(drawnY => Math.abs(drawnY - cand.y) < MIN_SPACING);
-            cand.showLabel = !isCollision; // 沒撞到就能活下來
+            cand.showLabel = !isCollision; 
             if (!isCollision) {
-                drawnYList.push(cand.y); // 佔領這個座標！
+                drawnYList.push(cand.y); 
             }
         });
 
-        // 轉成 Map 方便快速查表
         let showLabelMap = new Map(labelCandidates.map(c => [c.id, c.showLabel]));
         // ==========================================
 
