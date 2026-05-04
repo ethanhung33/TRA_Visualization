@@ -162,7 +162,7 @@ canvas {
 /* 🌟 外層容器：只負責寬度動畫，絕對不加 overflow 和 padding */
 #sidebar {
     position: relative; /* 讓按鈕可以黏在邊緣 */
-    width: 320px; 
+    width: 400px; 
     display: flex;
     flex-direction: column;
     background-color: #333333;
@@ -179,7 +179,7 @@ canvas {
 
 /* 🌟 內層容器：負責 Padding 與上下捲動 */
 .sidebar-inner {
-    width: 320px; /* 鎖死寬度，收合時內容才不會被擠壓 */
+    width: 400px; /* 鎖死寬度，收合時內容才不會被擠壓 */
     height: 100%;
     padding: 20px; /* 從外層搬過來的 */
     overflow-y: auto; /* 捲動條放在這裡，就不會切到外面的按鈕了！ */

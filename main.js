@@ -2682,7 +2682,7 @@ function updateBottomPanelStation(st_id) {
 
             return `
                 <div onclick="window.triggerSelectTrain('${item.trainNo}')" 
-                     style="display: flex; flex-direction: column; justify-content: center; min-width: 120px; margin: 0 4px; padding: 4px 8px; background: ${theme.cardBg}; border-radius: 6px; cursor: pointer; border: 1px solid transparent; line-height: 1.2;"
+                     style="display: flex; flex-direction: column; justify-content: center; min-width: 160px; margin: 0 4px; padding: 4px 8px; background: ${theme.cardBg}; border-radius: 6px; cursor: pointer; border: 1px solid transparent; line-height: 1.2;"
                      onmouseover="this.style.background='${theme.cardHoverBg}'; this.style.borderColor='${tColor}'"
                      onmouseout="this.style.background='${theme.cardBg}'; this.style.borderColor='transparent'">
                     
