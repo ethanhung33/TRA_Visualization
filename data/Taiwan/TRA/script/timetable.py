@@ -347,7 +347,7 @@ def main():
     print(f"\n⚡ [階段二] 開始下載時刻表 (僅需抓取 {len(unique_trains_to_fetch)} 次)...")
     train_database = {} 
     
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         futures = {executor.submit(fetch_worker, info["type"], t_no, info["seen_dates"], 3): t_no 
                    for t_no, info in unique_trains_to_fetch.items()}
         
