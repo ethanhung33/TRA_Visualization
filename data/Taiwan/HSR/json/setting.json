@@ -10,6 +10,8 @@
 
   "show_train_type": false,
 
+  "timezone_offset": 8,
+
   "train_color": {
     "01": ["#FB8989", "#EB0000"],
     "11": ["#FC2F2F", "#FF5252"],

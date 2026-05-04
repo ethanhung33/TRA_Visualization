@@ -10,6 +10,8 @@
 
   "show_train_id": false,
 
+  "timezone_offset": 9,
+
   "view_presets": {
     "main_line": {
         "name": "南海本線 (難波-和歌山市)",

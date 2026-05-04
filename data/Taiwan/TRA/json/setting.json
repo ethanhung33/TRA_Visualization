@@ -6,6 +6,8 @@
   
   "calendar_type": "WEEKDAY_BITMAP",
 
+  "timezone_offset": 8,
+
   "view_presets": {
     "mountain_view": {
         "name": "山線環島鐵路",

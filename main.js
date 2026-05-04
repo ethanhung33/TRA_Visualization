@@ -73,6 +73,27 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// ==========================================
+// 🌍 系統專屬時區轉換器 (Timezone Adapter)
+// ==========================================
+function getCurrentSystemMinutes() {
+    const now = new Date();
+
+    // 防呆：如果 json 沒寫時區，就乖乖用使用者的本地裝置時間
+    if (!settings || settings.timezone_offset === undefined) {
+        return now.getHours() * 60 + now.getMinutes();
+    }
+
+    // 1. 抓出絕對標準的 UTC 世界協調時間 (總分鐘數)
+    let utcMinutesTotal = now.getUTCHours() * 60 + now.getUTCMinutes();
+
+    // 2. 加上該系統專屬的時區偏移量 (例如日本是 +9，9 * 60 = 540 分鐘)
+    let systemMinutes = utcMinutesTotal + (settings.timezone_offset * 60);
+
+    // 3. 處理跨日問題，保證數值完美落在 0 ~ 1439 的區間內循環
+    return ((systemMinutes % 1440) + 1440) % 1440;
+}
+
 
 // ==========================================
 // 2. 核心換算函式
@@ -685,7 +706,7 @@ function drawTrains() {
 // ==========================================
 function drawCurrentTimeLine() {
     const now = new Date();
-    let currentMinutes = now.getHours() * 60 + now.getMinutes();
+    let currentMinutes = getCurrentSystemMinutes();
 
     // 🌟 抓取真實的螢幕高度，而不是被高畫質放大的 canvas.height
     const wrapper = document.getElementById('canvas-wrapper');
@@ -736,7 +757,9 @@ function drawCurrentTimeLine() {
                 ? Math.max(viewTop + 60, CONFIG.paddingTop) 
                 : Math.max(lineTop + 40, Math.min(viewBottom - 30, lineBottom - 20));
             
-            ctx.fillText(now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0'), x + 8, labelY);
+            let displayH = Math.floor(currentMinutes / 60);
+            let displayM = currentMinutes % 60;
+            ctx.fillText(displayH + ":" + displayM.toString().padStart(2, '0'), x + 8, labelY);
         }
     });
 
@@ -1262,8 +1285,7 @@ function setupSearch() {
         }
 
         // 1. 先取得使用者現在的本地時間 (轉換成當天分鐘數)
-        const now = new Date();
-        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const currentMinutes = getCurrentSystemMinutes();
 
         searchData.sort((a, b) => {
             // 優先比對分數
@@ -2489,8 +2511,7 @@ function updateBottomPanelStation(st_id) {
     if (!panel) return;
 
     let stName = getStationName(st_id);
-    const now = new Date();
-    let currentMinutes = now.getHours() * 60 + now.getMinutes();
+    let currentMinutes = getCurrentSystemMinutes();
 
     // 🌟 回歸兩大陣營：只分 上行(北上) 與 下行(南下)
     let upboundTrains = [];
@@ -3704,9 +3725,7 @@ async function init(systemPath) {
         autoFitScale();   // 算出最完美的 Y 軸拉伸比例
         camera.y = -50;   // 把畫面推到最頂端
 
-        // --- 🌟 核心新增：X 軸時間自動置中 ---
-        const now = new Date();
-        let currentMinutes = now.getHours() * 60 + now.getMinutes();
+        let currentMinutes = getCurrentSystemMinutes();
         
         // 鐵道標準跨夜處理：如果是凌晨 00:00 ~ 01:59，視為圖表上的 24:00 ~ 25:59
         if (currentMinutes < 120) {
