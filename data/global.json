@@ -29,6 +29,11 @@
                     "id": "Kintetsu",
                     "chinese_name": "近畿日本鐵道",
                     "is_active": true
+                },
+                {
+                    "id": "Tokkaido_Sanyo_Kyushu_Shinkansen",
+                    "chinese_name": "東海道・山陽・九州・西九州新幹線",
+                    "is_active": true
                 }
             ]
         }
