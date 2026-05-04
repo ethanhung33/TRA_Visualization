@@ -1227,6 +1227,7 @@ function setupSearch() {
             let startKeyword = keywords[0];
             let endKeyword = keywords[1];
             let filteredTrainNos = new Set(); 
+            let uniqueSearchKeys = new Set();
 
             if (timetable) {
                 timetable.forEach(train => {
@@ -1263,16 +1264,28 @@ function setupSearch() {
                     }
 
                     if (startTime !== -1 && endTime !== -1 && startTime < endTime) {
+                        
+                        // 🌟 防護 1：如果這段搭車區間「昨天就已經結束了 (抵達時間 < 0)」，直接過濾掉殘影！
+                        if (endTime < 0) return;
+
                         let trainNo = String(train.no || train.train_no || train.id || "");
-                        filteredTrainNos.add(trainNo); 
-                        searchData.push({
-                            type: 'train',
-                            id: trainNo,
-                            typeStr: train.type || "",
-                            startTime: startTime, 
-                            endTime: endTime,     
-                            score: 3 
-                        });
+                        
+                        // 🌟 防護 2：建立視覺指紋，避免推入看起來一模一樣的車次
+                        let visualKey = `${trainNo}_${startTime}_${endTime}`;
+                        
+                        if (!uniqueSearchKeys.has(visualKey)) {
+                            uniqueSearchKeys.add(visualKey); // 登記這組視覺指紋
+                            filteredTrainNos.add(trainNo); 
+                            
+                            searchData.push({
+                                type: 'train',
+                                id: trainNo,
+                                typeStr: train.type || "",
+                                startTime: startTime, 
+                                endTime: endTime,     
+                                score: 3 
+                            });
+                        }
                     }
                 });
             }
