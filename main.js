@@ -1261,11 +1261,27 @@ function setupSearch() {
             if (typeof redrawAll === 'function') redrawAll();
         }
 
+        // 1. 先取得使用者現在的本地時間 (轉換成當天分鐘數)
+        const now = new Date();
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
         searchData.sort((a, b) => {
+            // 優先比對分數
             if (b.score !== a.score) return b.score - a.score; 
+
+            // 如果都有出發時間，進行「智能環狀時間排序」
             if (a.startTime !== undefined && b.startTime !== undefined) {
-                return a.startTime - b.startTime;
+                
+                // 🌟 核心魔法：如果這班車的發車時間「小於現在時間」，
+                // 代表今天這班車已經開走了！我們將它偷偷 +1440，把它推到「明天」去排隊。
+                // (如果它本來就已經是大於 1440 的跨夜車，就不受影響)
+                let sortTimeA = a.startTime < currentMinutes ? a.startTime + 1440 : a.startTime;
+                let sortTimeB = b.startTime < currentMinutes ? b.startTime + 1440 : b.startTime;
+
+                return sortTimeA - sortTimeB;
             }
+
+            // 保底機制：比對字串長度
             let aStr = a.type === 'station' ? a.name : a.id;
             let bStr = b.type === 'station' ? b.name : b.id;
             return aStr.length - bStr.length;
