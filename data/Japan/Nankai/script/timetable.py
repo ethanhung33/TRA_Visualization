@@ -193,8 +193,8 @@ def main():
             t7_pool[tx]["stops"] = stops
     print("\n✅ 所有列車資料下載完成！\n")
 
-    print("4. 🌟 正在完美建構相容 TRA 的 Segments JSON 格式...")
-    trains_by_tx = {}
+    print("4. 🌟 正在完美建構相容 TRA 的 Segments JSON 格式 (搭載物理指紋去重)...")
+    unique_trains = {} # 🌟 改用這個來存唯一車次
     global_train_counter = 1001
 
     for tx, t_info in t7_pool.items():
@@ -202,17 +202,7 @@ def main():
         if not stops: continue
         
         t_stops_order = list(stops.keys())
-        
-        if tx not in trains_by_tx:
-            trains_by_tx[tx] = {
-                "no": str(global_train_counter),
-                "type": t_info["type"],
-                "drive": t_info["day"],
-                "segments": []
-            }
-            global_train_counter += 1
-            
-        raw_segments = [] # 🌟 先用一個暫存陣列把所有配對到的路線裝起來
+        raw_segments = []
         
         for line_name, line_stations in MASTER_LINES.items():
             intersect = [st for st in t_stops_order if st in line_stations]
@@ -285,15 +275,28 @@ def main():
                 del seg["_s_set"]
 
         if filtered_segments:
-            # ==========================================
-            # 🌟 終極修正：依照該線段的「第一個發車/抵達時間」進行排序
-            # 確保跨線列車 (如泉北線直通高野線) 的線段順序完美符合行車時間軸
-            # ==========================================
+            # 依照該線段的第一個發車時間進行排序
             filtered_segments.sort(key=lambda seg: seg["t"][0] if seg["t"] else 9999)
             
-            trains_by_tx[tx]["segments"] = filtered_segments
+            # 🌟 終極去重武器：建立列車「物理指紋」
+            first_st = t_stops_order[0]
+            last_st = t_stops_order[-1]
+            first_dep = stops[first_st].get("departure", "−")
+            last_arr = stops[last_st].get("arrival", "−")
+            
+            signature = f"{t_info['day']}_{t_info['type']}_{first_st}_{first_dep}_{last_st}_{last_arr}"
+            
+            # 🛑 只有沒看過的指紋，才准許放行寫入 JSON
+            if signature not in unique_trains:
+                unique_trains[signature] = {
+                    "no": str(global_train_counter),
+                    "type": t_info["type"],
+                    "drive": t_info["day"],
+                    "segments": filtered_segments
+                }
+                global_train_counter += 1
 
-    flat_json_output = list(trains_by_tx.values())
+    flat_json_output = list(unique_trains.values())
 
     weekday_data = [t for t in flat_json_output if t.get("drive") == "平日"]
     holiday_data = [t for t in flat_json_output if t.get("drive") == "土休日"]
