@@ -131,6 +131,36 @@ function getCurrentSystemMinutes() {
     return ((systemMinutes % 1440) + 1440) % 1440;
 }
 
+// ==========================================
+// 🌟 動態計算車站權重 (停靠次數統計)
+// ==========================================
+function calculateStationWeights() {
+    if (!topology || !topology.segments || !timetable) return;
+
+    let stopCounts = {};
+
+    // 1. 掃描目前的時刻表，統計每站的停靠次數
+    timetable.forEach(train => {
+        if (!train.segments) return;
+        train.segments.forEach(seg => {
+            for (let i = 0; i < seg.s.length; i++) {
+                // 只要不是通過站 (v !== 2)，就算一次實質停靠
+                if (seg.v[i] !== 2) {
+                    let stId = String(seg.s[i]);
+                    stopCounts[stId] = (stopCounts[stId] || 0) + 1;
+                }
+            }
+        });
+    });
+
+    // 2. 將算好的權重，悄悄掛載到內存的 topology 身上
+    topology.segments.forEach(seg => {
+        seg.stations.forEach(st => {
+            st.weight = stopCounts[String(st.id)] || 0;
+        });
+    });
+}
+
 
 // ==========================================
 // 2. 核心換算函式
@@ -199,6 +229,17 @@ function getProcessedSegments(selectedSegments, topology) {
 function drawGrid(viewKey, layer = 'all') {
     lookupY = {}; 
     let currentAccumulatedKm = 0; 
+
+    // 🌟 新增：找出目前的最高權重，當作比例尺基準
+    let maxWeight = 1; 
+    if (topology && topology.segments) {
+        topology.segments.forEach(seg => {
+            seg.stations.forEach(st => {
+                if (st.weight > maxWeight) maxWeight = st.weight;
+            });
+        });
+    }
+
     let presetKey = viewKey; 
     let selectedSegments = settings?.view_presets?.[presetKey]?.lines || [];
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
@@ -226,7 +267,7 @@ function drawGrid(viewKey, layer = 'all') {
             let lastOpt = lookupY[st.id][lookupY[st.id].length - 1];
             if (!lastOpt || Math.abs(lastOpt.y - yPos) > 1.0) {
                 lookupY[st.id].push({ y: yPos, segId: segId }); 
-                uniqueStations.push({ id: st.id, name: st.name, baseY: yPos });
+                uniqueStations.push({ id: st.id, name: st.name, baseY: yPos, weight: st.weight || 0 });
             }
             if (relativeKm > segMaxKm) segMaxKm = relativeKm;
         });
@@ -292,6 +333,25 @@ function drawGrid(viewKey, layer = 'all') {
 
             // --- 🌟 左右雙向懸浮站名 ---
             if (layer === 'labels' || layer === 'all') {
+
+                // ==========================================
+                // 🌟 核心過濾：動態隱藏流量不夠的小站
+                // ==========================================
+                let importance = st.weight / maxWeight; // 計算重要性 (0.0 ~ 1.0)
+                let threshold = 0;
+                
+                // 根據目前的縮放比例，決定及格門檻
+                if (CONFIG.scaleY < 1.0) threshold = 0.5;      // 縮到極小，只留超級大站 (流量>50%)
+                else if (CONFIG.scaleY < 1.5) threshold = 0.2; // 中等縮小，留中大站 (流量>20%)
+                else if (CONFIG.scaleY < 2.5) threshold = 0.05;// 稍微縮小，留大部分 (流量>5%)
+                else threshold = 0;                            // 放大時，門檻降為0，全部顯示
+                
+                // 如果這個站的重要性達不到門檻，直接放棄印出它的名字！(但原本的橫線還是會畫)
+                if (importance < threshold && threshold > 0) {
+                    return; 
+                }
+                // ==========================================
+
                 let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
                 let textColor = isDarkMode ? "#FFFFFF" : "#000000";
                 let textWidth = ctx.measureText(st.name).width;
@@ -1280,7 +1340,7 @@ function setupSearch() {
                                     if (v_val !== 2) { 
                                         let idStr = String(stId).toLowerCase();
                                         let nameStr = normalizeText(stationIdToNameMap.get(String(stId)) || "");
-                                        
+
                                         let isSingleTime = (seg.t.length === seg.s.length);
                                         let arrTime = isSingleTime ? seg.t[idx] : seg.t[idx * 2];
                                         let depTime = isSingleTime ? seg.t[idx] : seg.t[idx * 2 + 1];
@@ -3308,6 +3368,9 @@ async function loadTimetableData(dateOrType) {
         // ------------------------------------------
         timetable = todayData.concat(yesterdayData);
         currentDate = dateOrType; 
+
+        // 🌟 啟動權重計算機！根據這份剛合併好的班表，統計出今天的大站
+        calculateStationWeights();
 
         // 大掃除
         selectedTrain = null;
