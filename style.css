@@ -538,8 +538,8 @@ body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
     /* 2. 上方側邊欄 (改為上下收合動畫) */
     #sidebar {
         width: 100% !important;
-        height: 35dvh !important; 
-        max-height: 35dvh !important;
+        height: 60dvh !important; 
+        max-height: 60dvh !important;
         border-left: none !important;
         border-bottom: 2px solid var(--btn-border) !important;
         position: relative !important;
