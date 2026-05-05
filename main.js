@@ -2763,18 +2763,23 @@ function updateBottomPanel(train) {
     }
 
     // 2. 組裝車站列表的 HTML
-    let stationsHtml = "";
+    let stationsHtml = `
+        <!-- 🌟 手機版專用的藍色標題列 (電腦版會自動隱藏) -->
+        <div class="mobile-table-header">
+            <div style="flex: 1.5; text-align: left; padding-left: 10px;">站名</div>
+            <div style="flex: 1; text-align: center;">到站時間</div>
+            <div style="flex: 1; text-align: right; padding-right: 10px;">離站時間</div>
+        </div>
+    `;
+    
     let stopCount = 0;
-
     let lastStationId = null;
 
-    // 🌟 定義這台車的 HTML 結構 (支援手機版垂直時間軸)
-    let stationsHtmlStr = "";
-    
     if (train.segments) {
         train.segments.forEach(seg => {
             for (let i = 0; i < seg.s.length; i++) {
-                if (seg.v[i] === 2) continue; 
+                if (seg.v[i] === 2) continue;
+                
                 let currentStationId = seg.s[i];
                 if (currentStationId === lastStationId) continue;
                 lastStationId = currentStationId;
@@ -2782,61 +2787,46 @@ function updateBottomPanel(train) {
                 let stName = getStationName(seg.s[i]);
                 let arrT = formatTimeDisplay(seg.t[i * 2]);     
                 let depT = formatTimeDisplay(seg.t[i * 2 + 1]); 
+                
+                if (stopCount > 0) {
+                    stationsHtml += `<div class="station-arrow">➔</div>`;
+                }
 
-                // 🌟 垂直時間軸的站點設計 (左邊時間，中間時間軸線，右邊站名)
-                stationsHtmlStr += `
-                    <div onclick="window.triggerSelectStation('${seg.s[i]}'); event.stopPropagation();" 
-                         style="display: flex; align-items: center; cursor: pointer; padding: 12px 0; position: relative;">
-                         
-                        <!-- 左側時間 -->
-                        <div style="width: 50px; text-align: right; font-size: 15px; font-family: monospace; font-weight: bold; color: var(--panel-text-sub); flex-shrink: 0;">
-                            ${depT}
-                        </div>
-                        
-                        <!-- 中間的時間軸線與圓點 -->
-                        <div style="width: 30px; display: flex; justify-content: center; position: relative; flex-shrink: 0;">
-                            <!-- 垂直線 -->
-                            <div style="position: absolute; top: 0; bottom: -24px; width: 2px; background: #555; z-index: 1;"></div>
-                            <!-- 站點圓圈 -->
-                            <div style="width: 10px; height: 10px; border-radius: 50%; background: ${trainColor}; border: 2px solid ${isDarkMode ? '#222' : '#FFF'}; z-index: 2; position: relative; margin-top: 2px;"></div>
-                        </div>
-
-                        <!-- 右側站名 -->
-                        <div style="font-size: 18px; font-weight: bold; color: var(--panel-text-main); flex: 1;">
-                            ${stName}
-                        </div>
+                // 🌟 使用乾淨的 Class，讓 CSS 去決定它在電腦和手機上長怎樣！
+                stationsHtml += `
+                    <div class="station-item" onclick="window.triggerSelectStation('${seg.s[i]}')">
+                        <div class="st-name">${stName}</div>
+                        <div class="st-arr">${arrT}</div>
+                        <div class="st-dep">${depT}</div>
                     </div>
                 `;
+                stopCount++;
             }
         });
     }
 
     // 3. 塞進現有的 bottom-bar
     panel.innerHTML = `
-        <!-- 🌟 抽屜的頭部：點擊這裡可以展開/收合整個面板 -->
-        <div class="mobile-drawer-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')" style="cursor: pointer;">
-            <div>
-                <div style="font-size: clamp(18px, 5vw, 24px); font-weight: 900; color: ${trainColor}; letter-spacing: 0px;">
+        <div class="bottom-panel-wrapper">
+            <!-- 🌟 點擊這裡可以在手機上觸發抽屜展開 -->
+            <div class="train-info-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')">
+                <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.2;">
                     ${displayTitle}
                 </div>
-                <div style="font-size: 13px; color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 4px; font-weight: bold;">
-                    ${startStationName} ▶ ${endStationName}
+                <div style="font-size: clamp(13px, 3.5vw, 16px); color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 6px; font-weight: bold;">
+                    ${startStationName} <span style="margin: 0 4px; opacity: 0.7; font-size: 0.8em;">▶</span> ${endStationName}
                 </div>
+                <!-- 提示拉桿 -->
+                <div class="mobile-drag-handle"></div>
             </div>
             
-            <!-- 手機版提示展開的箭頭 (電腦版可隱藏) -->
-            <div style="font-size: 20px; color: var(--panel-text-sub); opacity: 0.5;">
-                <span class="drawer-arrow">↕</span>
+            <div id="bottom-scroll-container">
+                ${stationsHtml}
             </div>
-        </div>
-        
-        <!-- 🌟 抽屜的內容：垂直時間軸列表 -->
-        <div id="bottom-scroll-container" style="flex: 1; display: flex; overflow-x: auto; padding: 0 15px;">
-            ${stationsHtmlStr}
         </div>
     `;
 
-    // 🌟 切換火車時，預設把抽屜收起來，回到偷看模式
+    // 切換火車時，預設收合手機面板
     panel.classList.remove('expanded');
 }
 

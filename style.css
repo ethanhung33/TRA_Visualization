@@ -523,6 +523,30 @@ body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
    📱 手機版：Google Maps 風格底部抽屜
    ========================================== */
 @media (max-width: 768px) {
+
+    /* 2. 上方側邊欄 (改為上下收合動畫) */
+    #sidebar {
+        width: 100% !important;
+        
+        /* 🌟 將高度縮短到 45dvh，確保按鈕絕對會留在螢幕畫面內！ */
+        height: 45dvh !important; 
+        max-height: 45dvh !important;
+        
+        border-left: none !important;
+        border-bottom: 2px solid var(--btn-border) !important;
+        position: relative !important;
+        transition: height 0.3s ease, min-height 0.3s ease !important;
+    }
+
+    .sidebar-inner {
+        width: 100% !important;
+        height: 100% !important;
+        padding: 15px !important;
+        
+        /* 🌟 加上這行：確保側欄變短後，裡面的選單選項可以上下滑動 */
+        overflow-y: auto !important; 
+    }
+
     #bottom-bar {
         /* 預設的偷看高度 */
         height: 110px !important; 
@@ -807,4 +831,112 @@ body.light-mode .search-item.search-item-active {
     background-color: #f5f5f5;
     border-left: 4px solid #FFA500;
     padding-left: 10px;
+}
+
+/* ==========================================
+   💻 電腦版：底部面板共用預設樣式 (維持橫向排版)
+   ========================================== */
+.bottom-panel-wrapper { display: flex; width: 100%; height: 100%; align-items: center; }
+.train-info-header { min-width: 160px; max-width: 35%; display: flex; flex-direction: column; justify-content: center; padding-left: 20px; padding-right: 15px; border-right: 2px solid #444; flex-shrink: 0; }
+.mobile-drag-handle { display: none; } /* 電腦版隱藏拉桿 */
+.mobile-table-header { display: none; } /* 電腦版隱藏表格藍色標題 */
+
+#bottom-scroll-container { flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 15px; white-space: nowrap; scrollbar-width: none; }
+
+.station-arrow { display: flex; align-items: center; justify-content: center; margin: 0 12px; font-size: 20px; color: var(--panel-arrow); }
+.station-item { display: flex; flex-direction: column; align-items: center; min-width: 70px; cursor: pointer; padding: 8px; border-radius: 8px; transition: background 0.2s; }
+.station-item:hover { background: rgba(128,128,128,0.2); }
+
+.st-name { font-size: 20px; margin-bottom: 6px; font-weight: bold; letter-spacing: 1px; color: var(--panel-text-main); }
+.st-arr { font-size: 15px; line-height: 1.4; color: var(--panel-text-sub); }
+.st-dep { font-size: 15px; line-height: 1.4; color: var(--panel-text-sub); }
+
+
+/* ==========================================
+   📱 手機版：整合側欄與台鐵 App 直立表格風格
+   ========================================== */
+@media (max-width: 768px) {
+    /* --- 1. 基礎排版與防滾動 --- */
+    html, body { height: 100dvh !important; width: 100vw !important; overflow: hidden !important; }
+    #app { height: 100dvh !important; flex-direction: column-reverse !important; }
+
+    /* --- 2. 頂部側邊欄 (45dvh 防擋按鈕版) --- */
+    #sidebar {
+        width: 100% !important;
+        height: 45dvh !important; 
+        max-height: 45dvh !important;
+        border-left: none !important;
+        border-bottom: 2px solid var(--btn-border) !important;
+        position: relative !important;
+        transition: height 0.3s ease, min-height 0.3s ease !important;
+    }
+    #sidebar.collapsed { height: 0 !important; min-height: 0 !important; border-bottom: none !important; width: 100% !important; }
+    
+    .sidebar-inner { width: 100% !important; height: 100% !important; padding: 15px !important; overflow-y: auto !important; }
+
+    /* --- 3. 側欄收合按鈕 (倒轉方向) --- */
+    .sidebar-toggle-btn {
+        display: flex !important; left: 50% !important; top: 100% !important; 
+        transform: translateX(-50%) rotate(180deg) !important; 
+        width: 80px !important; height: 25px !important;
+        border-radius: 12px 12px 0 0 !important; 
+        border: 1px solid var(--btn-border) !important; border-bottom: none !important; 
+        font-size: 20px !important; writing-mode: vertical-rl; padding-bottom: 5px !important; 
+    }
+
+    /* --- 4. 畫布區塊 --- */
+    #left-panel { width: 100% !important; flex: 1 !important; height: auto !important; display: flex !important; flex-direction: column !important; }
+    #canvas-wrapper { flex: 1 !important; width: 100% !important; min-height: 0 !important; }
+
+    /* --- 5. 底部面板變成「可點擊展開」的抽屜 --- */
+    #bottom-bar {
+        height: 110px !important; 
+        min-height: 110px !important;
+        max-height: 75dvh !important; 
+        padding: 0 !important;
+        position: relative !important;
+        border-radius: 16px 16px 0 0 !important;
+        border-top: 1px solid var(--btn-border) !important;
+        transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+    }
+    #bottom-bar.expanded { height: 75dvh !important; }
+
+    /* --- 6. 台鐵風格直立表格 --- */
+    .bottom-panel-wrapper { flex-direction: column !important; align-items: stretch !important; }
+
+    .train-info-header { 
+        width: 100% !important; max-width: 100% !important; 
+        border-right: none !important; border-bottom: 1px solid var(--btn-border) !important; 
+        padding: 12px 20px !important; position: relative; cursor: pointer;
+    }
+    .mobile-drag-handle {
+        display: block !important; position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+        width: 40px; height: 5px; background: #888; border-radius: 3px; opacity: 0.5;
+    }
+
+    #bottom-scroll-container { 
+        flex-direction: column !important; overflow-y: auto !important; overflow-x: hidden !important; 
+        padding: 0 !important; align-items: stretch !important; height: 100%;
+    }
+
+    .station-arrow { display: none !important; }
+
+    .mobile-table-header {
+        display: flex !important; background-color: #2980b9; color: white; 
+        padding: 8px 10px; font-size: 14px; font-weight: normal; position: sticky; top: 0; z-index: 10;
+    }
+
+    .station-item { 
+        flex-direction: row !important; justify-content: space-between !important; 
+        padding: 14px 10px !important; border-bottom: 1px solid var(--btn-border); border-radius: 0 !important; 
+    }
+    
+    .st-name { font-size: 18px !important; margin-bottom: 0 !important; flex: 1.5; text-align: left; padding-left: 10px; }
+    .st-arr { font-size: 16px !important; flex: 1; text-align: center; font-family: monospace; }
+    .st-dep { font-size: 16px !important; flex: 1; text-align: right; padding-right: 10px; font-family: monospace; }
+
+    /* --- 7. 字體微調 --- */
+    .control-section h3 { font-size: 18px !important; margin-bottom: 10px !important; }
+    .pill-btn { font-size: 14px !important; padding: 8px 14px !important; margin-bottom: 8px !important; }
+    input#datePicker.flatpickr-input { font-size: 16px !important; padding: 10px !important; }
 }
