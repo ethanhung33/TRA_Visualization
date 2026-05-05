@@ -2710,6 +2710,7 @@ function updateBottomPanel(train) {
                 <span style="font-size: 18px; color: var(--panel-text-sub);">點選列車或車站以顯示資訊</span>
             </div>
         `;
+        panel.classList.remove('expanded');
         return;
     }
 
