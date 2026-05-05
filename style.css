@@ -786,6 +786,17 @@ body.light-mode .search-item.search-item-active {
 .sb-diff { font-size: 11px; color: var(--panel-text-sub); font-weight: bold; }
 
 /* ==========================================
+   🌟 電腦版專屬：滑鼠懸浮車次外框發光特效
+   (手機點擊絕對不會觸發，從此告別粗體殘留！)
+   ========================================== */
+@media (hover: hover) and (pointer: fine) {
+    .station-board-item:hover {
+        /* 吃我們剛剛在 JS 裡面埋下的 --hover-color 變數 */
+        border-color: var(--hover-color) !important; 
+    }
+}
+
+/* ==========================================
    📱 手機版：終極防彈裝甲版 (整合側欄、畫布修復與直立表格)
    ========================================== */
 @media (max-width: 768px) {
@@ -895,8 +906,18 @@ body.light-mode .search-item.search-item-active {
     .mobile-drag-handle { display: block !important; position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 40px; height: 5px; background: #888; border-radius: 3px; opacity: 0.5; }
     
     #bottom-scroll-container, #bottom-scroll-container.is-station { flex-direction: column !important; overflow-y: auto !important; overflow-x: hidden !important; padding: 0 !important; align-items: stretch !important; width: 100% !important; }
-    .mobile-table-header { display: flex !important; background-color: #2980b9; color: white; padding: 8px 10px; font-size: 14px; position: sticky; top: 0; z-index: 10; }
-    
+    /* 🌟 藍色標題列：加入 -webkit-sticky 與高達 999 的 z-index 防穿透 */
+    .mobile-table-header { 
+        display: flex !important; 
+        background-color: #2980b9 !important; 
+        color: white !important; 
+        padding: 8px 10px !important; 
+        font-size: 14px !important; 
+        position: -webkit-sticky !important; /* Apple 專用 */
+        position: sticky !important; 
+        top: 0 !important; 
+        z-index: 999 !important; /* 確保它永遠蓋在所有車次上面 */
+    }
     /* 隱藏電腦版元素 */
     .station-arrow, .desktop-dir-col, .sb-desktop-layout { display: none !important; }
     .board-group { flex-direction: column !important; margin-bottom: 0 !important; width: 100% !important; }

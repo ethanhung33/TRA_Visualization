@@ -2981,8 +2981,8 @@ function updateBottomPanelStation(st_id) {
 
             // 🌟 一張卡片，兩種排版！
             return `
-                <div class="station-board-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg};" onmouseover="this.style.borderColor='${tColor}'" onmouseout="this.style.borderColor='transparent'">
-                    
+                <div class="station-board-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg}; --hover-color: ${tColor};">
+                   
                     <!-- 💻 電腦版排版骨架 (手機上會自動隱藏) -->
                     <div class="sb-desktop-layout">
                         <div class="sb-top">
