@@ -19,7 +19,7 @@
     --down-text: #FF9999;   /* 💻 電腦版深色字：粉紅色 */
     --up-badge-bg: #2980B9;   /* 深海藍底 */
     --down-badge-bg: #D9534F; /* 磚紅底 */
-    --badge-text: #111111;    /* 深黑字 */
+    --badge-text: #FFFFFF;    /* 純白字 */
 }
 
 /* 當 body 被貼上 light-mode 標籤時，這組顏色會「自動覆蓋」上面的顏色！ */
@@ -43,7 +43,7 @@ body.light-mode {
     /* 📱 手機版徽章底色共用！深藍/深紅配白字，在淺色底也非常有質感 */
     --up-badge-bg: #99CCFF;   /* 淺粉藍底 */
     --down-badge-bg: #FFB3B3; /* 淺粉紅底 */
-    --badge-text: #FFFFFF;    /* 純白字 */
+    --badge-text: #111111;    /* 深黑字 */
 }
 
 /* ==========================================
