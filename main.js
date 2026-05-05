@@ -2764,22 +2764,18 @@ function updateBottomPanel(train) {
 
     // 2. 組裝車站列表的 HTML
     let stationsHtml = `
-        <!-- 🌟 手機版專用的藍色標題列 (電腦版會自動隱藏) -->
         <div class="mobile-table-header">
             <div style="flex: 1.5; text-align: left; padding-left: 10px;">站名</div>
             <div style="flex: 1; text-align: center;">到站時間</div>
             <div style="flex: 1; text-align: right; padding-right: 10px;">離站時間</div>
         </div>
     `;
-    
-    let stopCount = 0;
-    let lastStationId = null;
+    let stopCount = 0; let lastStationId = null;
 
     if (train.segments) {
         train.segments.forEach(seg => {
             for (let i = 0; i < seg.s.length; i++) {
                 if (seg.v[i] === 2) continue;
-                
                 let currentStationId = seg.s[i];
                 if (currentStationId === lastStationId) continue;
                 lastStationId = currentStationId;
@@ -2788,16 +2784,14 @@ function updateBottomPanel(train) {
                 let arrT = formatTimeDisplay(seg.t[i * 2]);     
                 let depT = formatTimeDisplay(seg.t[i * 2 + 1]); 
                 
-                if (stopCount > 0) {
-                    stationsHtml += `<div class="station-arrow">➔</div>`;
-                }
+                if (stopCount > 0) stationsHtml += `<div class="station-arrow">➔</div>`;
 
-                // 🌟 使用乾淨的 Class，讓 CSS 去決定它在電腦和手機上長怎樣！
+                // 🌟 使用火車專屬 Class
                 stationsHtml += `
-                    <div class="station-item" onclick="window.triggerSelectStation('${seg.s[i]}')">
-                        <div class="st-name">${stName}</div>
-                        <div class="st-arr">${arrT}</div>
-                        <div class="st-dep">${depT}</div>
+                    <div class="train-stop-item" onclick="window.triggerSelectStation('${seg.s[i]}')">
+                        <div class="ts-col-name">${stName}</div>
+                        <div class="ts-col-arr">${arrT}</div>
+                        <div class="ts-col-dep">${depT}</div>
                     </div>
                 `;
                 stopCount++;
@@ -2805,28 +2799,21 @@ function updateBottomPanel(train) {
         });
     }
 
-    // 3. 塞進現有的 bottom-bar
+    // 3. 塞進 bottom-bar
     panel.innerHTML = `
         <div class="bottom-panel-wrapper">
-            <!-- 🌟 點擊這裡可以在手機上觸發抽屜展開 -->
             <div class="train-info-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')">
-                <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.2;">
-                    ${displayTitle}
-                </div>
+                <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.2;">${displayTitle}</div>
                 <div style="font-size: clamp(13px, 3.5vw, 16px); color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 6px; font-weight: bold;">
                     ${startStationName} <span style="margin: 0 4px; opacity: 0.7; font-size: 0.8em;">▶</span> ${endStationName}
                 </div>
-                <!-- 提示拉桿 -->
                 <div class="mobile-drag-handle"></div>
             </div>
-            
             <div id="bottom-scroll-container">
                 ${stationsHtml}
             </div>
         </div>
     `;
-
-    // 切換火車時，預設收合手機面板
     panel.classList.remove('expanded');
 }
 
@@ -2973,21 +2960,17 @@ function updateBottomPanelStation(st_id) {
     // 🌟 核心修改：將資料塞入完美的 RWD 抽屜與表格框架
     // ==========================================
     
-    // 2. 建立卡片 UI (全靠 CSS 控制)
+    // 2. 建立雙骨架卡片 UI (電腦與手機版各有一套專屬 HTML，由 CSS 控制顯示隱藏)
     const buildRowHtml = (trains, dirLabel, dirColor) => {
-        if (trains.length === 0) {
-            return `<div style="color: ${theme.textSub}; font-size: 13px; padding: 10px 20px; font-style: italic;">${dirLabel} 近期無班次</div>`;
-        }
+        if (trains.length === 0) return `<div style="color: ${theme.textSub}; font-size: 13px; padding: 10px 20px; font-style: italic;">${dirLabel} 近期無班次</div>`;
+        
         return trains.map(item => {
             let typeColors = settings?.train_color?.[item.train.type];
             let tColor = theme.textMain; 
-            if (typeColors && typeColors.length > 0) {
-                tColor = isDarkMode ? typeColors[0] : (typeColors[1] || typeColors[0]);
-            }
+            if (typeColors && typeColors.length > 0) tColor = isDarkMode ? typeColors[0] : (typeColors[1] || typeColors[0]);
             
             let timeStr = formatTimeDisplay(item.depTime);
             let displayDiff = Math.floor(item.diff); 
-
             let showType = !(settings && settings.show_train_type === false);
             let showId = !(settings && settings.show_train_id === false);
             let displayTitle = "列車";
@@ -2995,20 +2978,32 @@ function updateBottomPanelStation(st_id) {
             else if (showType && !showId) displayTitle = `${item.train.type}`;
             else if (!showType && showId) displayTitle = `${item.trainNo}`;
 
-            // 🌟 拔掉 min-width 和 display 等行內樣式，確保 CSS 暢通無阻
+            // 🌟 一張卡片，兩種排版！
             return `
-                <div class="station-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg};">
-                    <div class="st-name" style="color: ${tColor};">
-                        ${displayTitle}
-                        <span class="board-dir-label" style="background: ${dirColor};">${dirLabel}</span>
+                <div class="station-board-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg};" onmouseover="this.style.borderColor='${tColor}'" onmouseout="this.style.borderColor='transparent'">
+                    
+                    <!-- 💻 電腦版排版骨架 (手機上會自動隱藏) -->
+                    <div class="sb-desktop-layout">
+                        <div class="sb-top">
+                            <span class="sb-time">${timeStr}</span>
+                            <span class="sb-title" style="color: ${tColor};">${displayTitle}</span>
+                        </div>
+                        <div class="sb-bottom">
+                            <span class="sb-dest">往 ${item.destName}</span>
+                            <span class="sb-diff">約 ${displayDiff} 分</span>
+                        </div>
                     </div>
-                    <div class="st-arr" style="font-weight: bold;">
-                        ${timeStr}
+
+                    <!-- 📱 手機版表格排版骨架 (電腦上會自動隱藏) -->
+                    <div class="sb-mobile-layout">
+                        <div class="sb-col-title">
+                            <span style="color: ${tColor};">${displayTitle}</span>
+                            <span class="board-dir-label" style="background: ${dirColor};">${dirLabel}</span>
+                        </div>
+                        <div class="sb-col-time">${timeStr}</div>
+                        <div class="sb-col-dest">往 ${item.destName}</div>
                     </div>
-                    <div class="st-dep" style="color: ${theme.textSub};">
-                        往 ${item.destName}
-                        <div class="desktop-only" style="font-size: 11px; color: ${theme.timeGray}; margin-top: 4px;">約 ${displayDiff} 分</div>
-                    </div>
+                    
                 </div>
             `;
         }).join('');
@@ -3017,48 +3012,37 @@ function updateBottomPanelStation(st_id) {
     // 4. 組裝最終介面
     panel.innerHTML = `
         <div class="bottom-panel-wrapper">
-            <!-- 🌟 左側 Header (點擊展開抽屜) -->
             <div class="train-info-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')">
                 <div style="width: 100%; overflow-x: auto; white-space: nowrap; scrollbar-width: none; text-align: left;">
-                    <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${theme.textMain}; letter-spacing: 1px; display: inline-block;">
-                        ${stName}
-                    </div>
+                    <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${theme.textMain}; letter-spacing: 1px; display: inline-block;">${stName}</div>
                 </div>
-                <div style="font-size: clamp(13px, 3.5vw, 16px); color: ${theme.textSub}; margin-top: 4px; font-weight: bold;">
-                    即將發車
-                </div>
+                <div style="font-size: clamp(13px, 3.5vw, 16px); color: ${theme.textSub}; margin-top: 4px; font-weight: bold;">即將發車</div>
                 <div class="mobile-drag-handle"></div>
             </div>
 
-            <!-- 電腦版專屬：上下行顏色標籤列 -->
             <div class="desktop-dir-col">
                 <div style="color: #66B2FF; font-size: 13px; font-weight: bold; white-space: nowrap;">▲ 上行</div>
                 <div style="color: #FF9999; font-size: 13px; font-weight: bold; white-space: nowrap;">▼ 下行</div>
             </div>
 
-            <!-- 滾動區塊 -->
-            <div id="bottom-scroll-container" class="station-scroll-container">
-                
-                <!-- 手機版專用的藍色標題列 -->
+            <!-- 🌟 注意這裡加上了 is-station 幫助 CSS 識別 -->
+            <div id="bottom-scroll-container" class="is-station">
                 <div class="mobile-table-header" style="width: 100%;">
                     <div style="flex: 1.5; text-align: left; padding-left: 10px;">車次</div>
                     <div style="flex: 1; text-align: center;">發車時間</div>
                     <div style="flex: 1; text-align: right; padding-right: 10px;">目的地</div>
                 </div>
 
-                <!-- 班次列表 -->
                 <div class="board-group" style="margin-top: 4px;">
                     ${buildRowHtml(upboundTrains, '▲ 上行', '#66B2FF')}
                 </div>
                 <div class="board-group">
                     ${buildRowHtml(downboundTrains, '▼ 下行', '#FF9999')}
                 </div>
-
             </div>
         </div>
     `;
 
-    // 預設收合抽屜
     panel.classList.remove('expanded');
 }
 

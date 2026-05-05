@@ -834,165 +834,69 @@ body.light-mode .search-item.search-item-active {
 }
 
 /* ==========================================
-   💻 電腦版：底部面板共用預設樣式 (維持橫向排版)
+   💻 電腦版：底部面板共用預設樣式
    ========================================== */
 .bottom-panel-wrapper { display: flex; width: 100%; height: 100%; align-items: center; }
-.train-info-header { min-width: 160px; max-width: 35%; display: flex; flex-direction: column; justify-content: center; padding-left: 20px; padding-right: 15px; border-right: 2px solid #444; flex-shrink: 0; }
-.mobile-drag-handle { display: none; } /* 電腦版隱藏拉桿 */
-.mobile-table-header { display: none; } /* 電腦版隱藏表格藍色標題 */
+.train-info-header { min-width: 160px; max-width: 35%; display: flex; flex-direction: column; justify-content: center; padding-left: 20px; padding-right: 15px; border-right: 2px solid #444; flex-shrink: 0; cursor: pointer; }
+.mobile-drag-handle, .mobile-table-header { display: none; }
 
 #bottom-scroll-container { flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 15px; white-space: nowrap; scrollbar-width: none; }
 
-.station-arrow { display: flex; align-items: center; justify-content: center; margin: 0 12px; font-size: 20px; color: var(--panel-arrow); }
-.station-item { display: flex; flex-direction: column; align-items: center; min-width: 70px; cursor: pointer; padding: 8px; border-radius: 8px; transition: background 0.2s; }
-.station-item:hover { background: rgba(128,128,128,0.2); }
+/* --- 💻 電腦版：火車面板 (沿途停靠) --- */
+.train-stop-item { display: flex; flex-direction: column; align-items: center; min-width: 70px; cursor: pointer; padding: 8px; border-radius: 8px; transition: background 0.2s; flex-shrink: 0; }
+.train-stop-item:hover { background: rgba(128,128,128,0.2); }
+.ts-col-name { font-size: 20px; margin-bottom: 6px; font-weight: bold; letter-spacing: 1px; color: var(--panel-text-main); }
+.ts-col-arr, .ts-col-dep { font-size: 15px; line-height: 1.4; color: var(--panel-text-sub); }
+.station-arrow { display: flex; align-items: center; justify-content: center; margin: 0 12px; font-size: 20px; color: var(--panel-arrow); flex-shrink: 0; }
 
-.st-name { font-size: 20px; margin-bottom: 6px; font-weight: bold; letter-spacing: 1px; color: var(--panel-text-main); }
-.st-arr { font-size: 15px; line-height: 1.4; color: var(--panel-text-sub); }
-.st-dep { font-size: 15px; line-height: 1.4; color: var(--panel-text-sub); }
-
-
-/* ==========================================
-   📱 手機版：整合側欄與台鐵 App 直立表格風格
-   ========================================== */
-@media (max-width: 768px) {
-    /* --- 1. 基礎排版與防滾動 --- */
-    html, body { height: 100dvh !important; width: 100vw !important; overflow: hidden !important; }
-    #app { height: 100dvh !important; flex-direction: column-reverse !important; }
-
-    /* --- 2. 頂部側邊欄 (45dvh 防擋按鈕版) --- */
-    #sidebar {
-        width: 100% !important;
-        height: 45dvh !important; 
-        max-height: 45dvh !important;
-        border-left: none !important;
-        border-bottom: 2px solid var(--btn-border) !important;
-        position: relative !important;
-        transition: height 0.3s ease, min-height 0.3s ease !important;
-    }
-    #sidebar.collapsed { height: 0 !important; min-height: 0 !important; border-bottom: none !important; width: 100% !important; }
-    
-    .sidebar-inner { width: 100% !important; height: 100% !important; padding: 15px !important; overflow-y: auto !important; }
-
-    /* --- 3. 側欄收合按鈕 (倒轉方向) --- */
-    .sidebar-toggle-btn {
-        display: flex !important; left: 50% !important; top: 100% !important; 
-        transform: translateX(-50%) rotate(180deg) !important; 
-        width: 80px !important; height: 25px !important;
-        border-radius: 12px 12px 0 0 !important; 
-        border: 1px solid var(--btn-border) !important; border-bottom: none !important; 
-        font-size: 20px !important; writing-mode: vertical-rl; padding-bottom: 5px !important; 
-    }
-
-    /* --- 4. 畫布區塊 --- */
-    #left-panel { width: 100% !important; flex: 1 !important; height: auto !important; display: flex !important; flex-direction: column !important; }
-    #canvas-wrapper { flex: 1 !important; width: 100% !important; min-height: 0 !important; }
-
-    /* --- 5. 底部面板變成「可點擊展開」的抽屜 --- */
-    #bottom-bar {
-        height: 110px !important; 
-        min-height: 110px !important;
-        max-height: 75dvh !important; 
-        padding: 0 !important;
-        position: relative !important;
-        border-radius: 16px 16px 0 0 !important;
-        border-top: 1px solid var(--btn-border) !important;
-        transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
-    }
-    #bottom-bar.expanded { height: 75dvh !important; }
-
-    /* --- 6. 台鐵風格直立表格 --- */
-    .bottom-panel-wrapper { flex-direction: column !important; align-items: stretch !important; }
-
-    .train-info-header { 
-        width: 100% !important; max-width: 100% !important; 
-        border-right: none !important; border-bottom: 1px solid var(--btn-border) !important; 
-        padding: 12px 20px !important; position: relative; cursor: pointer;
-    }
-    .mobile-drag-handle {
-        display: block !important; position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
-        width: 40px; height: 5px; background: #888; border-radius: 3px; opacity: 0.5;
-    }
-
-    #bottom-scroll-container { 
-        flex-direction: column !important; overflow-y: auto !important; overflow-x: hidden !important; 
-        padding: 0 !important; align-items: stretch !important; height: 100%;
-    }
-
-    .station-arrow { display: none !important; }
-
-    .mobile-table-header {
-        display: flex !important; background-color: #2980b9; color: white; 
-        padding: 8px 10px; font-size: 14px; font-weight: normal; position: sticky; top: 0; z-index: 10;
-    }
-
-    .station-item { 
-        flex-direction: row !important; justify-content: space-between !important; 
-        padding: 14px 10px !important; border-bottom: 1px solid var(--btn-border); border-radius: 0 !important; 
-    }
-    
-    .st-name { font-size: 18px !important; margin-bottom: 0 !important; flex: 1.5; text-align: left; padding-left: 10px; }
-    .st-arr { font-size: 16px !important; flex: 1; text-align: center; font-family: monospace; }
-    .st-dep { font-size: 16px !important; flex: 1; text-align: right; padding-right: 10px; font-family: monospace; }
-
-    /* --- 7. 字體微調 --- */
-    .control-section h3 { font-size: 18px !important; margin-bottom: 10px !important; }
-    .pill-btn { font-size: 14px !important; padding: 8px 14px !important; margin-bottom: 8px !important; }
-    input#datePicker.flatpickr-input { font-size: 16px !important; padding: 10px !important; }
-}
-
-/* ==========================================
-   🚉 車站面板專屬排版 (發車動態)
-   ========================================== */
-/* 1. 恢復電腦版的卡片寬度與間距 */
-.station-item { 
-    display: flex; flex-direction: column; align-items: center; 
-    min-width: 140px; /* 🌟 恢復原本的卡片寬度 */
-    margin: 0 4px;    /* 🌟 恢復卡片間距 */
-    flex-shrink: 0;   /* 🌟 絕對禁止擠壓變形！ */
-    cursor: pointer; padding: 8px; border-radius: 8px; transition: background 0.2s; 
-}
-
-/* 2. 讓上下行群組可以無限向右延伸，觸發橫向捲軸 */
-.board-group { 
-    display: flex; flex-direction: row; 
-    width: max-content; /* 🌟 讓它根據內容長度無限延伸 */
-    min-width: 100%; 
-    margin-bottom: 5px; 
-}
-
-/* 3. 專門給車站面板的容器，讓上下行乖乖排成兩列 */
-.station-scroll-container {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    justify-content: center !important;
-}
+/* --- 💻 電腦版：車站面板 (發車動態) --- */
+#bottom-scroll-container.is-station { flex-direction: column; align-items: flex-start; justify-content: center; padding: 0 10px; }
 .desktop-dir-col { display: flex; flex-direction: column; justify-content: center; height: 100%; padding: 0 10px 0 15px; border-right: 1px solid var(--btn-border); flex-shrink: 0; gap: 15px; }
+.board-group { display: flex; flex-direction: row; width: max-content; margin-bottom: 5px; }
+.station-board-item { display: flex; flex-direction: column; justify-content: center; min-width: 150px; margin: 0 4px; padding: 4px 8px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; flex-shrink: 0; transition: border-color 0.2s; }
+.sb-mobile-layout { display: none; } /* 電腦版隱藏手機專用排版 */
+.sb-desktop-layout { display: flex; flex-direction: column; width: 100%; }
+.sb-top, .sb-bottom { display: flex; justify-content: space-between; align-items: baseline; width: 100%; }
+.sb-top { margin-bottom: 2px; }
+.sb-time { font-size: 15px; color: var(--panel-text-main); font-weight: bold; }
+.sb-title { font-size: 11px; font-weight: bold; }
+.sb-dest { font-size: 12px; color: var(--panel-text-sub); }
+.sb-diff { font-size: 11px; color: var(--panel-text-sub); font-weight: bold; }
 
+/* ==========================================
+   📱 手機版：抽屜與台鐵直立表格
+   ========================================== */
 @media (max-width: 768px) {
-    /* 手機版排版轉向 */
-    /* 手機版縮回 100% 避免超出螢幕寬度 */
+    /* 抽屜基礎設定 */
+    #bottom-bar { height: 110px !important; min-height: 110px !important; max-height: 75dvh !important; padding: 0 !important; border-radius: 16px 16px 0 0 !important; border-top: 1px solid var(--btn-border) !important; transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important; position: relative !important; }
+    #bottom-bar.expanded { height: 75dvh !important; }
+    .bottom-panel-wrapper { flex-direction: column !important; align-items: stretch !important; }
+    
+    .train-info-header { width: 100% !important; max-width: 100% !important; border-right: none !important; border-bottom: 1px solid var(--btn-border) !important; padding: 12px 20px !important; position: relative; }
+    .mobile-drag-handle { display: block !important; position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 40px; height: 5px; background: #888; border-radius: 3px; opacity: 0.5; }
+    
+    #bottom-scroll-container, #bottom-scroll-container.is-station { flex-direction: column !important; overflow-y: auto !important; overflow-x: hidden !important; padding: 0 !important; align-items: stretch !important; width: 100% !important; }
+    .mobile-table-header { display: flex !important; background-color: #2980b9; color: white; padding: 8px 10px; font-size: 14px; position: sticky; top: 0; z-index: 10; }
+    
+    /* 隱藏電腦版元素 */
+    .station-arrow, .desktop-dir-col, .sb-desktop-layout { display: none !important; }
     .board-group { flex-direction: column !important; margin-bottom: 0 !important; width: 100% !important; }
 
-    /* 顯示車次旁邊的 上/下行 標籤 */
-    .board-dir-label { 
-        display: inline-block !important; 
-        font-size: 10px !important; 
-        padding: 2px 4px !important; 
-        border-radius: 4px !important; 
-        margin-left: 6px !important; 
-        vertical-align: middle !important; 
-        color: #FFF !important;
+    /* --- 統一卡片變成 Table Row --- */
+    .train-stop-item, .station-board-item { 
+        flex-direction: row !important; justify-content: space-between !important; align-items: center !important; 
+        padding: 14px 10px !important; border-bottom: 1px solid var(--btn-border) !important; border-radius: 0 !important; margin: 0 !important; min-width: 0 !important; background: transparent !important;
     }
-    
-    /* 隱藏電腦版的元素 */
-    .desktop-dir-col { display: none !important; } 
-    .desktop-only { display: none !important; } 
-    
-    /* 🌟 拔除原本卡片的強制寬度與外距，讓它完美變成表格列！ */
-    .station-item { 
-        min-width: 0 !important; 
-        margin: 0 !important; 
-        background: transparent !important;
-    }
+
+    /* 火車面板 Table Row */
+    .ts-col-name { font-size: 18px !important; margin-bottom: 0 !important; flex: 1.5 !important; text-align: left; padding-left: 10px; }
+    .ts-col-arr { font-size: 16px !important; flex: 1 !important; text-align: center; font-family: monospace; }
+    .ts-col-dep { font-size: 16px !important; flex: 1 !important; text-align: right; padding-right: 10px; font-family: monospace; }
+
+    /* 車站面板 Table Row (顯示手機專用排版) */
+    .sb-mobile-layout { display: flex !important; width: 100%; flex-direction: row; justify-content: space-between; align-items: center; }
+    .sb-col-title { flex: 1.5; text-align: left; padding-left: 10px; font-size: 16px; font-weight: bold; }
+    .board-dir-label { display: inline-block; font-size: 10px; padding: 2px 4px; border-radius: 4px; margin-left: 6px; vertical-align: middle; color: #FFF; font-weight: normal; }
+    .sb-col-time { flex: 1; text-align: center; font-size: 16px; font-family: monospace; }
+    .sb-col-dest { flex: 1; text-align: right; padding-right: 10px; font-size: 16px; }
 }
