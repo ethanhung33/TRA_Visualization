@@ -2710,7 +2710,8 @@ function updateBottomPanel(train) {
                 <span style="font-size: 18px; color: var(--panel-text-sub);">點選列車或車站以顯示資訊</span>
             </div>
         `;
-        panel.classList.remove('expanded');
+        // 🌟 核心修復：在 return 退出之前，強制拔除展開狀態，讓抽屜降下來！
+        panel.classList.remove('expanded'); 
         return;
     }
 
@@ -3683,28 +3684,43 @@ async function loadSystemMenu() {
 }
 
 // ==========================================
-// 🌟 綁定「回到首頁」按鈕
+// 🌟 綁定「回到首頁」按鈕 (終極重置版)
 // ==========================================
 function bindHomeButton() {
     const btnHome = document.getElementById('btn-home');
 
-    if (!btnHome || isHomeBound) return; // 🌟 如果綁過就直接退場
+    if (!btnHome || isHomeBound) return; // 如果綁過就直接退場
     isHomeBound = true;
     
     if (btnHome) {
         btnHome.addEventListener('click', () => {
-            // 1. 停止背景的重繪計時器 (避免效能浪費與重疊 Bug)
+            // 1. 停止背景的重繪計時器
             if (renderIntervalId) {
                 clearInterval(renderIntervalId);
                 renderIntervalId = null;
             }
 
-            // 2. 清空畫布，避免下一次進來時看到殘影
+            // 2. 清空畫布
             const canvas = document.getElementById('diaCanvas');
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 3. 轉場動畫：隱藏主畫面，顯示首頁選單
+            // 🌟 3. 核心修復：回到首頁時，強制清空所有選取狀態與抽屜！
+            selectedTrain = null;
+            selectedStation = null;
+            const panel = document.getElementById('bottom-bar');
+            if (panel) {
+                panel.classList.remove('expanded'); // 強制收合抽屜
+                if (typeof updateBottomPanel === 'function') updateBottomPanel(null); // 還原文字
+            }
+
+            // 清空搜尋框
+            const searchInput = document.getElementById('search-input');
+            const searchResults = document.getElementById('search-results');
+            if (searchInput) searchInput.value = '';
+            if (searchResults) searchResults.style.display = 'none';
+
+            // 4. 轉場動畫：隱藏主畫面，顯示首頁選單
             document.getElementById('app').style.display = 'none';
             document.getElementById('landing-page').style.display = 'block'; 
         });
