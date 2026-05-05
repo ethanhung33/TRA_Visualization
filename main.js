@@ -63,6 +63,44 @@ let isInteractionsBound = false; // 🌟 新增：紀錄互動事件是否已綁
 
 let isHomeBound = false; // 全域變數
 
+// ==========================================
+// 🌟 台日異體字與漢字轉換字典
+// ==========================================
+const KANJI_MAP = {
+    '臺': '台',   // 台臺互通
+    '関': '關',   // 関西、関東
+    '静': '靜',   // 静岡
+    '広': '廣',   // 広島
+    '沢': '澤',   // 軽井沢、金沢
+    '浜': '濱',   // 浜松、横浜
+    '鉄': '鐵',   // 電鉄
+    '豊': '豐',   // 豊橋
+    '姫': '姬',   // 姫路
+    '桜': '櫻',   // 桜島
+    '渋': '澀',   // 渋谷
+    '条': '條',   // 九条
+    '乗': '乘',   // 乗車
+    '気': '氣',   // 電気
+    '区': '區',   // 都区内
+    '国': '國',   // 国鉄
+    '嶋': '島',   // 異體字
+    '徳': '德'    // 德山
+};
+
+/**
+ * 將字串進行正規化，把日文漢字或異體字統一轉為標準繁體字，並轉為小寫
+ */
+function normalizeText(text) {
+    if (!text) return "";
+    let result = text;
+    // 遍歷字典，將所有字串內的異體字無差別替換為標準字
+    for (let jp in KANJI_MAP) {
+        let tw = KANJI_MAP[jp];
+        result = result.split(jp).join(tw);
+    }
+    return result.toLowerCase();
+}
+
 // 🌟 事件代理：這輩子只綁定一次，且無論 UI 怎麼重刷都有效
 document.addEventListener('click', (e) => {
     // 透過 ID 判斷點擊的是哪一個系統按鈕 (請確認你首頁按鈕的 ID 是這兩個)
@@ -92,6 +130,42 @@ function getCurrentSystemMinutes() {
 
     // 3. 處理跨日問題，保證數值完美落在 0 ~ 1439 的區間內循環
     return ((systemMinutes % 1440) + 1440) % 1440;
+}
+
+// ==========================================
+// 🌟 全域變數：純停靠次數權重 (防交會站重複計算版)
+// ==========================================
+window.globalStationWeights = {};
+
+function calculateStationWeights() {
+    window.globalStationWeights = {};
+    if (!timetable) return;
+
+    timetable.forEach(train => {
+        if (!train.segments) return;
+
+        // 🌟 準備一個袋子 (Set)，用來記錄這班車「已經給過分數」的車站
+        let countedStations = new Set();
+
+        train.segments.forEach(seg => {
+            for (let i = 0; i < seg.s.length; i++) {
+                // v !== 2 代表這站有停靠
+                if (seg.v[i] !== 2) {
+                    let stId = String(seg.s[i]);
+                    
+                    // 🌟 核心防護：如果這班車「還沒」幫這個站加過分，才加分！
+                    if (!countedStations.has(stId)) {
+                        // 單純計數：每停一班車就 +1 分
+                        window.globalStationWeights[stId] = (window.globalStationWeights[stId] || 0) + 1;
+                        
+                        // 登記：這班車已經給過這個站分數了，下次同班車再看到它(跨線交會)就不給了！
+                        countedStations.add(stId); 
+                    }
+                }
+            }
+        });
+    });
+    console.log("📊 修正版單純停靠次數統計完成！", window.globalStationWeights);
 }
 
 
@@ -162,6 +236,17 @@ function getProcessedSegments(selectedSegments, topology) {
 function drawGrid(viewKey, layer = 'all') {
     lookupY = {}; 
     let currentAccumulatedKm = 0; 
+
+    // 🌟 新增：找出目前的最高權重，當作比例尺基準
+    let maxWeight = 1; 
+    if (topology && topology.segments) {
+        topology.segments.forEach(seg => {
+            seg.stations.forEach(st => {
+                if (st.weight > maxWeight) maxWeight = st.weight;
+            });
+        });
+    }
+
     let presetKey = viewKey; 
     let selectedSegments = settings?.view_presets?.[presetKey]?.lines || [];
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
@@ -189,7 +274,7 @@ function drawGrid(viewKey, layer = 'all') {
             let lastOpt = lookupY[st.id][lookupY[st.id].length - 1];
             if (!lastOpt || Math.abs(lastOpt.y - yPos) > 1.0) {
                 lookupY[st.id].push({ y: yPos, segId: segId }); 
-                uniqueStations.push({ id: st.id, name: st.name, baseY: yPos });
+                uniqueStations.push({ id: st.id, name: st.name, baseY: yPos, weight: st.weight || 0 });
             }
             if (relativeKm > segMaxKm) segMaxKm = relativeKm;
         });
@@ -227,11 +312,41 @@ function drawGrid(viewKey, layer = 'all') {
         ctx.font = "bold 16px 'GlowSans', sans-serif";
         ctx.textBaseline = "middle";
 
+        // ==========================================
+        // 🌟 核心邏輯：全域排序與空間競爭 (Greedy Label Placement)
+        // ==========================================
+        // 1. 抓出畫面上的車站，並注入我們剛才算好的「全域權重」
+        let labelCandidates = uniqueStations.map(st => {
+            return {
+                ...st,
+                y: st.baseY + offsetY,
+                weight: window.globalStationWeights[String(st.id)] || 0 
+            };
+        }).filter(st => st.y >= viewTop - 20 && st.y <= viewBottom + 20);
+
+        // 2. 全域排序：權重由大到小！(確保含金量最高的大站優先處理)
+        labelCandidates.sort((a, b) => (b.weight - a.weight) || (a.baseY - b.baseY));
+
+        let drawnYList = [];
+        const MIN_SPACING = 18; // 🌟 容許的最小垂直距離
+
+        // 3. 依序放入：大站先選位，後面的小站如果發現位子被大站佔走(相撞)，就乖乖隱藏
+        labelCandidates.forEach(cand => {
+            let isCollision = drawnYList.some(drawnY => Math.abs(drawnY - cand.y) < MIN_SPACING);
+            cand.showLabel = !isCollision; 
+            if (!isCollision) {
+                drawnYList.push(cand.y); 
+            }
+        });
+
+        let showLabelMap = new Map(labelCandidates.map(c => [c.id, c.showLabel]));
+        // ==========================================
+
         uniqueStations.forEach(st => {
             let y = st.baseY + offsetY;
             if (y < viewTop || y > viewBottom) return;
 
-            // --- 畫背景橫線 ---
+            // --- 畫背景橫線 (小站雖然字隱形，但橫線軌道還是要畫出來) ---
             if (layer === 'lines' || layer === 'all') {
                 let isHovered = (st.id === hoveredStation);
                 let isSelected = (st.id === selectedStation);
@@ -255,6 +370,10 @@ function drawGrid(viewKey, layer = 'all') {
 
             // --- 🌟 左右雙向懸浮站名 ---
             if (layer === 'labels' || layer === 'all') {
+                
+                // 🌟 檢查剛剛的生存戰，如果小站被大站擠掉了，就不印字直接跳過！
+                if (showLabelMap.get(st.id) !== true) return;
+
                 let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
                 let textColor = isDarkMode ? "#FFFFFF" : "#000000";
                 let textWidth = ctx.measureText(st.name).width;
@@ -1165,7 +1284,7 @@ function setupSearch() {
         }
 
         currentFocus = -1; 
-        const keywords = rawText.replace(/臺/g, '台').split(/[~\-\s,，、]+/).filter(k => k.length > 0);
+        const keywords = normalizeText(rawText).split(/[~\-\s,，、]+/).filter(k => k.length > 0);
         let searchData = [];
         let currentShowId = !(settings && settings.show_train_id === false);
 
@@ -1194,7 +1313,7 @@ function setupSearch() {
                     seg.stations.forEach(st => {
                         let stName = st.name || "";
                         let stId = String(st.id || "");
-                        let nameLower = stName.toLowerCase().replace(/臺/g, '台');
+                        let nameLower = normalizeText(stName);
                         let idLower = stId.toLowerCase();
                         let score = Math.max(
                             nameLower === keyword ? 3 : (nameLower.startsWith(keyword) ? 2 : (nameLower.includes(keyword) ? 1 : 0)),
@@ -1242,8 +1361,8 @@ function setupSearch() {
                                     
                                     if (v_val !== 2) { 
                                         let idStr = String(stId).toLowerCase();
-                                        let nameStr = (stationIdToNameMap.get(String(stId)) || "").toLowerCase().replace(/臺/g, '台');
-                                        
+                                        let nameStr = normalizeText(stationIdToNameMap.get(String(stId)) || "");
+
                                         let isSingleTime = (seg.t.length === seg.s.length);
                                         let arrTime = isSingleTime ? seg.t[idx] : seg.t[idx * 2];
                                         let depTime = isSingleTime ? seg.t[idx] : seg.t[idx * 2 + 1];
@@ -3271,6 +3390,9 @@ async function loadTimetableData(dateOrType) {
         // ------------------------------------------
         timetable = todayData.concat(yesterdayData);
         currentDate = dateOrType; 
+
+        // 🌟 啟動權重計算機！根據這份剛合併好的班表，統計出今天的大站
+        calculateStationWeights();
 
         // 大掃除
         selectedTrain = null;
