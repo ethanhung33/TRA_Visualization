@@ -944,14 +944,36 @@ body.light-mode .search-item.search-item-active {
 /* ==========================================
    🚉 車站面板專屬排版 (發車動態)
    ========================================== */
-.board-group { display: flex; flex-direction: row; width: 100%; margin-bottom: 5px; }
-.board-dir-label { display: none; } /* 電腦版隱藏卡片內的標籤 */
+/* 1. 恢復電腦版的卡片寬度與間距 */
+.station-item { 
+    display: flex; flex-direction: column; align-items: center; 
+    min-width: 140px; /* 🌟 恢復原本的卡片寬度 */
+    margin: 0 4px;    /* 🌟 恢復卡片間距 */
+    flex-shrink: 0;   /* 🌟 絕對禁止擠壓變形！ */
+    cursor: pointer; padding: 8px; border-radius: 8px; transition: background 0.2s; 
+}
+
+/* 2. 讓上下行群組可以無限向右延伸，觸發橫向捲軸 */
+.board-group { 
+    display: flex; flex-direction: row; 
+    width: max-content; /* 🌟 讓它根據內容長度無限延伸 */
+    min-width: 100%; 
+    margin-bottom: 5px; 
+}
+
+/* 3. 專門給車站面板的容器，讓上下行乖乖排成兩列 */
+.station-scroll-container {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+}
 .desktop-dir-col { display: flex; flex-direction: column; justify-content: center; height: 100%; padding: 0 10px 0 15px; border-right: 1px solid var(--btn-border); flex-shrink: 0; gap: 15px; }
 
 @media (max-width: 768px) {
     /* 手機版排版轉向 */
-    .board-group { flex-direction: column !important; margin-bottom: 0 !important; }
-    
+    /* 手機版縮回 100% 避免超出螢幕寬度 */
+    .board-group { flex-direction: column !important; margin-bottom: 0 !important; width: 100% !important; }
+
     /* 顯示車次旁邊的 上/下行 標籤 */
     .board-dir-label { 
         display: inline-block !important; 

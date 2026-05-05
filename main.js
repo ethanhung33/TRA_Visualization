@@ -3037,7 +3037,7 @@ function updateBottomPanelStation(st_id) {
             </div>
 
             <!-- 滾動區塊 -->
-            <div id="bottom-scroll-container">
+            <div id="bottom-scroll-container" class="station-scroll-container">
                 
                 <!-- 手機版專用的藍色標題列 -->
                 <div class="mobile-table-header" style="width: 100%;">
