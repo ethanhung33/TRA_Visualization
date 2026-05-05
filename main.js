@@ -2822,17 +2822,19 @@ function updateBottomPanel(train) {
     panel.innerHTML = `
         <div style="display: flex; width: 100%; height: 100%; align-items: center;">
             
-            <div style="min-width: 180px; display: flex; flex-direction: column; justify-content: center; padding-left: 25px; padding-right: 20px; border-right: 2px solid #444; flex-shrink: 0;">
-                <div style="font-size: 26px; font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.0;">
+            <div style="width: auto; min-width: 120px; max-width: 45%; display: flex; flex-direction: column; justify-content: center; padding-left: 15px; padding-right: 12px; border-right: 2px solid #444; flex-shrink: 0; overflow: hidden;">
+                
+                <!-- 加入 scrollbar-width: none; 隱藏醜醜的滾動條 -->
+                <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 0px; line-height: 1.2; white-space: nowrap; overflow-x: auto; scrollbar-width: none;">
                     ${displayTitle}
                 </div>
                 
-                <div style="font-size: 16px; color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 10px; font-weight: bold; letter-spacing: 1px;">
-                    ${startStationName} <span style="font-size:14px; margin: 0 4px; opacity: 0.7;">▶</span> ${endStationName}
+                <div style="font-size: 13px; color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 6px; font-weight: bold; letter-spacing: 0px; white-space: nowrap; overflow-x: auto; scrollbar-width: none;">
+                    ${startStationName} <span style="font-size: 11px; margin: 0 2px; opacity: 0.7;">▶</span> ${endStationName}
                 </div>
             </div>
             
-            <div id="bottom-scroll-container" style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 20px; white-space: nowrap; scrollbar-width: none;">
+            <div id="bottom-scroll-container" style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 15px; white-space: nowrap; scrollbar-width: none;">
                 ${stationsHtml}
             </div>
         </div>
