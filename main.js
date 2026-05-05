@@ -3022,10 +3022,12 @@ function updateBottomPanelStation(st_id) {
                     <div class="sb-mobile-layout">
                         <div class="sb-col-title">
                             <span style="color: ${tColor};">${displayTitle}</span>
-                            <span class="board-dir-label" style="background: ${dirColor};">${dirLabel}</span>
+                            <span class="board-dir-label" style="background: ${dirColor}; margin-left: 0;">${dirLabel}</span>
                         </div>
-                        <div class="sb-col-time">${timeStr}</div>
-                        <div class="sb-col-dest">往 ${item.destName}</div>
+                        
+                        <!-- 🌟 補上 style，讓它們會跟著日夜模式切換成黑色/白色！ -->
+                        <div class="sb-col-time" style="color: ${theme.textMain};">${timeStr}</div>
+                        <div class="sb-col-dest" style="color: ${theme.textMain};">往 ${item.destName}</div>
                     </div>
                     
                 </div>
