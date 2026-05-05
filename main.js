@@ -2969,88 +2969,118 @@ function updateBottomPanelStation(st_id) {
         timeGray: isDarkMode ? '#BBBBBB' : '#666666' 
     };
 
-    // 🌟 2. 建立卡片 UI
-    const buildRowHtml = (trains) => {
+    // ==========================================
+    // 🌟 核心修改：將資料塞入完美的 RWD 抽屜與表格框架
+    // ==========================================
+    
+    // 2. 建立卡片 UI (改用 CSS Class 達成 電腦橫向卡片 / 手機直式表格 的雙棲設計)
+    const buildRowHtml = (trains, dirLabel, dirColor) => {
         if (trains.length === 0) {
-            return `<div style="color: ${theme.textSub}; font-size: 13px; margin-left: 10px; font-style: italic;">近期無班次</div>`;
+            return `<div style="color: ${theme.textSub}; font-size: 13px; padding: 10px 20px; font-style: italic;">${dirLabel} 近期無班次</div>`;
         }
         return trains.map(item => {
-            
-            // ==========================================
-            // 🌟 3. 動態抓取對應的車種色碼
-            // ==========================================
             let typeColors = settings?.train_color?.[item.train.type];
             let tColor = theme.textMain; 
-            
             if (typeColors && typeColors.length > 0) {
-                // 直接依據 isDarkMode 決定拿 [0] 還是 [1]
                 tColor = isDarkMode ? typeColors[0] : (typeColors[1] || typeColors[0]);
             }
             
             let timeStr = formatTimeDisplay(item.depTime);
             let displayDiff = Math.floor(item.diff); 
 
-            // ==========================================
-            // 🌟 核心升級：支援 show_train_type 與 show_train_id 自由開關
-            // ==========================================
-            let showType = !(settings && settings.show_train_type === false); // 預設 true
-            let showId = !(settings && settings.show_train_id === false);     // 預設 true
+            let showType = !(settings && settings.show_train_type === false);
+            let showId = !(settings && settings.show_train_id === false);
+            let displayTitle = "列車";
+            if (showType && showId) displayTitle = `${item.train.type} ${item.trainNo}`;
+            else if (showType && !showId) displayTitle = `${item.train.type}`;
+            else if (!showType && showId) displayTitle = `${item.trainNo}`;
 
-            let displayTitle = "";
-            if (showType && showId) {
-                displayTitle = `${item.train.type} ${item.trainNo}`;
-            } else if (showType && !showId) {
-                displayTitle = `${item.train.type}`; // 👈 南海模式：只顯示「区間急行」
-            } else if (!showType && showId) {
-                displayTitle = `${item.trainNo}`;    // 只顯示車次
-            } else {
-                displayTitle = "列車";
-            }
-
+            // 🌟 直接套用 .station-item，它在手機上就會自動變成一列表格！
             return `
-                <div onclick="window.triggerSelectTrain('${item.trainNo}')" 
-                     style="display: flex; flex-direction: column; justify-content: center; min-width: 150px; margin: 0 4px; padding: 4px 8px; background: ${theme.cardBg}; border-radius: 6px; cursor: pointer; border: 1px solid transparent; line-height: 1.2;"
-                     onmouseover="this.style.background='${theme.cardHoverBg}'; this.style.borderColor='${tColor}'"
-                     onmouseout="this.style.background='${theme.cardBg}'; this.style.borderColor='transparent'">
+                <div class="station-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="min-width: 140px; margin: 4px; background: ${theme.cardBg}; border-color: transparent;">
                     
-                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px;">
-                        <span style="font-size: 15px; color: ${theme.textMain}; font-weight: bold;">${timeStr}</span>
-                        <span style="font-size: 11px; color: ${tColor}; font-weight: bold;">${displayTitle}</span>
+                    <!-- 手機版的左側 (車次) / 電腦版的上方 -->
+                    <div class="st-name" style="color: ${tColor}; font-size: 16px;">
+                        ${displayTitle}
+                        <!-- 手機版專屬的方向小標籤 -->
+                        <span class="board-dir-label" style="background: ${dirColor}; color: #FFF; font-size: 10px; padding: 2px 4px; border-radius: 4px; margin-left: 6px; vertical-align: middle;">${dirLabel}</span>
                     </div>
                     
-                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                        <span style="font-size: 12px; color: ${theme.textSub};">往 ${item.destName}</span>
-                        <span style="font-size: 11px; color: ${theme.timeGray}; font-weight: bold;">約 ${displayDiff} 分</span>
+                    <!-- 手機版的中間 (時間) / 電腦版的中間 -->
+                    <div class="st-arr" style="font-size: 18px; font-weight: bold;">
+                        ${timeStr}
                     </div>
-
+                    
+                    <!-- 手機版的右側 (目的地) / 電腦版的下方 -->
+                    <div class="st-dep" style="color: ${theme.textSub}; font-size: 14px;">
+                        往 ${item.destName}
+                        <!-- 電腦版保留約X分的提示 -->
+                        <div class="desktop-only" style="font-size: 11px; color: ${theme.timeGray}; margin-top: 4px;">約 ${displayDiff} 分</div>
+                    </div>
                 </div>
             `;
         }).join('');
     };
 
-    // 4. 組裝最終介面 (維持原樣)
+    // 4. 組裝最終介面
     panel.innerHTML = `
-        <div style="display: flex; width: 100%; height: 100%; align-items: center; color: ${theme.textMain};">
-            <div style="min-width: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-right: 15px; border-right: 1px solid ${theme.border}; flex-shrink: 0;">
-                <div style="font-size: 20px; font-weight: bold;">${stName}</div>
-                <div style="font-size: 12px; color: ${theme.textSub}; margin-top: 4px;">即將發車</div>
+        <style>
+            /* 局部 CSS 魔法：控制車站面板在手機上的變形 */
+            .board-group { display: flex; flex-direction: row; width: 100%; margin-bottom: 5px; }
+            .board-dir-label { display: none; } /* 電腦版隱藏卡片內的標籤 */
+            
+            @media (max-width: 768px) {
+                .board-group { flex-direction: column !important; margin-bottom: 0 !important; }
+                .board-dir-label { display: inline-block !important; } /* 手機版顯示車次旁邊的方向標籤 */
+                .desktop-dir-col { display: none !important; } /* 隱藏電腦版的上下行文字區塊 */
+                .desktop-only { display: none !important; } /* 隱藏「約X分」讓表格更乾淨 */
+            }
+        </style>
+
+        <div class="bottom-panel-wrapper">
+            <!-- 🌟 左側 Header (點擊展開抽屜) -->
+            <div class="train-info-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')">
+                <div style="width: 100%; overflow-x: auto; white-space: nowrap; scrollbar-width: none; text-align: left;">
+                    <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${theme.textMain}; letter-spacing: 1px; display: inline-block;">
+                        ${stName}
+                    </div>
+                </div>
+                <div style="font-size: clamp(13px, 3.5vw, 16px); color: ${theme.textSub}; margin-top: 4px; font-weight: bold;">
+                    即將發車
+                </div>
+                <div class="mobile-drag-handle"></div>
             </div>
 
-            <div style="display: flex; flex-direction: column; justify-content: center; height: 100%; padding: 0 10px 0 15px; border-right: 1px solid ${theme.border}; flex-shrink: 0; gap: 10px;">
+            <!-- 電腦版專屬：上下行顏色標籤列 -->
+            <div class="desktop-dir-col" style="display: flex; flex-direction: column; justify-content: center; height: 100%; padding: 0 10px 0 15px; border-right: 1px solid ${theme.border}; flex-shrink: 0; gap: 15px;">
                 <div style="color: #66B2FF; font-size: 13px; font-weight: bold; white-space: nowrap;">▲ 上行</div>
                 <div style="color: #FF9999; font-size: 13px; font-weight: bold; white-space: nowrap;">▼ 下行</div>
             </div>
 
-            <div id="bottom-scroll-container" style="flex: 1; display: flex; flex-direction: column; justify-content: center; height: 100%; overflow-x: auto; overflow-y: hidden; padding: 0 10px; scrollbar-width: none; gap: 4px;">
-                <div style="display: flex; align-items: center;">
-                    ${buildRowHtml(upboundTrains)}
+            <!-- 滾動區塊 -->
+            <div id="bottom-scroll-container" style="flex-direction: column; align-items: flex-start; justify-content: center;">
+                
+                <!-- 手機版專用的藍色標題列 -->
+                <div class="mobile-table-header" style="width: 100%;">
+                    <div style="flex: 1.5; text-align: left; padding-left: 10px;">車次</div>
+                    <div style="flex: 1; text-align: center;">發車時間</div>
+                    <div style="flex: 1; text-align: right; padding-right: 10px;">目的地</div>
                 </div>
-                <div style="display: flex; align-items: center;">
-                    ${buildRowHtml(downboundTrains)}
+
+                <!-- 班次列表 -->
+                <div class="board-group">
+                    ${buildRowHtml(upboundTrains, '▲ 上行', '#66B2FF')}
                 </div>
+                <div class="board-group">
+                    ${buildRowHtml(downboundTrains, '▼ 下行', '#FF9999')}
+                </div>
+
             </div>
         </div>
     `;
+
+    // 預設收合抽屜
+    panel.classList.remove('expanded');
 }
 
 // ==========================================
