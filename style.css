@@ -520,96 +520,69 @@ body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
 }
 
 /* ==========================================
-   📱 手機版專屬排版 (當螢幕寬度小於 768px 時自動觸發)
+   📱 手機版：Google Maps 風格底部抽屜
    ========================================== */
 @media (max-width: 768px) {
-    /* 1. 徹底解決滾動黑洞：使用動態視窗高度 (dvh) */
-    html, body {
-        height: 100dvh !important; /* 🌟 確保網頁絕對不會超出真實螢幕高度 */
-        width: 100vw !important;
-        overflow: hidden !important;
-    }
-
-    #app {
-        height: 100dvh !important;
-        flex-direction: column-reverse !important; /* 側欄在上，畫布在下 */
-    }
-
-    /* 2. 上方側邊欄 (改為上下收合動畫) */
-    #sidebar {
-        width: 100% !important;
-        height: 60dvh !important; 
-        max-height: 60dvh !important;
-        border-left: none !important;
-        border-bottom: 2px solid var(--btn-border) !important;
-        position: relative !important;
-        /* 🌟 關鍵：將側欄的動畫從 width 改為 height */
-        transition: height 0.3s ease, min-height 0.3s ease !important;
-    }
-
-    #sidebar.collapsed {
-        height: 0 !important;
-        min-height: 0 !important;
-        border-bottom: none !important;
-        width: 100% !important; 
-    }
-
-    .sidebar-inner {
-        width: 100% !important;
-        height: 100% !important;
-        padding: 15px !important;
-    }
-
-    /* 3. 復活收合按鈕！變成側欄底部的「下拉/上推標籤」 */
-    .sidebar-toggle-btn {
-        display: flex !important;
-        left: 50% !important;
-        top: 100% !important; 
-        
-        /* 🌟 核心修正：加入 rotate(180deg) 把按鈕「倒過來」，箭頭方向瞬間變正確！ */
-        transform: translateX(-50%) rotate(180deg) !important; 
-        
-        width: 80px !important;
-        height: 25px !important;
-        
-        /* 🌟 因為按鈕倒過來了，所以形狀也要「反著畫」 */
-        border-radius: 12px 12px 0 0 !important; /* 倒過來後會變成視覺上的下方圓角 */
-        border: 1px solid var(--btn-border) !important;
-        border-bottom: none !important; /* 倒過來後會變成視覺上的平坦頂部 */
-        
-        font-size: 20px !important;
-        writing-mode: vertical-rl; 
-        padding-bottom: 5px !important; /* 微調箭頭視覺中心 */
-    }
-
-    /* 4. 左側面板 (畫布 + 底部面板，霸佔剩下的所有空間) */
-    #left-panel {
-        width: 100% !important;
-        flex: 1 !important; /* 填滿 100dvh 扣除側邊欄後剩下的空間 */
-        height: auto !important;
-        display: flex !important;
-        flex-direction: column !important;
-    }
-
-    #canvas-wrapper {
-        flex: 1 !important; 
-        width: 100% !important;
-        min-height: 0 !important; /* 🌟 關鍵防呆：避免畫布無限長大撐破 Flex 容器 */
-    }
-
-    /* 5. 底部列車面板 */
     #bottom-bar {
+        /* 預設的偷看高度 */
         height: 110px !important; 
         min-height: 110px !important;
-        max-height: 110px !important;
+        max-height: 80dvh !important; /* 展開後的極限高度 */
+        
         position: relative !important;
-        padding: 0 10px !important;
+        flex-direction: column !important; /* 🌟 改成上下排列 */
+        align-items: stretch !important;
+        padding: 0 !important;
+        
+        /* 讓它看起來像浮起來的抽屜 */
+        border-radius: 20px 20px 0 0 !important;
+        border-top: 1px solid var(--btn-border) !important;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.3) !important;
+        
+        /* 滑順的展開動畫 */
+        transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
     }
 
-    /* 6. 字體微調，保持精緻不過擠 */
-    .control-section h3 { font-size: 18px !important; margin-bottom: 10px !important; }
-    .pill-btn { font-size: 14px !important; padding: 8px 14px !important; margin-bottom: 8px !important; }
-    input#datePicker.flatpickr-input { font-size: 16px !important; padding: 10px !important; }
+    /* 🌟 展開時的狀態 */
+    #bottom-bar.expanded {
+        height: 65dvh !important; /* 展開後佔據螢幕 65% */
+    }
+
+    /* 🌟 抽屜頂部的「灰色拉桿」暗示 */
+    #bottom-bar::before {
+        content: '';
+        display: block;
+        width: 40px;
+        height: 5px;
+        background: #888888;
+        border-radius: 3px;
+        margin: 8px auto 0 auto;
+        opacity: 0.6;
+        flex-shrink: 0;
+    }
+
+    /* 🌟 讓內部的資訊區塊變成垂直排列 */
+    #bottom-scroll-container {
+        flex-direction: column !important;
+        overflow-y: auto !important; /* 允許上下滾動 */
+        overflow-x: hidden !important; /* 關閉左右滾動 */
+        align-items: stretch !important;
+        padding: 10px 20px 20px 20px !important;
+        gap: 0 !important;
+    }
+
+    /* 把原本左側的車次資訊，變成抽屜的「固定頭部」 */
+    .mobile-drawer-header {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-right: none !important;
+        border-bottom: 1px solid var(--btn-border) !important;
+        padding: 10px 20px !important;
+        display: flex !important;
+        flex-direction: row !important; /* 標題左右排開 */
+        justify-content: space-between !important;
+        align-items: center !important;
+    }
 }
 
 /* =======================================================

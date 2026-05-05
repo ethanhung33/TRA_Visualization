@@ -2768,76 +2768,76 @@ function updateBottomPanel(train) {
 
     let lastStationId = null;
 
+    // 🌟 定義這台車的 HTML 結構 (支援手機版垂直時間軸)
+    let stationsHtmlStr = "";
+    
     if (train.segments) {
         train.segments.forEach(seg => {
             for (let i = 0; i < seg.s.length; i++) {
-                if (seg.v[i] === 2) continue; // 過濾掉通過的車站
-
+                if (seg.v[i] === 2) continue; 
                 let currentStationId = seg.s[i];
-
-                // 🌟 新增這段過濾機制：
-                // 如果現在這個車站，跟上一個剛剛印過的車站一模一樣，就直接跳過！
-                if (currentStationId === lastStationId) {
-                    continue;
-                }
+                if (currentStationId === lastStationId) continue;
                 lastStationId = currentStationId;
 
                 let stName = getStationName(seg.s[i]);
-                // 如果你沒有 formatTimeDisplay 函數，請確保把它也加進 main.js 喔！
                 let arrT = formatTimeDisplay(seg.t[i * 2]);     
                 let depT = formatTimeDisplay(seg.t[i * 2 + 1]); 
-                
-                // 🌟 別忘了中間的箭頭也可以加大
-                if (stopCount > 0) {
-                    stationsHtml += `
-                        <div style="display: flex; align-items: center; justify-content: center; margin: 0 12px; font-size: 20px; color: var(--panel-arrow);">
-                            ➔
-                        </div>
-                    `;
-                }
 
-                // 在產生 stationsHtml 的迴圈內
-                stationsHtml += `
-                    <div onclick="window.triggerSelectStation('${seg.s[i]}')" 
-                         style="display: flex; flex-direction: column; align-items: center; min-width: 70px; cursor: pointer; padding: 8px; border-radius: 8px; transition: background 0.2s;"
-                         onmouseover="this.style.background='rgba(128,128,128,0.2)'"
-                         onmouseout="this.style.background='transparent'">
+                // 🌟 垂直時間軸的站點設計 (左邊時間，中間時間軸線，右邊站名)
+                stationsHtmlStr += `
+                    <div onclick="window.triggerSelectStation('${seg.s[i]}'); event.stopPropagation();" 
+                         style="display: flex; align-items: center; cursor: pointer; padding: 12px 0; position: relative;">
                          
-                        <div style="font-size: 20px; margin-bottom: 6px; font-weight: bold; letter-spacing: 1px; color: var(--panel-text-main);">
-                            ${stName}
+                        <!-- 左側時間 -->
+                        <div style="width: 50px; text-align: right; font-size: 15px; font-family: monospace; font-weight: bold; color: var(--panel-text-sub); flex-shrink: 0;">
+                            ${depT}
                         </div>
                         
-                        <div style="font-size: 15px; line-height: 1.4; color: var(--panel-text-sub);">${arrT}</div>
-                        <div style="font-size: 15px; line-height: 1.4; color: var(--panel-text-sub);">${depT}</div>
+                        <!-- 中間的時間軸線與圓點 -->
+                        <div style="width: 30px; display: flex; justify-content: center; position: relative; flex-shrink: 0;">
+                            <!-- 垂直線 -->
+                            <div style="position: absolute; top: 0; bottom: -24px; width: 2px; background: #555; z-index: 1;"></div>
+                            <!-- 站點圓圈 -->
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: ${trainColor}; border: 2px solid ${isDarkMode ? '#222' : '#FFF'}; z-index: 2; position: relative; margin-top: 2px;"></div>
+                        </div>
+
+                        <!-- 右側站名 -->
+                        <div style="font-size: 18px; font-weight: bold; color: var(--panel-text-main); flex: 1;">
+                            ${stName}
+                        </div>
                     </div>
                 `;
-
-                
-                stopCount++;
             }
         });
     }
 
     // 3. 塞進現有的 bottom-bar
     panel.innerHTML = `
-        <div style="display: flex; width: 100%; height: 100%; align-items: center;">
-            
-            <div style="width: auto; min-width: 90px; max-width: 35%; display: flex; flex-direction: column; justify-content: center; padding-left: 12px; padding-right: 10px; border-right: 2px solid #444; flex-shrink: 0; overflow: hidden;">
-                
-                <div style="font-size: clamp(18px, 4.5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 0px; line-height: 1.2; white-space: nowrap; overflow-x: auto; scrollbar-width: none;">
+        <!-- 🌟 抽屜的頭部：點擊這裡可以展開/收合整個面板 -->
+        <div class="mobile-drawer-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')" style="cursor: pointer;">
+            <div>
+                <div style="font-size: clamp(18px, 5vw, 24px); font-weight: 900; color: ${trainColor}; letter-spacing: 0px;">
                     ${displayTitle}
                 </div>
-                
-                <div style="font-size: 13px; color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 6px; font-weight: bold; letter-spacing: 0px; white-space: nowrap; overflow-x: auto; scrollbar-width: none;">
-                    ${startStationName} <span style="font-size: 11px; margin: 0 2px; opacity: 0.7;">▶</span> ${endStationName}
+                <div style="font-size: 13px; color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 4px; font-weight: bold;">
+                    ${startStationName} ▶ ${endStationName}
                 </div>
             </div>
             
-            <div id="bottom-scroll-container" style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 15px; white-space: nowrap; scrollbar-width: none;">
-                ${stationsHtml}
+            <!-- 手機版提示展開的箭頭 (電腦版可隱藏) -->
+            <div style="font-size: 20px; color: var(--panel-text-sub); opacity: 0.5;">
+                <span class="drawer-arrow">↕</span>
             </div>
         </div>
+        
+        <!-- 🌟 抽屜的內容：垂直時間軸列表 -->
+        <div id="bottom-scroll-container" style="flex: 1; display: flex; overflow-x: auto; padding: 0 15px;">
+            ${stationsHtmlStr}
+        </div>
     `;
+
+    // 🌟 切換火車時，預設把抽屜收起來，回到偷看模式
+    panel.classList.remove('expanded');
 }
 
 // ==========================================
