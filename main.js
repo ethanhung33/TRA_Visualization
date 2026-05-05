@@ -2822,10 +2822,9 @@ function updateBottomPanel(train) {
     panel.innerHTML = `
         <div style="display: flex; width: 100%; height: 100%; align-items: center;">
             
-            <div style="width: auto; min-width: 120px; max-width: 45%; display: flex; flex-direction: column; justify-content: center; padding-left: 15px; padding-right: 12px; border-right: 2px solid #444; flex-shrink: 0; overflow: hidden;">
+            <div style="width: auto; min-width: 90px; max-width: 35%; display: flex; flex-direction: column; justify-content: center; padding-left: 12px; padding-right: 10px; border-right: 2px solid #444; flex-shrink: 0; overflow: hidden;">
                 
-                <!-- 加入 scrollbar-width: none; 隱藏醜醜的滾動條 -->
-                <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 0px; line-height: 1.2; white-space: nowrap; overflow-x: auto; scrollbar-width: none;">
+                <div style="font-size: clamp(18px, 4.5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 0px; line-height: 1.2; white-space: nowrap; overflow-x: auto; scrollbar-width: none;">
                     ${displayTitle}
                 </div>
                 
