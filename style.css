@@ -28,7 +28,7 @@ body.light-mode {
     --panel-text-main: #222222; /* 變成深灰色 */
     --panel-text-sub: #666666;  /* 變成中灰色 */
     --panel-arrow: #999999;     /* 變成淺灰色 */
-    --panel-bg: #F5F5F5;
+    --panel-bg: #D2D2D2;
 }
 
 /* ==========================================
@@ -67,13 +67,13 @@ body {
 }
 
 /* ==========================================
-   1.5 主佈局與底部資訊列 (補回遺失的地基)
+   1.5 主佈局與底部資訊列 (全面變數化)
    ========================================== */
 #app { 
     display: flex; 
     height: 100vh; 
     width: 100vw; 
-    overflow: hidden; /* 防止整個網頁出現卷軸 */
+    overflow: hidden; 
 }
 
 #left-panel { 
@@ -83,34 +83,36 @@ body {
     overflow: hidden; 
 }
 
-/* 底部資訊列 */
+/* 底部資訊列 (電腦版預設) */
 #bottom-bar {
-    /* 🌟 不管有沒有火車，一律佔據 150px */
     height: 150px !important;
     min-height: 150px !important;
     max-height: 150px !important;
-    
-    /* 🌟 禁止 Flexbox 把這區塊擠扁 */
     flex-shrink: 0; 
 
-    background-color: #2d2d2d;
+    /* 🌟 全面改吃變數！深色會自動變 #2d2d2d，淺色自動變 #D2D2D2 */
+    background-color: var(--panel-bg) !important;
+    border-top: 1px solid var(--btn-border) !important;
+    
     display: flex;
     align-items: center;
     padding: 0 20px;
-    border-top: 1px solid #444;
 }
 
+/* 預設的提示文字，也全面改用變數 */
 #bottom-bar h2 { 
     margin: 0; 
     font-size: 20px; 
-    color: #ffffff; 
+    color: var(--panel-text-main) !important; 
 }
 
 #bottom-bar span { 
     font-size: 14px; 
-    color: #888888; 
+    color: var(--panel-text-sub) !important; 
     font-style: italic; 
 }
+
+/* (原本寫在這邊的 body.light-mode 相關設定已經全部刪除，因為變數已經接管一切了！) */
 
 /* ========================================== */
 /* 🌞 淺色模式：底部資訊列覆蓋規則 */
