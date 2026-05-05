@@ -519,95 +519,7 @@ body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
     margin-bottom: 30px;
 }
 
-/* ==========================================
-   📱 手機版：Google Maps 風格底部抽屜
-   ========================================== */
-@media (max-width: 768px) {
 
-    /* 2. 上方側邊欄 (改為上下收合動畫) */
-    #sidebar {
-        width: 100% !important;
-        
-        /* 🌟 將高度縮短到 45dvh，確保按鈕絕對會留在螢幕畫面內！ */
-        height: 45dvh !important; 
-        max-height: 45dvh !important;
-        
-        border-left: none !important;
-        border-bottom: 2px solid var(--btn-border) !important;
-        position: relative !important;
-        transition: height 0.3s ease, min-height 0.3s ease !important;
-    }
-
-    .sidebar-inner {
-        width: 100% !important;
-        height: 100% !important;
-        padding: 15px !important;
-        
-        /* 🌟 加上這行：確保側欄變短後，裡面的選單選項可以上下滑動 */
-        overflow-y: auto !important; 
-    }
-
-    #bottom-bar {
-        /* 預設的偷看高度 */
-        height: 110px !important; 
-        min-height: 110px !important;
-        max-height: 80dvh !important; /* 展開後的極限高度 */
-        
-        position: relative !important;
-        flex-direction: column !important; /* 🌟 改成上下排列 */
-        align-items: stretch !important;
-        padding: 0 !important;
-        
-        /* 讓它看起來像浮起來的抽屜 */
-        border-radius: 20px 20px 0 0 !important;
-        border-top: 1px solid var(--btn-border) !important;
-        box-shadow: 0 -4px 20px rgba(0,0,0,0.3) !important;
-        
-        /* 滑順的展開動畫 */
-        transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
-    }
-
-    /* 🌟 展開時的狀態 */
-    #bottom-bar.expanded {
-        height: 65dvh !important; /* 展開後佔據螢幕 65% */
-    }
-
-    /* 🌟 抽屜頂部的「灰色拉桿」暗示 */
-    #bottom-bar::before {
-        content: '';
-        display: block;
-        width: 40px;
-        height: 5px;
-        background: #888888;
-        border-radius: 3px;
-        margin: 8px auto 0 auto;
-        opacity: 0.6;
-        flex-shrink: 0;
-    }
-
-    /* 🌟 讓內部的資訊區塊變成垂直排列 */
-    #bottom-scroll-container {
-        flex-direction: column !important;
-        overflow-y: auto !important; /* 允許上下滾動 */
-        overflow-x: hidden !important; /* 關閉左右滾動 */
-        align-items: stretch !important;
-        padding: 10px 20px 20px 20px !important;
-        gap: 0 !important;
-    }
-
-    /* 把原本左側的車次資訊，變成抽屜的「固定頭部」 */
-    .mobile-drawer-header {
-        width: 100% !important;
-        max-width: 100% !important;
-        border-right: none !important;
-        border-bottom: 1px solid var(--btn-border) !important;
-        padding: 10px 20px !important;
-        display: flex !important;
-        flex-direction: row !important; /* 標題左右排開 */
-        justify-content: space-between !important;
-        align-items: center !important;
-    }
-}
 
 /* =======================================================
    ✨ 日曆 UI 強化：極簡版 (只標示不可選，可選保持乾淨)
@@ -864,12 +776,77 @@ body.light-mode .search-item.search-item-active {
 .sb-diff { font-size: 11px; color: var(--panel-text-sub); font-weight: bold; }
 
 /* ==========================================
-   📱 手機版：抽屜與台鐵直立表格
+   📱 手機版：終極防彈裝甲版 (整合側欄、畫布修復與直立表格)
    ========================================== */
 @media (max-width: 768px) {
-    /* 抽屜基礎設定 */
-    #bottom-bar { height: 110px !important; min-height: 110px !important; max-height: 75dvh !important; padding: 0 !important; border-radius: 16px 16px 0 0 !important; border-top: 1px solid var(--btn-border) !important; transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important; position: relative !important; }
-    #bottom-bar.expanded { height: 75dvh !important; }
+    /* --- 1. 基礎排版與防滾動 (確保啟動 Flexbox) --- */
+    html, body { height: 100dvh !important; width: 100vw !important; overflow: hidden !important; margin: 0; padding: 0; }
+    #app { 
+        display: flex !important; 
+        flex-direction: column-reverse !important; 
+        height: 100dvh !important; 
+        width: 100vw !important; 
+        overflow: hidden !important; 
+    }
+
+    /* --- 2. 頂部側邊欄 (鎖死 45dvh) --- */
+    #sidebar {
+        flex: 0 0 45dvh !important; 
+        width: 100% !important;
+        height: 45dvh !important; 
+        max-height: 45dvh !important;
+        border-left: none !important;
+        border-bottom: 2px solid var(--btn-border) !important;
+        position: relative !important;
+        transition: flex 0.3s ease, height 0.3s ease !important; 
+    }
+    #sidebar.collapsed { flex: 0 0 0 !important; height: 0 !important; border-bottom: none !important; width: 100% !important; }
+    .sidebar-inner { width: 100% !important; height: 100% !important; padding: 15px !important; overflow-y: auto !important; }
+
+    /* --- 3. 畫布與底部面板的總容器 (鎖死剩餘的 55dvh) --- */
+    #left-panel { 
+        flex: 1 1 auto !important; 
+        width: 100% !important; 
+        height: 55dvh !important; 
+        display: flex !important; 
+        flex-direction: column !important; 
+        overflow: hidden !important; 
+    }
+
+    #canvas-wrapper { 
+        flex: 1 1 auto !important; 
+        width: 100% !important; 
+        height: 0 !important; /* 🌟 Flexbox 核心：高度從0開始被動計算，畫布才出得來 */
+        min-height: 0 !important; 
+        position: relative !important;
+        overflow: hidden !important;
+    }
+
+    canvas {
+        width: 100% !important;
+        height: 100% !important;
+        display: block !important;
+    }
+
+    /* --- 4. 底部面板 (Google Maps 風格抽屜) --- */
+    #bottom-bar {
+        flex: 0 0 110px !important; 
+        height: 110px !important; 
+        min-height: 110px !important;
+        max-height: 75dvh !important; 
+        width: 100% !important;
+        padding: 0 !important;
+        position: relative !important;
+        border-radius: 16px 16px 0 0 !important;
+        border-top: 1px solid var(--btn-border) !important;
+        transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), flex 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+        z-index: 10 !important;
+        background-color: #222 !important; 
+    }
+    #bottom-bar.expanded { 
+        flex: 0 0 75dvh !important; 
+        height: 75dvh !important; 
+    }
     .bottom-panel-wrapper { flex-direction: column !important; align-items: stretch !important; }
     
     .train-info-header { width: 100% !important; max-width: 100% !important; border-right: none !important; border-bottom: 1px solid var(--btn-border) !important; padding: 12px 20px !important; position: relative; }
@@ -882,7 +859,7 @@ body.light-mode .search-item.search-item-active {
     .station-arrow, .desktop-dir-col, .sb-desktop-layout { display: none !important; }
     .board-group { flex-direction: column !important; margin-bottom: 0 !important; width: 100% !important; }
 
-    /* --- 統一卡片變成 Table Row --- */
+    /* --- 5. 統一卡片變成 Table Row (台鐵直立表格) --- */
     .train-stop-item, .station-board-item { 
         flex-direction: row !important; justify-content: space-between !important; align-items: center !important; 
         padding: 14px 10px !important; border-bottom: 1px solid var(--btn-border) !important; border-radius: 0 !important; margin: 0 !important; min-width: 0 !important; background: transparent !important;
