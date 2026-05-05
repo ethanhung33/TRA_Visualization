@@ -967,7 +967,21 @@ body.light-mode .search-item.search-item-active {
     /* 車站面板 Table Row (顯示手機專用排版) */
     .sb-mobile-layout { display: flex !important; width: 100%; flex-direction: row; justify-content: space-between; align-items: center; }
     .sb-col-title { flex: 1.5; text-align: left; padding-left: 10px; font-size: 16px; font-weight: bold; }
-    .board-dir-label { display: inline-block; font-size: 10px; padding: 2px 4px; border-radius: 4px; margin-left: 6px; vertical-align: middle; color: #FFF; font-weight: normal; }
+    
+    /* 🌟 手機版標籤樣式：利用底色變數做出「鏤空質感」！ */
+    .board-dir-label { 
+        display: inline-block !important; 
+        font-size: 10px !important; 
+        padding: 2px 4px !important; 
+        border-radius: 4px !important; 
+        margin-left: 6px !important; 
+        vertical-align: middle !important; 
+        
+        /* 👈 直接拿抽屜底色來用！ */
+        color: var(--panel-bg) !important; 
+        font-weight: bold !important; 
+    }
+
     .sb-col-time { flex: 1; text-align: center; font-size: 16px; font-family: monospace; }
     .sb-col-dest { flex: 1; text-align: right; padding-right: 10px; font-size: 16px; }
 
