@@ -14,6 +14,11 @@
     --panel-text-sub: #BBBBBB;  /* 次要文字：時間、提示 */
     --panel-arrow: #666666;     /* 箭頭顏色 */
     --panel-bg: #2d2d2d;
+
+    --up-text: #66B2FF;     /* 💻 電腦版深色字：粉藍色 */
+    --down-text: #FF9999;   /* 💻 電腦版深色字：粉紅色 */
+    --up-badge: #2980B9;    /* 📱 手機版徽章底：深海藍 (配白字) */
+    --down-badge: #D9534F;  /* 📱 手機版徽章底：磚紅色 (配白字) */
 }
 
 /* 當 body 被貼上 light-mode 標籤時，這組顏色會「自動覆蓋」上面的顏色！ */
@@ -29,6 +34,14 @@ body.light-mode {
     --panel-text-sub: #666666;  /* 變成中灰色 */
     --panel-arrow: #999999;     /* 變成淺灰色 */
     --panel-bg: #D2D2D2;
+
+    /* 🌟 新增：淺色模式下，電腦版的字體要變深才看得清楚！ */
+    --up-text: #0066CC;     /* 💻 電腦版淺色字：深藍色 */
+    --down-text: #CC0000;   /* 💻 電腦版淺色字：深紅色 */
+    
+    /* 📱 手機版徽章底色共用！深藍/深紅配白字，在淺色底也非常有質感 */
+    --up-badge: #2980B9;    
+    --down-badge: #D9534F;
 }
 
 /* ==========================================
@@ -957,4 +970,11 @@ body.light-mode .search-item.search-item-active {
     .board-dir-label { display: inline-block; font-size: 10px; padding: 2px 4px; border-radius: 4px; margin-left: 6px; vertical-align: middle; color: #FFF; font-weight: normal; }
     .sb-col-time { flex: 1; text-align: center; font-size: 16px; font-family: monospace; }
     .sb-col-dest { flex: 1; text-align: right; padding-right: 10px; font-size: 16px; }
+
+    /* 🌞 淺色模式：手機版標題列換成高質感的「莫蘭迪藍灰」 */
+    body.light-mode .mobile-table-header {
+        background-color: #5C758F !important; /* 質感的莫蘭迪藍灰色 */
+        color: #FFFFFF !important;
+        border-bottom: 1px solid #4A5F75 !important;
+    }
 }

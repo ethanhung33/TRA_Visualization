@@ -3029,30 +3029,30 @@ function updateBottomPanelStation(st_id) {
                 <div class="mobile-drag-handle"></div>
             </div>
 
+            <!-- 🌟 電腦版專屬：吃 --up-text 和 --down-text 變數 -->
             <div class="desktop-dir-col">
-                <div style="color: #66B2FF; font-size: 13px; font-weight: bold; white-space: nowrap;">▲ 上行</div>
-                <div style="color: #FF9999; font-size: 13px; font-weight: bold; white-space: nowrap;">▼ 下行</div>
+                <div style="color: var(--up-text); font-size: 13px; font-weight: bold; white-space: nowrap;">▲ 上行</div>
+                <div style="color: var(--down-text); font-size: 13px; font-weight: bold; white-space: nowrap;">▼ 下行</div>
             </div>
 
-            <!-- 🌟 終極防跑位：把標題放在「滾動區塊」的外面，並加上 flex-shrink: 0 防擠壓 -->
             <div class="mobile-table-header" style="width: 100%; flex-shrink: 0;">
                 <div style="flex: 1.5; text-align: left; padding-left: 10px;">車次</div>
                 <div style="flex: 1; text-align: center;">發車時間</div>
                 <div style="flex: 1; text-align: right; padding-right: 10px;">目的地</div>
             </div>
 
-            <!-- 這裡只留純粹的車次資料，讓它自己滾動 -->
+            <!-- 🌟 手機版專屬徽章：吃 --up-badge 和 --down-badge 變數 -->
             <div id="bottom-scroll-container" class="is-station">
                 <div class="board-group" style="margin-top: 4px;">
-                    ${buildRowHtml(upboundTrains, '▲ 上行', '#66B2FF')}
+                    ${buildRowHtml(upboundTrains, '▲ 上行', 'var(--up-badge)')}
                 </div>
                 <div class="board-group">
-                    ${buildRowHtml(downboundTrains, '▼ 下行', '#FF9999')}
+                    ${buildRowHtml(downboundTrains, '▼ 下行', 'var(--down-badge)')}
                 </div>
             </div>
         </div>
     `;
-
+    
     panel.classList.remove('expanded');
 }
 
