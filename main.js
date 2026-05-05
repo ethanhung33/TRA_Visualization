@@ -2973,7 +2973,7 @@ function updateBottomPanelStation(st_id) {
     // 🌟 核心修改：將資料塞入完美的 RWD 抽屜與表格框架
     // ==========================================
     
-    // 2. 建立卡片 UI (改用 CSS Class 達成 電腦橫向卡片 / 手機直式表格 的雙棲設計)
+    // 2. 建立卡片 UI (全靠 CSS 控制)
     const buildRowHtml = (trains, dirLabel, dirColor) => {
         if (trains.length === 0) {
             return `<div style="color: ${theme.textSub}; font-size: 13px; padding: 10px 20px; font-style: italic;">${dirLabel} 近期無班次</div>`;
@@ -2995,26 +2995,18 @@ function updateBottomPanelStation(st_id) {
             else if (showType && !showId) displayTitle = `${item.train.type}`;
             else if (!showType && showId) displayTitle = `${item.trainNo}`;
 
-            // 🌟 直接套用 .station-item，它在手機上就會自動變成一列表格！
+            // 🌟 拔掉 min-width 和 display 等行內樣式，確保 CSS 暢通無阻
             return `
-                <div class="station-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="min-width: 140px; margin: 4px; background: ${theme.cardBg}; border-color: transparent;">
-                    
-                    <!-- 手機版的左側 (車次) / 電腦版的上方 -->
-                    <div class="st-name" style="color: ${tColor}; font-size: 16px;">
+                <div class="station-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg};">
+                    <div class="st-name" style="color: ${tColor};">
                         ${displayTitle}
-                        <!-- 手機版專屬的方向小標籤 -->
-                        <span class="board-dir-label" style="background: ${dirColor}; color: #FFF; font-size: 10px; padding: 2px 4px; border-radius: 4px; margin-left: 6px; vertical-align: middle;">${dirLabel}</span>
+                        <span class="board-dir-label" style="background: ${dirColor};">${dirLabel}</span>
                     </div>
-                    
-                    <!-- 手機版的中間 (時間) / 電腦版的中間 -->
-                    <div class="st-arr" style="font-size: 18px; font-weight: bold;">
+                    <div class="st-arr" style="font-weight: bold;">
                         ${timeStr}
                     </div>
-                    
-                    <!-- 手機版的右側 (目的地) / 電腦版的下方 -->
-                    <div class="st-dep" style="color: ${theme.textSub}; font-size: 14px;">
+                    <div class="st-dep" style="color: ${theme.textSub};">
                         往 ${item.destName}
-                        <!-- 電腦版保留約X分的提示 -->
                         <div class="desktop-only" style="font-size: 11px; color: ${theme.timeGray}; margin-top: 4px;">約 ${displayDiff} 分</div>
                     </div>
                 </div>
@@ -3024,19 +3016,6 @@ function updateBottomPanelStation(st_id) {
 
     // 4. 組裝最終介面
     panel.innerHTML = `
-        <style>
-            /* 局部 CSS 魔法：控制車站面板在手機上的變形 */
-            .board-group { display: flex; flex-direction: row; width: 100%; margin-bottom: 5px; }
-            .board-dir-label { display: none; } /* 電腦版隱藏卡片內的標籤 */
-            
-            @media (max-width: 768px) {
-                .board-group { flex-direction: column !important; margin-bottom: 0 !important; }
-                .board-dir-label { display: inline-block !important; } /* 手機版顯示車次旁邊的方向標籤 */
-                .desktop-dir-col { display: none !important; } /* 隱藏電腦版的上下行文字區塊 */
-                .desktop-only { display: none !important; } /* 隱藏「約X分」讓表格更乾淨 */
-            }
-        </style>
-
         <div class="bottom-panel-wrapper">
             <!-- 🌟 左側 Header (點擊展開抽屜) -->
             <div class="train-info-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')">
@@ -3052,13 +3031,13 @@ function updateBottomPanelStation(st_id) {
             </div>
 
             <!-- 電腦版專屬：上下行顏色標籤列 -->
-            <div class="desktop-dir-col" style="display: flex; flex-direction: column; justify-content: center; height: 100%; padding: 0 10px 0 15px; border-right: 1px solid ${theme.border}; flex-shrink: 0; gap: 15px;">
+            <div class="desktop-dir-col">
                 <div style="color: #66B2FF; font-size: 13px; font-weight: bold; white-space: nowrap;">▲ 上行</div>
                 <div style="color: #FF9999; font-size: 13px; font-weight: bold; white-space: nowrap;">▼ 下行</div>
             </div>
 
             <!-- 滾動區塊 -->
-            <div id="bottom-scroll-container" style="flex-direction: column; align-items: flex-start; justify-content: center;">
+            <div id="bottom-scroll-container">
                 
                 <!-- 手機版專用的藍色標題列 -->
                 <div class="mobile-table-header" style="width: 100%;">
@@ -3068,7 +3047,7 @@ function updateBottomPanelStation(st_id) {
                 </div>
 
                 <!-- 班次列表 -->
-                <div class="board-group">
+                <div class="board-group" style="margin-top: 4px;">
                     ${buildRowHtml(upboundTrains, '▲ 上行', '#66B2FF')}
                 </div>
                 <div class="board-group">

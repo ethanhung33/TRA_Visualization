@@ -940,3 +940,37 @@ body.light-mode .search-item.search-item-active {
     .pill-btn { font-size: 14px !important; padding: 8px 14px !important; margin-bottom: 8px !important; }
     input#datePicker.flatpickr-input { font-size: 16px !important; padding: 10px !important; }
 }
+
+/* ==========================================
+   🚉 車站面板專屬排版 (發車動態)
+   ========================================== */
+.board-group { display: flex; flex-direction: row; width: 100%; margin-bottom: 5px; }
+.board-dir-label { display: none; } /* 電腦版隱藏卡片內的標籤 */
+.desktop-dir-col { display: flex; flex-direction: column; justify-content: center; height: 100%; padding: 0 10px 0 15px; border-right: 1px solid var(--btn-border); flex-shrink: 0; gap: 15px; }
+
+@media (max-width: 768px) {
+    /* 手機版排版轉向 */
+    .board-group { flex-direction: column !important; margin-bottom: 0 !important; }
+    
+    /* 顯示車次旁邊的 上/下行 標籤 */
+    .board-dir-label { 
+        display: inline-block !important; 
+        font-size: 10px !important; 
+        padding: 2px 4px !important; 
+        border-radius: 4px !important; 
+        margin-left: 6px !important; 
+        vertical-align: middle !important; 
+        color: #FFF !important;
+    }
+    
+    /* 隱藏電腦版的元素 */
+    .desktop-dir-col { display: none !important; } 
+    .desktop-only { display: none !important; } 
+    
+    /* 🌟 拔除原本卡片的強制寬度與外距，讓它完美變成表格列！ */
+    .station-item { 
+        min-width: 0 !important; 
+        margin: 0 !important; 
+        background: transparent !important;
+    }
+}
