@@ -2218,23 +2218,34 @@ function setupCanvasInteractions() {
         if (closestStationTextId) {
             selectedStation = closestStationTextId; 
             selectedTrain = null;
-            window.updateSearchInputText(getStationName(closestStationTextId)); // 🌟 同步文字
+            let stName = getStationName(closestStationTextId);
+            window.updateSearchInputText(stName); // 🌟 同步文字
+            // 🌟 寫入歷史紀錄
+            SearchHistoryManager.add({ type: 'station', id: closestStationTextId, keyword: stName, displayHtml: `<span class="search-item-badge badge-station">車站</span> <span style="margin-left: 8px;">${stName}</span>` });
             if (typeof updateBottomPanelStation === 'function') updateBottomPanelStation(selectedStation);
+
         } else if (closestTrain) {
             selectedTrain = closestTrain; 
             selectedStation = null;
             let trainNo = closestTrain.no || closestTrain.train_no || closestTrain.id;
+            let tType = closestTrain.type || "";
             window.updateSearchInputText(trainNo); // 🌟 同步文字
+            // 🌟 寫入歷史紀錄
+            SearchHistoryManager.add({ type: 'train', id: trainNo, keyword: trainNo, displayHtml: `<span class="search-item-badge badge-train">車次</span> <span style="margin-left: 8px;">${tType} ${trainNo}</span>` });
             if (typeof updateBottomPanel === 'function') updateBottomPanel(selectedTrain);
+
         } else if (closestStationLineId) {
             selectedStation = closestStationLineId; 
             selectedTrain = null;
-            window.updateSearchInputText(getStationName(closestStationLineId)); // 🌟 同步文字
+            let stName = getStationName(closestStationLineId);
+            window.updateSearchInputText(stName); // 🌟 同步文字
+            // 🌟 寫入歷史紀錄
+            SearchHistoryManager.add({ type: 'station', id: closestStationLineId, keyword: stName, displayHtml: `<span class="search-item-badge badge-station">車站</span> <span style="margin-left: 8px;">${stName}</span>` });
             if (typeof updateBottomPanelStation === 'function') updateBottomPanelStation(selectedStation);
+
         } else {
             selectedTrain = null; 
             selectedStation = null;
-            // 🌟 點擊空白處取消選取時，如果沒有在「區間過濾模式」，才清空文字
             if (activeRouteFilterTrains === null) {
                 window.updateSearchInputText(''); 
             }
@@ -3336,8 +3347,13 @@ window.triggerSelectTrain = function(trainNo) {
     let targetTrain = timetable.find(t => (t.no === trainNo || t.train_no === trainNo));
     
     if (targetTrain) {
-        window.updateSearchInputText(trainNo); // 🌟 補上這行同步文字
-        // 🌟 1. 記住我們是從「哪個車站」點擊這班車的 (趁它被清空前趕快備份)
+        let tType = targetTrain.type || "";
+        window.updateSearchInputText(trainNo); 
+        
+        // 🌟 寫入歷史紀錄
+        SearchHistoryManager.add({ type: 'train', id: trainNo, keyword: trainNo, displayHtml: `<span class="search-item-badge badge-train">車次</span> <span style="margin-left: 8px;">${tType} ${trainNo}</span>` });
+
+        // 1. 記住我們是從「哪個車站」點擊這班車的...
         let originStationId = selectedStation;
 
         // 2. 切換狀態：選中火車，清空車站面板，更新底部 UI
@@ -3398,8 +3414,13 @@ window.triggerSelectStation = function(st_id) {
     selectedStation = st_id;
     updateBottomPanelStation(selectedStation); 
     let stName = getStationName(st_id);
-    window.updateSearchInputText(stName); // 🌟 補上這行同步文字
+    window.updateSearchInputText(stName); 
+    
+    // 🌟 寫入歷史紀錄
+    SearchHistoryManager.add({ type: 'station', id: st_id, keyword: stName, displayHtml: `<span class="search-item-badge badge-station">車站</span> <span style="margin-left: 8px;">${stName}</span>` });
+
     let targetMinutes = null;
+    
     if (selectedTrain && selectedTrain.segments) {
         for (let seg of selectedTrain.segments) {
             for (let i = 0; i < seg.s.length; i++) {
