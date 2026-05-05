@@ -3420,7 +3420,7 @@ window.triggerSelectStation = function(st_id) {
     SearchHistoryManager.add({ type: 'station', id: st_id, keyword: stName, displayHtml: `<span class="search-item-badge badge-station">車站</span> <span style="margin-left: 8px;">${stName}</span>` });
 
     let targetMinutes = null;
-    
+
     if (selectedTrain && selectedTrain.segments) {
         for (let seg of selectedTrain.segments) {
             for (let i = 0; i < seg.s.length; i++) {
@@ -3789,6 +3789,12 @@ async function init(systemPath) {
     if (typeof activeRouteFilterTrains !== 'undefined') {
         activeRouteFilterTrains = null; // 解除畫布過濾
     }
+
+    // 🌟 核心新增：徹底消滅上一個系統的歷史紀錄
+    if (typeof SearchHistoryManager !== 'undefined') {
+        SearchHistoryManager.clear();
+    }
+
     const searchInput = document.getElementById('search-input');
     const searchResults = document.getElementById('search-results');
     if (searchInput) searchInput.value = '';             // 清空輸入框字體
