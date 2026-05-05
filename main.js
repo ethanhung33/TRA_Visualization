@@ -1224,8 +1224,8 @@ window.SearchHistoryManager = {
     },
     add(item) {
         let history = this.get();
-        // 過濾掉重複的關鍵字，把最新的推到最前面
-        history = history.filter(h => h.keyword !== item.keyword);
+        // 🌟 核心修正：改用 ID 判斷重複，避免日本私鐵多班「区間急行」互相覆蓋
+        history = history.filter(h => (h.id ? h.id !== item.id : h.keyword !== item.keyword));
         history.unshift(item);
         if (history.length > this.maxItems) history.pop();
         localStorage.setItem(this.key, JSON.stringify(history));
@@ -1247,13 +1247,11 @@ window.SearchHistoryManager = {
         let borderColor = isDarkMode ? "#444444" : "#DDDDDD";
         let clearColor = isDarkMode ? "#FF6666" : "#FF3333";
 
-        // 組裝歷史紀錄的 UI 標頭
         let html = `<div style="padding: 8px 12px; font-size: 13px; color: ${textColor}; border-bottom: 1px solid ${borderColor}; display: flex; justify-content: space-between; align-items: center;">
                         <span>🕒 最近搜尋</span>
                         <span style="cursor: pointer; color: ${clearColor}; font-weight: bold;" onclick="clearSearchHistory(event)">清除</span>
                     </div>`;
         
-        // 組裝每一筆歷史紀錄
         html += history.map((item, index) => {
             return `<div class="search-item selectable-item" style="display: flex; align-items: center;" onclick="triggerHistorySelect(${index})">
                         ${item.displayHtml}
@@ -1264,6 +1262,65 @@ window.SearchHistoryManager = {
         searchResults.style.display = 'block';
     }
 };
+
+// ==========================================
+// 🌟 專屬火車歷史紀錄產生器 (支援隱藏設定與起訖時間)
+// ==========================================
+window.buildTrainHistoryData = function(train) {
+    if (!train) return { id: "", keyword: "未知", displayHtml: "未知" };
+    
+    let trainNo = train.no || train.train_no || train.id || "未知";
+    let tType = train.type || "";
+    
+    // 1. 讀取顯示設定
+    let showType = !(settings && settings.show_train_type === false);
+    let showId = !(settings && settings.show_train_id === false);
+    
+    let displayTitle = "";
+    if (showType && showId) displayTitle = `${tType} ${trainNo}`;
+    else if (showType && !showId) displayTitle = `${tType}`; // 如：区間急行
+    else if (!showType && showId) displayTitle = `${trainNo}`; // 如：高鐵 0111
+    else displayTitle = "列車";
+
+    // 2. 抓取起終點與時間
+    let startStationName = "未知";
+    let endStationName = "未知";
+    let startTime = "--:--";
+    let endTime = "--:--";
+
+    if (train.segments && train.segments.length > 0) {
+        let firstSeg = train.segments[0];
+        let lastSeg = train.segments[train.segments.length - 1];
+        
+        startStationName = getStationName(firstSeg.s[0]);
+        endStationName = getStationName(lastSeg.s[lastSeg.s.length - 1]);
+        
+        let tStartRaw = firstSeg.t[0] !== null ? firstSeg.t[0] : firstSeg.t[1];
+        let tEndRaw = lastSeg.t[lastSeg.t.length - 1] !== null ? lastSeg.t[lastSeg.t.length - 1] : lastSeg.t[lastSeg.t.length - 2];
+        
+        if (typeof formatTimeDisplay === 'function') {
+            startTime = formatTimeDisplay(tStartRaw);
+            endTime = formatTimeDisplay(tEndRaw);
+        }
+    }
+
+    // 3. 組裝精美 UI
+    let displayHtml = `
+        <div style="display: flex; align-items: center; width: 100%;">
+            <span class="search-item-badge badge-train">車次</span> 
+            <span style="margin-left: 8px; margin-right: 8px; font-weight: bold;">${displayTitle}</span> 
+            <span style="font-size: 13px; opacity: 0.8; margin-left: auto; display: flex; align-items: center; gap: 6px;">
+                <span>${startStationName}</span>
+                <span style="font-family: monospace;">${startTime}</span>
+                <span style="color: #888;">➔</span>
+                <span>${endStationName}</span>
+                <span style="font-family: monospace;">${endTime}</span>
+            </span>
+        </div>`;
+        
+    return { id: trainNo, keyword: displayTitle, displayHtml: displayHtml };
+};
+// ==========================================
 
 // 綁定給 HTML 呼叫的清除全域函數
 window.clearSearchHistory = function(e) {
@@ -1666,9 +1723,14 @@ window.triggerSearchSelect = function(type, id, element, saveHistory = true) {
             displayHtml = `<span class="search-item-badge badge-station">車站</span> <span style="margin-left: 8px;">${stName}</span>`;
         } else if (type === 'train') {
             let targetTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(id));
-            let tType = targetTrain ? targetTrain.type : "";
-            keyword = id;
-            displayHtml = `<span class="search-item-badge badge-train">車次</span> <span style="margin-left: 8px;">${tType} ${id}</span>`;
+            if (targetTrain) {
+                let historyData = window.buildTrainHistoryData(targetTrain);
+                keyword = historyData.keyword;
+                displayHtml = historyData.displayHtml;
+            } else {
+                keyword = id;
+                displayHtml = `<span class="search-item-badge badge-train">車次</span> <span style="margin-left: 8px;">${id}</span>`;
+            }
         }
         
         SearchHistoryManager.add({ type, id, keyword, displayHtml });
@@ -2227,11 +2289,10 @@ function setupCanvasInteractions() {
         } else if (closestTrain) {
             selectedTrain = closestTrain; 
             selectedStation = null;
-            let trainNo = closestTrain.no || closestTrain.train_no || closestTrain.id;
-            let tType = closestTrain.type || "";
-            window.updateSearchInputText(trainNo); // 🌟 同步文字
-            // 🌟 寫入歷史紀錄
-            SearchHistoryManager.add({ type: 'train', id: trainNo, keyword: trainNo, displayHtml: `<span class="search-item-badge badge-train">車次</span> <span style="margin-left: 8px;">${tType} ${trainNo}</span>` });
+            // 🌟 透過產生器獲取文字與介面
+            let historyData = window.buildTrainHistoryData(closestTrain);
+            window.updateSearchInputText(historyData.keyword); 
+            SearchHistoryManager.add({ type: 'train', id: historyData.id, keyword: historyData.keyword, displayHtml: historyData.displayHtml });
             if (typeof updateBottomPanel === 'function') updateBottomPanel(selectedTrain);
 
         } else if (closestStationLineId) {
@@ -3347,11 +3408,10 @@ window.triggerSelectTrain = function(trainNo) {
     let targetTrain = timetable.find(t => (t.no === trainNo || t.train_no === trainNo));
     
     if (targetTrain) {
-        let tType = targetTrain.type || "";
-        window.updateSearchInputText(trainNo); 
-        
-        // 🌟 寫入歷史紀錄
-        SearchHistoryManager.add({ type: 'train', id: trainNo, keyword: trainNo, displayHtml: `<span class="search-item-badge badge-train">車次</span> <span style="margin-left: 8px;">${tType} ${trainNo}</span>` });
+        // 🌟 透過產生器獲取文字與介面
+        let historyData = window.buildTrainHistoryData(targetTrain);
+        window.updateSearchInputText(historyData.keyword); 
+        SearchHistoryManager.add({ type: 'train', id: historyData.id, keyword: historyData.keyword, displayHtml: historyData.displayHtml });
 
         // 1. 記住我們是從「哪個車站」點擊這班車的...
         let originStationId = selectedStation;
