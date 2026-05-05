@@ -1200,6 +1200,98 @@ function buildUI() {
 }
 
 // ==========================================
+// 🌟 搜尋框文字同步助手
+// ==========================================
+window.updateSearchInputText = function(text) {
+    const searchInput = document.getElementById('search-input');
+    const clearBtn = document.getElementById('search-clear-btn');
+    if (searchInput) {
+        searchInput.value = text;
+        // 同步顯示或隱藏右側的叉叉按鈕
+        if (clearBtn) clearBtn.style.display = text.length > 0 ? 'block' : 'none';
+    }
+};
+
+// ==========================================
+// 🌟 歷史紀錄管理器 (LocalStorage)
+// ==========================================
+window.SearchHistoryManager = {
+    key: 'tra_search_history',
+    maxItems: 5, // 最多記憶 5 筆
+    get() {
+        try { return JSON.parse(localStorage.getItem(this.key)) || []; }
+        catch (e) { return []; }
+    },
+    add(item) {
+        let history = this.get();
+        // 過濾掉重複的關鍵字，把最新的推到最前面
+        history = history.filter(h => h.keyword !== item.keyword);
+        history.unshift(item);
+        if (history.length > this.maxItems) history.pop();
+        localStorage.setItem(this.key, JSON.stringify(history));
+    },
+    clear() {
+        localStorage.removeItem(this.key);
+    },
+    render() {
+        let history = this.get();
+        const searchResults = document.getElementById('search-results');
+        if (!searchResults) return;
+
+        if (history.length === 0) {
+            searchResults.style.display = 'none';
+            return;
+        }
+
+        let textColor = isDarkMode ? "#BBBBBB" : "#666666";
+        let borderColor = isDarkMode ? "#444444" : "#DDDDDD";
+        let clearColor = isDarkMode ? "#FF6666" : "#FF3333";
+
+        // 組裝歷史紀錄的 UI 標頭
+        let html = `<div style="padding: 8px 12px; font-size: 13px; color: ${textColor}; border-bottom: 1px solid ${borderColor}; display: flex; justify-content: space-between; align-items: center;">
+                        <span>🕒 最近搜尋</span>
+                        <span style="cursor: pointer; color: ${clearColor}; font-weight: bold;" onclick="clearSearchHistory(event)">清除</span>
+                    </div>`;
+        
+        // 組裝每一筆歷史紀錄
+        html += history.map((item, index) => {
+            return `<div class="search-item selectable-item" style="display: flex; align-items: center;" onclick="triggerHistorySelect(${index})">
+                        ${item.displayHtml}
+                    </div>`;
+        }).join('');
+        
+        searchResults.innerHTML = html;
+        searchResults.style.display = 'block';
+    }
+};
+
+// 綁定給 HTML 呼叫的清除全域函數
+window.clearSearchHistory = function(e) {
+    e.stopPropagation();
+    SearchHistoryManager.clear();
+    document.getElementById('search-results').style.display = 'none';
+};
+
+// 綁定給 HTML 呼叫的歷史紀錄點擊函數
+window.triggerHistorySelect = function(index) {
+    let history = SearchHistoryManager.get();
+    let item = history[index];
+    if (!item) return;
+
+    window.updateSearchInputText(item.keyword);
+    
+    if (item.type === 'station' || item.type === 'train') {
+         // false 代表不要重複再存一次歷史紀錄
+         window.triggerSearchSelect(item.type, item.id, null, false);
+    } else if (item.type === 'route') {
+         // 如果是區間車次，觸發 input 事件重新計算路線過濾
+         const searchInput = document.getElementById('search-input');
+         searchInput.dispatchEvent(new Event('input'));
+         document.getElementById('search-results').style.display = 'none';
+    }
+};
+
+// ==========================================
 // 🌟 全域變數：用來記錄「路線過濾」模式下，目前符合的車次號碼
 // ==========================================
 let activeRouteFilterTrains = null; // null 代表沒有啟用路線過濾，Set() 代表有啟用
@@ -1266,6 +1358,13 @@ function setupSearch() {
         }
     });
 
+    // 🌟 新增：點擊搜尋框時，如果是空的就顯示歷史紀錄
+    searchInput.addEventListener('focus', () => {
+        if (searchInput.value.trim().length === 0) {
+            SearchHistoryManager.render();
+        }
+    });
+
     searchInput.addEventListener('input', (e) => {
         const rawText = e.target.value.trim().toLowerCase();
 
@@ -1275,7 +1374,8 @@ function setupSearch() {
         }
         
         if (rawText.length === 0) {
-            searchResults.style.display = 'none';
+            // 🌟 核心修改：如果是空的，不要隱藏，而是顯示歷史紀錄！
+            SearchHistoryManager.render();
             if (activeRouteFilterTrains !== null) {
                 activeRouteFilterTrains = null;
                 if (typeof redrawAll === 'function') redrawAll(); 
@@ -1490,6 +1590,22 @@ function setupSearch() {
         if (e.key === "Enter") {
             e.preventDefault(); // 防止表單預設送出
 
+            // 🌟 新增：區間搜尋的歷史紀錄儲存
+            let rawText = searchInput.value.trim();
+            let keywords = normalizeText(rawText).split(/[~\-\s,，、]+/).filter(k => k.length > 0);
+            
+            // 如果是區間搜尋 (例如: 台北~花蓮)，按下 Enter 就存入歷史紀錄並收起選單
+            if (keywords.length >= 2) {
+                SearchHistoryManager.add({ 
+                    type: 'route', 
+                    id: rawText, 
+                    keyword: rawText, 
+                    displayHtml: `<span class="search-item-badge" style="background: #FFA500; color: #000;">區間</span> <span style="margin-left: 8px;">${rawText}</span>` 
+                });
+                searchResults.style.display = 'none';
+                return;
+            }
+
             // 狀況 A：如果此時選單是隱藏的，強制觸發一次輸入事件來「喚醒」選單！
             if (searchResults.style.display === 'none') {
                 searchInput.dispatchEvent(new Event('input'));
@@ -1533,16 +1649,31 @@ function setupSearch() {
 }
 
 // ==========================================
-// 🌟 供搜尋面板專用的全域觸發器 (保留文字與過濾狀態版)
+// 🌟 供搜尋面板專用的全域觸發器 (支援歷史紀錄版)
 // ==========================================
-window.triggerSearchSelect = function(type, id, element) {
+window.triggerSearchSelect = function(type, id, element, saveHistory = true) {
     const searchResults = document.getElementById('search-results');
-
-    // 1. 只有點擊後隱藏下拉選單，絕對「不」清空輸入框，也「不」隱藏叉叉按鈕！
     if (searchResults) searchResults.style.display = 'none';
 
-    // 🌟 這裡原本清空字體、隱藏叉叉、解除畫布過濾的邏輯全部拔除，
-    // 把控制權完全還給右上角的 ✕ 按鈕與 ESC 鍵！
+    // 🌟 1. 存入歷史紀錄，並同步輸入框文字
+    if (saveHistory) {
+        let keyword = "";
+        let displayHtml = "";
+        
+        if (type === 'station') {
+            let stName = getStationName(id);
+            keyword = stName;
+            displayHtml = `<span class="search-item-badge badge-station">車站</span> <span style="margin-left: 8px;">${stName}</span>`;
+        } else if (type === 'train') {
+            let targetTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(id));
+            let tType = targetTrain ? targetTrain.type : "";
+            keyword = id;
+            displayHtml = `<span class="search-item-badge badge-train">車次</span> <span style="margin-left: 8px;">${tType} ${id}</span>`;
+        }
+        
+        SearchHistoryManager.add({ type, id, keyword, displayHtml });
+        window.updateSearchInputText(keyword);
+    }
 
     // 2. 執行跳轉與選取
     if (type === 'station') {
@@ -1550,7 +1681,6 @@ window.triggerSearchSelect = function(type, id, element) {
             window.triggerSelectStation(id);
         }
     } else if (type === 'train') {
-        // 智慧防呆：如果這班車所屬的車種剛好被使用者隱藏了，自動幫他打勾開啟！
         let targetTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(id));
         if (targetTrain && !activeTrainTypes.has(targetTrain.type)) {
             activeTrainTypes.add(targetTrain.type);
@@ -1558,8 +1688,6 @@ window.triggerSearchSelect = function(type, id, element) {
                 if(b._updateStyle) b._updateStyle(); 
             });
         }
-        
-        // 呼叫原本寫好的車次跳轉函數，飛到那班車的位置並發光！
         if (typeof window.triggerSelectTrain === 'function') {
             window.triggerSelectTrain(id);
         }
@@ -2088,24 +2216,28 @@ function setupCanvasInteractions() {
 
         // --- 3. 🌟 終極權重裁決 ---
         if (closestStationTextId) {
-            // 👉 最高優先級：點中站名文字！(無視火車)
             selectedStation = closestStationTextId; 
             selectedTrain = null;
+            window.updateSearchInputText(getStationName(closestStationTextId)); // 🌟 同步文字
             if (typeof updateBottomPanelStation === 'function') updateBottomPanelStation(selectedStation);
         } else if (closestTrain) {
-            // 👉 次高優先級：點中火車線
             selectedTrain = closestTrain; 
             selectedStation = null;
+            let trainNo = closestTrain.no || closestTrain.train_no || closestTrain.id;
+            window.updateSearchInputText(trainNo); // 🌟 同步文字
             if (typeof updateBottomPanel === 'function') updateBottomPanel(selectedTrain);
         } else if (closestStationLineId) {
-            // 👉 最低優先級：沒點到火車，只點到背景橫線
             selectedStation = closestStationLineId; 
             selectedTrain = null;
+            window.updateSearchInputText(getStationName(closestStationLineId)); // 🌟 同步文字
             if (typeof updateBottomPanelStation === 'function') updateBottomPanelStation(selectedStation);
         } else {
-            // 👉 什麼都沒點到
             selectedTrain = null; 
             selectedStation = null;
+            // 🌟 點擊空白處取消選取時，如果沒有在「區間過濾模式」，才清空文字
+            if (activeRouteFilterTrains === null) {
+                window.updateSearchInputText(''); 
+            }
             if (typeof updateBottomPanel === 'function') updateBottomPanel(null);
         }
 
@@ -3204,6 +3336,7 @@ window.triggerSelectTrain = function(trainNo) {
     let targetTrain = timetable.find(t => (t.no === trainNo || t.train_no === trainNo));
     
     if (targetTrain) {
+        window.updateSearchInputText(trainNo); // 🌟 補上這行同步文字
         // 🌟 1. 記住我們是從「哪個車站」點擊這班車的 (趁它被清空前趕快備份)
         let originStationId = selectedStation;
 
@@ -3265,7 +3398,7 @@ window.triggerSelectStation = function(st_id) {
     selectedStation = st_id;
     updateBottomPanelStation(selectedStation); 
     let stName = getStationName(st_id);
-
+    window.updateSearchInputText(stName); // 🌟 補上這行同步文字
     let targetMinutes = null;
     if (selectedTrain && selectedTrain.segments) {
         for (let seg of selectedTrain.segments) {
