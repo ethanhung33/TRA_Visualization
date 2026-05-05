@@ -121,12 +121,6 @@ body {
     color: var(--panel-text-main) !important; 
 }
 
-#bottom-bar span { 
-    font-size: 14px; 
-    color: var(--panel-text-sub) !important; 
-    font-style: italic; 
-}
-
 /* (原本寫在這邊的 body.light-mode 相關設定已經全部刪除，因為變數已經接管一切了！) */
 
 /* ========================================== */
