@@ -13,6 +13,7 @@
     --panel-text-main: #FFFFFF; /* 主要文字：站名、標題 */
     --panel-text-sub: #BBBBBB;  /* 次要文字：時間、提示 */
     --panel-arrow: #666666;     /* 箭頭顏色 */
+    --panel-bg: #2d2d2d;
 }
 
 /* 當 body 被貼上 light-mode 標籤時，這組顏色會「自動覆蓋」上面的顏色！ */
@@ -27,6 +28,7 @@ body.light-mode {
     --panel-text-main: #222222; /* 變成深灰色 */
     --panel-text-sub: #666666;  /* 變成中灰色 */
     --panel-arrow: #999999;     /* 變成淺灰色 */
+    --panel-bg: #F5F5F5;
 }
 
 /* ==========================================
@@ -894,8 +896,11 @@ body.light-mode .search-item.search-item-active {
         border-top: 1px solid var(--btn-border) !important;
         transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), flex 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
         z-index: 10 !important;
-        background-color: #222 !important; 
+        
+        /* 🌟 修復 1：改用變數，讓它隨深淺色自動變換 */
+        background-color: var(--panel-bg) !important; 
     }
+    
     #bottom-bar.expanded { 
         flex: 0 0 75dvh !important; 
         height: 75dvh !important; 
@@ -905,13 +910,10 @@ body.light-mode .search-item.search-item-active {
     .train-info-header { width: 100% !important; max-width: 100% !important; border-right: none !important; border-bottom: 1px solid var(--btn-border) !important; padding: 12px 20px !important; position: relative; }
     .mobile-drag-handle { display: block !important; position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 40px; height: 5px; background: #888; border-radius: 3px; opacity: 0.5; }
     
-    /* --- 🌟 修復 1：解除置中魔咒 --- */
+    /* 🌟 修復 2：加上 justify-content: flex-start 解除置中魔咒 */
     #bottom-scroll-container, #bottom-scroll-container.is-station { 
         flex-direction: column !important; 
-        
-        /* 👈 就是這行救了全世界！強制從上往下排，絕對不准往上溢出 */
-        justify-content: flex-start !important; 
-        
+        justify-content: flex-start !important; /* 👈 絕對禁止車次往上溢出蓋住藍色標題 */
         overflow-y: auto !important; 
         overflow-x: hidden !important; 
         padding: 0 !important; 
