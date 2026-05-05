@@ -2721,7 +2721,14 @@ function updateBottomPanel(train) {
     
     let trainColor = "#888888"; 
     if (settings && settings.train_color && settings.train_color[trainType]) {
-        trainColor = settings.train_color[trainType][isDarkMode ? 0 : 1]; 
+        let typeColors = settings.train_color[trainType];
+        if (isDarkMode) {
+            trainColor = typeColors[0]; 
+        } else {
+            // 🌟 一樣補上白字防呆機制
+            let baseColor = typeColors[0].toUpperCase();
+            trainColor = typeColors[1] || ((baseColor === '#FFFFFF' || baseColor === '#FFF' || baseColor === 'WHITE') ? '#222222' : typeColors[0]);
+        }
     }
 
     // ==========================================
@@ -2969,15 +2976,23 @@ function updateBottomPanelStation(st_id) {
     // 🌟 核心修改：將資料塞入完美的 RWD 抽屜與表格框架
     // ==========================================
     
-    // 2. 建立雙骨架卡片 UI (電腦與手機版各有一套專屬 HTML，由 CSS 控制顯示隱藏)
+    // 2. 建立雙骨架卡片 UI
     const buildRowHtml = (trains, dirLabel, dirColor) => {
         if (trains.length === 0) return `<div style="color: ${theme.textSub}; font-size: 13px; padding: 10px 20px; font-style: italic;">${dirLabel} 近期無班次</div>`;
         
         return trains.map(item => {
             let typeColors = settings?.train_color?.[item.train.type];
             let tColor = theme.textMain; 
-            if (typeColors && typeColors.length > 0) tColor = isDarkMode ? typeColors[0] : (typeColors[1] || typeColors[0]);
-            
+            if (typeColors && typeColors.length > 0) {
+                if (isDarkMode) {
+                    tColor = typeColors[0];
+                } else {
+                    // 🌟 淺色模式終極防呆：如果沒設專屬淺色，且深色是白色，自動轉成深灰色！
+                    let baseColor = typeColors[0].toUpperCase();
+                    tColor = typeColors[1] || ((baseColor === '#FFFFFF' || baseColor === '#FFF' || baseColor === 'WHITE') ? '#222222' : typeColors[0]);
+                }
+            }
+
             let timeStr = formatTimeDisplay(item.depTime);
             let displayDiff = Math.floor(item.diff); 
             let showType = !(settings && settings.show_train_type === false);
@@ -3044,15 +3059,15 @@ function updateBottomPanelStation(st_id) {
             <!-- 🌟 手機版專屬徽章：吃 --up-badge 和 --down-badge 變數 -->
             <div id="bottom-scroll-container" class="is-station">
                 <div class="board-group" style="margin-top: 4px;">
-                    ${buildRowHtml(upboundTrains, '▲ 上行', 'var(--up-badge)')}
+                    ${buildRowHtml(upboundTrains, '▲ 上行', 'var(--up-badge-bg)')}
                 </div>
                 <div class="board-group">
-                    ${buildRowHtml(downboundTrains, '▼ 下行', 'var(--down-badge)')}
+                    ${buildRowHtml(downboundTrains, '▼ 下行', 'var(--down-badge-bg)')}
                 </div>
             </div>
         </div>
     `;
-    
+
     panel.classList.remove('expanded');
 }
 
