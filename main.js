@@ -2764,13 +2764,9 @@ function updateBottomPanel(train) {
     }
 
     // 2. 組裝車站列表的 HTML
-    let stationsHtml = `
-        <div class="mobile-table-header">
-            <div style="flex: 1.5; text-align: left; padding-left: 10px;">站名</div>
-            <div style="flex: 1; text-align: center;">到站時間</div>
-            <div style="flex: 1; text-align: right; padding-right: 10px;">離站時間</div>
-        </div>
-    `;
+    // 🌟 清空！不要把標題跟著車站一起組裝進去
+    let stationsHtml = ``;
+
     let stopCount = 0; let lastStationId = null;
 
     if (train.segments) {
@@ -2800,16 +2796,26 @@ function updateBottomPanel(train) {
         });
     }
 
-    // 3. 塞進 bottom-bar
+    // 3. 塞進 bottom-bar (火車面板)
     panel.innerHTML = `
         <div class="bottom-panel-wrapper">
             <div class="train-info-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')">
-                <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.2;">${displayTitle}</div>
+                <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.2;">
+                    ${displayTitle}
+                </div>
                 <div style="font-size: clamp(13px, 3.5vw, 16px); color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 6px; font-weight: bold;">
                     ${startStationName} <span style="margin: 0 4px; opacity: 0.7; font-size: 0.8em;">▶</span> ${endStationName}
                 </div>
                 <div class="mobile-drag-handle"></div>
             </div>
+            
+            <!-- 🌟 終極防跑位：把標題放在外面 -->
+            <div class="mobile-table-header" style="width: 100%; flex-shrink: 0;">
+                <div style="flex: 1.5; text-align: left; padding-left: 10px;">站名</div>
+                <div style="flex: 1; text-align: center;">到站時間</div>
+                <div style="flex: 1; text-align: right; padding-right: 10px;">離站時間</div>
+            </div>
+
             <div id="bottom-scroll-container">
                 ${stationsHtml}
             </div>
@@ -2982,7 +2988,7 @@ function updateBottomPanelStation(st_id) {
             // 🌟 一張卡片，兩種排版！
             return `
                 <div class="station-board-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg}; --hover-color: ${tColor};">
-                   
+
                     <!-- 💻 電腦版排版骨架 (手機上會自動隱藏) -->
                     <div class="sb-desktop-layout">
                         <div class="sb-top">
@@ -3010,7 +3016,7 @@ function updateBottomPanelStation(st_id) {
         }).join('');
     };
 
-    // 4. 組裝最終介面
+    // 4. 組裝最終介面 (車站面板)
     panel.innerHTML = `
         <div class="bottom-panel-wrapper">
             <div class="train-info-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')">
@@ -3026,14 +3032,15 @@ function updateBottomPanelStation(st_id) {
                 <div style="color: #FF9999; font-size: 13px; font-weight: bold; white-space: nowrap;">▼ 下行</div>
             </div>
 
-            <!-- 🌟 注意這裡加上了 is-station 幫助 CSS 識別 -->
-            <div id="bottom-scroll-container" class="is-station">
-                <div class="mobile-table-header" style="width: 100%;">
-                    <div style="flex: 1.5; text-align: left; padding-left: 10px;">車次</div>
-                    <div style="flex: 1; text-align: center;">發車時間</div>
-                    <div style="flex: 1; text-align: right; padding-right: 10px;">目的地</div>
-                </div>
+            <!-- 🌟 終極防跑位：把標題放在「滾動區塊」的外面，並加上 flex-shrink: 0 防擠壓 -->
+            <div class="mobile-table-header" style="width: 100%; flex-shrink: 0;">
+                <div style="flex: 1.5; text-align: left; padding-left: 10px;">車次</div>
+                <div style="flex: 1; text-align: center;">發車時間</div>
+                <div style="flex: 1; text-align: right; padding-right: 10px;">目的地</div>
+            </div>
 
+            <!-- 這裡只留純粹的車次資料，讓它自己滾動 -->
+            <div id="bottom-scroll-container" class="is-station">
                 <div class="board-group" style="margin-top: 4px;">
                     ${buildRowHtml(upboundTrains, '▲ 上行', '#66B2FF')}
                 </div>
