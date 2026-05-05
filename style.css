@@ -505,12 +505,22 @@ body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
    🌟 首頁歡迎選單 (Landing Page) 佈局排版
    ========================================== */
 #landing-page {
-    width: 100%;
-    height: 100vh; /* 佔滿全螢幕高度 */
-    padding: 80px 10%; /* 🌟 關鍵：上下空出 80px，左右空出 10% 的螢幕寬度 */
+    /* 🌟 加上這四行關鍵指令，讓首頁強制滿版蓋住畫面 */
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 99999 !important; 
+    
+    width: 100vw !important; /* 確保寬度吃滿螢幕 */
+    height: 100dvh !important; /* 確保高度吃滿螢幕 */
+    padding: 80px 10%; 
     box-sizing: border-box;
-    overflow-y: auto; /* 如果以後國家變多，允許上下捲動 */
-    background-color: #0a0a0a; /* (可選) 讓首頁的黑底比畫布的純黑稍微淺一點點，更有層次 */
+    overflow-y: auto; 
+    background-color: #0a0a0a; 
+    
+    /* 確保裡面的內容能正常排版 */
+    display: flex;
+    flex-direction: column;
 }
 
 /* 讓系統按鈕比國家標題再往右邊縮排一點點，視覺上會有「從屬」的階層感 */
@@ -799,8 +809,40 @@ body.light-mode .search-item.search-item-active {
         border-bottom: 2px solid var(--btn-border) !important;
         position: relative !important;
         transition: flex 0.3s ease, height 0.3s ease !important; 
+        
+        /* 🌟 補上這兩行：允許按鈕突破邊界露出來！ */
+        overflow: visible !important; 
+        z-index: 100 !important;
     }
     #sidebar.collapsed { flex: 0 0 0 !important; height: 0 !important; border-bottom: none !important; width: 100% !important; }
+    /* --- 🌟 補回遺失的側欄收合按鈕 (手機版掛在底部) --- */
+    .sidebar-toggle-btn {
+        position: absolute !important; 
+        z-index: 101 !important;
+        display: flex !important; 
+        justify-content: center !important;
+        align-items: center !important;
+        
+        /* 讓按鈕移動到「底部正中間」 */
+        left: 50% !important; 
+        top: 100% !important; 
+        transform: translateX(-50%) rotate(180deg) !important; 
+        
+        width: 80px !important; 
+        height: 25px !important;
+        
+        border-radius: 12px 12px 0 0 !important; 
+        border: 1px solid var(--btn-border) !important; 
+        border-bottom: none !important; 
+        font-size: 20px !important; 
+        writing-mode: vertical-rl; 
+        padding-bottom: 5px !important; 
+        
+        /* 補上底色與文字顏色，避免變成透明的 */
+        background-color: var(--btn-bg) !important; 
+        color: var(--btn-color) !important;
+        cursor: pointer !important;
+    }
     .sidebar-inner { width: 100% !important; height: 100% !important; padding: 15px !important; overflow-y: auto !important; }
 
     /* --- 3. 畫布與底部面板的總容器 (鎖死剩餘的 55dvh) --- */
