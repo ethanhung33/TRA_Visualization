@@ -1050,13 +1050,15 @@ body.light-mode .search-item.search-item-active {
     }
 
     /* ==========================================
-       🌟 調整手機版「預設初始狀態」的文字位置
+       🌟 調整手機版「預設初始狀態」的文字位置 (純 CSS 智慧判斷)
        ========================================== */
-    #bottom-bar > h2 {
-        margin-left: 25px !important; /* 👈 調整這裡：數值越小越靠左，0 就是完全貼齊螢幕邊緣 */
+    /* 如果 #bottom-bar 裡面「沒有」被塞入詳細資料的容器，就加上左邊距！ */
+    #bottom-bar:not(:has(.bottom-panel-wrapper)) {
+        padding-left: 25px !important; 
     }
     
-    #bottom-bar > span {
-        margin-left: 20px !important; /* 這是旁邊「點選列車...」小字的間距，可以跟著微調 */
+    /* 順便微調旁邊說明小字的間距，讓它不會黏太緊 */
+    #bottom-bar:not(:has(.bottom-panel-wrapper)) span {
+        margin-left: 15px !important;
     }
 }
