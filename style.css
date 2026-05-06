@@ -1048,4 +1048,15 @@ body.light-mode .search-item.search-item-active {
         overflow-x: hidden !important;
         scroll-snap-align: start !important; 
     }
+
+    /* ==========================================
+       🌟 調整手機版「預設初始狀態」的文字位置
+       ========================================== */
+    #bottom-bar > h2 {
+        margin-left: 15px !important; /* 👈 調整這裡：數值越小越靠左，0 就是完全貼齊螢幕邊緣 */
+    }
+    
+    #bottom-bar > span {
+        margin-left: 12px !important; /* 這是旁邊「點選列車...」小字的間距，可以跟著微調 */
+    }
 }
