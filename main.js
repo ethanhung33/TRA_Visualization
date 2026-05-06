@@ -409,6 +409,20 @@ function drawGrid(viewKey, layer = 'all') {
     let lineTop = isCircular ? viewTop : Math.max(viewTop, routeStartY - 20);
     let lineBottom = isCircular ? viewBottom : Math.min(viewBottom, routeEndY + 20);
 
+    // ==========================================
+    // 🌟 1. 智慧比例尺：根據目前的 X 軸縮放比例，決定時間文字的間距
+    // ==========================================
+    let textInterval = 60; // 預設每 60 分鐘標示一次
+    
+    // 如果 10 分鐘的物理像素寬度大於 60px，代表放得夠大，可以每 10 分鐘印一次！
+    if (CONFIG.scaleX * 10 > 60) {
+        textInterval = 10;
+    } 
+    // 如果稍微放大，容納得下 30 分鐘的間隔，就印 30 分鐘
+    else if (CONFIG.scaleX * 30 > 50) {
+        textInterval = 30;
+    }
+
     for (let m = 0; m <= 1560; m += 10) {
         let x = timeToX(m);
         if (x < viewLeft - 50 || x > viewRight + 50) continue; 
@@ -435,33 +449,43 @@ function drawGrid(viewKey, layer = 'all') {
 
         // --- 🌟 上下時間標籤 ---
         if (layer === 'labels' || layer === 'all') {
-            if (isHourLine) {
-                let hour = m / 60;
-                let timeStr = `${hour}:00`;
-                ctx.font = "bold 18px 'GlowSans', sans-serif";
+            
+            // 🌟 2. 判斷這個分鐘數是否符合我們算好的間距 (textInterval)
+            if (m % textInterval === 0) {
                 
-                // 🌟 因為不畫方塊了，所以 textWidth 跟 maskBg 可以直接刪除，保持程式碼乾淨
+                let displayHour = Math.floor(m / 60);
+                let displayMin = m % 60;
+                
+                // 格式化時間 (例如 17:00, 17:10)
+                let mm = displayMin.toString().padStart(2, '0');
+                let timeStr = `${displayHour}:${mm}`;
+                
+                // 🌟 3. 視覺層次區分：整點字體大一點，十分鐘字體稍微小一點
+                if (isHourLine) {
+                    ctx.font = "bold 18px 'GlowSans', sans-serif";
+                } else {
+                    ctx.font = "bold 14px 'GlowSans', sans-serif";
+                }
+                
                 let textColor = isDarkMode ? "#FFFFFF" : "#000000";
 
-                // (保留原本計算 labelYTop 與 labelYBottom 的邏輯)
                 let labelYTop = isCircular ? Math.max(CONFIG.paddingTop - 25, camera.y + 30) : Math.max(routeStartY - 25, Math.min(camera.y + 30, routeEndY));
                 let labelYBottom = isCircular ? camera.y + wrapperH - 30 : Math.min(camera.y + wrapperH - 30, routeEndY + 30);
 
-                // 🌟 1. 統一設定對齊方式與描邊 (Stroke) 樣式
-                ctx.textAlign = "center";      // 左右置中
-                ctx.textBaseline = "middle";   // 上下置中
-                ctx.lineWidth = 4;             // 文字外框的粗細
-                ctx.strokeStyle = isDarkMode ? "#000000" : "#FFFFFF"; // 深色模式用黑邊，淺色用白邊
+                ctx.textAlign = "center";      
+                ctx.textBaseline = "middle";   
+                ctx.lineWidth = 4;             
+                ctx.strokeStyle = isDarkMode ? "#000000" : "#FFFFFF"; 
 
                 // 畫頂部
-                ctx.strokeText(timeStr, x, labelYTop);  // 先畫外框 (注意：+2 已經拿掉了)
+                ctx.strokeText(timeStr, x, labelYTop);  
                 ctx.fillStyle = textColor;
-                ctx.fillText(timeStr, x, labelYTop);    // 再畫文字
+                ctx.fillText(timeStr, x, labelYTop);    
 
                 // 畫底部
-                ctx.strokeText(timeStr, x, labelYBottom); // 先畫外框 (注意：+2 已經拿掉了)
+                ctx.strokeText(timeStr, x, labelYBottom); 
                 ctx.fillStyle = textColor;
-                ctx.fillText(timeStr, x, labelYBottom);   // 再畫文字
+                ctx.fillText(timeStr, x, labelYBottom);   
             }
         }
     }
