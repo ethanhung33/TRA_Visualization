@@ -988,10 +988,10 @@ body.light-mode .search-item.search-item-active {
         border-bottom: 1px solid #4A5F75 !important;
     }
     /* ==========================================
-       🌟 手機版專屬：車站發車面板 (左右滑動分頁)
+       🌟 手機版專屬：車站發車面板 (左右滑動分頁) 終極加強版
        ========================================== */
     .station-tab-bar {
-        display: flex !important;
+        display: flex !important; /* 強制覆蓋 inline 的隱藏設定 */
         width: 100%;
         border-bottom: 1px solid var(--btn-border);
         flex-shrink: 0;
@@ -1013,7 +1013,6 @@ body.light-mode .search-item.search-item-active {
         color: var(--panel-text-main);
     }
     
-    /* 啟動狀態的底線指示器 */
     .station-tab.active::after {
         content: '';
         position: absolute;
@@ -1026,23 +1025,27 @@ body.light-mode .search-item.search-item-active {
         border-radius: 3px 3px 0 0;
     }
 
-    /* 讓原本的上下滾動容器變成「水平滑動」的畫布 */
+    /* 🌟 核心防呆：強制水平、絕對不准換行！ */
     #bottom-scroll-container.is-station {
-        flex-direction: row !important; /* 橫向排列 */
-        overflow-x: auto !important;    /* 開啟左右滑動 */
-        overflow-y: hidden !important;  /* 關閉畫布本身的上下滾動 */
-        scroll-snap-type: x mandatory;  /* 🌟 開啟「磁吸貼齊」效果！ */
-        scroll-behavior: smooth;
+        display: flex !important;
+        flex-direction: row !important;  /* 覆寫掉之前的 column，強制橫向 */
+        flex-wrap: nowrap !important;    /* 👈 關鍵：絕對不准把下行擠到下面！ */
+        overflow-x: auto !important;     
+        overflow-y: hidden !important;  
+        scroll-snap-type: x mandatory !important;  
+        scroll-behavior: smooth !important;
         width: 100% !important;
+        padding: 0 !important;
     }
 
-    /* 每個方向的面板獨立滾動，並佔滿 100% 寬度 */
+    /* 🌟 確保每個面板死死佔據 100% 畫布，不被壓縮 */
     .swipe-panel {
-        flex: 0 0 100%;
-        width: 100%;
-        height: 100%;
-        overflow-y: auto;         /* 允許內部上下看車次 */
-        overflow-x: hidden;
-        scroll-snap-align: start; /* 🌟 確保每次滑動都會對齊邊緣 */
+        flex: 0 0 100% !important; 
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        overflow-y: auto !important;     /* 面板內部允許上下看車次 */
+        overflow-x: hidden !important;
+        scroll-snap-align: start !important; 
     }
 }
