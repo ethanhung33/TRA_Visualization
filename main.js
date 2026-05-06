@@ -1911,8 +1911,11 @@ function bindThemeToggle() {
         });
 
         // ==========================================
-        // 🌟 核心修復：在重新渲染面板前，先「記住」目前的左右滾動進度！
+        // 🌟 核心修復：在重新渲染面板前，先「記住」目前的展開狀態與滾動進度！
         // ==========================================
+        const panel = document.getElementById('bottom-bar');
+        const isExpanded = panel ? panel.classList.contains('expanded') : false; // 👈 偷偷記住是不是打開的
+
         const scrollContainer = document.getElementById('bottom-scroll-container');
         let savedScrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
 
@@ -1924,8 +1927,13 @@ function bindThemeToggle() {
         }
 
         // ==========================================
-        // 🌟 重新抓取剛畫好的新面板，把滾動進度「還給」它！
+        // 🌟 重新抓取剛畫好的新面板，把展開狀態與滾動進度「還給」它！
         // ==========================================
+        const newPanel = document.getElementById('bottom-bar');
+        if (newPanel && isExpanded) {
+            newPanel.classList.add('expanded'); // 👈 如果剛剛是打開的，就幫它重新打開！
+        }
+
         const newScrollContainer = document.getElementById('bottom-scroll-container');
         if (newScrollContainer) {
             newScrollContainer.scrollLeft = savedScrollLeft;
