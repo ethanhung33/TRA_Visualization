@@ -3044,7 +3044,7 @@ function updateBottomPanelStation(st_id) {
         }).join('');
     };
 
-    // 4. 組裝最終介面 (車站面板)
+    // 4. 組裝最終介面 (車站面板 - 左右分頁版)
     panel.innerHTML = `
         <div class="bottom-panel-wrapper">
             <div class="train-info-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')">
@@ -3055,10 +3055,16 @@ function updateBottomPanelStation(st_id) {
                 <div class="mobile-drag-handle"></div>
             </div>
 
-            <!-- 🌟 電腦版專屬：吃 --up-text 和 --down-text 變數 -->
+            <!-- 電腦版保留原本的文字提示 -->
             <div class="desktop-dir-col">
                 <div style="color: var(--up-text); font-size: 13px; font-weight: bold; white-space: nowrap;">▲ 上行</div>
                 <div style="color: var(--down-text); font-size: 13px; font-weight: bold; white-space: nowrap;">▼ 下行</div>
+            </div>
+
+            <!-- 📱 手機版專屬頁籤列 -->
+            <div class="station-tab-bar" style="display: none;"> <!-- 電腦版預設隱藏，手機版 CSS 會打開它 -->
+                <div class="station-tab active" id="tab-up" onclick="switchStationTab(0)">▲ 上行</div>
+                <div class="station-tab" id="tab-down" onclick="switchStationTab(1)">▼ 下行</div>
             </div>
 
             <div class="mobile-table-header" style="width: 100%; flex-shrink: 0;">
@@ -3067,13 +3073,19 @@ function updateBottomPanelStation(st_id) {
                 <div style="flex: 1; text-align: right; padding-right: 10px;">目的地</div>
             </div>
 
-            <!-- 🌟 手機版專屬徽章：吃 --up-badge 和 --down-badge 變數 -->
+            <!-- 🌟 左右滑動的容器 -->
             <div id="bottom-scroll-container" class="is-station">
-                <div class="board-group" style="margin-top: 4px;">
-                    ${buildRowHtml(upboundTrains, '▲ 上行', 'var(--up-badge-bg)')}
+                <!-- 第一頁：上行 -->
+                <div class="swipe-panel">
+                    <div class="board-group" style="margin-top: 4px;">
+                        ${buildRowHtml(upboundTrains, '▲ 上行', 'var(--up-badge-bg)')}
+                    </div>
                 </div>
-                <div class="board-group">
-                    ${buildRowHtml(downboundTrains, '▼ 下行', 'var(--down-badge-bg)')}
+                <!-- 第二頁：下行 -->
+                <div class="swipe-panel">
+                    <div class="board-group">
+                        ${buildRowHtml(downboundTrains, '▼ 下行', 'var(--down-badge-bg)')}
+                    </div>
                 </div>
             </div>
         </div>
@@ -3840,6 +3852,41 @@ function updateTrainTypeVisibility() {
         }
     });
 }
+
+// ==========================================
+// 📱 點擊頁籤時，控制面板左右滑動
+// ==========================================
+window.switchStationTab = function(index) {
+    const scrollContainer = document.getElementById('bottom-scroll-container');
+    if (scrollContainer) {
+        const width = scrollContainer.clientWidth;
+        scrollContainer.scrollTo({ left: index * width, behavior: 'smooth' });
+    }
+};
+
+// ==========================================
+// 📱 監聽使用者的「手指左右滑動」，動態更新頁籤的底線！
+// ==========================================
+document.addEventListener('scroll', function(e) {
+    if (e.target.id === 'bottom-scroll-container' && e.target.classList.contains('is-station')) {
+        const tabUp = document.getElementById('tab-up');
+        const tabDown = document.getElementById('tab-down');
+        
+        if (tabUp && tabDown && window.innerWidth <= 768) {
+            // 如果滾動超過一半，就判定切換到下一頁
+            const scrollLeft = e.target.scrollLeft;
+            const halfWidth = e.target.clientWidth / 2;
+            
+            if (scrollLeft > halfWidth) {
+                tabUp.classList.remove('active');
+                tabDown.classList.add('active');
+            } else {
+                tabUp.classList.add('active');
+                tabDown.classList.remove('active');
+            }
+        }
+    }
+}, true); // 使用 Capture 模式確保能捕捉到內部 div 的 scroll 事件
 
 // ==========================================
 // 系統啟動點 (init)

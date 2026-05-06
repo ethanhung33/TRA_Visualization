@@ -987,4 +987,62 @@ body.light-mode .search-item.search-item-active {
         color: #FFFFFF !important;
         border-bottom: 1px solid #4A5F75 !important;
     }
+    /* ==========================================
+       🌟 手機版專屬：車站發車面板 (左右滑動分頁)
+       ========================================== */
+    .station-tab-bar {
+        display: flex !important;
+        width: 100%;
+        border-bottom: 1px solid var(--btn-border);
+        flex-shrink: 0;
+    }
+    
+    .station-tab {
+        flex: 1;
+        text-align: center;
+        padding: 10px 0;
+        font-size: 15px;
+        font-weight: bold;
+        color: var(--panel-text-sub);
+        cursor: pointer;
+        position: relative;
+        transition: color 0.3s;
+    }
+    
+    .station-tab.active {
+        color: var(--panel-text-main);
+    }
+    
+    /* 啟動狀態的底線指示器 */
+    .station-tab.active::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40%;
+        height: 3px;
+        background-color: var(--panel-text-main);
+        border-radius: 3px 3px 0 0;
+    }
+
+    /* 讓原本的上下滾動容器變成「水平滑動」的畫布 */
+    #bottom-scroll-container.is-station {
+        flex-direction: row !important; /* 橫向排列 */
+        overflow-x: auto !important;    /* 開啟左右滑動 */
+        overflow-y: hidden !important;  /* 關閉畫布本身的上下滾動 */
+        scroll-snap-type: x mandatory;  /* 🌟 開啟「磁吸貼齊」效果！ */
+        scroll-behavior: smooth;
+        width: 100% !important;
+    }
+
+    /* 每個方向的面板獨立滾動，並佔滿 100% 寬度 */
+    .swipe-panel {
+        flex: 0 0 100%;
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;         /* 允許內部上下看車次 */
+        overflow-x: hidden;
+        scroll-snap-align: start; /* 🌟 確保每次滑動都會對齊邊緣 */
+    }
 }
