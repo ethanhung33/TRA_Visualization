@@ -1914,10 +1914,11 @@ function bindThemeToggle() {
         // 🌟 核心修復：在重新渲染面板前，先「記住」目前的展開狀態與滾動進度！
         // ==========================================
         const panel = document.getElementById('bottom-bar');
-        const isExpanded = panel ? panel.classList.contains('expanded') : false; // 👈 偷偷記住是不是打開的
+        const isExpanded = panel ? panel.classList.contains('expanded') : false; 
 
         const scrollContainer = document.getElementById('bottom-scroll-container');
         let savedScrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
+        let savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0; // 🌟 補上這行：記住「上下」滾動進度！
 
         if (selectedStation) {
             updateBottomPanelStation(selectedStation);
@@ -1931,12 +1932,13 @@ function bindThemeToggle() {
         // ==========================================
         const newPanel = document.getElementById('bottom-bar');
         if (newPanel && isExpanded) {
-            newPanel.classList.add('expanded'); // 👈 如果剛剛是打開的，就幫它重新打開！
+            newPanel.classList.add('expanded'); 
         }
 
         const newScrollContainer = document.getElementById('bottom-scroll-container');
         if (newScrollContainer) {
             newScrollContainer.scrollLeft = savedScrollLeft;
+            newScrollContainer.scrollTop = savedScrollTop; // 🌟 補上這行：還原「上下」滾動進度！
         }
 
         // 4. 重繪畫布
