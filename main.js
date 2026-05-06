@@ -2838,7 +2838,6 @@ function updateBottomPanel(train) {
             </div>
         </div>
     `;
-    panel.classList.remove('expanded');
 }
 
 // ==========================================
@@ -3078,7 +3077,6 @@ function updateBottomPanelStation(st_id) {
         </div>
     `;
 
-    panel.classList.remove('expanded');
 }
 
 // ==========================================
