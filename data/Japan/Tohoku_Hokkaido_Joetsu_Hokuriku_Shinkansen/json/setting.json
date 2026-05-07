@@ -33,7 +33,7 @@
         "lines": [
           {"id": "THK_line", "start": "東京", "end": "大宮"},
           {"id": "JTS_line", "start": "大宮", "end": "高崎"},
-          "HOK_line"
+          "HRK_line"
         ],
         "view_type": "LINEAR",
         "button_color": ["#FF5722", "#E64A19"]
@@ -42,7 +42,7 @@
         "name": "山形新幹線 (東京-新庄)",
         "lines": [
           {"id": "THK_line", "start": "東京", "end": "福島"},
-          "YAM_line"
+          "YMG_line"
         ],
         "view_type": "LINEAR",
         "button_color": ["#4CAF50", "#388E3C"]
@@ -51,7 +51,7 @@
         "name": "秋田新幹線 (東京-秋田)",
         "lines": [
           {"id": "THK_line", "start": "東京", "end": "盛岡"},
-          "AKI_line"
+          "AKT_line"
         ],
         "view_type": "LINEAR",
         "button_color": ["#00BCD4", "#0097A7"]
