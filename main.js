@@ -711,85 +711,89 @@ function drawTrains() {
                     // 解說：如果是通過站 (v === 2)，我們什麼都不做！
                     // 讓畫筆繼續貼在紙上，下一個 lineTo 就會畫出完美的連續直線，不再斷裂！
                 }
-                ctx.stroke();
+                ctx.stroke(); // 👈 這是你原本畫完實線的那行
 
                 // ==========================================
-                // 🌟🌟🌟 新增 A：疊加雙色虛線 (併結特效)
+                // 🌟🌟🌟 新增 A：疊加雙色虛線 (拿掉快取，讓它們互相傷害！)
                 // ==========================================
                 if (train.coupled_with) {
                     let splitInfo = train.coupled_with.find(c => c.action === "split");
                     if (splitInfo) {
-                        // 加入 copy 變數確保無限捲動的每一層都有獨立快取
-                        let pairId = [train.no, splitInfo.train_id].sort().join("-");
-                        let cacheId = `${seg.id}-${pairId}-${copy}`;
-                        
-                        if (!drawnCoupledSegments.has(cacheId)) {
-                            let partner = timetable.find(t => t.no === splitInfo.train_id);
-                            if (partner) {
-                                // 取得兄弟車的顏色
-                                let pColor = fallbackColor;
-                                if (settings && settings.train_color && settings.train_color[partner.type]) {
-                                    pColor = settings.train_color[partner.type][colorIndex];
-                                }
-                                
-                                ctx.save();
-                                ctx.beginPath();
-                                let isOverlayDrawing = false;
-                                
-                                // 重跑一次這段軌跡，但只畫虛線！
-                                for (let i = 0; i < seg.s.length; i++) {
-                                    let y_raw = unwrappedCoords[i];
-                                    if (y_raw === null) { isOverlayDrawing = false; continue; }
-                                    let y = y_raw + offsetY; 
-                                    let x_arr = timeToX(seg.t[i * 2]);
-                                    let x_dep = timeToX(seg.t[i * 2 + 1]);
-                                    
-                                    if (!isOverlayDrawing) { 
-                                        if (i === 0 && segIdx > 0) ctx.moveTo(x_dep, y); else ctx.moveTo(x_arr, y); 
-                                        isOverlayDrawing = true; 
-                                    } else { 
-                                        ctx.lineTo(x_arr, y); 
-                                    }
-                                    if (seg.v[i] !== 2) ctx.lineTo(x_dep, y);
-                                }
-                                ctx.strokeStyle = pColor;
-                                ctx.setLineDash([12, 12]); // [實線長, 空白長]
-                                ctx.stroke();
-                                ctx.restore();
-                                
-                                drawnCoupledSegments.add(cacheId);
+                        let partner = timetable.find(t => t.no === splitInfo.train_id);
+                        if (partner) {
+                            let pColor = fallbackColor;
+                            if (settings && settings.train_color && settings.train_color[partner.type]) {
+                                pColor = settings.train_color[partner.type][colorIndex];
                             }
+                            
+                            ctx.save();
+                            ctx.beginPath();
+                            let isOverlayDrawing = false;
+                            
+                            for (let i = 0; i < seg.s.length; i++) {
+                                let y_raw = unwrappedCoords[i];
+                                if (y_raw === null) { isOverlayDrawing = false; continue; }
+                                let y = y_raw + offsetY; 
+                                let x_arr = timeToX(seg.t[i * 2]);
+                                let x_dep = timeToX(seg.t[i * 2 + 1]);
+                                
+                                if (!isOverlayDrawing) { 
+                                    if (i === 0 && segIdx > 0) ctx.moveTo(x_dep, y); else ctx.moveTo(x_arr, y); 
+                                    isOverlayDrawing = true; 
+                                } else { 
+                                    ctx.lineTo(x_arr, y); 
+                                }
+                                if (seg.v[i] !== 2) ctx.lineTo(x_dep, y);
+                            }
+                            
+                            ctx.strokeStyle = pColor;
+                            // 稍微加粗 0.5，確保虛線不會被底下的實線邊緣吃掉
+                            ctx.lineWidth = lineWidth + 0.5; 
+                            ctx.setLineDash([12, 12]); // [實線12px, 空白12px]
+                            ctx.stroke();
+                            ctx.restore();
                         }
                     }
                 }
 
                 // ==========================================
-                // 🌟🌟🌟 新增 B：畫出水平短虛線 (直通接駁特效)
+                // 🌟🌟🌟 新增 B：畫出水平短虛線 (防呆版)
                 // ==========================================
-                // 只在火車的「最後一個路段」檢查直通，避免中途畫錯
-                if (train.coupled_with && segIdx === train.segments.length - 1) {
+                if (train.coupled_with) {
                     let directInfo = train.coupled_with.find(c => c.action === "direct");
                     if (directInfo) {
-                        let nextTrain = timetable.find(t => t.no === directInfo.train_id);
-                        if (nextTrain) {
-                            let lastI = seg.s.length - 1;
-                            let endY = unwrappedCoords[lastI] + offsetY;
-                            let endX = timeToX(seg.t[lastI * 2 + 1] || seg.t[lastI * 2]); // 取最後出站時間
-                            
-                            let nextSeg = nextTrain.segments[0];
-                            let startX = timeToX(nextSeg.t[0]);
-                            
-                            // 確保時間是往前進的，且有抓到 Y 座標
-                            if (startX > endX && endY !== null) {
-                                ctx.save();
-                                ctx.beginPath();
-                                ctx.moveTo(endX, endY);
-                                ctx.lineTo(startX, endY);
-                                ctx.strokeStyle = trainColor; // 延續自己原本的顏色
-                                ctx.setLineDash([4, 4]);
-                                ctx.lineWidth = 1.5; // 故意畫細一點代表停滯狀態
-                                ctx.stroke();
-                                ctx.restore();
+                        // 確保這是在直通發生的那個車站才畫
+                        let lastI = seg.s.length - 1;
+                        let lastStation = seg.s[lastI];
+                        
+                        if (lastStation === directInfo.station_id) {
+                            let nextTrain = timetable.find(t => t.no === directInfo.train_id);
+                            if (nextTrain && nextTrain.segments.length > 0) {
+                                let endY = unwrappedCoords[lastI] + offsetY;
+                                
+                                // 🌟 防呆：如果出站時間是空的，就拿進站時間來算！
+                                let endT = seg.t[lastI * 2 + 1];
+                                if (endT === "" || endT === undefined) endT = seg.t[lastI * 2];
+                                let endX = timeToX(endT);
+                                
+                                let nextSeg = nextTrain.segments[0];
+                                let startT = nextSeg.t[0];
+                                if (startT === "" || startT === undefined) startT = nextSeg.t[1];
+                                let startX = timeToX(startT);
+                                
+                                // 確保算出來的 X 座標是正常的數字，且時間有往前推
+                                if (!isNaN(endX) && !isNaN(startX) && startX > endX && endY !== null) {
+                                    ctx.save();
+                                    ctx.beginPath();
+                                    ctx.moveTo(endX, endY);
+                                    ctx.lineTo(startX, endY);
+                                    
+                                    ctx.strokeStyle = trainColor; 
+                                    ctx.setLineDash([5, 5]); // 短虛線
+                                    ctx.lineWidth = 2.5; // 加粗一點比較醒目
+                                    ctx.stroke();
+                                    ctx.restore();
+                                }
                             }
                         }
                     }
