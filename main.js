@@ -3589,10 +3589,10 @@ async function loadTimetableData(dateOrType) {
                 if (settings.holidays && settings.holidays.includes(dateOrType)) isWeekend = true;
                 
                 const type = isWeekend ? 'weekend' : 'weekday';
-                todayFileUrl = `${dirc_path}timetable/timetable_east_${type}.json`;
+                todayFileUrl = `${dirc_path}timetable/timetable_${type}.json`;
             } else {
                 // 南海/近鐵：直接抓傳進來的 'weekday' 或 'weekend'
-                todayFileUrl = `${dirc_path}timetable/timetable_east_${dateOrType}.json`;
+                todayFileUrl = `${dirc_path}timetable/timetable_${dateOrType}.json`;
             }
             yestFileUrl = todayFileUrl; 
         }
