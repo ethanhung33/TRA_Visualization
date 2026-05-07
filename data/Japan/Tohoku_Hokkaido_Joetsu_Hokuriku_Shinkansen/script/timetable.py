@@ -78,22 +78,28 @@ def fetch_single_train_detail(url):
         train_div = soup.find('div', class_='trainlist')
         if not train_div: return []
         
-        # 🌟 1. 掃描表頭，抓出這頁所有的車 (名字與番號)
+        # 🌟 1. 掃描表頭與「各欄獨立的運行日」
         train_names = []
         train_nos = []
+        op_dates_text = {} 
+        
         for tr in train_div.find('table').find_all('tr'):
             th = tr.find('th')
             if not th: continue
             label = th.get_text().strip()
             tds = tr.find_all('td')
+            
             if '列車名' in label:
                 train_names = [td.get_text().strip() for td in tds]
             elif '列車番号' in label:
                 train_nos = [td.get_text().strip() for td in tds]
+            elif '運転日' in label:
+                for idx, td in enumerate(tds):
+                    op_dates_text[idx] = td.get_text().strip()
         
         if not train_names: return []
         
-        # 🌟 2. 透過神將白名單過濾
+        # 🌟 2. 神將白名單過濾
         VALID_SHINKANSEN_NAMES = [
             "はやぶさ", "はやて", "やまびこ", "なすの",
             "こまち", "つばさ",
@@ -110,11 +116,34 @@ def fetch_single_train_detail(url):
                     
         if not valid_indices: return []
         
-        cur_dates, variants = parse_calendar_logic(soup, url)
+        # 🌟 3. 日期獨立解析魔法 (完美處理 6/30 截止的問題)
+        page_dates, variants = parse_calendar_logic(soup, url)
+        final_dates_by_train = {}
+        active_indices = []
         
+        for i in valid_indices:
+            if page_dates:
+                final_dates_by_train[i] = set(page_dates)
+            else:
+                op_text = op_dates_text.get(i, "")
+                if "土曜・休日" in op_text:
+                    final_dates_by_train[i] = set(REF_WEEKEND)
+                elif "平日" in op_text:
+                    final_dates_by_train[i] = set(REF_WEEKDAY)
+                elif "運転" in op_text and "毎日" not in op_text:
+                    final_dates_by_train[i] = set() 
+                else:
+                    final_dates_by_train[i] = REF_WEEKDAY.union(REF_WEEKEND)
+            
+            if final_dates_by_train[i]:
+                active_indices.append(i)
+                
+        valid_indices = active_indices
+        if not valid_indices: return []
+
         stops_by_train = {i: [] for i in valid_indices}
         
-        # 🌟 3. 極簡逐站解析 (看到什麼抓什麼，空白直接跳過)
+        # 🌟 4. 逐站解析時間
         for row in train_div.find('table').find_all('tr'):
             th = row.find('th')
             if not th: continue
@@ -122,16 +151,12 @@ def fetch_single_train_detail(url):
             tds = row.find_all('td')
             
             for i in valid_indices:
-                time_idx = i * 2 # 每台車佔 2 個 td (時間、番線)
+                time_idx = i * 2 
                 if time_idx >= len(tds): continue
                 
                 time_txt = tds[time_idx].get_text().replace(' ', '').replace('\n', '').strip()
-                
-                # 如果格子是空的、寫著 || 或 レ，直接跳過這站
-                if time_txt in ["", "||", "レ", "==="]:
-                    continue 
+                if time_txt in ["", "||", "レ", "==="]: continue 
                     
-                # 即使是「┗━分割08:48発」，正規表達式也能精準抓出 08:48發
                 arr_m = re.search(r'(\d{2}:\d{2})着', time_txt)
                 dep_m = re.search(r'(\d{2}:\d{2})[発發发]', time_txt)
                 
@@ -144,23 +169,53 @@ def fetch_single_train_detail(url):
                 if arr != "" or dep != "":
                     stops_by_train[i].append({"sta": sta, "arr": arr, "dep": dep})
                     
-        # 🌟 4. 打包所有抓到的車回傳
-        results = []
+        # 🌟 5. 分列輸出，並自動偵測跨線直通 (action: direct)
+        grouped_results = {}
         for i in valid_indices:
-            if not cur_dates and not stops_by_train[i]: continue
+            if not stops_by_train[i]: continue
             
-            tname = train_names[i]
+            tname = train_names[i] # 例如 "つばさ 139号"
+            if tname not in grouped_results: grouped_results[tname] = []
+            
             match = re.match(r'([^\d\sa-zA-Z]+)', tname)
             clean_type = match.group(1) if match else tname
             
-            results.append({
+            grouped_results[tname].append({
                 "no": train_nos[i] if i < len(train_nos) else "",
                 "type": clean_type,
-                "dates": cur_dates,
+                "dates": final_dates_by_train[i],
                 "data": stops_by_train[i],
                 "url": url,
                 "variants": variants if i == valid_indices[0] else []
             })
+            
+        results = []
+        for tname, trains in grouped_results.items():
+            # 確保按照時間先後排序 (東京發的 139B 會排在福島發的 139M 前面)
+            trains.sort(key=lambda x: x["data"][0]["dep"] if x["data"] and x["data"][0]["dep"] != "" else 9999)
+            
+            # 如果這台車在網頁上被切成了多欄 (跨線換番號)，互相留下 direct 關聯
+            if len(trains) > 1:
+                for idx in range(len(trains) - 1):
+                    t_curr = trains[idx]
+                    t_next = trains[idx+1]
+                    link_station = t_next["data"][0]["sta"] # 跨線站，例如福島
+                    
+                    if "coupled_with" not in t_curr: t_curr["coupled_with"] = []
+                    t_curr["coupled_with"].append({
+                        "train_id": t_next["no"],
+                        "station_id": link_station,
+                        "action": "direct"
+                    })
+                    
+                    if "coupled_with" not in t_next: t_next["coupled_with"] = []
+                    t_next["coupled_with"].append({
+                        "train_id": t_curr["no"],
+                        "station_id": link_station,
+                        "action": "direct"
+                    })
+            
+            results.extend(trains)
             
         return results
     except Exception as e:
@@ -174,8 +229,11 @@ def apply_coupling_logic(trains):
     print("\n🔗 正在計算併結關係...")
     for t in trains:
         t["_sched"] = {s["s"][i]: (s["t"][i*2], s["t"][i*2+1]) for s in t["segments"] for i in range(len(s["s"]))}
-        t["coupled_with"] = []
         
+        # 🌟 關鍵修改：如果這台車還沒有 coupled_with (也就是沒有被標記過 direct)，才給它一個空陣列
+        if "coupled_with" not in t:
+            t["coupled_with"] = []
+            
     for i in range(len(trains)):
         for j in range(i + 1, len(trains)):
             t1, t2 = trains[i], trains[j]
@@ -191,6 +249,7 @@ def apply_coupling_logic(trains):
                 overlap.sort(key=lambda x: t1["_sched"][x][0])
                 split_station = overlap[-1] 
                 
+                # 這裡原本的 append 寫法非常正確，它會安全地把 split 標籤加到陣列後方
                 if not any(c["train_id"] == t2["no"] for c in t1["coupled_with"]):
                     t1["coupled_with"].append({"train_id": t2["no"], "station_id": split_station, "action": "split"})
                 if not any(c["train_id"] == t1["no"] for c in t2["coupled_with"]):
@@ -224,10 +283,12 @@ def main():
     TERMINAL_STATIONS = [
         "1039", # 東京 (下行本陣)
         "350",  # 大宮 (東北 上行 下行)
-        "843",  # 新青森 (東北 上行)
+        "0854", # 新青森 (東北 上行)
         "39",   # 秋田 (秋田 上行)
-        "805",  # 新庄 (山形 上行)
+        "867",  # 新庄 (山形 上行)
         "1137", # 新潟 (上越 上行)
+        "1085", # 長岡
+        "285",  # 越後湯澤
         "913",  # 仙台 (區間車)
         "1565"  # 盛岡 (區間車)
     ]
@@ -329,8 +390,20 @@ def main():
         elif d_set.issuperset(REF_WEEKEND): op = "weekend"
         else: op = "irregular"
         
-        item = {"no": train["no"], "type": train["type"].strip(), "operation": op, "segments": segs}
-        if op == "irregular": item["dates"] = sorted(list(d_set))
+        item = {
+            "no": train["no"], 
+            "type": train["type"].strip(), 
+            "operation": op, 
+            "segments": segs
+        }
+        
+        # 如果爬蟲階段有抓到 direct 直通標籤，就繼承過來
+        if "coupled_with" in train:
+            item["coupled_with"] = train["coupled_with"]
+            
+        if op == "irregular": 
+            item["dates"] = sorted(list(d_set))
+            
         processed_final.append(item)
         
     processed_final = apply_coupling_logic(processed_final)
