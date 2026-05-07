@@ -86,7 +86,24 @@ def fetch_single_train_detail(url):
                 if '列車名' in label: info['type_full'] = td.get_text().strip()
                 if '列車番号' in label: info['no'] = td.get_text().strip()
 
-        if any(tk in info.get('type_full','') for tk in ["のぞみ", "ひかり", "こだま"]) or info.get('no','').endswith(('A','K')):
+        # ==========================================
+        # 🌟 終極過濾器：JR東日本新幹線 12 神將白名單
+        # ==========================================
+        VALID_SHINKANSEN_NAMES = [
+            "はやぶさ", "はやて", "やまびこ", "なすの", # 東北・北海道
+            "こまち", "つばさ",                      # 秋田・山形
+            "とき", "たにがわ",                      # 上越
+            "かがやき", "はくたか", "あさま", "つるぎ"   # 北陸
+        ]
+        
+        train_name_full = info.get('type_full', '')
+        
+        # 1. 檢查是否在白名單內 (如果沒有包含這些名字，直接丟棄！ひたち會在這裡被殺掉)
+        if not any(valid_name in train_name_full for valid_name in VALID_SHINKANSEN_NAMES):
+            return None
+            
+        # 2. 阻擋東海道新幹線 (避免東京站抓到往大阪的車)
+        if any(tk in train_name_full for tk in ["のぞみ", "ひかり", "こだま"]) or info.get('no','').endswith(('A','K')):
             return None
 
         cur_dates, variants = parse_calendar_logic(soup, url)
@@ -112,7 +129,7 @@ def fetch_single_train_detail(url):
 
         return {
             "no": info.get('no'),
-            "type": re.match(r'([^\d\s]+)', info.get('type_full','')).group(1) if info.get('type_full') else "",
+            "type": re.match(r'([^\d\s]+)', train_name_full).group(1) if train_name_full else "",
             "dates": cur_dates,
             "data": stops,
             "url": url,
@@ -168,24 +185,21 @@ def save_json_per_line(path, data_list):
 # ==========================================
 # 🚀 主程式
 # ==========================================
+# ==========================================
+# 🚀 主程式 (極速精準優化版)
+# ==========================================
 def main():
-    print(f"🚀 JR 東日本新幹線全量採集啟動 (解決亂碼與端點站抓取)")
+    print(f"🚀 JR 東日本新幹線全量採集啟動 (極速優化版)")
     
     TERMINAL_STATIONS = [
         "1039", # 東京 (下行本陣)
+        "350",  # 大宮 (東北 上行 下行)
         "843",  # 新青森 (東北 上行)
         "39",   # 秋田 (秋田 上行)
         "805",  # 新庄 (山形 上行)
         "1137", # 新潟 (上越 上行)
-        "465",  # 金沢 (北陸 上行)
         "913",  # 仙台 (區間車)
         "1565"  # 盛岡 (區間車)
-    ]
-    
-    # 🌟 寧可錯殺一百，不可放過一台：把所有大站都加入雷達
-    TARGET_KEYWORDS = [
-        '新幹線', '東北', '北海道', '秋田', '山形', '上越', '北陸',
-        '東京', '青森', '盛岡', '仙台', '新潟', '金沢', '敦賀', '長野', '函館', '新庄'
     ]
 
     processed_urls, all_raw_results = set(), []
@@ -193,32 +207,35 @@ def main():
 
     # 1. 遍歷所有端點站，蒐集所有的列車連結
     for station_id in TERMINAL_STATIONS:
-        # 🌟 核心修復：JR 東日本網址強制要求 4 位數 (自動補零)
         padded_id = str(station_id).zfill(4)
         entry_url = f"https://www.jreast-timetable.jp/timetable/list{padded_id}.html"
         
         try:
             res = requests.get(entry_url, headers=HEADERS)
-            res.encoding = 'utf-8' # 🌟 雙重保險：強制指定 UTF-8 避免亂碼
-            soup = BeautifulSoup(res.text, 'html.parser')
+            soup = BeautifulSoup(res.content, 'html.parser')
             
             valid_links = []
-            for a in soup.find_all('a', class_='fortimeLink'):
-                tr = a.find_parent('tr')
-                if not tr: continue
-                
+            
+            # 🌟 核心修正：改為先掃描「每一列 (tr)」
+            for tr in soup.find_all('tr'):
                 row_text = tr.get_text()
                 
-                # 只要這列的文字包含任何我們想要的站名或路線，且絕對不是東海道，就抓！
-                if any(kw in row_text for kw in TARGET_KEYWORDS) and '東海道' not in row_text:
-                    valid_links.append(a)
+                # 判斷這列是不是我們要的新幹線
+                if '新幹線' in row_text and '東海道' not in row_text:
+                    
+                    # 抓出這列裡面所有的按鈕 (通常會有 4 個)
+                    links_in_row = tr.find_all('a', class_='fortimeLink')
+                    
+                    # 🌟 終極剪枝法：我們只要前 2 個按鈕 (純文字時刻表)
+                    # 後面的「デジタル時刻表」連看都不看，直接丟棄！
+                    for a in links_in_row[:2]:
+                        valid_links.append(a)
             
             if valid_links:
                 for a in tqdm(valid_links, desc=f"🔍 掃描端點站 {padded_id} ({station_id})"):
                     try:
                         sub_res = requests.get(urljoin(entry_url, a['href']), headers=HEADERS)
-                        sub_res.encoding = 'utf-8'
-                        sub_soup = BeautifulSoup(sub_res.text, 'html.parser')
+                        sub_soup = BeautifulSoup(sub_res.content, 'html.parser')
                         for ta in sub_soup.find_all('a', href=re.compile(r'/train/')):
                             full_url = urljoin(urljoin(entry_url, a['href']), ta['href']).replace("www.jreast-timetable.jp", "timetables.jreast.co.jp")
                             seed_urls.add(full_url)
@@ -231,6 +248,8 @@ def main():
             print(f"無法讀取端點站 {padded_id}: {e}")
 
     print(f"🎯 共收集到 {len(seed_urls)} 個獨立的列車種子連結！準備深度抓取...")
+    
+    # ... (下面維持原本的 Queue 與 ThreadPoolExecutor 邏輯不變) ...
 
     # 2. 深度遞迴掃描變體
     queue = list(seed_urls)
