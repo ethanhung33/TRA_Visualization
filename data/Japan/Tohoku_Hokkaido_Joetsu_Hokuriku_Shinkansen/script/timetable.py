@@ -276,7 +276,7 @@ def main():
     output_dir = os.path.join(json_dir, "timetable")
     os.makedirs(output_dir, exist_ok=True)
     save_json_per_line(os.path.join(output_dir, "timetable_weekday.json"), wd_final)
-    save_json_per_line(os.path.join(output_dir, "timetable_weekend.json"), we_final)
+    save_json_per_line(os.path.join(output_dir, "timetable_holiday.json"), we_final)
 
     print(f"\n🎉 採集完成！平日：{len(wd_final)} 班次，假日：{len(we_final)} 班次")
 
