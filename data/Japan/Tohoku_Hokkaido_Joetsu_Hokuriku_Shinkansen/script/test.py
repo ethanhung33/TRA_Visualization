@@ -11,6 +11,7 @@ def test_jreast_structure():
     res.encoding = 'utf-8'
     soup = BeautifulSoup(res.text, 'html.parser')
     
+    
     # 找出網頁中所有的發車時刻表區塊
     tables = soup.find_all('div', class_='rosentable')
     
