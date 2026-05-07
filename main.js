@@ -711,10 +711,10 @@ function drawTrains() {
                     // 解說：如果是通過站 (v === 2)，我們什麼都不做！
                     // 讓畫筆繼續貼在紙上，下一個 lineTo 就會畫出完美的連續直線，不再斷裂！
                 }
-                ctx.stroke(); // 👈 這是你原本畫完實線的那行
+                ctx.stroke(); // 👈 這是你原本畫完主線條的這行！
 
                 // ==========================================
-                // 🌟🌟🌟 新增 A：疊加雙色虛線 (拿掉快取，讓它們互相傷害！)
+                // 🌟🌟🌟 新增 A：精準疊加雙色虛線 (只在共線段畫)
                 // ==========================================
                 if (train.coupled_with) {
                     let splitInfo = train.coupled_with.find(c => c.action === "split");
@@ -726,16 +726,38 @@ function drawTrains() {
                                 pColor = settings.train_color[partner.type][colorIndex];
                             }
                             
+                            // 🌟 核心防呆：建立兄弟車的「時空座標快取」
+                            // 預先記下兄弟車在什麼時間出現在什麼車站
+                            let partnerTimes = new Set();
+                            partner.segments.forEach(pSeg => {
+                                for (let j = 0; j < pSeg.s.length; j++) {
+                                    partnerTimes.add(pSeg.s[j] + '_' + pSeg.t[j*2]);     // 進站時間
+                                    partnerTimes.add(pSeg.s[j] + '_' + pSeg.t[j*2+1]);   // 出站時間
+                                }
+                            });
+
                             ctx.save();
                             ctx.beginPath();
                             let isOverlayDrawing = false;
                             
                             for (let i = 0; i < seg.s.length; i++) {
+                                let st_id = seg.s[i];
                                 let y_raw = unwrappedCoords[i];
-                                if (y_raw === null) { isOverlayDrawing = false; continue; }
+                                
+                                // 🌟 魔法判定：只有當兄弟車在「這個車站、這個時間點」也存在時，才畫虛線！
+                                let t_arr = seg.t[i*2];
+                                let t_dep = seg.t[i*2+1];
+                                let isShared = partnerTimes.has(st_id + '_' + t_arr) || partnerTimes.has(st_id + '_' + t_dep);
+                                
+                                // 只要離開了併結區段 (isShared 變成 false)，虛線就會立刻斷開不畫！
+                                if (y_raw === null || !isShared) { 
+                                    isOverlayDrawing = false; 
+                                    continue; 
+                                }
+                                
                                 let y = y_raw + offsetY; 
-                                let x_arr = timeToX(seg.t[i * 2]);
-                                let x_dep = timeToX(seg.t[i * 2 + 1]);
+                                let x_arr = timeToX(t_arr);
+                                let x_dep = timeToX(t_dep);
                                 
                                 if (!isOverlayDrawing) { 
                                     if (i === 0 && segIdx > 0) ctx.moveTo(x_dep, y); else ctx.moveTo(x_arr, y); 
@@ -747,9 +769,8 @@ function drawTrains() {
                             }
                             
                             ctx.strokeStyle = pColor;
-                            // 稍微加粗 0.5，確保虛線不會被底下的實線邊緣吃掉
-                            ctx.lineWidth = lineWidth + 0.5; 
-                            ctx.setLineDash([12, 12]); // [實線12px, 空白12px]
+                            ctx.lineWidth = lineWidth + 0.5; // 故意畫粗一點點防遮擋
+                            ctx.setLineDash([12, 12]);
                             ctx.stroke();
                             ctx.restore();
                         }
@@ -757,21 +778,24 @@ function drawTrains() {
                 }
 
                 // ==========================================
-                // 🌟🌟🌟 新增 B：畫出水平短虛線 (防呆版)
+                // 🌟🌟🌟 新增 B：畫出水平短虛線 (直通接駁特效)
                 // ==========================================
-                if (train.coupled_with) {
+                // 確保這是在火車的「最後一個路段」才檢查
+                if (train.coupled_with && segIdx === train.segments.length - 1) {
                     let directInfo = train.coupled_with.find(c => c.action === "direct");
                     if (directInfo) {
-                        // 確保這是在直通發生的那個車站才畫
-                        let lastI = seg.s.length - 1;
-                        let lastStation = seg.s[lastI];
-                        
-                        if (lastStation === directInfo.station_id) {
-                            let nextTrain = timetable.find(t => t.no === directInfo.train_id);
-                            if (nextTrain && nextTrain.segments.length > 0) {
+                        let nextTrain = timetable.find(t => t.no === directInfo.train_id);
+                        if (nextTrain && nextTrain.segments.length > 0) {
+                            
+                            // 抓這台車的「最後一站」跟下一台車的「第一站」
+                            let lastI = seg.s.length - 1;
+                            let currentLastStationId = seg.s[lastI];
+                            let nextFirstStationId = nextTrain.segments[0].s[0];
+                            
+                            // 🌟 修正：不比對中文站名，直接比對拓樸的車站 ID (例如 THK18 === THK18)
+                            if (currentLastStationId === nextFirstStationId) {
                                 let endY = unwrappedCoords[lastI] + offsetY;
                                 
-                                // 🌟 防呆：如果出站時間是空的，就拿進站時間來算！
                                 let endT = seg.t[lastI * 2 + 1];
                                 if (endT === "" || endT === undefined) endT = seg.t[lastI * 2];
                                 let endX = timeToX(endT);
@@ -781,16 +805,16 @@ function drawTrains() {
                                 if (startT === "" || startT === undefined) startT = nextSeg.t[1];
                                 let startX = timeToX(startT);
                                 
-                                // 確保算出來的 X 座標是正常的數字，且時間有往前推
-                                if (!isNaN(endX) && !isNaN(startX) && startX > endX && endY !== null) {
+                                // 確保座標有效，且時間是向後走的，才畫出接駁虛線
+                                if (!isNaN(endX) && !isNaN(startX) && startX >= endX && endY !== null) {
                                     ctx.save();
                                     ctx.beginPath();
                                     ctx.moveTo(endX, endY);
                                     ctx.lineTo(startX, endY);
                                     
-                                    ctx.strokeStyle = trainColor; 
-                                    ctx.setLineDash([5, 5]); // 短虛線
-                                    ctx.lineWidth = 2.5; // 加粗一點比較醒目
+                                    ctx.strokeStyle = trainColor; // 延續自己原本的顏色
+                                    ctx.setLineDash([5, 5]); 
+                                    ctx.lineWidth = 2.5; 
                                     ctx.stroke();
                                     ctx.restore();
                                 }
