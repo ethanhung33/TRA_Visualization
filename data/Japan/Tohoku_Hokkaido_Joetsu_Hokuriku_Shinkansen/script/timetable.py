@@ -42,9 +42,6 @@ def clean_station_name(text):
     return anomalies.get(text.strip(), text.strip())
 
 def parse_calendar_logic(soup, current_url):
-    """
-    🌟 修正：接收 current_url，精確拼接相對路徑[cite: 2]
-    """
     current_dates = set()
     variant_urls = set()
     calendar_div = soup.find('div', class_='serviceDayCalendar')
@@ -63,10 +60,8 @@ def parse_calendar_logic(soup, current_url):
             
             a_tag = td.find('a')
             if a_tag:
-                # ✅ 完美拼接：從目前的 URL 延伸相對路徑[cite: 2]
                 variant_urls.add(urljoin(current_url, a_tag['href']))
             elif 'none' not in classes:
-                # 藍色運行日期
                 day_text = td.get_text(strip=True)
                 if day_text.isdigit():
                     d = int(day_text)
@@ -78,8 +73,8 @@ def parse_calendar_logic(soup, current_url):
 def fetch_single_train_detail(url):
     try:
         res = requests.get(url, headers=HEADERS, timeout=15)
-        res.encoding = res.apparent_encoding
-        soup = BeautifulSoup(res.text, 'html.parser')
+        # 🌟 核心修復：使用 res.content 讓 BS4 自動精準處理日文編碼
+        soup = BeautifulSoup(res.content, 'html.parser')
         train_div = soup.find('div', class_='trainlist')
         if not train_div: return None
         
@@ -91,11 +86,9 @@ def fetch_single_train_detail(url):
                 if '列車名' in label: info['type_full'] = td.get_text().strip()
                 if '列車番号' in label: info['no'] = td.get_text().strip()
 
-        # 排除東海道[cite: 2]
         if any(tk in info.get('type_full','') for tk in ["のぞみ", "ひかり", "こだま"]) or info.get('no','').endswith(('A','K')):
             return None
 
-        # 將 URL 傳入以處理相對路徑
         cur_dates, variants = parse_calendar_logic(soup, url)
         
         stops = []
@@ -130,9 +123,7 @@ def fetch_single_train_detail(url):
 # ==========================================
 # 🔗 拓樸轉換、併結與輸出
 # ==========================================
-
 def apply_coupling_logic(trains):
-    """ 計算併結關係 (已修正變體自我併結 Bug) """
     print("\n🔗 正在計算併結關係...")
     for t in trains:
         t["_sched"] = {s["s"][i]: (s["t"][i*2], s["t"][i*2+1]) for s in t["segments"] for i in range(len(s["s"]))}
@@ -142,28 +133,22 @@ def apply_coupling_logic(trains):
         for j in range(i + 1, len(trains)):
             t1, t2 = trains[i], trains[j]
             
-            # 🛡️ 防呆 1：絕對不可能自己跟自己（的變體）併結
-            if t1["no"] == t2["no"]:
-                continue
+            if t1["no"] == t2["no"]: continue
                 
-            # 🛡️ 防呆 2：如果不定期列車的行駛日期完全沒有交集，就不可能併結
             if t1["operation"] == "irregular" and t2["operation"] == "irregular":
                 if not set(t1.get("dates", [])).intersection(set(t2.get("dates", []))):
                     continue
                     
-            # 檢查時間重疊的車站
             overlap = [st for st, time in t1["_sched"].items() if st in t2["_sched"] and t2["_sched"][st] == time]
             if len(overlap) >= 2:
                 overlap.sort(key=lambda x: t1["_sched"][x][0])
-                split_station = overlap[-1] # 最後一個重合的站就是解連站
+                split_station = overlap[-1] 
                 
-                # 🛡️ 防呆 3：避免被對方的多個變體重複加入
                 if not any(c["train_id"] == t2["no"] for c in t1["coupled_with"]):
                     t1["coupled_with"].append({"train_id": t2["no"], "station_id": split_station, "action": "split"})
                 if not any(c["train_id"] == t1["no"] for c in t2["coupled_with"]):
                     t2["coupled_with"].append({"train_id": t1["no"], "station_id": split_station, "action": "split"})
                     
-    # 清理暫存欄位
     for t in trains:
         del t["_sched"]
         if not t["coupled_with"]: 
@@ -180,49 +165,74 @@ def save_json_per_line(path, data_list):
             f.write(f"  {line}{',' if i < len(data_list)-1 else ''}\n")
         f.write("]\n")
 
+# ==========================================
+# 🚀 主程式
+# ==========================================
 def main():
-    print(f"🚀 JR 東日本新幹線全量採集啟動 (多端點雙向掃描版)")
+    print(f"🚀 JR 東日本新幹線全量採集啟動 (解決亂碼與端點站抓取)")
     
-    # 🌟 核心修正：將單一的東京站，改為各大路線的「端點站」代碼
     TERMINAL_STATIONS = [
-        "1039", # 東京 (抓取所有往北的下行列車)
-        "843",  # 新青森 (東北新幹線 上行)
-        "39",   # 秋田 (秋田新幹線 上行)
-        "805",  # 新庄 (山形新幹線 上行)
-        "1137", # 新潟 (上越新幹線 上行)
-        "465",  # 金沢 (北陸新幹線 上行，JR西日本區間可能需另外處理但金沢發車有紀錄)
-        "918",  # 仙台 (抓取不經過東京的東北區間車)
-        "1548"  # 盛岡 (抓取不經過東京的北東北區間車)
+        "1039", # 東京 (下行本陣)
+        "843",  # 新青森 (東北 上行)
+        "39",   # 秋田 (秋田 上行)
+        "805",  # 新庄 (山形 上行)
+        "1137", # 新潟 (上越 上行)
+        "465",  # 金沢 (北陸 上行)
+        "913",  # 仙台 (區間車)
+        "1565"  # 盛岡 (區間車)
     ]
     
+    # 🌟 寧可錯殺一百，不可放過一台：把所有大站都加入雷達
+    TARGET_KEYWORDS = [
+        '新幹線', '東北', '北海道', '秋田', '山形', '上越', '北陸',
+        '東京', '青森', '盛岡', '仙台', '新潟', '金沢', '敦賀', '長野', '函館', '新庄'
+    ]
+
     processed_urls, all_raw_results = set(), []
     seed_urls = set()
 
     # 1. 遍歷所有端點站，蒐集所有的列車連結
     for station_id in TERMINAL_STATIONS:
-        entry_url = f"https://www.jreast-timetable.jp/timetable/list{station_id}.html"
+        # 🌟 核心修復：JR 東日本網址強制要求 4 位數 (自動補零)
+        padded_id = str(station_id).zfill(4)
+        entry_url = f"https://www.jreast-timetable.jp/timetable/list{padded_id}.html"
+        
         try:
             res = requests.get(entry_url, headers=HEADERS)
+            res.encoding = 'utf-8' # 🌟 雙重保險：強制指定 UTF-8 避免亂碼
             soup = BeautifulSoup(res.text, 'html.parser')
-            shinkansen_div = soup.find('div', class_='rosentable')
             
-            if not shinkansen_div: continue
-
-            for a in tqdm(shinkansen_div.find_all('a', class_='fortimeLink'), desc=f"🔍 掃描端點站 {station_id}"):
-                if '東海道' in a.parent.parent.get_text(): continue
-                try:
-                    sub_res = requests.get(urljoin(entry_url, a['href']), headers=HEADERS)
-                    sub_soup = BeautifulSoup(sub_res.text, 'html.parser')
-                    for ta in sub_soup.find_all('a', href=re.compile(r'/train/')):
-                        full_url = urljoin(urljoin(entry_url, a['href']), ta['href']).replace("www.jreast-timetable.jp", "timetables.jreast.co.jp")
-                        seed_urls.add(full_url)
-                except: continue
+            valid_links = []
+            for a in soup.find_all('a', class_='fortimeLink'):
+                tr = a.find_parent('tr')
+                if not tr: continue
+                
+                row_text = tr.get_text()
+                
+                # 只要這列的文字包含任何我們想要的站名或路線，且絕對不是東海道，就抓！
+                if any(kw in row_text for kw in TARGET_KEYWORDS) and '東海道' not in row_text:
+                    valid_links.append(a)
+            
+            if valid_links:
+                for a in tqdm(valid_links, desc=f"🔍 掃描端點站 {padded_id} ({station_id})"):
+                    try:
+                        sub_res = requests.get(urljoin(entry_url, a['href']), headers=HEADERS)
+                        sub_res.encoding = 'utf-8'
+                        sub_soup = BeautifulSoup(sub_res.text, 'html.parser')
+                        for ta in sub_soup.find_all('a', href=re.compile(r'/train/')):
+                            full_url = urljoin(urljoin(entry_url, a['href']), ta['href']).replace("www.jreast-timetable.jp", "timetables.jreast.co.jp")
+                            seed_urls.add(full_url)
+                    except:
+                        continue
+            else:
+                print(f"⚠️ 警告：端點站 {padded_id} 找不到目標路線")
+                
         except Exception as e:
-            print(f"無法讀取端點站 {station_id}: {e}")
+            print(f"無法讀取端點站 {padded_id}: {e}")
 
     print(f"🎯 共收集到 {len(seed_urls)} 個獨立的列車種子連結！準備深度抓取...")
 
-    # 2. 深度遞迴掃描變體 (維持你原本超強的邏輯)
+    # 2. 深度遞迴掃描變體
     queue = list(seed_urls)
     while queue:
         new_v = set()
@@ -239,7 +249,6 @@ def main():
                         if v_url not in processed_urls: new_v.add(v_url)
         queue = list(new_v)
 
-    # 拓樸轉換與後續分類維持不變...
     print("\n🗺️ 正在處理拓樸轉換與分類...")
     topo_path = os.path.join(json_dir, "topology.json")
     with open(topo_path, 'r', encoding='utf-8') as f: topo = json.load(f)
