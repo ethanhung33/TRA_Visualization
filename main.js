@@ -4069,30 +4069,47 @@ async function init(systemPath) {
                 dateInput.value = ""; 
                 if (dateInput._flatpickr) dateInput._flatpickr.destroy();
 
-                // (這裡保留你原本抓取 available_dates.json 跟尋找 today 的邏輯)
-                const dateRes = await fetch(dirc_path + 'available_dates.json?t=' + Date.now());
-                if (dateRes.ok) availableDates = await dateRes.json();
-                else availableDates = ["2026-04-20"]; 
-
+                // 1. 先取得今天的實體日期作為預設值 (新幹線預設用這個)
                 let todayObj = new Date();
                 let todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
-                
-                currentDate = availableDates[availableDates.length - 1];
-                if (availableDates.includes(todayStr)) currentDate = todayStr;
-                else {
-                    let futureDates = availableDates.filter(d => d >= todayStr);
-                    if (futureDates.length > 0) currentDate = futureDates[0];
-                }
+                currentDate = todayStr;
 
-                flatpickr(dateInput, {
+                // 2. 準備 Flatpickr 的基礎設定檔 (先不要放入 enable 屬性)
+                let flatpickrConfig = {
                     defaultDate: currentDate, 
-                    enable: settings.data_fetch_strategy === "DAILY_FILE" ? availableDates : undefined, // 新幹線不鎖死日期
                     dateFormat: "Y-m-d",
                     disableMobile: "true",
                     onChange: async function(selectedDates, dateStr, instance) {
                         await loadTimetableData(dateStr);
                     }
-                });
+                };
+
+                // 🌟 3. 只有「每日獨立檔案 (台鐵/高鐵)」才需要去抓可選日期名單！
+                if (settings.data_fetch_strategy === "DAILY_FILE") {
+                    try {
+                        const dateRes = await fetch(dirc_path + 'available_dates.json?t=' + Date.now());
+                        if (dateRes.ok) {
+                            availableDates = await dateRes.json();
+                            
+                            // 重新校正預設日期 (確保停留在有資料的那天)
+                            currentDate = availableDates[availableDates.length - 1];
+                            if (availableDates.includes(todayStr)) currentDate = todayStr;
+                            else {
+                                let futureDates = availableDates.filter(d => d >= todayStr);
+                                if (futureDates.length > 0) currentDate = futureDates[0];
+                            }
+                            
+                            // 更新設定檔
+                            flatpickrConfig.defaultDate = currentDate;
+                            flatpickrConfig.enable = availableDates; // 🌟 只有這裡才加上 enable 屬性！
+                        }
+                    } catch (e) {
+                        console.warn("無法載入 available_dates.json，改為自由選擇日期");
+                    }
+                }
+
+                // 4. 正式啟動日曆
+                flatpickr(dateInput, flatpickrConfig);
             }
 
             // 啟動時載入選定的日期
