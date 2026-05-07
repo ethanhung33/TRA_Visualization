@@ -84,7 +84,8 @@ const KANJI_MAP = {
     '区': '區',   // 都区内
     '国': '國',   // 国鉄
     '嶋': '島',   // 異體字
-    '徳': '德'    // 德山
+    '徳': '德',   // 德山
+    '戸': '戶'    // 神戸
 };
 
 /**
@@ -408,6 +409,20 @@ function drawGrid(viewKey, layer = 'all') {
     let lineTop = isCircular ? viewTop : Math.max(viewTop, routeStartY - 20);
     let lineBottom = isCircular ? viewBottom : Math.min(viewBottom, routeEndY + 20);
 
+    // ==========================================
+    // 🌟 1. 智慧比例尺：根據目前的 X 軸縮放比例，決定時間文字的間距
+    // ==========================================
+    let textInterval = 60; // 預設每 60 分鐘標示一次
+    
+    // 如果 10 分鐘的物理像素寬度大於 60px，代表放得夠大，可以每 10 分鐘印一次！
+    if (CONFIG.scaleX * 10 > 60) {
+        textInterval = 10;
+    } 
+    // 如果稍微放大，容納得下 30 分鐘的間隔，就印 30 分鐘
+    else if (CONFIG.scaleX * 30 > 50) {
+        textInterval = 30;
+    }
+
     for (let m = 0; m <= 1560; m += 10) {
         let x = timeToX(m);
         if (x < viewLeft - 50 || x > viewRight + 50) continue; 
@@ -434,33 +449,43 @@ function drawGrid(viewKey, layer = 'all') {
 
         // --- 🌟 上下時間標籤 ---
         if (layer === 'labels' || layer === 'all') {
-            if (isHourLine) {
-                let hour = m / 60;
-                let timeStr = `${hour}:00`;
-                ctx.font = "bold 18px 'GlowSans', sans-serif";
+            
+            // 🌟 2. 判斷這個分鐘數是否符合我們算好的間距 (textInterval)
+            if (m % textInterval === 0) {
                 
-                // 🌟 因為不畫方塊了，所以 textWidth 跟 maskBg 可以直接刪除，保持程式碼乾淨
+                let displayHour = Math.floor(m / 60);
+                let displayMin = m % 60;
+                
+                // 格式化時間 (例如 17:00, 17:10)
+                let mm = displayMin.toString().padStart(2, '0');
+                let timeStr = `${displayHour}:${mm}`;
+                
+                // 🌟 3. 視覺層次區分：整點字體大一點，十分鐘字體稍微小一點
+                if (isHourLine) {
+                    ctx.font = "bold 18px 'GlowSans', sans-serif";
+                } else {
+                    ctx.font = "bold 14px 'GlowSans', sans-serif";
+                }
+                
                 let textColor = isDarkMode ? "#FFFFFF" : "#000000";
 
-                // (保留原本計算 labelYTop 與 labelYBottom 的邏輯)
                 let labelYTop = isCircular ? Math.max(CONFIG.paddingTop - 25, camera.y + 30) : Math.max(routeStartY - 25, Math.min(camera.y + 30, routeEndY));
                 let labelYBottom = isCircular ? camera.y + wrapperH - 30 : Math.min(camera.y + wrapperH - 30, routeEndY + 30);
 
-                // 🌟 1. 統一設定對齊方式與描邊 (Stroke) 樣式
-                ctx.textAlign = "center";      // 左右置中
-                ctx.textBaseline = "middle";   // 上下置中
-                ctx.lineWidth = 4;             // 文字外框的粗細
-                ctx.strokeStyle = isDarkMode ? "#000000" : "#FFFFFF"; // 深色模式用黑邊，淺色用白邊
+                ctx.textAlign = "center";      
+                ctx.textBaseline = "middle";   
+                ctx.lineWidth = 4;             
+                ctx.strokeStyle = isDarkMode ? "#000000" : "#FFFFFF"; 
 
                 // 畫頂部
-                ctx.strokeText(timeStr, x, labelYTop);  // 先畫外框 (注意：+2 已經拿掉了)
+                ctx.strokeText(timeStr, x, labelYTop);  
                 ctx.fillStyle = textColor;
-                ctx.fillText(timeStr, x, labelYTop);    // 再畫文字
+                ctx.fillText(timeStr, x, labelYTop);    
 
                 // 畫底部
-                ctx.strokeText(timeStr, x, labelYBottom); // 先畫外框 (注意：+2 已經拿掉了)
+                ctx.strokeText(timeStr, x, labelYBottom); 
                 ctx.fillStyle = textColor;
-                ctx.fillText(timeStr, x, labelYBottom);   // 再畫文字
+                ctx.fillText(timeStr, x, labelYBottom);   
             }
         }
     }
@@ -1910,10 +1935,14 @@ function bindThemeToggle() {
         });
 
         // ==========================================
-        // 🌟 核心修復：在重新渲染面板前，先「記住」目前的左右滾動進度！
+        // 🌟 核心修復：在重新渲染面板前，先「記住」目前的展開狀態與滾動進度！
         // ==========================================
+        const panel = document.getElementById('bottom-bar');
+        const isExpanded = panel ? panel.classList.contains('expanded') : false; 
+
         const scrollContainer = document.getElementById('bottom-scroll-container');
         let savedScrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
+        let savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0; // 🌟 補上這行：記住「上下」滾動進度！
 
         if (selectedStation) {
             updateBottomPanelStation(selectedStation);
@@ -1923,11 +1952,17 @@ function bindThemeToggle() {
         }
 
         // ==========================================
-        // 🌟 重新抓取剛畫好的新面板，把滾動進度「還給」它！
+        // 🌟 重新抓取剛畫好的新面板，把展開狀態與滾動進度「還給」它！
         // ==========================================
+        const newPanel = document.getElementById('bottom-bar');
+        if (newPanel && isExpanded) {
+            newPanel.classList.add('expanded'); 
+        }
+
         const newScrollContainer = document.getElementById('bottom-scroll-container');
         if (newScrollContainer) {
             newScrollContainer.scrollLeft = savedScrollLeft;
+            newScrollContainer.scrollTop = savedScrollTop; // 🌟 補上這行：還原「上下」滾動進度！
         }
 
         // 4. 重繪畫布
@@ -2709,6 +2744,8 @@ function updateBottomPanel(train) {
                 <span style="font-size: 18px; color: var(--panel-text-sub);">點選列車或車站以顯示資訊</span>
             </div>
         `;
+        // 🌟 核心修復：在 return 退出之前，強制拔除展開狀態，讓抽屜降下來！
+        panel.classList.remove('expanded'); 
         return;
     }
 
@@ -2718,7 +2755,14 @@ function updateBottomPanel(train) {
     
     let trainColor = "#888888"; 
     if (settings && settings.train_color && settings.train_color[trainType]) {
-        trainColor = settings.train_color[trainType][isDarkMode ? 0 : 1]; 
+        let typeColors = settings.train_color[trainType];
+        if (isDarkMode) {
+            trainColor = typeColors[0]; 
+        } else {
+            // 🌟 一樣補上白字防呆機制
+            let baseColor = typeColors[0].toUpperCase();
+            trainColor = typeColors[1] || ((baseColor === '#FFFFFF' || baseColor === '#FFF' || baseColor === 'WHITE') ? '#222222' : typeColors[0]);
+        }
     }
 
     // ==========================================
@@ -2763,77 +2807,59 @@ function updateBottomPanel(train) {
     }
 
     // 2. 組裝車站列表的 HTML
-    let stationsHtml = "";
-    let stopCount = 0;
+    // 🌟 清空！不要把標題跟著車站一起組裝進去
+    let stationsHtml = ``;
 
-    let lastStationId = null;
+    let stopCount = 0; let lastStationId = null;
 
     if (train.segments) {
         train.segments.forEach(seg => {
             for (let i = 0; i < seg.s.length; i++) {
-                if (seg.v[i] === 2) continue; // 過濾掉通過的車站
-
+                if (seg.v[i] === 2) continue;
                 let currentStationId = seg.s[i];
-
-                // 🌟 新增這段過濾機制：
-                // 如果現在這個車站，跟上一個剛剛印過的車站一模一樣，就直接跳過！
-                if (currentStationId === lastStationId) {
-                    continue;
-                }
+                if (currentStationId === lastStationId) continue;
                 lastStationId = currentStationId;
 
                 let stName = getStationName(seg.s[i]);
-                // 如果你沒有 formatTimeDisplay 函數，請確保把它也加進 main.js 喔！
                 let arrT = formatTimeDisplay(seg.t[i * 2]);     
                 let depT = formatTimeDisplay(seg.t[i * 2 + 1]); 
                 
-                // 🌟 別忘了中間的箭頭也可以加大
-                if (stopCount > 0) {
-                    stationsHtml += `
-                        <div style="display: flex; align-items: center; justify-content: center; margin: 0 12px; font-size: 20px; color: var(--panel-arrow);">
-                            ➔
-                        </div>
-                    `;
-                }
+                if (stopCount > 0) stationsHtml += `<div class="station-arrow">➔</div>`;
 
-                // 在產生 stationsHtml 的迴圈內
+                // 🌟 使用火車專屬 Class
                 stationsHtml += `
-                    <div onclick="window.triggerSelectStation('${seg.s[i]}')" 
-                         style="display: flex; flex-direction: column; align-items: center; min-width: 70px; cursor: pointer; padding: 8px; border-radius: 8px; transition: background 0.2s;"
-                         onmouseover="this.style.background='rgba(128,128,128,0.2)'"
-                         onmouseout="this.style.background='transparent'">
-                         
-                        <div style="font-size: 20px; margin-bottom: 6px; font-weight: bold; letter-spacing: 1px; color: var(--panel-text-main);">
-                            ${stName}
-                        </div>
-                        
-                        <div style="font-size: 15px; line-height: 1.4; color: var(--panel-text-sub);">${arrT}</div>
-                        <div style="font-size: 15px; line-height: 1.4; color: var(--panel-text-sub);">${depT}</div>
+                    <div class="train-stop-item" onclick="window.triggerSelectStation('${seg.s[i]}')">
+                        <div class="ts-col-name">${stName}</div>
+                        <div class="ts-col-arr">${arrT}</div>
+                        <div class="ts-col-dep">${depT}</div>
                     </div>
                 `;
-
-                
                 stopCount++;
             }
         });
     }
 
-    // 3. 塞進現有的 bottom-bar
+    // 3. 塞進 bottom-bar (火車面板)
     panel.innerHTML = `
-        <div style="display: flex; width: 100%; height: 100%; align-items: center;">
-            
-            <div style="width: auto; min-width: 90px; max-width: 35%; display: flex; flex-direction: column; justify-content: center; padding-left: 12px; padding-right: 10px; border-right: 2px solid #444; flex-shrink: 0; overflow: hidden;">
-                
-                <div style="font-size: clamp(18px, 4.5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 0px; line-height: 1.2; white-space: nowrap; overflow-x: auto; scrollbar-width: none;">
+        <div class="bottom-panel-wrapper">
+            <div class="train-info-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')">
+                <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.2;">
                     ${displayTitle}
                 </div>
-                
-                <div style="font-size: 13px; color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 6px; font-weight: bold; letter-spacing: 0px; white-space: nowrap; overflow-x: auto; scrollbar-width: none;">
-                    ${startStationName} <span style="font-size: 11px; margin: 0 2px; opacity: 0.7;">▶</span> ${endStationName}
+                <div style="font-size: clamp(13px, 3.5vw, 16px); color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 6px; font-weight: bold;">
+                    ${startStationName} <span style="margin: 0 4px; opacity: 0.7; font-size: 0.8em;">▶</span> ${endStationName}
                 </div>
+                <div class="mobile-drag-handle"></div>
             </div>
             
-            <div id="bottom-scroll-container" style="flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 15px; white-space: nowrap; scrollbar-width: none;">
+            <!-- 🌟 終極防跑位：把標題放在外面 -->
+            <div class="mobile-table-header" style="width: 100%; flex-shrink: 0;">
+                <div style="flex: 1.5; text-align: left; padding-left: 10px;">站名</div>
+                <div style="flex: 1; text-align: center;">到站時間</div>
+                <div style="flex: 1; text-align: right; padding-right: 10px;">離站時間</div>
+            </div>
+
+            <div id="bottom-scroll-container">
                 ${stationsHtml}
             </div>
         </div>
@@ -2979,88 +3005,116 @@ function updateBottomPanelStation(st_id) {
         timeGray: isDarkMode ? '#BBBBBB' : '#666666' 
     };
 
-    // 🌟 2. 建立卡片 UI
-    const buildRowHtml = (trains) => {
-        if (trains.length === 0) {
-            return `<div style="color: ${theme.textSub}; font-size: 13px; margin-left: 10px; font-style: italic;">近期無班次</div>`;
-        }
+    // ==========================================
+    // 🌟 核心修改：將資料塞入完美的 RWD 抽屜與表格框架
+    // ==========================================
+    
+    // 2. 建立雙骨架卡片 UI
+    const buildRowHtml = (trains, dirLabel, dirColor) => {
+        if (trains.length === 0) return `<div style="color: ${theme.textSub}; font-size: 13px; padding: 10px 20px; font-style: italic;">${dirLabel} 近期無班次</div>`;
+        
         return trains.map(item => {
-            
-            // ==========================================
-            // 🌟 3. 動態抓取對應的車種色碼
-            // ==========================================
             let typeColors = settings?.train_color?.[item.train.type];
             let tColor = theme.textMain; 
-            
             if (typeColors && typeColors.length > 0) {
-                // 直接依據 isDarkMode 決定拿 [0] 還是 [1]
-                tColor = isDarkMode ? typeColors[0] : (typeColors[1] || typeColors[0]);
+                if (isDarkMode) {
+                    tColor = typeColors[0];
+                } else {
+                    // 🌟 淺色模式終極防呆：如果沒設專屬淺色，且深色是白色，自動轉成深灰色！
+                    let baseColor = typeColors[0].toUpperCase();
+                    tColor = typeColors[1] || ((baseColor === '#FFFFFF' || baseColor === '#FFF' || baseColor === 'WHITE') ? '#222222' : typeColors[0]);
+                }
             }
-            
+
             let timeStr = formatTimeDisplay(item.depTime);
             let displayDiff = Math.floor(item.diff); 
+            let showType = !(settings && settings.show_train_type === false);
+            let showId = !(settings && settings.show_train_id === false);
+            let displayTitle = "列車";
+            if (showType && showId) displayTitle = `${item.train.type} ${item.trainNo}`;
+            else if (showType && !showId) displayTitle = `${item.train.type}`;
+            else if (!showType && showId) displayTitle = `${item.trainNo}`;
 
-            // ==========================================
-            // 🌟 核心升級：支援 show_train_type 與 show_train_id 自由開關
-            // ==========================================
-            let showType = !(settings && settings.show_train_type === false); // 預設 true
-            let showId = !(settings && settings.show_train_id === false);     // 預設 true
-
-            let displayTitle = "";
-            if (showType && showId) {
-                displayTitle = `${item.train.type} ${item.trainNo}`;
-            } else if (showType && !showId) {
-                displayTitle = `${item.train.type}`; // 👈 南海模式：只顯示「区間急行」
-            } else if (!showType && showId) {
-                displayTitle = `${item.trainNo}`;    // 只顯示車次
-            } else {
-                displayTitle = "列車";
-            }
-
+            // 🌟 一張卡片，兩種排版！
             return `
-                <div onclick="window.triggerSelectTrain('${item.trainNo}')" 
-                     style="display: flex; flex-direction: column; justify-content: center; min-width: 150px; margin: 0 4px; padding: 4px 8px; background: ${theme.cardBg}; border-radius: 6px; cursor: pointer; border: 1px solid transparent; line-height: 1.2;"
-                     onmouseover="this.style.background='${theme.cardHoverBg}'; this.style.borderColor='${tColor}'"
-                     onmouseout="this.style.background='${theme.cardBg}'; this.style.borderColor='transparent'">
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px;">
-                        <span style="font-size: 15px; color: ${theme.textMain}; font-weight: bold;">${timeStr}</span>
-                        <span style="font-size: 11px; color: ${tColor}; font-weight: bold;">${displayTitle}</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                        <span style="font-size: 12px; color: ${theme.textSub};">往 ${item.destName}</span>
-                        <span style="font-size: 11px; color: ${theme.timeGray}; font-weight: bold;">約 ${displayDiff} 分</span>
+                <div class="station-board-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg}; --hover-color: ${tColor};">
+
+                    <!-- 💻 電腦版排版骨架 (手機上會自動隱藏) -->
+                    <div class="sb-desktop-layout">
+                        <div class="sb-top">
+                            <span class="sb-time">${timeStr}</span>
+                            <span class="sb-title" style="color: ${tColor};">${displayTitle}</span>
+                        </div>
+                        <div class="sb-bottom">
+                            <span class="sb-dest">往 ${item.destName}</span>
+                            <span class="sb-diff">約 ${displayDiff} 分</span>
+                        </div>
                     </div>
 
+                    <!-- 📱 手機版表格排版骨架 (電腦上會自動隱藏) -->
+                    <div class="sb-mobile-layout">
+                        <div class="sb-col-title">
+                            <span style="color: ${tColor};">${displayTitle}</span>
+                            <span class="board-dir-label" style="background: ${dirColor}; margin-left: 0;">${dirLabel}</span>
+                        </div>
+                        
+                        <!-- 🌟 補上 style，讓它們會跟著日夜模式切換成黑色/白色！ -->
+                        <div class="sb-col-time" style="color: ${theme.textMain};">${timeStr}</div>
+                        <div class="sb-col-dest" style="color: ${theme.textMain};">往 ${item.destName}</div>
+                    </div>
+                    
                 </div>
             `;
         }).join('');
     };
 
-    // 4. 組裝最終介面 (維持原樣)
+    // 4. 組裝最終介面 (車站面板 - 左右分頁版)
     panel.innerHTML = `
-        <div style="display: flex; width: 100%; height: 100%; align-items: center; color: ${theme.textMain};">
-            <div style="min-width: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-right: 15px; border-right: 1px solid ${theme.border}; flex-shrink: 0;">
-                <div style="font-size: 20px; font-weight: bold;">${stName}</div>
-                <div style="font-size: 12px; color: ${theme.textSub}; margin-top: 4px;">即將發車</div>
-            </div>
-
-            <div style="display: flex; flex-direction: column; justify-content: center; height: 100%; padding: 0 10px 0 15px; border-right: 1px solid ${theme.border}; flex-shrink: 0; gap: 10px;">
-                <div style="color: #66B2FF; font-size: 13px; font-weight: bold; white-space: nowrap;">▲ 上行</div>
-                <div style="color: #FF9999; font-size: 13px; font-weight: bold; white-space: nowrap;">▼ 下行</div>
-            </div>
-
-            <div id="bottom-scroll-container" style="flex: 1; display: flex; flex-direction: column; justify-content: center; height: 100%; overflow-x: auto; overflow-y: hidden; padding: 0 10px; scrollbar-width: none; gap: 4px;">
-                <div style="display: flex; align-items: center;">
-                    ${buildRowHtml(upboundTrains)}
+        <div class="bottom-panel-wrapper">
+            <div class="train-info-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')">
+                <div style="width: 100%; overflow-x: auto; white-space: nowrap; scrollbar-width: none; text-align: left;">
+                    <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${theme.textMain}; letter-spacing: 1px; display: inline-block;">${stName}</div>
                 </div>
-                <div style="display: flex; align-items: center;">
-                    ${buildRowHtml(downboundTrains)}
+                <div style="font-size: clamp(13px, 3.5vw, 16px); color: ${theme.textSub}; margin-top: 4px; font-weight: bold;">即將發車</div>
+                <div class="mobile-drag-handle"></div>
+            </div>
+
+            <!-- 電腦版保留原本的文字提示 -->
+            <div class="desktop-dir-col">
+                <div style="color: var(--up-text); font-size: 13px; font-weight: bold; white-space: nowrap;">▲ 上行</div>
+                <div style="color: var(--down-text); font-size: 13px; font-weight: bold; white-space: nowrap;">▼ 下行</div>
+            </div>
+
+            <!-- 📱 手機版專屬頁籤列 -->
+            <div class="station-tab-bar" style="display: none;"> <!-- 電腦版預設隱藏，手機版 CSS 會打開它 -->
+                <div class="station-tab active" id="tab-up" onclick="switchStationTab(0)">▲ 上行</div>
+                <div class="station-tab" id="tab-down" onclick="switchStationTab(1)">▼ 下行</div>
+            </div>
+
+            <div class="mobile-table-header" style="width: 100%; flex-shrink: 0;">
+                <div style="flex: 1.5; text-align: left; padding-left: 10px;">車次</div>
+                <div style="flex: 1; text-align: center;">發車時間</div>
+                <div style="flex: 1; text-align: right; padding-right: 10px;">目的地</div>
+            </div>
+
+            <!-- 🌟 左右滑動的容器 -->
+            <div id="bottom-scroll-container" class="is-station">
+                <!-- 第一頁：上行 -->
+                <div class="swipe-panel">
+                    <div class="board-group" style="margin-top: 4px;">
+                        ${buildRowHtml(upboundTrains, '▲ 上行', 'var(--up-badge-bg)')}
+                    </div>
+                </div>
+                <!-- 第二頁：下行 -->
+                <div class="swipe-panel">
+                    <div class="board-group">
+                        ${buildRowHtml(downboundTrains, '▼ 下行', 'var(--down-badge-bg)')}
+                    </div>
                 </div>
             </div>
         </div>
     `;
+
 }
 
 // ==========================================
@@ -3691,28 +3745,43 @@ async function loadSystemMenu() {
 }
 
 // ==========================================
-// 🌟 綁定「回到首頁」按鈕
+// 🌟 綁定「回到首頁」按鈕 (終極重置版)
 // ==========================================
 function bindHomeButton() {
     const btnHome = document.getElementById('btn-home');
 
-    if (!btnHome || isHomeBound) return; // 🌟 如果綁過就直接退場
+    if (!btnHome || isHomeBound) return; // 如果綁過就直接退場
     isHomeBound = true;
     
     if (btnHome) {
         btnHome.addEventListener('click', () => {
-            // 1. 停止背景的重繪計時器 (避免效能浪費與重疊 Bug)
+            // 1. 停止背景的重繪計時器
             if (renderIntervalId) {
                 clearInterval(renderIntervalId);
                 renderIntervalId = null;
             }
 
-            // 2. 清空畫布，避免下一次進來時看到殘影
+            // 2. 清空畫布
             const canvas = document.getElementById('diaCanvas');
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 3. 轉場動畫：隱藏主畫面，顯示首頁選單
+            // 🌟 3. 核心修復：回到首頁時，強制清空所有選取狀態與抽屜！
+            selectedTrain = null;
+            selectedStation = null;
+            const panel = document.getElementById('bottom-bar');
+            if (panel) {
+                panel.classList.remove('expanded'); // 強制收合抽屜
+                if (typeof updateBottomPanel === 'function') updateBottomPanel(null); // 還原文字
+            }
+
+            // 清空搜尋框
+            const searchInput = document.getElementById('search-input');
+            const searchResults = document.getElementById('search-results');
+            if (searchInput) searchInput.value = '';
+            if (searchResults) searchResults.style.display = 'none';
+
+            // 4. 轉場動畫：隱藏主畫面，顯示首頁選單
             document.getElementById('app').style.display = 'none';
             document.getElementById('landing-page').style.display = 'block'; 
         });
@@ -3807,6 +3876,41 @@ function updateTrainTypeVisibility() {
         }
     });
 }
+
+// ==========================================
+// 📱 點擊頁籤時，控制面板左右滑動
+// ==========================================
+window.switchStationTab = function(index) {
+    const scrollContainer = document.getElementById('bottom-scroll-container');
+    if (scrollContainer) {
+        const width = scrollContainer.clientWidth;
+        scrollContainer.scrollTo({ left: index * width, behavior: 'smooth' });
+    }
+};
+
+// ==========================================
+// 📱 監聽使用者的「手指左右滑動」，動態更新頁籤的底線！
+// ==========================================
+document.addEventListener('scroll', function(e) {
+    if (e.target.id === 'bottom-scroll-container' && e.target.classList.contains('is-station')) {
+        const tabUp = document.getElementById('tab-up');
+        const tabDown = document.getElementById('tab-down');
+        
+        if (tabUp && tabDown && window.innerWidth <= 768) {
+            // 如果滾動超過一半，就判定切換到下一頁
+            const scrollLeft = e.target.scrollLeft;
+            const halfWidth = e.target.clientWidth / 2;
+            
+            if (scrollLeft > halfWidth) {
+                tabUp.classList.remove('active');
+                tabDown.classList.add('active');
+            } else {
+                tabUp.classList.add('active');
+                tabDown.classList.remove('active');
+            }
+        }
+    }
+}, true); // 使用 Capture 模式確保能捕捉到內部 div 的 scroll 事件
 
 // ==========================================
 // 系統啟動點 (init)
