@@ -3568,61 +3568,97 @@ async function loadTimetableData(dateOrType) {
         let todayFileUrl = '';
         let yestFileUrl = '';
 
+        let targetDateStr = ""; 
+        let targetYestStr = "";
+
         // ------------------------------------------
         // 0. 根據策略，決定「今天」與「昨天」的檔案路徑
         // ------------------------------------------
         if (settings.data_fetch_strategy === "DAILY_FILE") {
-            // 台鐵/高鐵模式 (嚴格日期)
+            // 🚄 情境 2 (台鐵/高鐵)：每日獨立檔案
+            targetDateStr = dateOrType;
             let formattedDate = dateOrType.replace(/-/g, ''); 
             todayFileUrl = `${dirc_path}timetable/timetable_${formattedDate}.json`;
 
-            // 自動計算昨天的實體日期
-            let dateObj = new Date(dateOrType);
-            dateObj.setDate(dateObj.getDate() - 1); 
-            let yyyy = dateObj.getFullYear();
-            let mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-            let dd = String(dateObj.getDate()).padStart(2, '0');
-            yestFileUrl = `${dirc_path}timetable/timetable_${yyyy}${mm}${dd}.json`;
+            let yestObj = new Date(dateOrType);
+            yestObj.setDate(yestObj.getDate() - 1); 
+            targetYestStr = `${yestObj.getFullYear()}-${String(yestObj.getMonth() + 1).padStart(2, '0')}-${String(yestObj.getDate()).padStart(2, '0')}`;
+            yestFileUrl = `${dirc_path}timetable/timetable_${targetYestStr.replace(/-/g, '')}.json`;
             
         } else if (settings.data_fetch_strategy === "WEEKEND_FILE") {
-            // 私鐵模式 (平日/土休日)
-            todayFileUrl = `${dirc_path}timetable/timetable_${dateOrType}.json`;
-            // 平假日模式下，昨天的殘影直接借用同一份班表來推算最為合理
-            yestFileUrl = todayFileUrl; 
+            // 情境 1 & 3 都是讀取平假日檔案，但來源參數不同
+            
+            let todayType = "";
+            let yestType = "";
+
+            if (settings.calendar_type === "WEEKDAY_BITMAP") {
+                // 🚅 情境 3 (新幹線)：用日期推算平假日
+                targetDateStr = dateOrType;
+                let todayObj = new Date(dateOrType);
+                let isTodayWeekend = (todayObj.getDay() === 0 || todayObj.getDay() === 6);
+                todayType = isTodayWeekend ? 'holiday' : 'weekday';
+
+                let yestObj = new Date(todayObj);
+                yestObj.setDate(yestObj.getDate() - 1);
+                targetYestStr = `${yestObj.getFullYear()}-${String(yestObj.getMonth() + 1).padStart(2, '0')}-${String(yestObj.getDate()).padStart(2, '0')}`;
+                let isYestWeekend = (yestObj.getDay() === 0 || yestObj.getDay() === 6);
+                yestType = isYestWeekend ? 'holiday' : 'weekday';
+
+            } else {
+                // 🚃 情境 1 (私鐵)：直接傳入 weekday 或 holiday
+                todayType = dateOrType;
+                yestType = dateOrType; // 私鐵殘影借用同一份推算
+            }
+
+            todayFileUrl = `${dirc_path}timetable/timetable_${todayType}.json`;
+            yestFileUrl = `${dirc_path}timetable/timetable_${yestType}.json`;
         }
 
         // ------------------------------------------
-        // 1. 載入「今天」的正班車時刻表
+        // 1. 載入「今天」的時刻表並進行過濾
         // ------------------------------------------
         const timeRes = await fetch(todayFileUrl);
         if (!timeRes.ok) throw new Error(`找不到檔案: ${todayFileUrl}`);
-
         let todayData = await timeRes.json();
 
-        // 🌟 0. 【新增】先把所有「折返路線」劈成兩半，避免後續內插法錯亂！
-        splitSwitchbackSegments(todayData, topology);
-        
-        // 🌟 1. 先把跨線車的斷點縫合起來 (補上中百舌鳥等交會站)
-        stitchTrainSegments(todayData, topology);
+        // 🌟 核心過濾器：如果此系統有日曆且是新幹線模式 (情境 3)，過濾不開的車
+        if (settings.data_fetch_strategy === "WEEKEND_FILE" && settings.calendar_type === "WEEKDAY_BITMAP") {
+            todayData = todayData.filter(train => {
+                // 如果這班車被標記為不定期 (irregular)，就檢查日期陣列
+                if (train.operation === "irregular") {
+                    return train.dates && Array.isArray(train.dates) && train.dates.includes(targetDateStr);
+                }
+                // 標記為 daily，或是沒有標記的常規車次，直接放行
+                return true; 
+            });
+        }
 
-        // 🌟 3. 最後進行時間顯示優化
+        // ... (執行拆解、縫合與時間優化)
+        splitSwitchbackSegments(todayData, topology);
+        stitchTrainSegments(todayData, topology);
         optimizeTrainTimesForDisplay(todayData);
-        
-        // 🌟 2. 再去把各段路線中間漏掉的小站補齊
         interpolatePassingStations(todayData, topology);
-        
-        
-        
 
         // ------------------------------------------
-        // 2. 🌟 載入「昨天」的時刻表 (捕捉跨夜車殘影)
+        // 2. 載入「昨天」的時刻表 (捕捉跨夜車殘影)
         // ------------------------------------------
         let yesterdayData = [];
         try {
             const yestRes = await fetch(yestFileUrl);
-            
             if (yestRes.ok) {
                 let rawYesterday = await yestRes.json();
+
+                // 🌟 同理，昨天的跨夜車殘影也要用「昨天的日期」過濾！
+                if (settings.data_fetch_strategy === "WEEKEND_FILE" && settings.calendar_type === "WEEKDAY_BITMAP") {
+                    rawYesterday = rawYesterday.filter(train => {
+                        if (train.operation === "irregular") {
+                            return train.dates && Array.isArray(train.dates) && train.dates.includes(targetYestStr);
+                        }
+                        return true;
+                    });
+                }
+                
+                // ... (保留你原本後續 rawYesterday 的縫合、推移 -1440 邏輯) ...
                 stitchTrainSegments(rawYesterday, topology);
                 optimizeTrainTimesForDisplay(rawYesterday);
                 interpolatePassingStations(rawYesterday, topology);
@@ -4016,62 +4052,41 @@ async function init(systemPath) {
         }
 
         // ==========================================
-        // 🌟 3. 判斷時刻表載入策略 (智慧定位「今天」版)
+        // 🌟 3. 判斷 UI 呈現與預設日期載入策略
         // ==========================================
-        if (settings.data_fetch_strategy === "DAILY_FILE") {
+        const dateInput = document.getElementById('datePicker');
+        let btnContainer = document.getElementById('weekendSelectContainer');
 
-            // 🌟 【新增：系統切換大掃除】
-            // 1. 把日本系統留下來的「平假日按鈕」拔掉
-            const btnContainer = document.getElementById('weekendSelectContainer');
-            if (btnContainer) btnContainer.remove();
+        if (settings.calendar_type === "WEEKDAY_BITMAP") {
+            // 📅 情境 2 & 3 (台鐵、高鐵、新幹線)：使用月曆 UI
             
-            // 2. 把被隱藏的「日曆輸入框」重新叫出來
-            if (dateInput) dateInput.style.display = '';
-
-            const dateRes = await fetch(dirc_path + 'available_dates.json?t=' + Date.now());
+            // 隱藏平假日按鈕 (如果有的話)
+            if (btnContainer) btnContainer.style.display = 'none';
             
-            if (dateRes.ok) {
-                availableDates = await dateRes.json();
-            } else {
-                console.warn("⚠️ 找不到 available_dates.json！");
-                availableDates = ["2026-04-20"]; 
-            }
-
-            // -----------------------------------------------------
-            // 🌟 核心修改：取得今天的實體日期，並尋找最適合的預設天
-            // -----------------------------------------------------
-            let todayObj = new Date();
-            let yyyy = todayObj.getFullYear();
-            let mm = String(todayObj.getMonth() + 1).padStart(2, '0');
-            let dd = String(todayObj.getDate()).padStart(2, '0');
-            let todayStr = `${yyyy}-${mm}-${dd}`;
-
-            // 預設先假定要載入清單的最後一天 (舊版邏輯兜底)
-            currentDate = availableDates[availableDates.length - 1];
-
-            // 檢查今天是不是在我們抓好的清單裡面？
-            if (availableDates.includes(todayStr)) {
-                // 如果有今天，霸氣地直接設定為今天！
-                currentDate = todayStr;
-            } else {
-                // 如果沒有今天 (可能是舊資料，或未來還沒抓)
-                // 找出清單中「大於等於今天」的第一個日期
-                let futureDates = availableDates.filter(d => d >= todayStr);
-                if (futureDates.length > 0) {
-                    currentDate = futureDates[0]; // 載入最近的未來
-                }
-            }
-            // -----------------------------------------------------
-
+            // 顯示並初始化月曆
             if (dateInput) {
+                dateInput.style.display = '';
                 dateInput.value = ""; 
-                if (dateInput._flatpickr) {
-                    dateInput._flatpickr.destroy();
+                if (dateInput._flatpickr) dateInput._flatpickr.destroy();
+
+                // (這裡保留你原本抓取 available_dates.json 跟尋找 today 的邏輯)
+                const dateRes = await fetch(dirc_path + 'available_dates.json?t=' + Date.now());
+                if (dateRes.ok) availableDates = await dateRes.json();
+                else availableDates = ["2026-04-20"]; 
+
+                let todayObj = new Date();
+                let todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+                
+                currentDate = availableDates[availableDates.length - 1];
+                if (availableDates.includes(todayStr)) currentDate = todayStr;
+                else {
+                    let futureDates = availableDates.filter(d => d >= todayStr);
+                    if (futureDates.length > 0) currentDate = futureDates[0];
                 }
 
                 flatpickr(dateInput, {
-                    defaultDate: currentDate, // 🌟 這裡就會吃我們剛才算出來的最佳日期
-                    enable: availableDates, 
+                    defaultDate: currentDate, 
+                    enable: settings.data_fetch_strategy === "DAILY_FILE" ? availableDates : undefined, // 新幹線不鎖死日期
                     dateFormat: "Y-m-d",
                     disableMobile: "true",
                     onChange: async function(selectedDates, dateStr, instance) {
@@ -4080,56 +4095,50 @@ async function init(systemPath) {
                 });
             }
 
-            // 啟動時載入我們算出來的這一天
+            // 啟動時載入選定的日期
             await loadTimetableData(currentDate);
 
-        } else if (settings.data_fetch_strategy === "WEEKEND_FILE") {
-            // 策略：平假日模式 (Nankai 等私鐵使用)
+        } else if (settings.calendar_type === "WEEKEND_SELECT") {
+            // 🔘 情境 1 (南海、近鐵等私鐵)：使用平假日切換按鈕
             
-            // 1. 隱藏原本的日曆輸入框
+            // 隱藏月曆
             if (dateInput) {
                 dateInput.style.display = 'none';
-                if (dateInput._flatpickr) dateInput._flatpickr.destroy(); // 銷毀日曆實例
+                if (dateInput._flatpickr) dateInput._flatpickr.destroy();
             }
 
-            // 2. 建立平假日切換按鈕 UI
-            let btnContainer = document.getElementById('weekendSelectContainer');
+            // 建立平假日切換按鈕 UI
             if (!btnContainer) {
                 btnContainer = document.createElement('div');
                 btnContainer.id = 'weekendSelectContainer';
                 btnContainer.className = 'weekend-btn-group';
-                // 將按鈕群組安插在原本日曆的旁邊或取代它的位置
                 dateInput.parentNode.insertBefore(btnContainer, dateInput.nextSibling);
             }
-            btnContainer.innerHTML = ''; // 清空重建
+            btnContainer.innerHTML = '';
+            btnContainer.style.display = 'flex'; // 確保顯示
 
             const btnWeekday = document.createElement('button');
             btnWeekday.innerText = '平日';
-            btnWeekday.className = 'weekend-btn active'; // 預設平日
+            btnWeekday.className = 'weekend-btn active'; 
             
             const btnHoliday = document.createElement('button');
             btnHoliday.innerText = '土休日';
             btnHoliday.className = 'weekend-btn';
 
-            // 3. 綁定按鈕點擊事件
             btnWeekday.onclick = async () => {
-                btnWeekday.classList.add('active');
-                btnHoliday.classList.remove('active');
-                currentDate = 'weekday'; // 更新全域變數狀態
-                await loadTimetableData('weekday');
+                btnWeekday.classList.add('active'); btnHoliday.classList.remove('active');
+                currentDate = 'weekday'; await loadTimetableData('weekday');
             };
 
             btnHoliday.onclick = async () => {
-                btnHoliday.classList.add('active');
-                btnWeekday.classList.remove('active');
-                currentDate = 'holiday'; // 更新全域變數狀態
-                await loadTimetableData('holiday');
+                btnHoliday.classList.add('active'); btnWeekday.classList.remove('active');
+                currentDate = 'holiday'; await loadTimetableData('holiday');
             };
 
             btnContainer.appendChild(btnWeekday);
             btnContainer.appendChild(btnHoliday);
 
-            // 4. 啟動時預設載入平日時刻表
+            // 啟動預設載入平日
             currentDate = 'weekday';
             await loadTimetableData('weekday');
         } else {
