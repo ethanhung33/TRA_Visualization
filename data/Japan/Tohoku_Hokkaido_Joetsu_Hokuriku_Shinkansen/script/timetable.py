@@ -78,12 +78,12 @@ def fetch_single_train_detail(url):
         train_div = soup.find('div', class_='trainlist')
         if not train_div: return []
         
-        # 🌟 1. 掃描表頭與「各欄獨立的運行日」
-        train_names = []
-        train_nos = []
-        op_dates_text = {} 
+        table = train_div.find('table')
+        train_names, train_nos, op_dates_text = [], [], {}
+        coupling_info_raw = {} # 儲存官方「併結運転」欄位文字
         
-        for tr in train_div.find('table').find_all('tr'):
+        # 🌟 1. 掃描表頭與關鍵資訊欄位
+        for tr in table.find_all('tr'):
             th = tr.find('th')
             if not th: continue
             label = th.get_text().strip()
@@ -94,128 +94,120 @@ def fetch_single_train_detail(url):
             elif '列車番号' in label:
                 train_nos = [td.get_text().strip() for td in tds]
             elif '運転日' in label:
-                for idx, td in enumerate(tds):
-                    op_dates_text[idx] = td.get_text().strip()
+                for idx, td in enumerate(tds): op_dates_text[idx] = td.get_text().strip()
+            elif '併結運転' in label:
+                for idx, td in enumerate(tds): coupling_info_raw[idx] = td.get_text().strip()
         
         if not train_names: return []
         
-        # 🌟 2. 神將白名單過濾
-        VALID_SHINKANSEN_NAMES = [
-            "はやぶさ", "はやて", "やまびこ", "なすの",
-            "こまち", "つばさ",
-            "とき", "たにがわ",
-            "かがやき", "はくたか", "あさま", "つるぎ"
-        ]
-        
+        # 🌟 2. 車種過濾 (白名單)
+        VALID_SHINKANSEN_NAMES = ["はやぶさ", "はやて", "やまびこ", "なすの", "こまち", "つばさ", "とき", "たにがわ", "かがやき", "はくたか", "あさま", "つるぎ"]
         valid_indices = []
         for i, tname in enumerate(train_names):
             tno = train_nos[i] if i < len(train_nos) else ""
             if any(valid_name in tname for valid_name in VALID_SHINKANSEN_NAMES):
+                # 排除東海道與維修車
                 if not (any(tk in tname for tk in ["のぞみ", "ひかり", "こだま"]) or tno.endswith(('A','K'))):
                     valid_indices.append(i)
                     
         if not valid_indices: return []
         
-        # 🌟 3. 日期獨立解析魔法 (完美處理 6/30 截止的問題)
+        # 🌟 3. 解析運行日期
         page_dates, variants = parse_calendar_logic(soup, url)
         final_dates_by_train = {}
-        active_indices = []
-        
         for i in valid_indices:
             if page_dates:
                 final_dates_by_train[i] = set(page_dates)
             else:
                 op_text = op_dates_text.get(i, "")
-                if "土曜・休日" in op_text:
-                    final_dates_by_train[i] = set(REF_WEEKEND)
-                elif "平日" in op_text:
-                    final_dates_by_train[i] = set(REF_WEEKDAY)
-                elif "運転" in op_text and "毎日" not in op_text:
-                    final_dates_by_train[i] = set() 
-                else:
-                    final_dates_by_train[i] = REF_WEEKDAY.union(REF_WEEKEND)
-            
-            if final_dates_by_train[i]:
-                active_indices.append(i)
-                
-        valid_indices = active_indices
-        if not valid_indices: return []
+                if "土曜・休日" in op_text: final_dates_by_train[i] = set(REF_WEEKEND)
+                elif "平日" in op_text: final_dates_by_train[i] = set(REF_WEEKDAY)
+                else: final_dates_by_train[i] = REF_WEEKDAY.union(REF_WEEKEND)
 
+        # 🌟 4. 矩陣式逐站解析時間 (處理雙欄位結構)
         stops_by_train = {i: [] for i in valid_indices}
-        
-        # 🌟 4. 逐站解析時間
-        for row in train_div.find('table').find_all('tr'):
+        for row in table.find_all('tr'):
             th = row.find('th')
-            if not th: continue
-            sta = clean_station_name(th.get_text())
             tds = row.find_all('td')
+            if not th or len(tds) == 0: continue
             
+            sta = clean_station_name(th.get_text())
             for i in valid_indices:
+                # 每一班車佔 2 個 tds，時間固定在 i*2
                 time_idx = i * 2 
                 if time_idx >= len(tds): continue
                 
-                time_txt = tds[time_idx].get_text().replace(' ', '').replace('\n', '').strip()
-                if time_txt in ["", "||", "レ", "==="]: continue 
+                # 取得該格文字並處理換行
+                time_txt = tds[time_idx].get_text(separator="\n").strip()
+                if not time_txt or any(x in time_txt for x in ["||", "レ", "==="]): continue
                     
-                arr_m = re.search(r'(\d{2}:\d{2})着', time_txt)
-                dep_m = re.search(r'(\d{2}:\d{2})[発發发]', time_txt)
+                # 抓取「19:31 着」與「19:38 発」
+                arr_m = re.search(r'(\d{2}:\d{2})\s*着', time_txt)
+                dep_m = re.search(r'(\d{2}:\d{2})\s*[發發发]', time_txt)
                 
                 arr = (int(arr_m.group(1)[:2])*60 + int(arr_m.group(1)[3:])) if arr_m else ""
                 dep = (int(dep_m.group(1)[:2])*60 + int(dep_m.group(1)[3:])) if dep_m else ""
                 
+                # 補齊起終點站缺失的時間
                 if arr == "" and dep != "": arr = dep
                 if dep == "" and arr != "": dep = arr
                 
                 if arr != "" or dep != "":
                     stops_by_train[i].append({"sta": sta, "arr": arr, "dep": dep})
                     
-        # 🌟 5. 分列輸出，並自動偵測跨線直通 (action: direct)
+        # 🌟 5. 分列整理與語義併結判定 (解析官方文字)
         grouped_results = {}
         for i in valid_indices:
             if not stops_by_train[i]: continue
-            
-            tname = train_names[i] # 例如 "つばさ 139号"
+            tname = train_names[i]
             if tname not in grouped_results: grouped_results[tname] = []
             
+            # 取得車種
             match = re.match(r'([^\d\sa-zA-Z]+)', tname)
             clean_type = match.group(1) if match else tname
             
-            grouped_results[tname].append({
-                "no": train_nos[i] if i < len(train_nos) else "",
+            # 建立基本物件
+            train_obj = {
+                "no": train_nos[i],
                 "type": clean_type,
                 "dates": final_dates_by_train[i],
                 "data": stops_by_train[i],
                 "url": url,
-                "variants": variants if i == valid_indices[0] else []
-            })
+                "variants": variants if i == valid_indices[0] else [],
+                "coupled_with": []
+            }
+
+            # 🌟 核心：從「併結運転」欄位文字提取資訊
+            info_text = coupling_info_raw.get(i, "")
+            if "併結" in info_text:
+                # 抓伴侶編號 (如 153M) 與車站 (如 福島)
+                target_no_match = re.search(r'(\d+[A-Z])', info_text)
+                station_match = re.search(r'－([^は]+)', info_text)
+                if target_no_match and station_match:
+                    split_sta_name = station_match.group(1)
+                    train_obj["coupled_with"].append({
+                        "train_id": target_no_match.group(1),
+                        "station_id": split_sta_name, # 先存站名，後續在 main 統一轉 ID
+                        "action": "split"
+                    })
             
+            grouped_results[tname].append(train_obj)
+            
+        # 🌟 6. 處理跨線直通 (Direct) 與封裝回傳
         results = []
         for tname, trains in grouped_results.items():
-            # 確保按照時間先後排序 (東京發的 139B 會排在福島發的 139M 前面)
-            trains.sort(key=lambda x: x["data"][0]["dep"] if x["data"] and x["data"][0]["dep"] != "" else 9999)
+            trains.sort(key=lambda x: x["data"][0]["dep"] if x["data"] else 9999)
             
-            # 如果這台車在網頁上被切成了多欄 (跨線換番號)，互相留下 direct 關聯
             if len(trains) > 1:
                 for idx in range(len(trains) - 1):
-                    t_curr = trains[idx]
-                    t_next = trains[idx+1]
-                    link_station = t_next["data"][0]["sta"] # 跨線站，例如福島
-                    
-                    if "coupled_with" not in t_curr: t_curr["coupled_with"] = []
-                    t_curr["coupled_with"].append({
-                        "train_id": t_next["no"],
-                        "station_id": link_station,
-                        "action": "direct"
-                    })
-                    
-                    if "coupled_with" not in t_next: t_next["coupled_with"] = []
-                    t_next["coupled_with"].append({
-                        "train_id": t_curr["no"],
-                        "station_id": link_station,
-                        "action": "direct"
-                    })
+                    t_curr, t_next = trains[idx], trains[idx+1]
+                    link_station = t_next["data"][0]["sta"]
+                    t_curr["coupled_with"].append({"train_id": t_next["no"], "station_id": link_station, "action": "direct"})
+                    t_next["coupled_with"].append({"train_id": t_curr["no"], "station_id": link_station, "action": "direct"})
             
-            results.extend(trains)
+            for t in trains:
+                if not t["coupled_with"]: del t["coupled_with"]
+                results.append(t)
             
         return results
     except Exception as e:
@@ -226,40 +218,31 @@ def fetch_single_train_detail(url):
 # 🔗 拓樸轉換、併結與輸出
 # ==========================================
 def apply_coupling_logic(trains):
-    print("\n🔗 正在計算併結關係...")
+    print("\n🔗 正在執行全量關聯優化...")
     for t in trains:
+        if "coupled_with" not in t: t["coupled_with"] = []
         t["_sched"] = {s["s"][i]: (s["t"][i*2], s["t"][i*2+1]) for s in t["segments"] for i in range(len(s["s"]))}
-        
-        # 🌟 關鍵修改：如果這台車還沒有 coupled_with (也就是沒有被標記過 direct)，才給它一個空陣列
-        if "coupled_with" not in t:
-            t["coupled_with"] = []
             
     for i in range(len(trains)):
         for j in range(i + 1, len(trains)):
             t1, t2 = trains[i], trains[j]
-            
             if t1["no"] == t2["no"]: continue
+            
+            # 🌟 關鍵：如果爬蟲階段已經透過「併結運転」欄位標記過了，就跳過這對比對
+            if any(c["train_id"] == t2["no"] for c in t1["coupled_with"]): continue
                 
-            if t1["operation"] == "irregular" and t2["operation"] == "irregular":
-                if not set(t1.get("dates", [])).intersection(set(t2.get("dates", []))):
-                    continue
-                    
+            # 只有在雙方都沒有標籤時，才考慮用舊的「時間比對法」作為備援
+            # 且為了防止 66B 慘劇，我們可以把門檻調回 2 站，或者限定特定的車種
             overlap = [st for st, time in t1["_sched"].items() if st in t2["_sched"] and t2["_sched"][st] == time]
-            if len(overlap) >= 2:
-                overlap.sort(key=lambda x: t1["_sched"][x][0])
-                split_station = overlap[-1] 
-                
-                # 這裡原本的 append 寫法非常正確，它會安全地把 split 標籤加到陣列後方
-                if not any(c["train_id"] == t2["no"] for c in t1["coupled_with"]):
-                    t1["coupled_with"].append({"train_id": t2["no"], "station_id": split_station, "action": "split"})
-                if not any(c["train_id"] == t1["no"] for c in t2["coupled_with"]):
-                    t2["coupled_with"].append({"train_id": t1["no"], "station_id": split_station, "action": "split"})
+            
+            if len(overlap) >= 2: # 回歸嚴格判定，避免誤判加班車
+                split_station = sorted(overlap, key=lambda x: t1["_sched"][x][0])[-1] 
+                t1["coupled_with"].append({"train_id": t2["no"], "station_id": split_station, "action": "split"})
+                t2["coupled_with"].append({"train_id": t1["no"], "station_id": split_station, "action": "split"})
                     
     for t in trains:
         del t["_sched"]
-        if not t["coupled_with"]: 
-            del t["coupled_with"]
-            
+        if not t["coupled_with"]: del t["coupled_with"]
     return trains
 
 def save_json_per_line(path, data_list):
