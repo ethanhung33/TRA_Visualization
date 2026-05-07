@@ -181,26 +181,48 @@ def save_json_per_line(path, data_list):
         f.write("]\n")
 
 def main():
-    print(f"🚀 JR 東日本新幹線全量採集啟動 (包含變體追蹤)")
-    ENTRY_URL = "https://www.jreast-timetable.jp/timetable/list1039.html"
+    print(f"🚀 JR 東日本新幹線全量採集啟動 (多端點雙向掃描版)")
+    
+    # 🌟 核心修正：將單一的東京站，改為各大路線的「端點站」代碼
+    TERMINAL_STATIONS = [
+        "1039", # 東京 (抓取所有往北的下行列車)
+        "843",  # 新青森 (東北新幹線 上行)
+        "39",   # 秋田 (秋田新幹線 上行)
+        "805",  # 新庄 (山形新幹線 上行)
+        "1137", # 新潟 (上越新幹線 上行)
+        "465",  # 金沢 (北陸新幹線 上行，JR西日本區間可能需另外處理但金沢發車有紀錄)
+        "918",  # 仙台 (抓取不經過東京的東北區間車)
+        "1548"  # 盛岡 (抓取不經過東京的北東北區間車)
+    ]
+    
     processed_urls, all_raw_results = set(), []
-    
-    res = requests.get(ENTRY_URL, headers=HEADERS)
-    soup = BeautifulSoup(res.text, 'html.parser')
-    shinkansen_div = soup.find('div', class_='rosentable')
-    
     seed_urls = set()
-    for a in tqdm(shinkansen_div.find_all('a', class_='fortimeLink'), desc="🔍 掃描路線目錄"):
-        if '東海道' in a.parent.parent.get_text(): continue
-        try:
-            sub_res = requests.get(urljoin(ENTRY_URL, a['href']), headers=HEADERS)
-            sub_soup = BeautifulSoup(sub_res.text, 'html.parser')
-            for ta in sub_soup.find_all('a', href=re.compile(r'/train/')):
-                full_url = urljoin(urljoin(ENTRY_URL, a['href']), ta['href']).replace("www.jreast-timetable.jp", "timetables.jreast.co.jp")
-                seed_urls.add(full_url)
-        except: continue
 
-    # 深度遞迴掃描變體[cite: 2]
+    # 1. 遍歷所有端點站，蒐集所有的列車連結
+    for station_id in TERMINAL_STATIONS:
+        entry_url = f"https://www.jreast-timetable.jp/timetable/list{station_id}.html"
+        try:
+            res = requests.get(entry_url, headers=HEADERS)
+            soup = BeautifulSoup(res.text, 'html.parser')
+            shinkansen_div = soup.find('div', class_='rosentable')
+            
+            if not shinkansen_div: continue
+
+            for a in tqdm(shinkansen_div.find_all('a', class_='fortimeLink'), desc=f"🔍 掃描端點站 {station_id}"):
+                if '東海道' in a.parent.parent.get_text(): continue
+                try:
+                    sub_res = requests.get(urljoin(entry_url, a['href']), headers=HEADERS)
+                    sub_soup = BeautifulSoup(sub_res.text, 'html.parser')
+                    for ta in sub_soup.find_all('a', href=re.compile(r'/train/')):
+                        full_url = urljoin(urljoin(entry_url, a['href']), ta['href']).replace("www.jreast-timetable.jp", "timetables.jreast.co.jp")
+                        seed_urls.add(full_url)
+                except: continue
+        except Exception as e:
+            print(f"無法讀取端點站 {station_id}: {e}")
+
+    print(f"🎯 共收集到 {len(seed_urls)} 個獨立的列車種子連結！準備深度抓取...")
+
+    # 2. 深度遞迴掃描變體 (維持你原本超強的邏輯)
     queue = list(seed_urls)
     while queue:
         new_v = set()
@@ -217,7 +239,7 @@ def main():
                         if v_url not in processed_urls: new_v.add(v_url)
         queue = list(new_v)
 
-    # 拓樸轉換
+    # 拓樸轉換與後續分類維持不變...
     print("\n🗺️ 正在處理拓樸轉換與分類...")
     topo_path = os.path.join(json_dir, "topology.json")
     with open(topo_path, 'r', encoding='utf-8') as f: topo = json.load(f)
