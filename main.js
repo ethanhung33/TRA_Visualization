@@ -3837,7 +3837,7 @@ async function loadTimetableData(dateOrType) {
 async function loadSystemMenu() {
     try {
         // 🌟 核心新增：強制程式在這裡等，直到 GlowSans 等所有字體載入完畢！
-        await document.fonts.ready;
+        // await document.fonts.ready;
 
         const res = await fetch('data/global.json');
         const globalData = await res.json();
@@ -4302,7 +4302,7 @@ async function init(systemPath) {
         // 🌟 終極修復 2：等待「所有自訂字體」下載完畢！
         // 解決 Canvas 一開始拿不到字體，印出醜醜預設字的 Bug
         // ==========================================
-        await document.fonts.ready;
+        // await document.fonts.ready;
 
         document.body.offsetHeight;
 
