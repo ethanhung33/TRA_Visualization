@@ -73,70 +73,100 @@ def parse_calendar_logic(soup, current_url):
 def fetch_single_train_detail(url):
     try:
         res = requests.get(url, headers=HEADERS, timeout=15)
-        # 🌟 核心修復：使用 res.content 讓 BS4 自動精準處理日文編碼
-        soup = BeautifulSoup(res.content, 'html.parser')
+        res.encoding = res.apparent_encoding
+        soup = BeautifulSoup(res.text, 'html.parser')
         train_div = soup.find('div', class_='trainlist')
-        if not train_div: return None
+        if not train_div: return []
         
-        info = {}
-        for th in train_div.find_all('th'):
+        # 🌟 1. 掃描表頭，抓出這頁所有的車 (名字與番號)
+        train_names = []
+        train_nos = []
+        for tr in train_div.find('table').find_all('tr'):
+            th = tr.find('th')
+            if not th: continue
             label = th.get_text().strip()
-            td = th.find_next('td')
-            if td:
-                if '列車名' in label: info['type_full'] = td.get_text().strip()
-                if '列車番号' in label: info['no'] = td.get_text().strip()
-
-        # ==========================================
-        # 🌟 終極過濾器：JR東日本新幹線 12 神將白名單
-        # ==========================================
+            tds = tr.find_all('td')
+            if '列車名' in label:
+                train_names = [td.get_text().strip() for td in tds]
+            elif '列車番号' in label:
+                train_nos = [td.get_text().strip() for td in tds]
+        
+        if not train_names: return []
+        
+        # 🌟 2. 透過神將白名單過濾
         VALID_SHINKANSEN_NAMES = [
-            "はやぶさ", "はやて", "やまびこ", "なすの", # 東北・北海道
-            "こまち", "つばさ",                      # 秋田・山形
-            "とき", "たにがわ",                      # 上越
-            "かがやき", "はくたか", "あさま", "つるぎ"   # 北陸
+            "はやぶさ", "はやて", "やまびこ", "なすの",
+            "こまち", "つばさ",
+            "とき", "たにがわ",
+            "かがやき", "はくたか", "あさま", "つるぎ"
         ]
         
-        train_name_full = info.get('type_full', '')
+        valid_indices = []
+        for i, tname in enumerate(train_names):
+            tno = train_nos[i] if i < len(train_nos) else ""
+            if any(valid_name in tname for valid_name in VALID_SHINKANSEN_NAMES):
+                if not (any(tk in tname for tk in ["のぞみ", "ひかり", "こだま"]) or tno.endswith(('A','K'))):
+                    valid_indices.append(i)
+                    
+        if not valid_indices: return []
         
-        # 1. 檢查是否在白名單內 (如果沒有包含這些名字，直接丟棄！ひたち會在這裡被殺掉)
-        if not any(valid_name in train_name_full for valid_name in VALID_SHINKANSEN_NAMES):
-            return None
-            
-        # 2. 阻擋東海道新幹線 (避免東京站抓到往大阪的車)
-        if any(tk in train_name_full for tk in ["のぞみ", "ひかり", "こだま"]) or info.get('no','').endswith(('A','K')):
-            return None
-
         cur_dates, variants = parse_calendar_logic(soup, url)
         
-        stops = []
+        stops_by_train = {i: [] for i in valid_indices}
+        
+        # 🌟 3. 極簡逐站解析 (看到什麼抓什麼，空白直接跳過)
         for row in train_div.find('table').find_all('tr'):
-            cols = row.find_all(['th', 'td'])
-            if len(cols) < 2: continue
-            sta = clean_station_name(cols[0].get_text())
-            time_txt = cols[1].get_text().replace(' ', '')
+            th = row.find('th')
+            if not th: continue
+            sta = clean_station_name(th.get_text())
+            tds = row.find_all('td')
             
-            arr_m = re.search(r'(\d{2}:\d{2})着', time_txt)
-            dep_m = re.search(r'(\d{2}:\d{2})[発發发]', time_txt)
-            if not (arr_m or dep_m): continue
+            for i in valid_indices:
+                time_idx = i * 2 # 每台車佔 2 個 td (時間、番線)
+                if time_idx >= len(tds): continue
+                
+                time_txt = tds[time_idx].get_text().replace(' ', '').replace('\n', '').strip()
+                
+                # 如果格子是空的、寫著 || 或 レ，直接跳過這站
+                if time_txt in ["", "||", "レ", "==="]:
+                    continue 
+                    
+                # 即使是「┗━分割08:48発」，正規表達式也能精準抓出 08:48發
+                arr_m = re.search(r'(\d{2}:\d{2})着', time_txt)
+                dep_m = re.search(r'(\d{2}:\d{2})[発發发]', time_txt)
+                
+                arr = (int(arr_m.group(1)[:2])*60 + int(arr_m.group(1)[3:])) if arr_m else ""
+                dep = (int(dep_m.group(1)[:2])*60 + int(dep_m.group(1)[3:])) if dep_m else ""
+                
+                if arr == "" and dep != "": arr = dep
+                if dep == "" and arr != "": dep = arr
+                
+                if arr != "" or dep != "":
+                    stops_by_train[i].append({"sta": sta, "arr": arr, "dep": dep})
+                    
+        # 🌟 4. 打包所有抓到的車回傳
+        results = []
+        for i in valid_indices:
+            if not cur_dates and not stops_by_train[i]: continue
             
-            arr = (int(arr_m.group(1)[:2])*60 + int(arr_m.group(1)[3:])) if arr_m else ""
-            dep = (int(dep_m.group(1)[:2])*60 + int(dep_m.group(1)[3:])) if dep_m else ""
-            if arr == "" and dep != "": arr = dep
-            if dep == "" and arr != "": dep = arr
-            stops.append({"sta": sta, "arr": arr, "dep": dep})
-
-        if not cur_dates and not stops: return None
-
-        return {
-            "no": info.get('no'),
-            "type": re.match(r'([^\d\s]+)', train_name_full).group(1) if train_name_full else "",
-            "dates": cur_dates,
-            "data": stops,
-            "url": url,
-            "variants": variants
-        }
-    except: return None
-
+            tname = train_names[i]
+            match = re.match(r'([^\d\sa-zA-Z]+)', tname)
+            clean_type = match.group(1) if match else tname
+            
+            results.append({
+                "no": train_nos[i] if i < len(train_nos) else "",
+                "type": clean_type,
+                "dates": cur_dates,
+                "data": stops_by_train[i],
+                "url": url,
+                "variants": variants if i == valid_indices[0] else []
+            })
+            
+        return results
+    except Exception as e:
+        print(f"解析 {url} 發生錯誤: {e}")
+        return []
+    
 # ==========================================
 # 🔗 拓樸轉換、併結與輸出
 # ==========================================
@@ -261,11 +291,14 @@ def main():
             for f in tqdm(as_completed(futures), total=len(futures), desc="🚄 正在抓取時刻與變體"):
                 url = futures[f]
                 processed_urls.add(url)
-                res = f.result()
-                if res:
-                    all_raw_results.append(res)
-                    for v_url in res.get("variants", []):
-                        if v_url not in processed_urls: new_v.add(v_url)
+                
+                # 🌟 將回傳的陣列展開
+                res_list = f.result()
+                if res_list:
+                    for res in res_list:
+                        all_raw_results.append(res)
+                        for v_url in res.get("variants", []):
+                            if v_url not in processed_urls: new_v.add(v_url)
         queue = list(new_v)
 
     print("\n🗺️ 正在處理拓樸轉換與分類...")
