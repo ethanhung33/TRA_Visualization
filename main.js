@@ -536,127 +536,313 @@ function getJunction(st1_id, st2_id, line1_id, line2_id) {
 // 繪製火車 (全域智慧連線版)
 // ==========================================
 function drawTrains() {
-    if (!timetable || timetable.length === 0) return;
+    const wrapper = document.getElementById('canvas-wrapper');
+    const viewTop = camera.y - 200;
+    const viewBottom = camera.y + canvas.height + 200;
+    const viewLeft = camera.x - 200;
+    const viewRight = camera.x + canvas.width + 200;
 
-    // 🌟 建立路段快取，避免併結路段（如隼+小町）被重複繪製
-    const drawnCoupledSegments = new Set();
+    let presetKey = currentRouteView; 
+    let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+    let copyStart = isCircular ? -1 : 0;
+    let copyEnd = isCircular ? 1 : 0;
 
-    timetable.forEach(train => {
-        // 1. 基礎顯示判斷
-        if (!trainTypeVisibility[train.type]) return;
+    let colorIndex = isDarkMode ? 0 : 1;
+    let fallbackColor = isDarkMode ? "#FFFFFF" : "#000000";
+
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
+
+    // ==========================================
+    // 🌟 新增：把「畫一台車」的邏輯打包起來
+    // ==========================================
+    // 🌟 在小括號裡面多加一個 isHovered 參數
+    const drawSingleTrain = (train, isVIP, isHovered) => {
+        // ==========================================
+        // 🌟 1. 先決定這台車「原本的」顏色和粗細
+        // ==========================================
+        let baseColor = fallbackColor;
+        let baseWidth = train.w || 1.5; // 通用的保底粗細 (如果設定檔沒寫，預設 1.5)
+
+        if (settings && settings.train_color && settings.train_color[train.type]) {
+            let typeStyle = settings.train_color[train.type];
+            baseColor = typeStyle[colorIndex]; // 抓取顏色 (深色/淺色模式)
+            
+            // 🌟 終極通用解法：如果有設定第三個參數，就把它當作該車種的專屬粗細！
+            if (typeStyle.length > 2) {
+                baseWidth = typeStyle[2];
+            }
+        }
+
+        let trainColor = baseColor;
+        let lineWidth = baseWidth;
+
+        // ==========================================
+        // 🌟 2. 再根據狀態換衣服 (這時候 baseColor 已經準備好了)
+        // ==========================================
+        if (isVIP) {
+            trainColor = '#FFD700'; // 點擊：亮黃色粗線
+            lineWidth = 4.0;
+        } else if (isHovered) {
+            let adjustAmount = isDarkMode ? 70 : -50; 
+            // 這裡就不會再報 baseColor is not defined 囉！
+            trainColor = adjustBrightness(baseColor, adjustAmount); 
+            lineWidth = baseWidth; 
+        }
+
+        // 3. 把算好的顏色交給畫筆
+        ctx.strokeStyle = trainColor; 
+        ctx.lineWidth = lineWidth;
+
+        // 4. 無條件清空麵包屑袋子
+        // 🌟 優化 3：重複利用陣列，不重新要記憶體空間！
+        if (!train._hitPoints) {
+            train._hitPoints = [];
+        }
+        train._hitPoints.length = 0; // 這樣可以清空陣列，但不會產生垃圾！ 
+
+        let trainLastBaseY = null;
+        let wrapOffset = 0; 
         
-        const isSelected = selectedTrain && selectedTrain.no === train.no;
-        const trainColor = getTrainColor(train.type);
-        
-        // 設定基礎透明度
-        ctx.globalAlpha = (selectedTrain && !isSelected) ? 0.2 : 1.0;
+        // ... (下面接續你原本的座標計算跟撒麵包屑邏輯) ...
 
-        // 2. 繪製運行路段 (Segments)
-        train.segments.forEach(seg => {
-            for (let i = 0; i < seg.s.length - 1; i++) {
-                const s1 = seg.s[i];
-                const s2 = seg.s[i+1];
-                const t1 = seg.t[i * 2 + 1]; // 出發時間
-                const t2 = seg.t[(i + 1) * 2]; // 抵達時間
+        // 👉 下面這整段是你原本超厲害的座標運算，完全沒變！
+        train.segments.forEach((seg, segIdx) => {
+            let unwrappedCoords = [];
+            for (let i = 0; i < seg.s.length; i++) {
+                let st_id = seg.s[i];
+                let options = lookupY[st_id];
+                if (!options || options.length === 0) { unwrappedCoords.push(null); continue; }
 
-                const x1 = timeToX(t1);
-                const y1 = lookupY[s1];
-                const x2 = timeToX(t2);
-                const y2 = lookupY[s2];
+                let matchedOpt = options.find(opt => opt.segId === seg.id);
+                let baseY = options[0].y; 
+                if (matchedOpt) {
+                    baseY = matchedOpt.y;
+                } else if (trainLastBaseY !== null && options.length > 1) {
+                    let minDist = Infinity;
+                    options.forEach(opt => {
+                        let dist = Math.abs(opt.y - trainLastBaseY);
+                        if (dist < minDist) { minDist = dist; baseY = opt.y; }
+                    });
+                }
 
-                let isCoupled = false;
-                let partnerColor = null;
+                if (trainLastBaseY !== null && isCircular) {
+                    let dy = baseY - trainLastBaseY;
+                    if (dy > loopHeight / 2) wrapOffset -= loopHeight; 
+                    else if (dy < -loopHeight / 2) wrapOffset += loopHeight; 
+                }
+                
+                unwrappedCoords.push(baseY + wrapOffset);
+                trainLastBaseY = baseY;
+            }
 
-                // 🕵️‍♂️ 併結判定：檢查是否有 split 標籤且目前在共線區間
-                if (train.coupled_with) {
-                    const splitInfo = train.coupled_with.find(c => c.action === "split");
-                    if (splitInfo) {
-                        // 產生唯一的併結路段 ID (排序車號以確保 A-B 與 B-A 產生相同 ID)
-                        const pairId = [train.no, splitInfo.train_id].sort().join("-");
-                        const segId = `${s1}-${s2}-${pairId}`;
+            let minX = timeToX(seg.t[0]);
+            let maxX = timeToX(seg.t[seg.t.length - 1]);
 
-                        if (!drawnCoupledSegments.has(segId)) {
-                            // 尋找夥伴列車以取得顏色
-                            const partner = timetable.find(t => t.no === splitInfo.train_id);
-                            if (partner) {
-                                isCoupled = true;
-                                partnerColor = getTrainColor(partner.type);
-                                drawnCoupledSegments.add(segId);
-                            }
+            for (let copy = copyStart; copy <= copyEnd; copy++) {
+                let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
+                
+                let minY = Infinity, maxY = -Infinity;
+                for (let i = 0; i < unwrappedCoords.length; i++) {
+                    if (unwrappedCoords[i] !== null) {
+                        let y = unwrappedCoords[i] + offsetY;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+
+                if (maxX < viewLeft || minX > viewRight || maxY < viewTop || minY > viewBottom) continue; 
+                
+                // 🌟 1. 拿起剪刀前，先存檔！
+                ctx.save(); 
+                
+                // 🌟 2. 設定專屬這條線的裁切邊界
+                ctx.beginPath();
+                ctx.rect(CONFIG.paddingLeft, viewTop, 1560 * CONFIG.scaleX, viewBottom - viewTop);
+                ctx.clip(); // 喀嚓！從現在開始畫的東西超出邊界都會被切掉
+
+                ctx.beginPath();
+                let isDrawing = false; 
+
+                // ==========================================
+                // 🌟🌟🌟 新增這行：只要畫布起了一個新的頭，麵包屑就強制斷開！避免產生隱形連線！
+                // ==========================================
+                train._hitPoints.push(null);
+
+                for (let i = 0; i < seg.s.length; i++) {
+                    let y_raw = unwrappedCoords[i];
+                    if (y_raw === null) { 
+                        isDrawing = false; 
+                        // 🌟 【新增 2】：如果線條中斷，塞入 null 斷開麵包屑
+                        train._hitPoints.push(null); 
+                        continue; 
+                    }
+
+                    let y = y_raw + offsetY; 
+                    let x_arr = timeToX(seg.t[i * 2]);
+                    let x_dep = timeToX(seg.t[i * 2 + 1]);
+
+                    // 🌟 【新增 3】：把算好的真實座標存起來 (這就是麵包屑！)
+                   
+                    train._hitPoints.push({ x: x_arr, y: y });
+                    // 如果這站有停 (v !== 2)，代表進出站會是一條水平線，也要記錄出站點
+                    if (seg.v[i] !== 2) {
+                        train._hitPoints.push({ x: x_dep, y: y });
+                    }
+                    
+
+                    if (!isDrawing) { 
+                        if (i === 0 && segIdx > 0) {
+                            ctx.moveTo(x_dep, y); 
                         } else {
-                            // 若此路段已由併結夥伴畫過，則跳過本次繪製，避免顏色覆蓋
-                            return; 
+                            ctx.moveTo(x_arr, y); 
+                        }
+                        isDrawing = true; 
+                    } else { 
+                        ctx.lineTo(x_arr, y); 
+                    }
+
+                    // 🌟 改成下面這樣 (直接把 else 刪掉！)：
+                    if (seg.v[i] !== 2) {
+                        ctx.lineTo(x_dep, y);
+                    }
+                    // 解說：如果是通過站 (v === 2)，我們什麼都不做！
+                    // 讓畫筆繼續貼在紙上，下一個 lineTo 就會畫出完美的連續直線，不再斷裂！
+                }
+                ctx.stroke();
+
+                // 🌟 3. 放下剪刀！讀取剛剛的存檔 (畫布恢復成無限大)
+                ctx.restore();
+
+                // ==========================================
+                // 畫 VIP 車次的專屬字體
+                if (isVIP) {
+                    ctx.save(); 
+
+                    for (let i = 0; i < seg.s.length; i++) {
+                        let y_raw = unwrappedCoords[i];
+                        if (y_raw === null) continue; // 遇到斷點跳過
+
+                        if (seg.v[i] === 2) continue; // 通過站不印字
+                        
+                        let y = y_raw + offsetY;
+                        let arrT = seg.t[i * 2];
+                        let depT = seg.t[i * 2 + 1];
+                        let x_dep = timeToX(depT); // 出站的 X 座標
+                        let x_arr = timeToX(arrT); // 抵達的 X 座標
+
+                        // 🌟 1. 定義畫布的絕對邊界 (0:00 ~ 26:00)
+                        let leftBoundary = CONFIG.paddingLeft;
+                        let rightBoundary = CONFIG.paddingLeft + (1560 * CONFIG.scaleX);
+
+                        // 🌟 2. 邊界過濾：如果抵達時間在右邊界之外，或是發車時間在左邊界之外，就直接隱形！
+                        if (x_arr > rightBoundary || x_dep < leftBoundary) {
+                            continue; 
+                        }
+
+                        // --- 3. 準備文字：站名與時間 ---
+                        let stationName = getStationName(seg.s[i]);
+                        let arrTimeStr = formatTimeDisplay(arrT); 
+                        let depTimeStr = formatTimeDisplay(depT); 
+                        let displayText = `${arrTimeStr} - ${depTimeStr} ${stationName}`;
+
+                        // --- 4. 畫出文字 (智慧防撞牆版) ---
+                        ctx.font = '14px "GlowSans", "Segoe UI", sans-serif'; 
+                        ctx.fillStyle = isDarkMode ? '#FFFFFF' : '#000000'; 
+                        ctx.textBaseline = 'middle';
+                        ctx.shadowColor = isDarkMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
+                        ctx.shadowBlur = 4;
+
+                        let textWidth = ctx.measureText(displayText).width;
+
+                        if (x_dep + 8 + textWidth > rightBoundary) {
+                            ctx.textAlign = 'right';
+                            ctx.fillText(displayText, x_arr - 8, y);
+                        } else {
+                            ctx.textAlign = 'left';
+                            ctx.fillText(displayText, x_dep + 8, y);
                         }
                     }
+
+                    ctx.restore(); 
                 }
-
-                ctx.save();
-                ctx.beginPath();
-                ctx.moveTo(x1, y1);
-                ctx.lineTo(x2, y2);
-
-                if (isCoupled) {
-                    // ✨ 繪製雙色交錯虛線 (併結特有的視覺效果)
-                    ctx.lineWidth = isSelected ? 4 : 2.5;
-                    ctx.lineCap = 'round';
-                    
-                    // 底層：第一種車種的實線
-                    ctx.strokeStyle = trainColor;
-                    ctx.setLineDash([]);
-                    ctx.stroke();
-
-                    // 頂層：第二種車種的虛線 (產生交錯感)
-                    ctx.beginPath();
-                    ctx.moveTo(x1, y1);
-                    ctx.lineTo(x2, y2);
-                    ctx.strokeStyle = partnerColor;
-                    ctx.setLineDash([10, 10]); 
-                    ctx.stroke();
-                } else {
-                    // 繪製一般單色實線
-                    ctx.strokeStyle = trainColor;
-                    ctx.lineWidth = isSelected ? 3 : 1.5;
-                    ctx.lineCap = 'round';
-                    ctx.setLineDash([]);
-                    ctx.stroke();
-                }
-                ctx.restore();
             }
         });
+    };
+    // ==========================================
+    // 結束打包
+    // ==========================================
 
-        // 3. 繪製跨線直通連線 (Direct Link)
-        if (train.coupled_with) {
-            const directInfo = train.coupled_with.find(c => c.action === "direct");
-            if (directInfo) {
-                // 在當前顯示的班次中尋找接續的班次
-                const nextTrain = timetable.find(t => t.no === directInfo.train_id);
-                if (nextTrain) {
-                    const lastSeg = train.segments[train.segments.length - 1];
-                    const nextSeg = nextTrain.segments[0];
-                    
-                    const endX = timeToX(lastSeg.t[lastSeg.t.length - 1]);
-                    const endY = lookupY[lastSeg.s[lastSeg.s.length - 1]];
-                    const startX = timeToX(nextSeg.t[0]);
 
-                    // 只在時間向後推進時畫出連線 (避免 A->B B->A 的雙向干擾)
-                    if (startX >= endX) {
-                        ctx.save();
-                        ctx.beginPath();
-                        ctx.setLineDash([3, 3]); // 使用短虛線表達站內跨班次接續
-                        ctx.strokeStyle = trainColor;
-                        ctx.lineWidth = 1;
-                        ctx.globalAlpha = (selectedTrain && !isSelected) ? 0.2 : 0.8;
-                        ctx.moveTo(endX, endY);
-                        ctx.lineTo(startX, endY); // Y 軸不變，代表停靠在同一站
-                        ctx.stroke();
-                        ctx.restore();
+    // 🌟 真正的繪圖流程開始！(分三層畫)
+    let vipTrain = null;
+    let hoverTrainDraw = null;
+
+    // 第一次迴圈：畫普通車，把 VIP 和 Hover 扣留起來
+    timetable.forEach(train => {
+        
+        // ==========================================
+        // 🌟 第一步：終極淨化術必須放最前面！
+        // 無條件清空這台車的物理座標，確保被隱藏的車絕對不會留下「幽靈點」！
+        // ==========================================
+        if (!train._hitPoints) train._hitPoints = [];
+        train._hitPoints.length = 0; 
+
+        // ==========================================
+        // 🌟 第二步：路線過濾器 (A站~B站 直達車篩選)
+        // (這裡也順便為您補上了 train.id 的日本私鐵支援)
+        // ==========================================
+        let trainNoStr = String(train.no || train.train_no || train.id || "");
+        if (activeRouteFilterTrains !== null && !activeRouteFilterTrains.has(trainNoStr)) {
+            return; // 不在名單內，直接隱藏！因為上面已經清空座標，它現在連實體都沒了！
+        }
+
+        // 1. 車種過濾檢查
+        if (!activeTrainTypes.has(train.type)) {
+            return; 
+        }
+        
+        // ... 下面維持原本的 selectedStation 等邏輯 ...
+
+        // 2. 停靠站聚焦過濾器 (Focus Mode)
+        if (selectedStation) {
+            let stopsHere = false;
+            if (train.segments) {
+                for (let seg of train.segments) {
+                    for (let i = 0; i < seg.s.length; i++) {
+                        // 檢查：1. 站碼是不是我們點擊的站  2. v !== 2 代表「有停靠」
+                        if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
+                            stopsHere = true;
+                            break;
+                        }
                     }
+                    if (stopsHere) break;
                 }
             }
+            // 如果這台車沒有停靠這個車站，就直接跳過，讓他在畫面上隱形！
+            // (而且因為上面已經清空了 _hitPoints，它現在連物理實體都沒有了！)
+            if (!stopsHere) {
+                return; 
+            }
+        }
+
+        // 3. 狀態判斷與分發
+        if (train === selectedTrain) {
+            vipTrain = train;
+        } else if (train === hoveredTrain) {
+            hoverTrainDraw = train;
+        } else {
+            drawSingleTrain(train, false, false); 
         }
     });
 
-    ctx.globalAlpha = 1.0; // 繪製結束，恢復全域透明度
+    // 第二次：畫懸停的車 (壓在普通車上面)
+    if (hoverTrainDraw) drawSingleTrain(hoverTrainDraw, false, true); 
+
+    // 第三次：畫點擊的 VIP 車 (永遠壓在最上面)
+    if (vipTrain) drawSingleTrain(vipTrain, true, false); 
+
+    ctx.restore();
 }
 
 // ==========================================
@@ -2602,6 +2788,7 @@ function updateBottomPanel(train) {
     let startStationName = "未知";
     let endStationName = "未知";
 
+    // 優先檢查原始資料有沒有自帶起終點
     if (train.start_station_name) {
         startStationName = train.start_station_name;
         endStationName = train.end_station_name;
@@ -2612,34 +2799,17 @@ function updateBottomPanel(train) {
         let startId = firstSeg.s[0];
         let endId = lastSeg.s[lastSeg.s.length - 1];
         
+        // 🌟 直接呼叫你系統原生的 getStationName 函數！
         if (typeof getStationName === 'function') {
             startStationName = getStationName(startId);
             endStationName = getStationName(endId);
         }
     }
 
-    // ==========================================
-    // 🌟 亮點功能：計算「併結」與「直通」標籤 HTML
-    // ==========================================
-    let couplingHtml = "";
-    if (train.coupled_with && train.coupled_with.length > 0) {
-        couplingHtml = '<div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">';
-        train.coupled_with.forEach(rel => {
-            const isSplit = rel.action === "split";
-            const tagColor = isSplit ? "#E91E63" : "#4CAF50"; // 併結用桃紅，直通用綠色
-            const actionText = isSplit ? "併結解連" : "直通換號";
-
-            // 使用半透明背景搭配實色邊框的現代化 UI 設計
-            couplingHtml += `
-                <span style="background: ${tagColor}22; border: 1px solid ${tagColor}; color: ${tagColor}; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
-                    ${actionText} ➔ ${rel.train_id} (${rel.station_id})
-                </span>`;
-        });
-        couplingHtml += '</div>';
-    }
-
     // 2. 組裝車站列表的 HTML
+    // 🌟 清空！不要把標題跟著車站一起組裝進去
     let stationsHtml = ``;
+
     let stopCount = 0; let lastStationId = null;
 
     if (train.segments) {
@@ -2656,6 +2826,7 @@ function updateBottomPanel(train) {
                 
                 if (stopCount > 0) stationsHtml += `<div class="station-arrow">➔</div>`;
 
+                // 🌟 使用火車專屬 Class
                 stationsHtml += `
                     <div class="train-stop-item" onclick="window.triggerSelectStation('${seg.s[i]}')">
                         <div class="ts-col-name">${stName}</div>
@@ -2678,12 +2849,10 @@ function updateBottomPanel(train) {
                 <div style="font-size: clamp(13px, 3.5vw, 16px); color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 6px; font-weight: bold;">
                     ${startStationName} <span style="margin: 0 4px; opacity: 0.7; font-size: 0.8em;">▶</span> ${endStationName}
                 </div>
-                
-                ${couplingHtml}
-                
                 <div class="mobile-drag-handle"></div>
             </div>
             
+            <!-- 🌟 終極防跑位：把標題放在外面 -->
             <div class="mobile-table-header" style="width: 100%; flex-shrink: 0;">
                 <div style="flex: 1.5; text-align: left; padding-left: 10px;">站名</div>
                 <div style="flex: 1; text-align: center;">到站時間</div>
