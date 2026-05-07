@@ -141,19 +141,18 @@ def fetch_single_train_detail(url):
                 time_txt = tds[time_idx].get_text(separator="\n").strip()
                 if not time_txt or any(x in time_txt for x in ["||", "レ", "==="]): continue
                     
-                # 抓取「19:31 着」與「19:38 発」
-                arr_m = re.search(r'(\d{2}:\d{2})\s*着', time_txt)
-                dep_m = re.search(r'(\d{2}:\d{2})\s*[發發发]', time_txt)
+                # 萃取儲存格內所有的 HH:MM
+                times = re.findall(r'\d{2}:\d{2}', time_txt)
                 
-                arr = (int(arr_m.group(1)[:2])*60 + int(arr_m.group(1)[3:])) if arr_m else ""
-                dep = (int(dep_m.group(1)[:2])*60 + int(dep_m.group(1)[3:])) if dep_m else ""
+                if not times: continue
                 
-                # 補齊起終點站缺失的時間
-                if arr == "" and dep != "": arr = dep
-                if dep == "" and arr != "": dep = arr
+                arr_str = times[0]
+                dep_str = times[-1]
                 
-                if arr != "" or dep != "":
-                    stops_by_train[i].append({"sta": sta, "arr": arr, "dep": dep})
+                arr = int(arr_str[:2]) * 60 + int(arr_str[3:])
+                dep = int(dep_str[:2]) * 60 + int(dep_str[3:])
+                
+                stops_by_train[i].append({"sta": sta, "arr": arr, "dep": dep})
                     
         # 🌟 5. 分列整理與語義併結判定 (解析官方文字)
         grouped_results = {}
@@ -382,6 +381,10 @@ def main():
         
         # 如果爬蟲階段有抓到 direct 直通標籤，就繼承過來
         if "coupled_with" in train:
+            for c in train["coupled_with"]:
+                if c["action"] == "split":
+                    # 將中文站名翻譯成 topology 的 ID
+                    c["station_id"] = STA_MAP.get(clean_station_name(c["station_id"]), c["station_id"])
             item["coupled_with"] = train["coupled_with"]
             
         if op == "irregular": 
