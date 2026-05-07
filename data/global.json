@@ -34,6 +34,11 @@
                     "id": "Tokkaido_Sanyo_Kyushu_Shinkansen",
                     "chinese_name": "東海道・山陽・九州・西九州新幹線",
                     "is_active": true
+                },
+                {
+                    "id": "Tohoku_Hokkaido_Joetsu_Hokuriku_Shinkansen",
+                    "chinese_name": "東北・北海道・上越・北陸新幹線",
+                    "is_active": true
                 }
             ]
         }
