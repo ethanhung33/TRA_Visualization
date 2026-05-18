@@ -4017,10 +4017,22 @@ function optimizeTrainTimesForDisplay(trainsData) {
                 }
             }
 
-            // 🌟 3. 撐開停靠站的水平線 (維持不變)
+            // 🌟 3. 撐開停靠站的水平線
             for (let i = 0; i < seg.t.length; i += 2) {
                 if (seg.t[i] === seg.t[i + 1] && seg.v[i / 2] !== 2) {
-                    seg.t[i + 1] += 0.5; 
+                    
+                    // 🌟 玩家神級發現：併結站特判！
+                    // 如果這台車在這個站發生拆解/併結，絕對不加 0.5 offset！
+                    // 否則會導致它跟伴侶車的出發時間錯開 0.5 分鐘，造成黃線無法完美重疊。
+                    let isCouplingStation = false;
+                    if (train.coupled_with) {
+                        let stId = seg.s[i / 2];
+                        isCouplingStation = train.coupled_with.some(c => c.action === "split" && String(c.station_id) === String(stId));
+                    }
+                    
+                    if (!isCouplingStation) {
+                        seg.t[i + 1] += 0.5; 
+                    }
                 }
             }
         });
