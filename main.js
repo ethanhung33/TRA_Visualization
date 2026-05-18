@@ -714,12 +714,12 @@ function drawTrains() {
                 ctx.stroke(); // 👈 這是你原本畫完主線條的這行！
 
                 // ==========================================
-                // 🌟🌟🌟 新增 A：精準疊加雙色虛線 (修復 Canvas 座標洩漏版)
+                // 🌟🌟🌟 新增 A：精準疊加雙色虛線 (拓樸邊界推論版)
                 // ==========================================
                 if (train.coupled_with) {
                     let splitInfo = train.coupled_with.find(c => c.action === "split");
                     if (splitInfo) {
-                        let partner = timetable.find(t => String(t.no) === String(splitInfo.train_id));
+                        let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(splitInfo.train_id));
                         
                         if (partner && partner.segments && partner.segments.length > 0) {
                             let pColor = fallbackColor;
@@ -727,7 +727,7 @@ function drawTrains() {
                                 pColor = settings.train_color[partner.type][colorIndex];
                             }
 
-                            // 1. 抓出解連站 (福島) 在這班車的陣列位置 (Index)
+                            // 1. 抓出解連站在這班車的陣列位置 (Index)
                             let splitSt = String(splitInfo.station_id);
                             let splitIndex = seg.s.findIndex(id => String(id) === splitSt);
 
@@ -741,16 +741,15 @@ function drawTrains() {
                                     pSeg.s.forEach(id => partnerStations.add(String(id)));
                                 });
 
-                                // 🌟 2. 拔除致命的 return，改用 null 作為預設狀態
                                 let isCoupledBefore = null; 
 
+                                // 🌟 2. 判斷是在這站「之前」還是「之後」併結
                                 if (splitSt === pFirstSt) {
-                                    isCoupledBefore = true;  
-                                } 
-                                else if (splitSt === pLastSt) {
-                                    isCoupledBefore = false; 
-                                } 
-                                else {
+                                    isCoupledBefore = true;  // 伴侶車從這站出發 -> 下行，在這站之前共線
+                                } else if (splitSt === pLastSt) {
+                                    isCoupledBefore = false; // 伴侶車到這站結束 -> 上行，在這站之後共線
+                                } else {
+                                    // 支援全資料對比模式
                                     let stBefore = splitIndex > 0 ? String(seg.s[splitIndex - 1]) : null;
                                     let stAfter = splitIndex < seg.s.length - 1 ? String(seg.s[splitIndex + 1]) : null;
 
@@ -759,10 +758,9 @@ function drawTrains() {
                                     } else if (stAfter && partnerStations.has(stAfter)) {
                                         isCoupledBefore = false; 
                                     } 
-                                    // 兩邊都沒重疊時，isCoupledBefore 維持 null，安全跳過繪圖
                                 }
 
-                                // 🌟 3. 只有成功判斷方向，才執行畫虛線邏輯
+                                // 🌟 3. 根據判斷結果，算出要畫虛線的 Index 範圍
                                 if (isCoupledBefore !== null) {
                                     let startIndex = isCoupledBefore ? 0 : splitIndex;
                                     let endIndex = isCoupledBefore ? splitIndex : seg.s.length - 1;
@@ -786,6 +784,7 @@ function drawTrains() {
 
                                             if (isFirstPoint) {
                                                 let startX = (i === 0 && segIdx > 0) ? x_dep : x_arr;
+                                                // 若為後半段併結，起點強制使用出站時間，避免覆蓋水平線
                                                 if (i === splitIndex && !isCoupledBefore) {
                                                     startX = (seg.v[i] !== 2) ? x_dep : x_arr;
                                                 }
@@ -797,7 +796,7 @@ function drawTrains() {
 
                                             if (seg.v[i] !== 2) {
                                                 if (i === endIndex && isCoupledBefore) {
-                                                    // 到站解連，不畫出站水平線
+                                                    // 下行車到站瞬間即解連，不再畫水平出站虛線
                                                 } else {
                                                     ctx.lineTo(x_dep, y);
                                                 }
