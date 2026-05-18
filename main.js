@@ -3186,7 +3186,7 @@ function updateBottomPanel(train) {
 
     displayTrains.forEach((tr, trIdx) => {
         if (tr.segments) {
-            tr.segments.forEach(seg => {
+            tr.segments.forEach((seg, segIdx) => { // 🌟 加上 segIdx 就治百病了！
                 for (let i = 0; i < seg.s.length; i++) {
                     if (seg.v[i] === 2) continue; // 跳過通過站
                     
