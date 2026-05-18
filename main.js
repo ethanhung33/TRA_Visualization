@@ -2964,61 +2964,98 @@ function updateBottomPanel(train) {
     }
 
     // ==========================================
-    // 🌟 新增：自動抓取這班車的「起點」與「終點」 (使用 getStationName 最終版)
+    // 🌟 核心升級：建立「直通車次鏈」，自動串接所有實體路線
+    // ==========================================
+    let displayTrains = [train];
+    let currentIter = train;
+    let visitedNos = new Set([String(train.no || train.train_no || train.id)]);
+    
+    // 1. 順藤摸瓜：只要有 direct，就把下一台車抓進來一起顯示！
+    while (currentIter && currentIter.coupled_with) {
+        let directInfo = currentIter.coupled_with.find(c => c.action === "direct");
+        if (directInfo) {
+            let nextTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(directInfo.train_id));
+            if (nextTrain && !visitedNos.has(String(nextTrain.no || nextTrain.train_no || nextTrain.id))) {
+                displayTrains.push(nextTrain);
+                visitedNos.add(String(nextTrain.no || nextTrain.train_no || nextTrain.id));
+                currentIter = nextTrain;
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    // ==========================================
+    // 🌟 自動抓取這班車 (含直通後) 的「絕對起點」與「絕對終點」
     // ==========================================
     let startStationName = "未知";
     let endStationName = "未知";
 
-    // 優先檢查原始資料有沒有自帶起終點
-    if (train.start_station_name) {
-        startStationName = train.start_station_name;
-        endStationName = train.end_station_name;
-    } else if (train.segments && train.segments.length > 0) {
-        let firstSeg = train.segments[0];
-        let lastSeg = train.segments[train.segments.length - 1];
-        
-        let startId = firstSeg.s[0];
-        let endId = lastSeg.s[lastSeg.s.length - 1];
-        
-        // 🌟 直接呼叫你系統原生的 getStationName 函數！
+    // 起點：鏈條中第一台車的第一站
+    if (displayTrains[0].segments && displayTrains[0].segments.length > 0) {
+        let firstSeg = displayTrains[0].segments[0];
         if (typeof getStationName === 'function') {
-            startStationName = getStationName(startId);
-            endStationName = getStationName(endId);
+            startStationName = getStationName(firstSeg.s[0]);
+        }
+    }
+    
+    // 終點：鏈條中最後一台車的最後一站
+    let lastTrainInChain = displayTrains[displayTrains.length - 1];
+    if (lastTrainInChain.segments && lastTrainInChain.segments.length > 0) {
+        let lastSeg = lastTrainInChain.segments[lastTrainInChain.segments.length - 1];
+        if (typeof getStationName === 'function') {
+            endStationName = getStationName(lastSeg.s[lastSeg.s.length - 1]);
         }
     }
 
-    // 2. 組裝車站列表的 HTML
-    // 🌟 清空！不要把標題跟著車站一起組裝進去
+    // ==========================================
+    // 🌟 2. 組裝車站列表的 HTML (跨越直通車次串接)
+    // ==========================================
     let stationsHtml = ``;
+    let stopCount = 0; 
+    let lastStationId = null;
 
-    let stopCount = 0; let lastStationId = null;
+    displayTrains.forEach((tr, trIdx) => {
+        if (tr.segments) {
+            tr.segments.forEach(seg => {
+                for (let i = 0; i < seg.s.length; i++) {
+                    if (seg.v[i] === 2) continue; // 跳過通過站
+                    
+                    let currentStationId = seg.s[i];
+                    
+                    // 🌟 防呆：直通的交會站 (例如福島) 會在上一台車的終點與下一台車的起點重複出現，直接略過以保持畫面乾淨
+                    if (currentStationId === lastStationId) continue;
+                    lastStationId = currentStationId;
 
-    if (train.segments) {
-        train.segments.forEach(seg => {
-            for (let i = 0; i < seg.s.length; i++) {
-                if (seg.v[i] === 2) continue;
-                let currentStationId = seg.s[i];
-                if (currentStationId === lastStationId) continue;
-                lastStationId = currentStationId;
+                    let stName = getStationName(currentStationId);
+                    let arrT = formatTimeDisplay(seg.t[i * 2]);     
+                    let depT = formatTimeDisplay(seg.t[i * 2 + 1]); 
+                    
+                    if (stopCount > 0) stationsHtml += `<div class="station-arrow">➔</div>`;
 
-                let stName = getStationName(seg.s[i]);
-                let arrT = formatTimeDisplay(seg.t[i * 2]);     
-                let depT = formatTimeDisplay(seg.t[i * 2 + 1]); 
-                
-                if (stopCount > 0) stationsHtml += `<div class="station-arrow">➔</div>`;
+                    // 🌟 視覺小巧思：標記出這是從哪裡開始換車號直通的！
+                    let directBadge = "";
+                    if (trIdx > 0 && i === 0) {
+                        directBadge = `<span style="font-size: 10px; background: rgba(255,165,0,0.15); color: #FFA500; padding: 2px 5px; border-radius: 4px; margin-left: 6px; border: 1px dashed #FFA500; vertical-align: middle;">直通 ${tr.no}</span>`;
+                    }
 
-                // 🌟 使用火車專屬 Class
-                stationsHtml += `
-                    <div class="train-stop-item" onclick="window.triggerSelectStation('${seg.s[i]}')">
-                        <div class="ts-col-name">${stName}</div>
-                        <div class="ts-col-arr">${arrT}</div>
-                        <div class="ts-col-dep">${depT}</div>
-                    </div>
-                `;
-                stopCount++;
-            }
-        });
-    }
+                    stationsHtml += `
+                        <div class="train-stop-item" onclick="window.triggerSelectStation('${currentStationId}')">
+                            <div class="ts-col-name">${stName} ${directBadge}</div>
+                            <div class="ts-col-arr">${arrT}</div>
+                            <div class="ts-col-dep">${depT}</div>
+                        </div>
+                    `;
+                    stopCount++;
+                }
+            });
+        }
+    });
+
+    // 3. 塞進 bottom-bar (火車面板)
+    // ... (這行以下的 panel.innerHTML 維持原樣不變) ...
 
     // 3. 塞進 bottom-bar (火車面板)
     panel.innerHTML = `
