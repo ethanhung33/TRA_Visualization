@@ -559,7 +559,7 @@ function drawTrains() {
     // 🌟 新增：把「畫一台車」的邏輯打包起來
     // ==========================================
     // 🌟 在小括號裡面多加一個 isHovered 參數
-    const drawSingleTrain = (train, isVIP, isHovered) => {
+    const drawSingleTrain = (train, isVIP, isHovered, isPartner = false) => {
         // ==========================================
         // 🌟 1. 先決定這台車「原本的」顏色和粗細
         // ==========================================
@@ -582,7 +582,7 @@ function drawTrains() {
         // ==========================================
         // 🌟 2. 再根據狀態換衣服 (這時候 baseColor 已經準備好了)
         // ==========================================
-        if (isVIP) {
+        if (isVIP || isPartner) {
             trainColor = '#FFD700'; // 點擊：亮黃色粗線
             lineWidth = 4.0;
         } else if (isHovered) {
@@ -868,7 +868,7 @@ function drawTrains() {
 
                 // ==========================================
                 // 畫 VIP 車次的專屬字體
-                if (isVIP) {
+                if (isVIP || isPartner) {
                     ctx.save(); 
 
                     for (let i = 0; i < seg.s.length; i++) {
@@ -926,73 +926,54 @@ function drawTrains() {
     // ==========================================
 
 
-    // 🌟 真正的繪圖流程開始！(分三層畫)
+    // 🌟 真正的繪圖流程開始！(分四層畫)
     let vipTrain = null;
     let hoverTrainDraw = null;
+    let partnerTrains = []; // 🌟 新增：用來裝伴侶車的陣列
 
-    // 第一次迴圈：畫普通車，把 VIP 和 Hover 扣留起來
+    // 🌟 建立伴侶車的 ID 快速通關名單
+    let partnerIds = new Set();
+    if (selectedTrain && selectedTrain.coupled_with) {
+        selectedTrain.coupled_with.forEach(c => partnerIds.add(String(c.train_id)));
+    }
+
+    // 第一次迴圈：畫普通車，把 VIP、Hover 和 Partner 扣留起來
     timetable.forEach(train => {
         
-        // ==========================================
-        // 🌟 第一步：終極淨化術必須放最前面！
-        // 無條件清空這台車的物理座標，確保被隱藏的車絕對不會留下「幽靈點」！
-        // ==========================================
         if (!train._hitPoints) train._hitPoints = [];
         train._hitPoints.length = 0; 
 
-        // ==========================================
-        // 🌟 第二步：路線過濾器 (A站~B站 直達車篩選)
-        // (這裡也順便為您補上了 train.id 的日本私鐵支援)
-        // ==========================================
         let trainNoStr = String(train.no || train.train_no || train.id || "");
         if (activeRouteFilterTrains !== null && !activeRouteFilterTrains.has(trainNoStr)) {
-            return; // 不在名單內，直接隱藏！因為上面已經清空座標，它現在連實體都沒了！
-        }
-
-        // 1. 車種過濾檢查
-        if (!activeTrainTypes.has(train.type)) {
             return; 
         }
+
+        if (!activeTrainTypes.has(train.type)) return; 
         
-        // ... 下面維持原本的 selectedStation 等邏輯 ...
+        // ... (中間的 Focus Mode 過濾邏輯維持原樣) ...
 
-        // 2. 停靠站聚焦過濾器 (Focus Mode)
-        if (selectedStation) {
-            let stopsHere = false;
-            if (train.segments) {
-                for (let seg of train.segments) {
-                    for (let i = 0; i < seg.s.length; i++) {
-                        // 檢查：1. 站碼是不是我們點擊的站  2. v !== 2 代表「有停靠」
-                        if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
-                            stopsHere = true;
-                            break;
-                        }
-                    }
-                    if (stopsHere) break;
-                }
-            }
-            // 如果這台車沒有停靠這個車站，就直接跳過，讓他在畫面上隱形！
-            // (而且因為上面已經清空了 _hitPoints，它現在連物理實體都沒有了！)
-            if (!stopsHere) {
-                return; 
-            }
-        }
-
-        // 3. 狀態判斷與分發
+        // 🌟 3. 狀態判斷與分發 (加入伴侶車攔截)
         if (train === selectedTrain) {
             vipTrain = train;
+        } else if (partnerIds.has(trainNoStr)) {
+            partnerTrains.push(train); // 攔截伴侶車！
         } else if (train === hoveredTrain) {
             hoverTrainDraw = train;
         } else {
-            drawSingleTrain(train, false, false); 
+            drawSingleTrain(train, false, false, false); 
         }
     });
 
-    // 第二次：畫懸停的車 (壓在普通車上面)
-    if (hoverTrainDraw) drawSingleTrain(hoverTrainDraw, false, true); 
+    // 依序畫上層 (越後面畫的會壓在越上面)
+    
+    // 第二次：畫懸停的車
+    if (hoverTrainDraw) drawSingleTrain(hoverTrainDraw, false, true, false); 
+    
+    // 🌟 第三次：畫伴侶車 (壓在普通車與懸停車的上方)
+    partnerTrains.forEach(pTrain => drawSingleTrain(pTrain, false, false, true));
 
-    // 第三次：畫點擊的 VIP 車 (永遠壓在最上面)
-    if (vipTrain) drawSingleTrain(vipTrain, true, false); 
+    // 第四次：畫點擊的主角 VIP 車 (永遠壓在最上面，也就是那條黃線)
+    if (vipTrain) drawSingleTrain(vipTrain, true, false, false); 
 
     ctx.restore();
 }
@@ -2935,6 +2916,31 @@ function updateBottomPanel(train) {
     }
 
     // ==========================================
+    // 🌟 新增：找出它的伴侶車，做成精美的快捷按鈕
+    // ==========================================
+    let partnerHtml = "";
+    if (train.coupled_with && train.coupled_with.length > 0) {
+        train.coupled_with.forEach(c => {
+            if (c.action === "split") {
+                let pTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
+                if (pTrain) {
+                    let pColor = "#888888";
+                    if (settings && settings.train_color && settings.train_color[pTrain.type]) {
+                        pColor = settings.train_color[pTrain.type][0]; // 抓取它的代表色
+                    }
+                    
+                    // 產生一個帶有透明度背景的膠囊按鈕
+                    partnerHtml += `
+                        <span style="background: ${pColor}30; color: ${isDarkMode ? '#FFF' : '#000'}; border: 1px solid ${pColor}; padding: 3px 10px; border-radius: 12px; font-size: 14px; margin-left: 12px; cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap; font-weight: normal; vertical-align: middle;" onclick="event.stopPropagation(); window.triggerSelectTrain('${pTrain.no}')">
+                            🔗 併結 ${pTrain.type} ${pTrain.no}
+                        </span>
+                    `;
+                }
+            }
+        });
+    }
+
+    // ==========================================
     // 🌟 新增：自動抓取這班車的「起點」與「終點」 (使用 getStationName 最終版)
     // ==========================================
     let startStationName = "未知";
@@ -2995,9 +3001,9 @@ function updateBottomPanel(train) {
     panel.innerHTML = `
         <div class="bottom-panel-wrapper">
             <div class="train-info-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')">
-                <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.2;">
+                <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.2; display: flex; align-items: center; flex-wrap: wrap;">
                     ${displayTitle}
-                </div>
+                    ${partnerHtml} </div>
                 <div style="font-size: clamp(13px, 3.5vw, 16px); color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 6px; font-weight: bold;">
                     ${startStationName} <span style="margin: 0 4px; opacity: 0.7; font-size: 0.8em;">▶</span> ${endStationName}
                 </div>
