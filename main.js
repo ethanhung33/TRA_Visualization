@@ -910,8 +910,6 @@ function drawTrains() {
 
                         // --- 3. 準備文字：站名與時間 ---
                         let stationName = getStationName(seg.s[i]);
-                        let arrT = seg.t[i * 2];
-                        let depT = seg.t[i * 2 + 1];
 
                         // 🌟 1. 基礎直通時間修補 (讓 139B 和 139M 的基準時間先恢復成 14:31-14:35)
                         let isDirectOut = (segIdx === train.segments.length - 1 && i === seg.s.length - 1 && train.coupled_with && train.coupled_with.some(c => c.action === "direct"));
