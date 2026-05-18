@@ -954,6 +954,10 @@ function drawTrains() {
                             displayText = `${finalArrStr}-${finalDepStr} ${stationName}`; 
                         }
 
+                        if (isDirectIn && (isVIP || isPartner)) {
+                            displayText = ""; 
+                        }
+
                         // --- 4. 畫出文字 (智慧防撞牆版) ---
                         ctx.font = '14px "GlowSans", "Segoe UI", sans-serif'; 
                         ctx.fillStyle = isDarkMode ? '#FFFFFF' : '#000000'; 
