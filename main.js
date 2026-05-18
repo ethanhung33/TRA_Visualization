@@ -714,7 +714,7 @@ function drawTrains() {
                 ctx.stroke(); // 👈 這是你原本畫完主線條的這行！
 
                 // ==========================================
-                // 🌟🌟🌟 新增 A：精準疊加雙色虛線 (支援全資料與截斷雙模式)
+                // 🌟🌟🌟 新增 A：精準疊加雙色虛線 (修復 Canvas 座標洩漏版)
                 // ==========================================
                 if (train.coupled_with) {
                     let splitInfo = train.coupled_with.find(c => c.action === "split");
@@ -732,89 +732,85 @@ function drawTrains() {
                             let splitIndex = seg.s.findIndex(id => String(id) === splitSt);
 
                             if (splitIndex !== -1) {
-                                // 🌟 2. 終極方向判定：涵蓋 Pattern A 與 Pattern B
                                 let pFirstSt = String(partner.segments[0].s[0]);
                                 let pLastSeg = partner.segments[partner.segments.length - 1];
                                 let pLastSt = String(pLastSeg.s[pLastSeg.s.length - 1]);
 
-                                // 建立伴侶車的「所有停靠站」雷達，用來比對 Pattern A
                                 let partnerStations = new Set();
                                 partner.segments.forEach(pSeg => {
                                     pSeg.s.forEach(id => partnerStations.add(String(id)));
                                 });
 
-                                let isCoupledBefore = true; // 預設值
+                                // 🌟 2. 拔除致命的 return，改用 null 作為預設狀態
+                                let isCoupledBefore = null; 
 
-                                // 👉 Pattern B：伴侶車資料被截斷 (只有半截)
                                 if (splitSt === pFirstSt) {
-                                    isCoupledBefore = true;  // 伴侶車從解連站「開始」 -> 前半段併結
+                                    isCoupledBefore = true;  
                                 } 
                                 else if (splitSt === pLastSt) {
-                                    isCoupledBefore = false; // 伴侶車在解連站「結束」 -> 後半段併結
+                                    isCoupledBefore = false; 
                                 } 
-                                // 👉 Pattern A：伴侶車資料完整 (有頭有尾)
                                 else {
-                                    // 檢查我(主車)在解連站的「前一站」與「後一站」，誰在伴侶車的路線上？
                                     let stBefore = splitIndex > 0 ? String(seg.s[splitIndex - 1]) : null;
                                     let stAfter = splitIndex < seg.s.length - 1 ? String(seg.s[splitIndex + 1]) : null;
 
                                     if (stBefore && partnerStations.has(stBefore)) {
-                                        isCoupledBefore = true;  // 前一站有重疊 -> 前半段併結
+                                        isCoupledBefore = true;  
                                     } else if (stAfter && partnerStations.has(stAfter)) {
-                                        isCoupledBefore = false; // 後一站有重疊 -> 後半段併結
-                                    } else {
-                                        return; // 兩邊都沒重疊 (極端異常資料)，防呆跳出 (在 forEach 中等同 continue)
-                                    }
+                                        isCoupledBefore = false; 
+                                    } 
+                                    // 兩邊都沒重疊時，isCoupledBefore 維持 null，安全跳過繪圖
                                 }
 
-                                // 3. 圈出要畫虛線的車站 Index 範圍
-                                let startIndex = isCoupledBefore ? 0 : splitIndex;
-                                let endIndex = isCoupledBefore ? splitIndex : seg.s.length - 1;
+                                // 🌟 3. 只有成功判斷方向，才執行畫虛線邏輯
+                                if (isCoupledBefore !== null) {
+                                    let startIndex = isCoupledBefore ? 0 : splitIndex;
+                                    let endIndex = isCoupledBefore ? splitIndex : seg.s.length - 1;
 
-                                if (startIndex !== endIndex) {
-                                    ctx.save();
-                                    ctx.beginPath();
-                                    
-                                    let isFirstPoint = true;
-
-                                    for (let i = startIndex; i <= endIndex; i++) {
-                                        let y_raw = unwrappedCoords[i];
-                                        if (y_raw === null) {
-                                            isFirstPoint = true; 
-                                            continue;
-                                        }
+                                    if (startIndex !== endIndex) {
+                                        ctx.save();
+                                        ctx.beginPath();
                                         
-                                        let y = y_raw + offsetY;
-                                        let x_arr = timeToX(seg.t[i*2]);
-                                        let x_dep = timeToX(seg.t[i*2+1]);
+                                        let isFirstPoint = true;
 
-                                        if (isFirstPoint) {
-                                            let startX = (i === 0 && segIdx > 0) ? x_dep : x_arr;
-                                            // 若為後半段併結，起點應使用發車時間
-                                            if (i === splitIndex && !isCoupledBefore) {
-                                                startX = (seg.v[i] !== 2) ? x_dep : x_arr;
+                                        for (let i = startIndex; i <= endIndex; i++) {
+                                            let y_raw = unwrappedCoords[i];
+                                            if (y_raw === null) {
+                                                isFirstPoint = true; 
+                                                continue;
                                             }
-                                            ctx.moveTo(startX, y);
-                                            isFirstPoint = false;
-                                        } else {
-                                            ctx.lineTo(x_arr, y);
-                                        }
+                                            
+                                            let y = y_raw + offsetY;
+                                            let x_arr = timeToX(seg.t[i*2]);
+                                            let x_dep = timeToX(seg.t[i*2+1]);
 
-                                        if (seg.v[i] !== 2) {
-                                            if (i === endIndex && isCoupledBefore) {
-                                                // 下行車到達解連站瞬間即完成解連，不再繪製水平出站線
+                                            if (isFirstPoint) {
+                                                let startX = (i === 0 && segIdx > 0) ? x_dep : x_arr;
+                                                if (i === splitIndex && !isCoupledBefore) {
+                                                    startX = (seg.v[i] !== 2) ? x_dep : x_arr;
+                                                }
+                                                ctx.moveTo(startX, y);
+                                                isFirstPoint = false;
                                             } else {
-                                                ctx.lineTo(x_dep, y);
+                                                ctx.lineTo(x_arr, y);
+                                            }
+
+                                            if (seg.v[i] !== 2) {
+                                                if (i === endIndex && isCoupledBefore) {
+                                                    // 到站解連，不畫出站水平線
+                                                } else {
+                                                    ctx.lineTo(x_dep, y);
+                                                }
                                             }
                                         }
-                                    }
 
-                                    // 4. 畫出完美疊加的虛線
-                                    ctx.strokeStyle = pColor;
-                                    ctx.lineWidth = lineWidth + 0.8; 
-                                    ctx.setLineDash([12, 12]);
-                                    ctx.stroke();
-                                    ctx.restore();
+                                        // 4. 畫出完美疊加的虛線
+                                        ctx.strokeStyle = pColor;
+                                        ctx.lineWidth = lineWidth + 0.8; 
+                                        ctx.setLineDash([12, 12]);
+                                        ctx.stroke();
+                                        ctx.restore();
+                                    }
                                 }
                             }
                         }
