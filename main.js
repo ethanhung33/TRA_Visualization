@@ -2916,23 +2916,30 @@ function updateBottomPanel(train) {
     }
 
     // ==========================================
-    // 🌟 新增：找出它的伴侶車，做成精美的快捷按鈕
+    // 🌟 新增：找出它的伴侶車，做成精美的快捷按鈕 (支援直通與併結)
     // ==========================================
     let partnerHtml = "";
     if (train.coupled_with && train.coupled_with.length > 0) {
         train.coupled_with.forEach(c => {
-            if (c.action === "split") {
-                let pTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
-                if (pTrain) {
-                    let pColor = "#888888";
-                    if (settings && settings.train_color && settings.train_color[pTrain.type]) {
-                        pColor = settings.train_color[pTrain.type][0]; // 抓取它的代表色
-                    }
-                    
-                    // 產生一個帶有透明度背景的膠囊按鈕
+            let pTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
+            if (pTrain) {
+                let pColor = "#888888";
+                if (settings && settings.train_color && settings.train_color[pTrain.type]) {
+                    pColor = settings.train_color[pTrain.type][0];
+                }
+                
+                if (c.action === "split") {
+                    // 👉 物理併結 (例如 139B + 6139B)
                     partnerHtml += `
                         <span style="background: ${pColor}30; color: ${isDarkMode ? '#FFF' : '#000'}; border: 1px solid ${pColor}; padding: 3px 10px; border-radius: 12px; font-size: 14px; margin-left: 12px; cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap; font-weight: normal; vertical-align: middle;" onclick="event.stopPropagation(); window.triggerSelectTrain('${pTrain.no}')">
                             🔗 併結 ${pTrain.type} ${pTrain.no}
+                        </span>
+                    `;
+                } else if (c.action === "direct") {
+                    // 👉 變更車次直通 (例如 139B -> 139M)
+                    partnerHtml += `
+                        <span style="background: transparent; color: ${isDarkMode ? '#FFF' : '#000'}; border: 1px dashed ${pColor}; padding: 3px 10px; border-radius: 12px; font-size: 14px; margin-left: 12px; cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap; font-weight: normal; vertical-align: middle;" onclick="event.stopPropagation(); window.triggerSelectTrain('${pTrain.no}')">
+                            ➡️ 直通 ${pTrain.type} ${pTrain.no}
                         </span>
                     `;
                 }

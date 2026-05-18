@@ -7,6 +7,7 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin
 from datetime import date, timedelta
+import unicodedata
 
 # ==========================================
 # 🌟 全域設定 (2026/04/20 - 2026/07/31)
@@ -179,12 +180,15 @@ def fetch_single_train_detail(url):
             # 🌟 恢復：從「併結運転」欄位文字精準提取資訊
             info_text = coupling_info_raw.get(i, "")
             if "併結" in info_text:
-                target_no_match = re.search(r'(\d+[A-Z])', info_text)
+                # 將全形文字 (１３９Ｂ) 轉為半形 (139B)，確保正則表達式 100% 命中
+                info_text_half = unicodedata.normalize('NFKC', info_text)
+                target_no_match = re.search(r'(\d+[A-Z])', info_text_half)
+                
                 if target_no_match:
                     train_obj["coupled_with"].append({
                         "train_id": target_no_match.group(1),
-                        # ⚠️ 絕對不要在這裡寫 station_id！讓它保持空白！
                         "action": "split"
+                        # ⚠️ 絕對不要在這裡填寫 station_id，交給底下的數學引擎算！
                     })
 
             
@@ -217,22 +221,31 @@ def fetch_single_train_detail(url):
 # 🔗 拓樸轉換、併結與輸出
 # ==========================================
 def apply_coupling_logic(trains):
-    print("\n🔗 正在執行全量關聯優化 (時空拓樸終極版)...")
+    print("\n🔗 正在執行全量關聯優化 (單向標記雙向補齊版)...")
     
+    # 1. 建立快取
     for t in trains:
+        t.setdefault("coupled_with", [])
         t["_sched"] = {s["s"][i]: (s["t"][i*2], s["t"][i*2+1]) for s in t["segments"] for i in range(len(s["s"]))}
         t["_route"] = [s["s"][i] for s in t["segments"] for i in range(len(s["s"]))]
             
+    # 2. 雙向補齊 & 時空計算
     for i in range(len(trains)):
-        if "coupled_with" not in trains[i]: continue
-        
-        for c in trains[i]["coupled_with"]:
-            # 🌟 只要前面沒有塞站名，這裡就會順利進入計算！
+        for c in trains[i].get("coupled_with", []):
+            if c["action"] != "split": continue 
             if "station_id" in c: continue 
             
             partner = next((pt for pt in trains if pt["no"] == c["train_id"]), None)
             if not partner: continue
             
+            # 🌟 核心：既然 A 宣稱跟 B 併結，就強制讓 B 也指向 A (雙向綁定)
+            if not any(pc["train_id"] == trains[i]["no"] for pc in partner["coupled_with"]):
+                partner["coupled_with"].append({
+                    "train_id": trains[i]["no"],
+                    "action": "split"
+                })
+            
+            # 尋找時空交集 (加入 3 分鐘物理脫鉤容錯率)
             overlap = []
             for st, (arr1, dep1) in trains[i]["_sched"].items():
                 if st in partner["_sched"]:
@@ -242,12 +255,11 @@ def apply_coupling_logic(trains):
                         
             if len(overlap) >= 1:
                 overlap.sort(key=lambda x: trains[i]["_sched"][x][1])
-                
                 first_over = overlap[0]
                 last_over = overlap[-1]
                 
+                # 終點站推論法
                 if len(overlap) == 1:
-                    # 截斷資料：只有盛岡一站交集，毫無懸念就是它！
                     junction = first_over
                 else:
                     idx1_last = trains[i]["_route"].index(last_over)
@@ -256,19 +268,21 @@ def apply_coupling_logic(trains):
                     has_next_1 = idx1_last < len(trains[i]["_route"]) - 1
                     has_next_2 = idx2_last < len(partner["_route"]) - 1
                     
-                    if has_next_1 or has_next_2:
-                        junction = last_over
-                    else:
-                        junction = first_over
+                    junction = last_over if (has_next_1 or has_next_2) else first_over
                     
+                # 把算出來的精準交會站填進去 (自己和伴侶都要填)
                 c["station_id"] = junction
+                for pc in partner["coupled_with"]:
+                    if pc["train_id"] == trains[i]["no"]:
+                        pc["station_id"] = junction
                 
+    # 3. 大掃除
     for t in trains:
         if "_sched" in t: del t["_sched"]
         if "_route" in t: del t["_route"]
         if "coupled_with" in t:
-            # 把沒有算出來的空包彈清掉
-            t["coupled_with"] = [c for c in t["coupled_with"] if "station_id" in c]
+            # 濾掉沒有算出來的空包彈 (保留 direct)
+            t["coupled_with"] = [c for c in t["coupled_with"] if "station_id" in c or c["action"] == "direct"]
             if not t["coupled_with"]: del t["coupled_with"]
             
     return trains
