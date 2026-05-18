@@ -946,17 +946,86 @@ function drawTrains() {
                         }
 
                         let displayText = "";
-                        
-                        // 🌟 統一顯示邏輯
-                        if (finalArrStr === finalDepStr) {
+                        let combinedSplitText = "";
+
+                        // ==========================================
+                        // 🌟 針對「併結/拆解交會站」：組合出完美的雙目的地字串！
+                        // ==========================================
+                        if (train.coupled_with && isVIP) {
+                            let splitInfo = train.coupled_with.find(c => c.action === "split" && String(c.station_id) === String(seg.s[i]));
+                            if (splitInfo) {
+                                let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(splitInfo.train_id));
+                                if (partner) {
+                                    const getFinalDest = (tObj) => {
+                                        let curr = tObj;
+                                        let visited = new Set([String(curr.no || curr.train_no || curr.id)]);
+                                        while(curr.coupled_with) {
+                                            let dInfo = curr.coupled_with.find(cx => cx.action === "direct");
+                                            if(dInfo) {
+                                                let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                                if (nxt && !visited.has(String(nxt.no || nxt.train_no || nxt.id))) { 
+                                                    visited.add(String(nxt.no || nxt.train_no || nxt.id)); curr = nxt; 
+                                                } else break;
+                                            } else break;
+                                        }
+                                        let lSeg = curr.segments[curr.segments.length-1];
+                                        return getStationName(lSeg.s[lSeg.s.length-1]);
+                                    };
+                                    
+                                    let myDest = getFinalDest(train);
+                                    let pDest = getFinalDest(partner);
+                                    
+                                    let pDepRaw = null;
+                                    for(let ps of partner.segments) {
+                                        let pIdx = ps.s.findIndex(sid => String(sid) === String(seg.s[i]));
+                                        if (pIdx !== -1) {
+                                            pDepRaw = ps.t[pIdx*2+1] !== undefined && ps.t[pIdx*2+1] !== "" ? ps.t[pIdx*2+1] : ps.t[pIdx*2];
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if (pDepRaw !== null) {
+                                        let pDepStr = formatTimeDisplay(pDepRaw);
+                                        combinedSplitText = `${finalArrStr}-${finalDepStr}(${myDest})/${pDepStr}(${pDest})`;
+                                    }
+                                }
+                            }
+                        }
+
+                        // 🌟 決定最終要印出的字
+                        if (combinedSplitText !== "") {
+                            displayText = `${combinedSplitText} ${stationName}`; 
+                        } else if (finalArrStr === finalDepStr) {
                             displayText = `${finalArrStr} ${stationName}`; 
                         } else {
                             displayText = `${finalArrStr}-${finalDepStr} ${stationName}`; 
                         }
 
-                        if (isDirectIn && (isVIP || isPartner)) {
+                        // ==========================================
+                        // 🌟 終極文字去重邏輯 (消滅所有雙胞胎殘影)
+                        // ==========================================
+                        
+                        // 🌟 修正點 4：刪除左邊 (Out)，保留右邊 (In)！
+                        // 讓直通前半段 (isDirectOut) 在發光時閉嘴，交給後半段去印，這樣文字就會乾淨地留在右邊。
+                        if (isDirectOut && (isVIP || isPartner)) {
                             displayText = ""; 
                         }
+
+                        // 針對併結車：消滅伴侶車在交會站的殘影 (只讓 VIP 發聲)
+                        if (isPartner && !isVIP && typeof selectedTrain !== 'undefined' && selectedTrain) {
+                            let selectedId = String(selectedTrain.no || selectedTrain.train_no || selectedTrain.id);
+                            let isSplitStation = train.coupled_with && train.coupled_with.some(c => 
+                                c.action === "split" && 
+                                String(c.train_id) === selectedId && 
+                                String(c.station_id) === String(seg.s[i])
+                            );
+                            
+                            if (isSplitStation) {
+                                displayText = ""; 
+                            }
+                        }
+
+                        // --- 4. 畫出文字 (智慧防撞牆版) ---
 
                         // --- 4. 畫出文字 (智慧防撞牆版) ---
                         ctx.font = '14px "GlowSans", "Segoe UI", sans-serif'; 
@@ -991,10 +1060,24 @@ function drawTrains() {
     let hoverTrainDraw = null;
     let partnerTrains = []; // 🌟 新增：用來裝伴侶車的陣列
 
-    // 🌟 建立伴侶車的 ID 快速通關名單
+    // 🌟 建立伴侶車的 ID 快速通關名單 (支援直通與併結的 BFS 家族擴散)
     let partnerIds = new Set();
-    if (selectedTrain && selectedTrain.coupled_with) {
-        selectedTrain.coupled_with.forEach(c => partnerIds.add(String(c.train_id)));
+    let pQueue = [];
+    if (selectedTrain) pQueue.push(selectedTrain);
+
+    while (pQueue.length > 0) {
+        let curr = pQueue.shift();
+        if (curr.coupled_with) {
+            curr.coupled_with.forEach(c => {
+                if (!partnerIds.has(String(c.train_id))) {
+                    let pTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
+                    if (pTrain && pTrain !== selectedTrain) {
+                        partnerIds.add(String(c.train_id));
+                        pQueue.push(pTrain); // 把找到的伴侶再丟進去，繼續往下找它的直通車！
+                    }
+                }
+            });
+        }
     }
 
     // 第一次迴圈：畫普通車，把 VIP、Hover 和 Partner 扣留起來
