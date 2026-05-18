@@ -992,40 +992,8 @@ function drawTrains() {
                             }
 
                             if (splitTrainA && splitTrainB) {
-                                // 🌟 智慧萃取器：精準抓取兩台車的抵達、發車與最終目的地！
-                                const extractTrainInfo = (tObj, sId) => {
-                                    let arr = null, dep = null, dest = null;
-                                    for (let s of tObj.segments) {
-                                        let idx = s.s.findIndex(id => String(id) === String(sId));
-                                        if (idx !== -1) {
-                                            arr = (s.t[idx*2] !== undefined && s.t[idx*2] !== null && s.t[idx*2] !== "") ? s.t[idx*2] : s.t[idx*2+1];
-                                            dep = (s.t[idx*2+1] !== undefined && s.t[idx*2+1] !== null && s.t[idx*2+1] !== "") ? s.t[idx*2+1] : null;
-
-                                            // 修正直通車次時間
-                                            let isDOut = (idx === s.s.length - 1 && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct"));
-                                            if (isDOut) {
-                                                let dInfo = tObj.coupled_with.find(c => c.action === "direct");
-                                                let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
-                                                if (nxt && nxt.segments[0]) {
-                                                    let nt = nxt.segments[0].t;
-                                                    dep = (nt[1] !== undefined && nt[1] !== null && nt[1] !== "") ? nt[1] : nt[0];
-                                                }
-                                            }
-                                            let isDIn = (idx === 0 && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct"));
-                                            if (isDIn) {
-                                                let dInfo = tObj.coupled_with.find(c => c.action === "direct");
-                                                let prv = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
-                                                if (prv && prv.segments[prv.segments.length-1]) {
-                                                    let pt = prv.segments[prv.segments.length-1].t;
-                                                    let lK = prv.segments[prv.segments.length-1].s.length - 1;
-                                                    arr = (pt[lK*2] !== undefined && pt[lK*2] !== null && pt[lK*2] !== "") ? pt[lK*2] : pt[lK*2+1];
-                                                }
-                                            }
-                                            break;
-                                        }
-                                    }
-
-                                    // 追蹤最終目的地
+                                // 🌟 尋找終點站
+                                const getFinalDest = (tObj) => {
                                     let curr = tObj;
                                     let visited = new Set([String(curr.no || curr.train_no || curr.id)]);
                                     while(curr.coupled_with) {
@@ -1038,49 +1006,102 @@ function drawTrains() {
                                         } else break;
                                     }
                                     let lSeg = curr.segments[curr.segments.length-1];
-                                    dest = getStationName(lSeg.s[lSeg.s.length-1]);
-
-                                    return { arr, dep, dest };
+                                    return getStationName(lSeg.s[lSeg.s.length-1]);
+                                };
+                                
+                                // 🌟 尋找起點站 (為匯合模式準備)
+                                const getOrigin = (tObj) => {
+                                    let curr = tObj;
+                                    let isDIn = curr.coupled_with && curr.coupled_with.some(cx => cx.action === "direct" && curr.segments[0].s[0] === cx.station_id);
+                                    if (isDIn) {
+                                        let dInfo = curr.coupled_with.find(cx => cx.action === "direct");
+                                        let prev = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                        if (prev) curr = prev;
+                                    }
+                                    return getStationName(curr.segments[0].s[0]);
                                 };
 
-                                let infoA = extractTrainInfo(splitTrainA, seg.s[i]);
-                                let infoB = extractTrainInfo(splitTrainB, seg.s[i]);
+                                // 🌟 智慧時間萃取器 (自動修復 139M 等直通車的時間斷層)
+                                const extInfo = (tObj) => {
+                                    let arr = null, dep = null;
+                                    for (let s of tObj.segments) {
+                                        let idx = s.s.findIndex(id => String(id) === String(seg.s[i]));
+                                        if (idx !== -1) {
+                                            arr = (s.t[idx*2] !== undefined && s.t[idx*2] !== null && s.t[idx*2] !== "") ? s.t[idx*2] : null;
+                                            dep = (s.t[idx*2+1] !== undefined && s.t[idx*2+1] !== null && s.t[idx*2+1] !== "") ? s.t[idx*2+1] : null;
+                                            if(arr === null && dep !== null) arr = dep; // 防呆補齊
+                                            if(dep === null && arr !== null) dep = arr; // 防呆補齊
 
-                                // 🌟 推開文字的基準點：抓取兩台中「最晚發車」的時間！
-                                let maxDepTimeRaw = Math.max(infoA.dep || -Infinity, infoB.dep || -Infinity);
-                                if (maxDepTimeRaw !== -Infinity && maxDepTimeRaw !== null) {
-                                    let calculatedX = timeToX(maxDepTimeRaw);
-                                    if (!isNaN(calculatedX)) familyMaxTextX = calculatedX;
-                                }
-
-                                // 🌟 判斷是「匯合(JOIN)」還是「分離(SPLIT)」
-                                // 如果有人在這站終止(dep為null)，或是兩台車抵達時間不同，代表這是上行列車的「匯合」！
-                                let isJoin = (infoA.dep === null || infoB.dep === null || infoA.arr !== infoB.arr);
-
-                                if (isJoin) {
-                                    // 【匯合模式】例如 142B + 142M
-                                    // 格式：14:10/14:14-14:16(東京)
-                                    let arrs = [...new Set([infoA.arr, infoB.arr].filter(x => x !== null && x !== undefined).sort((a,b)=>a-b).map(formatTimeDisplay))];
-                                    let sharedDep = infoA.dep !== null ? infoA.dep : infoB.dep;
-                                    let sharedDest = infoA.dep !== null ? infoA.dest : infoB.dest;
-                                    
-                                    if (arrs.length > 0 && sharedDep) {
-                                        displayText = `${arrs.join('/')}-${formatTimeDisplay(sharedDep)}(${sharedDest}) ${stationName}`;
-                                    } else {
-                                        displayText = `${finalArrStr}-${finalDepStr} ${stationName}`;
+                                            let isDOut = (idx === s.s.length - 1 && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct"));
+                                            if (isDOut) {
+                                                let dInfo = tObj.coupled_with.find(c => c.action === "direct");
+                                                let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                                if (nxt && nxt.segments[0]) {
+                                                    let nt = nxt.segments[0].t;
+                                                    let nDep = (nt[1] !== undefined && nt[1] !== null && nt[1] !== "") ? nt[1] : nt[0];
+                                                    if (nDep !== null) dep = nDep;
+                                                }
+                                            }
+                                            let isDIn = (idx === 0 && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct"));
+                                            if (isDIn) {
+                                                let dInfo = tObj.coupled_with.find(c => c.action === "direct");
+                                                let prv = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                                if (prv && prv.segments[prv.segments.length-1]) {
+                                                    let pt = prv.segments[prv.segments.length-1].t;
+                                                    let lK = prv.segments[prv.segments.length-1].s.length - 1;
+                                                    let pArr = (pt[lK*2] !== undefined && pt[lK*2] !== null && pt[lK*2] !== "") ? pt[lK*2] : pt[lK*2+1];
+                                                    if (pArr !== null) arr = pArr;
+                                                }
+                                            }
+                                            break;
+                                        }
                                     }
-                                } else {
-                                    // 【分離模式】例如 139B + 6139B
-                                    // 格式：14:31-14:35(新庄)/14:37(仙台)
-                                    let sharedArr = formatTimeDisplay(infoA.arr);
-                                    let deps = [
-                                        { t: infoA.dep, str: `${formatTimeDisplay(infoA.dep)}(${infoA.dest})` },
-                                        { t: infoB.dep, str: `${formatTimeDisplay(infoB.dep)}(${infoB.dest})` }
-                                    ].sort((a,b) => a.t - b.t);
-                                    
-                                    displayText = `${sharedArr}-${deps[0].str}/${deps[1].str} ${stationName}`;
+                                    return { arr, dep, dest: getFinalDest(tObj), origin: getOrigin(tObj) };
+                                };
+
+                                let iA = extInfo(splitTrainA);
+                                let iB = extInfo(splitTrainB);
+
+                                // 更新文字基準點，推到最晚發車時間的右邊！
+                                let maxDep = Math.max(iA.dep || -Infinity, iB.dep || -Infinity);
+                                if (maxDep !== -Infinity && maxDep !== null) {
+                                    let cX = timeToX(maxDep);
+                                    if (!isNaN(cX)) familyMaxTextX = cX;
                                 }
 
+                                // 🌟 終極判斷：是匯合 (JOIN) 還是分離 (SPLIT)？
+                                // 原理：檢查兩台車離開這站後，是否還有共同停靠站
+                                let stA = splitTrainA.segments.flatMap(s => s.s).map(String);
+                                let stB = splitTrainB.segments.flatMap(s => s.s).map(String);
+                                let idxA = stA.indexOf(String(seg.s[i]));
+                                let shareAfter = false;
+                                for(let k = idxA + 1; k < stA.length; k++) {
+                                    if (stB.includes(stA[k])) { shareAfter = true; break; }
+                                }
+
+                                if (shareAfter) {
+                                    // 🚄 【匯合模式 JOIN】 (例如 150B 上行)
+                                    // 格式： 抵達A(起點A) / 抵達B(起點B) - 發車(終點)
+                                    let joins = [
+                                        { t: iA.arr, str: `${formatTimeDisplay(iA.arr)}(${iA.origin})` },
+                                        { t: iB.arr, str: `${formatTimeDisplay(iB.arr)}(${iB.origin})` }
+                                    ].sort((a,b) => (a.t || 0) - (b.t || 0));
+                                    
+                                    let sharedDep = maxDep;
+                                    let sharedDest = iA.dest === iB.dest ? iA.dest : `${iA.dest}/${iB.dest}`; // 通常合併後終點會一樣
+                                    
+                                    displayText = `${joins[0].str}/${joins[1].str}-${formatTimeDisplay(sharedDep)}(${sharedDest}) ${stationName}`;
+                                } else {
+                                    // 🚄 【分離模式 SPLIT】 (例如 149B 下行)
+                                    // 格式： 抵達 - 發車A(終點A) / 發車B(終點B)
+                                    let sharedArr = Math.min(iA.arr || Infinity, iB.arr || Infinity);
+                                    let splits = [
+                                        { t: iA.dep, str: `${formatTimeDisplay(iA.dep)}(${iA.dest})` },
+                                        { t: iB.dep, str: `${formatTimeDisplay(iB.dep)}(${iB.dest})` }
+                                    ].sort((a,b) => (a.t || 0) - (b.t || 0));
+                                    
+                                    displayText = `${formatTimeDisplay(sharedArr)}-${splits[0].str}/${splits[1].str} ${stationName}`;
+                                }
                             } else {
                                 // 沒遇到交會的普通車站
                                 if (finalArrStr === finalDepStr) {
