@@ -869,8 +869,8 @@ function drawTrains() {
                                     ctx.lineTo(startX, endY);
                                     
                                     ctx.strokeStyle = trainColor; // 延續自己原本的顏色
-                                    ctx.setLineDash([5, 5]); 
-                                    ctx.lineWidth = 2.5; 
+                                    ctx.setLineDash([]); 
+                                    ctx.lineWidth = lineWidth; 
                                     ctx.stroke();
                                     ctx.restore();
                                 }
@@ -912,7 +912,47 @@ function drawTrains() {
                         let stationName = getStationName(seg.s[i]);
                         let arrTimeStr = formatTimeDisplay(arrT); 
                         let depTimeStr = formatTimeDisplay(depT); 
-                        let displayText = `${arrTimeStr} - ${depTimeStr} ${stationName}`;
+
+                        let finalArrStr = arrTimeStr;
+                        let finalDepStr = depTimeStr;
+
+                        // 🌟 針對直通交界點：跨車次抓取另一半的時間，組合成完美的停靠時間區間！
+                        let isDirectOut = (segIdx === train.segments.length - 1 && i === seg.s.length - 1 && train.coupled_with && train.coupled_with.some(c => c.action === "direct"));
+                        let isDirectIn = (segIdx === 0 && i === 0 && train.coupled_with && train.coupled_with.some(c => c.action === "direct"));
+
+                        if (isDirectOut) {
+                            // 直通前半段：去抓下一台車的「發車時間」
+                            let directInfo = train.coupled_with.find(c => c.action === "direct");
+                            if (directInfo) {
+                                let nextTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(directInfo.train_id));
+                                if (nextTrain && nextTrain.segments.length > 0) {
+                                    let nextSeg = nextTrain.segments[0];
+                                    let nextDepRaw = nextSeg.t[1] !== undefined ? nextSeg.t[1] : nextSeg.t[0];
+                                    finalDepStr = formatTimeDisplay(nextDepRaw);
+                                }
+                            }
+                        } else if (isDirectIn) {
+                            // 直通後半段：去抓上一台車的「抵達時間」
+                            let directInfo = train.coupled_with.find(c => c.action === "direct");
+                            if (directInfo) {
+                                let prevTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(directInfo.train_id));
+                                if (prevTrain && prevTrain.segments.length > 0) {
+                                    let prevSeg = prevTrain.segments[prevTrain.segments.length - 1];
+                                    let lastK = prevSeg.s.length - 1;
+                                    let prevArrRaw = prevSeg.t[lastK * 2] !== undefined ? prevSeg.t[lastK * 2] : prevSeg.t[lastK * 2 + 1];
+                                    finalArrStr = formatTimeDisplay(prevArrRaw);
+                                }
+                            }
+                        }
+
+                        let displayText = "";
+                        
+                        // 🌟 統一顯示邏輯
+                        if (finalArrStr === finalDepStr) {
+                            displayText = `${finalArrStr} ${stationName}`; 
+                        } else {
+                            displayText = `${finalArrStr}-${finalDepStr} ${stationName}`; 
+                        }
 
                         // --- 4. 畫出文字 (智慧防撞牆版) ---
                         ctx.font = '14px "GlowSans", "Segoe UI", sans-serif'; 
