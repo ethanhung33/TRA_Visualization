@@ -176,19 +176,18 @@ def fetch_single_train_detail(url):
                 "coupled_with": []
             }
 
-            # 🌟 核心：從「併結運転」欄位文字提取資訊
+            # 🌟 恢復：從「併結運転」欄位文字精準提取資訊
             info_text = coupling_info_raw.get(i, "")
             if "併結" in info_text:
-                # 抓伴侶編號 (如 153M) 與車站 (如 福島)
                 target_no_match = re.search(r'(\d+[A-Z])', info_text)
-                station_match = re.search(r'－([^は]+)', info_text)
-                if target_no_match and station_match:
-                    split_sta_name = station_match.group(1)
+                if target_no_match:
                     train_obj["coupled_with"].append({
                         "train_id": target_no_match.group(1),
-                        "station_id": split_sta_name, # 先存站名，後續在 main 統一轉 ID
+                        # ⚠️ 絕對不要在這裡寫 station_id！讓它保持空白！
                         "action": "split"
                     })
+
+            
             
             grouped_results[tname].append(train_obj)
             
@@ -201,9 +200,10 @@ def fetch_single_train_detail(url):
                 for idx in range(len(trains) - 1):
                     t_curr, t_next = trains[idx], trains[idx+1]
                     link_station = t_next["data"][0]["sta"]
-                    t_curr["coupled_with"].append({"train_id": t_next["no"], "station_id": link_station, "action": "direct"})
-                    t_next["coupled_with"].append({"train_id": t_curr["no"], "station_id": link_station, "action": "direct"})
-            
+                    # 確保同名列車給的是 split
+                    t_curr["coupled_with"].append({"train_id": t_next["no"], "station_id": link_station, "action": "split"})
+                    t_next["coupled_with"].append({"train_id": t_curr["no"], "station_id": link_station, "action": "split"})
+
             for t in trains:
                 if not t["coupled_with"]: del t["coupled_with"]
                 results.append(t)
@@ -217,31 +217,60 @@ def fetch_single_train_detail(url):
 # 🔗 拓樸轉換、併結與輸出
 # ==========================================
 def apply_coupling_logic(trains):
-    print("\n🔗 正在執行全量關聯優化...")
+    print("\n🔗 正在執行全量關聯優化 (時空拓樸終極版)...")
+    
     for t in trains:
-        if "coupled_with" not in t: t["coupled_with"] = []
         t["_sched"] = {s["s"][i]: (s["t"][i*2], s["t"][i*2+1]) for s in t["segments"] for i in range(len(s["s"]))}
+        t["_route"] = [s["s"][i] for s in t["segments"] for i in range(len(s["s"]))]
             
     for i in range(len(trains)):
-        for j in range(i + 1, len(trains)):
-            t1, t2 = trains[i], trains[j]
-            if t1["no"] == t2["no"]: continue
+        if "coupled_with" not in trains[i]: continue
+        
+        for c in trains[i]["coupled_with"]:
+            # 🌟 只要前面沒有塞站名，這裡就會順利進入計算！
+            if "station_id" in c: continue 
             
-            # 🌟 關鍵：如果爬蟲階段已經透過「併結運転」欄位標記過了，就跳過這對比對
-            if any(c["train_id"] == t2["no"] for c in t1["coupled_with"]): continue
+            partner = next((pt for pt in trains if pt["no"] == c["train_id"]), None)
+            if not partner: continue
+            
+            overlap = []
+            for st, (arr1, dep1) in trains[i]["_sched"].items():
+                if st in partner["_sched"]:
+                    arr2, dep2 = partner["_sched"][st]
+                    if abs(dep1 - dep2) <= 3 or abs(arr1 - arr2) <= 3:
+                        overlap.append(st)
+                        
+            if len(overlap) >= 1:
+                overlap.sort(key=lambda x: trains[i]["_sched"][x][1])
                 
-            # 只有在雙方都沒有標籤時，才考慮用舊的「時間比對法」作為備援
-            # 且為了防止 66B 慘劇，我們可以把門檻調回 2 站，或者限定特定的車種
-            overlap = [st for st, time in t1["_sched"].items() if st in t2["_sched"] and t2["_sched"][st] == time]
-            
-            if len(overlap) >= 2: # 回歸嚴格判定，避免誤判加班車
-                split_station = sorted(overlap, key=lambda x: t1["_sched"][x][0])[-1] 
-                t1["coupled_with"].append({"train_id": t2["no"], "station_id": split_station, "action": "split"})
-                t2["coupled_with"].append({"train_id": t1["no"], "station_id": split_station, "action": "split"})
+                first_over = overlap[0]
+                last_over = overlap[-1]
+                
+                if len(overlap) == 1:
+                    # 截斷資料：只有盛岡一站交集，毫無懸念就是它！
+                    junction = first_over
+                else:
+                    idx1_last = trains[i]["_route"].index(last_over)
+                    idx2_last = partner["_route"].index(last_over)
                     
+                    has_next_1 = idx1_last < len(trains[i]["_route"]) - 1
+                    has_next_2 = idx2_last < len(partner["_route"]) - 1
+                    
+                    if has_next_1 or has_next_2:
+                        junction = last_over
+                    else:
+                        junction = first_over
+                    
+                c["station_id"] = junction
+                
     for t in trains:
-        del t["_sched"]
-        if not t["coupled_with"]: del t["coupled_with"]
+        if "_sched" in t: del t["_sched"]
+        if "_route" in t: del t["_route"]
+        if "coupled_with" in t:
+            # 把沒有算出來的空包彈清掉
+            t["coupled_with"] = [c for c in t["coupled_with"] if "station_id" in c]
+            if not t["coupled_with"]: del t["coupled_with"]
+            
     return trains
 
 def save_json_per_line(path, data_list):
@@ -379,12 +408,9 @@ def main():
             "segments": segs
         }
         
-        # 如果爬蟲階段有抓到 direct 直通標籤，就繼承過來
+        # 將爬取的車次關聯直接繼承
+        # ⚠️ 注意：此時沒有 station_id，稍後的 apply_coupling_logic 會用完美的拓樸 ID 自動填補！
         if "coupled_with" in train:
-            for c in train["coupled_with"]:
-                if c["action"] == "split":
-                    # 將中文站名翻譯成 topology 的 ID
-                    c["station_id"] = STA_MAP.get(clean_station_name(c["station_id"]), c["station_id"])
             item["coupled_with"] = train["coupled_with"]
             
         if op == "irregular": 
