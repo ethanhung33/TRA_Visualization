@@ -3071,14 +3071,31 @@ function getStationName(st_id) {
 
 // ==========================================
 // 🌟 專為底部面板按鈕設計的「無縫切換函式」
-// (只更新畫面，絕對不移動鏡頭或卷軸！)
+// (只更新面板，並觸發全局重繪消除殘影，絕對不移動鏡頭！)
 // ==========================================
 window.switchTrainKeepView = (trainNo) => {
     let t = timetable.find(x => String(x.no || x.train_no || x.id) === String(trainNo));
     if (t) {
         selectedTrain = t; // 直接替換主角
         if (typeof updateBottomPanel === 'function') updateBottomPanel(t); // 更新底部面板
-        if (typeof drawTrains === 'function') drawTrains(); // 重新畫線
+        
+        // 🌟 終極除殘影術：不要只呼叫 drawTrains()！
+        // 我們直接呼叫系統主程式的 draw()，或者發射假事件騙系統重繪！
+        if (typeof draw === 'function') {
+            draw(); // 如果你的主渲染函式叫做 draw，直接呼叫它
+        } else {
+            // 如果不確定主函式名稱，直接對畫布發射假的滑鼠移動事件！
+            let canvasEl = document.getElementById('canvas') || document.querySelector('canvas');
+            if (canvasEl) {
+                let fakeEvent = new MouseEvent('mousemove', {
+                    bubbles: true,
+                    cancelable: true,
+                    clientX: -1, // 丟到畫面外，避免觸發其他 hover 效果
+                    clientY: -1
+                });
+                canvasEl.dispatchEvent(fakeEvent);
+            }
+        }
     }
 };
 
