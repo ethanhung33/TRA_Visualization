@@ -921,6 +921,7 @@ function drawTrains() {
                             if (nxt && nxt.segments[0]) {
                                 let nt = nxt.segments[0].t;
                                 depT = (nt[1] !== undefined && nt[1] !== null && nt[1] !== "") ? nt[1] : nt[0];
+                                x_dep = timeToX(depT); // 同步修正繪圖座標
                             }
                         } else if (isDirectIn) {
                             let dInfo = train.coupled_with.find(c => c.action === "direct");
@@ -929,34 +930,32 @@ function drawTrains() {
                                 let pt = prv.segments[prv.segments.length - 1].t;
                                 let lastK = prv.segments[prv.segments.length - 1].s.length - 1;
                                 arrT = (pt[lastK * 2] !== undefined && pt[lastK * 2] !== null && pt[lastK * 2] !== "") ? pt[lastK * 2] : pt[lastK * 2 + 1];
+                                x_arr = timeToX(arrT); // 同步修正繪圖座標
                             }
                         }
 
                         let finalArrStr = formatTimeDisplay(arrT);
                         let finalDepStr = formatTimeDisplay(depT);
                         let displayText = "";
+                        let familyMaxTextX = x_dep; // 🌟 新增：推開文字的基準點
 
                         // ==========================================
                         // 🌟 2. 終極發言權判定機制 (Designated Speaker)
-                        // 徹底解決任何不同座標重疊、雙胞胎與多次印製問題！
+                        // 徹底解決重疊、雙胞胎與切換殘影問題！
                         // ==========================================
                         let isDesignatedSpeaker = false;
 
                         if (isVIP) {
-                            // 主角：在我的地盤我發言，除非我正在交接。
-                            if (!isDirectOut) {
-                                isDesignatedSpeaker = true;
-                            }
+                            // 主角：在我的地盤我發言，除非我正在交班(DirectOut)。
+                            if (!isDirectOut) isDesignatedSpeaker = true;
                         } else if (isPartner && typeof selectedTrain !== 'undefined' && selectedTrain) {
-                            // 伴侶車：先看主角有沒有來這站？
+                            // 伴侶車：如果主角沒來這站，我來說！
                             let vipPresentHere = selectedTrain.segments.some(s => s.s.map(String).includes(String(seg.s[i])));
                             
                             if (!vipPresentHere) {
-                                // 主角沒來這站 (例如主角去山形，我來仙台)，那我發言！
                                 isDesignatedSpeaker = true;
                             } else {
-                                // 主角有來這站，那通常輪不到我。
-                                // 唯一例外：主角在這站剛好結束，而且把車次交接給我！
+                                // 主角有來這站，唯一例外是主角剛好在這站交班給我
                                 let vipLastSeg = selectedTrain.segments[selectedTrain.segments.length - 1];
                                 let vipLastSt = vipLastSeg.s[vipLastSeg.s.length - 1];
                                 
@@ -964,15 +963,13 @@ function drawTrains() {
                                     let vipDirectsToMe = selectedTrain.coupled_with && selectedTrain.coupled_with.some(c => 
                                         c.action === "direct" && String(c.train_id) === String(train.no || train.train_no || train.id)
                                     );
-                                    if (vipDirectsToMe) {
-                                        isDesignatedSpeaker = true; // 我是接班人，這站我來說！
-                                    }
+                                    if (vipDirectsToMe) isDesignatedSpeaker = true; 
                                 }
                             }
                         }
 
                         // ==========================================
-                        // 🌟 3. 只有拿到麥克風 (Designated Speaker) 的人才能組合字串
+                        // 🌟 3. 只有拿到麥克風的人，才能組合字串！
                         // ==========================================
                         if (isDesignatedSpeaker) {
                             let myFamily = [];
@@ -981,17 +978,41 @@ function drawTrains() {
 
                             let splitTrainA = null;
                             let splitTrainB = null;
+                            let maxDepTimeRaw = -Infinity; // 用來找全家族最晚發車時間
 
-                            // 找找看家族裡有沒有人「在這個車站」發生拆解併結？
+                            // 找拆解/併結事件，並同步搜集全家族的最晚出發時間
                             for (let ft of myFamily) {
                                 if (ft.coupled_with) {
                                     let sInfo = ft.coupled_with.find(c => c.action === "split" && String(c.station_id) === String(seg.s[i]));
                                     if (sInfo) {
                                         splitTrainA = ft;
                                         splitTrainB = timetable.find(t => String(t.no || t.train_no || t.id) === String(sInfo.train_id));
-                                        break; 
                                     }
                                 }
+                                
+                                for (let s of ft.segments) {
+                                    let idx = s.s.findIndex(id => String(id) === String(seg.s[i]));
+                                    if (idx !== -1) {
+                                        let dep = (s.t[idx*2+1] !== undefined && s.t[idx*2+1] !== null && s.t[idx*2+1] !== "") ? s.t[idx*2+1] : s.t[idx*2];
+                                        let isDOut = (idx === s.s.length - 1 && ft.coupled_with && ft.coupled_with.some(c => c.action === "direct"));
+                                        if (isDOut) {
+                                            let dInfo = ft.coupled_with.find(c => c.action === "direct");
+                                            let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                            if (nxt && nxt.segments[0]) {
+                                                let nt = nxt.segments[0].t;
+                                                dep = (nt[1] !== undefined && nt[1] !== null && nt[1] !== "") ? nt[1] : nt[0];
+                                            }
+                                        }
+                                        if (dep > maxDepTimeRaw) maxDepTimeRaw = dep;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // 🌟 核心：更新文字要畫在「最晚離開」的那台車右邊！
+                            if (maxDepTimeRaw !== -Infinity) {
+                                let calculatedX = timeToX(maxDepTimeRaw);
+                                if (!isNaN(calculatedX)) familyMaxTextX = calculatedX;
                             }
 
                             if (splitTrainA && splitTrainB) {
@@ -1049,23 +1070,42 @@ function drawTrains() {
                                     displayText = `${finalArrStr}-${finalDepStr} ${stationName}`; 
                                 }
                             }
+                        } else {
+                            displayText = ""; // 🌟 沒有拿到麥克風，絕對閉嘴！
                         }
 
-                        // --- 4. 畫出文字 (智慧防撞牆版) ---
-                        ctx.font = '14px "GlowSans", "Segoe UI", sans-serif'; 
-                        ctx.fillStyle = isDarkMode ? '#FFFFFF' : '#000000'; 
-                        ctx.textBaseline = 'middle';
-                        ctx.shadowColor = isDarkMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
-                        ctx.shadowBlur = 4;
+                        // ==========================================
+                        // 🌟 4. 終極防護網
+                        // ==========================================
+                        if (displayText !== "") {
+                            let uniqueKey = `${seg.s[i]}_${displayText}`;
+                            if (typeof printedStationTexts !== 'undefined') {
+                                if (printedStationTexts.has(uniqueKey)) {
+                                    displayText = ""; 
+                                } else {
+                                    printedStationTexts.add(uniqueKey);
+                                }
+                            }
+                        }
 
-                        let textWidth = ctx.measureText(displayText).width;
+                        // --- 5. 畫出文字 (智慧防撞牆版) ---
+                        if (displayText !== "") {
+                            ctx.font = '14px "GlowSans", "Segoe UI", sans-serif'; 
+                            ctx.fillStyle = isDarkMode ? '#FFFFFF' : '#000000'; 
+                            ctx.textBaseline = 'middle';
+                            ctx.shadowColor = isDarkMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
+                            ctx.shadowBlur = 4;
 
-                        if (x_dep + 8 + textWidth > rightBoundary) {
-                            ctx.textAlign = 'right';
-                            ctx.fillText(displayText, x_arr - 8, y);
-                        } else {
-                            ctx.textAlign = 'left';
-                            ctx.fillText(displayText, x_dep + 8, y);
+                            let textWidth = ctx.measureText(displayText).width;
+
+                            // 🌟 核心：使用推開後的 familyMaxTextX 來畫字，絕對不蓋黃線！
+                            if (familyMaxTextX + 8 + textWidth > rightBoundary) {
+                                ctx.textAlign = 'right';
+                                ctx.fillText(displayText, x_arr - 8, y);
+                            } else {
+                                ctx.textAlign = 'left';
+                                ctx.fillText(displayText, familyMaxTextX + 8, y);
+                            }
                         }
                     }
 
