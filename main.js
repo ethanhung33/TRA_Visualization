@@ -716,7 +716,7 @@ function drawTrains() {
                 // ==========================================
                 // 🌟🌟🌟 新增 A：精準疊加雙色虛線 (終極共同路徑推論版)
                 // ==========================================
-                if (train.coupled_with) {
+                if (train.coupled_with && !isVIP && !isPartner) {
                     let splitInfo = train.coupled_with.find(c => c.action === "split");
                     if (splitInfo) {
                         let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(splitInfo.train_id));
