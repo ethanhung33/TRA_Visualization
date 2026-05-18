@@ -2964,28 +2964,46 @@ function updateBottomPanel(train) {
     }
 
     // ==========================================
-    // 🌟 核心升級：建立「直通車次鏈」，自動串接所有實體路線
+    // 🌟 核心升級：建立「直通車次鏈」，自動向前後雙向串接並排序！
     // ==========================================
-    let displayTrains = [train];
-    let currentIter = train;
-    let visitedNos = new Set([String(train.no || train.train_no || train.id)]);
-    
-    // 1. 順藤摸瓜：只要有 direct，就把下一台車抓進來一起顯示！
-    while (currentIter && currentIter.coupled_with) {
-        let directInfo = currentIter.coupled_with.find(c => c.action === "direct");
-        if (directInfo) {
-            let nextTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(directInfo.train_id));
-            if (nextTrain && !visitedNos.has(String(nextTrain.no || nextTrain.train_no || nextTrain.id))) {
-                displayTrains.push(nextTrain);
-                visitedNos.add(String(nextTrain.no || nextTrain.train_no || nextTrain.id));
-                currentIter = nextTrain;
-            } else {
-                break;
+    let displayTrains = [];
+    let visitedNos = new Set();
+    let queue = [train]; // 從你點擊的這班車開始往外找
+
+    // 1. 雙向抓取所有直通家族成員 (BFS 廣度優先搜尋)
+    while (queue.length > 0) {
+        let curr = queue.shift();
+        let currId = String(curr.no || curr.train_no || curr.id);
+        
+        if (!visitedNos.has(currId)) {
+            visitedNos.add(currId);
+            displayTrains.push(curr); // 收編進家族
+            
+            // 找找看這台車有沒有直通的好兄弟，有的話也丟進搜尋佇列
+            if (curr.coupled_with) {
+                curr.coupled_with.forEach(c => {
+                    if (c.action === "direct") {
+                        let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
+                        if (partner && !visitedNos.has(String(partner.no || partner.train_no || partner.id))) {
+                            queue.push(partner);
+                        }
+                    }
+                });
             }
-        } else {
-            break;
         }
     }
+
+    // 2. 依據每台車第一站的「發車時間」由小到大排序 (確保物理順序正確)
+    displayTrains.sort((a, b) => {
+        let getStartTime = (tr) => {
+            if (!tr.segments || tr.segments.length === 0) return 9999;
+            // 抓這台車第一站的時間
+            let firstTime = tr.segments[0].t[0] !== null ? tr.segments[0].t[0] : tr.segments[0].t[1];
+            // 處理跨夜修正 (凌晨時段加 1440 確保它排在晚上後面)
+            return (firstTime < 240) ? firstTime + 1440 : firstTime;
+        };
+        return getStartTime(a) - getStartTime(b);
+    });
 
     // ==========================================
     // 🌟 自動抓取這班車 (含直通後) 的「絕對起點」與「絕對終點」
