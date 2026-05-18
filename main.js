@@ -971,21 +971,34 @@ function drawTrains() {
                                         let lSeg = curr.segments[curr.segments.length-1];
                                         return getStationName(lSeg.s[lSeg.s.length-1]);
                                     };
+
+                                    // 🌟 專門為伴侶車設計的「時間追蹤引擎」
+                                    const getPartnerDepTime = (pTrain, sId) => {
+                                        for (let s of pTrain.segments) {
+                                            let idx = s.s.findIndex(id => String(id) === String(sId));
+                                            if (idx !== -1) {
+                                                let pDep = s.t[idx*2+1] !== undefined && s.t[idx*2+1] !== "" ? s.t[idx*2+1] : s.t[idx*2];
+                                                
+                                                // 如果這台伴侶車也是直通車 (例如 139B)，就去抓它下一半 (139M) 的發車時間！
+                                                let isDOut = (idx === s.s.length - 1 && pTrain.coupled_with && pTrain.coupled_with.some(c => c.action === "direct"));
+                                                if (isDOut) {
+                                                    let dInfo = pTrain.coupled_with.find(c => c.action === "direct");
+                                                    let nxt = timetable.find(t => String(t.no || t.train_no || t.id) === String(dInfo.train_id));
+                                                    if (nxt && nxt.segments[0]) {
+                                                        pDep = nxt.segments[0].t[1] !== undefined && nxt.segments[0].t[1] !== "" ? nxt.segments[0].t[1] : nxt.segments[0].t[0];
+                                                    }
+                                                }
+                                                return formatTimeDisplay(pDep);
+                                            }
+                                        }
+                                        return "";
+                                    };
                                     
                                     let myDest = getFinalDest(train);
                                     let pDest = getFinalDest(partner);
+                                    let pDepStr = getPartnerDepTime(partner, seg.s[i]);
                                     
-                                    let pDepRaw = null;
-                                    for(let ps of partner.segments) {
-                                        let pIdx = ps.s.findIndex(sid => String(sid) === String(seg.s[i]));
-                                        if (pIdx !== -1) {
-                                            pDepRaw = ps.t[pIdx*2+1] !== undefined && ps.t[pIdx*2+1] !== "" ? ps.t[pIdx*2+1] : ps.t[pIdx*2];
-                                            break;
-                                        }
-                                    }
-                                    
-                                    if (pDepRaw !== null) {
-                                        let pDepStr = formatTimeDisplay(pDepRaw);
+                                    if (pDepStr !== "") {
                                         combinedSplitText = `${finalArrStr}-${finalDepStr}(${myDest})/${pDepStr}(${pDest})`;
                                     }
                                 }
@@ -1005,27 +1018,21 @@ function drawTrains() {
                         // 🌟 終極文字去重邏輯 (消滅所有雙胞胎殘影)
                         // ==========================================
                         
-                        // 🌟 修正點 4：刪除左邊 (Out)，保留右邊 (In)！
-                        // 讓直通前半段 (isDirectOut) 在發光時閉嘴，交給後半段去印，這樣文字就會乾淨地留在右邊。
+                        // 1. 消滅直通車左邊(Out)的文字，讓它乾淨地畫在右邊
                         if (isDirectOut && (isVIP || isPartner)) {
                             displayText = ""; 
                         }
 
-                        // 針對併結車：消滅伴侶車在交會站的殘影 (只讓 VIP 發聲)
+                        // 2. 🌟 終極禁音令：如果這個站是主角的「拆/併交會站」，所有伴侶家族全部閉嘴！
                         if (isPartner && !isVIP && typeof selectedTrain !== 'undefined' && selectedTrain) {
-                            let selectedId = String(selectedTrain.no || selectedTrain.train_no || selectedTrain.id);
-                            let isSplitStation = train.coupled_with && train.coupled_with.some(c => 
-                                c.action === "split" && 
-                                String(c.train_id) === selectedId && 
-                                String(c.station_id) === String(seg.s[i])
+                            let isVIPSplitHere = selectedTrain.coupled_with && selectedTrain.coupled_with.some(c => 
+                                c.action === "split" && String(c.station_id) === String(seg.s[i])
                             );
                             
-                            if (isSplitStation) {
+                            if (isVIPSplitHere) {
                                 displayText = ""; 
                             }
                         }
-
-                        // --- 4. 畫出文字 (智慧防撞牆版) ---
 
                         // --- 4. 畫出文字 (智慧防撞牆版) ---
                         ctx.font = '14px "GlowSans", "Segoe UI", sans-serif'; 
@@ -3006,6 +3013,19 @@ function getStationName(st_id) {
 }
 
 // ==========================================
+// 🌟 專為底部面板按鈕設計的「無縫切換函式」
+// (只更新畫面，絕對不移動鏡頭或卷軸！)
+// ==========================================
+window.switchTrainKeepView = (trainNo) => {
+    let t = timetable.find(x => String(x.no || x.train_no || x.id) === String(trainNo));
+    if (t) {
+        selectedTrain = t; // 直接替換主角
+        if (typeof updateBottomPanel === 'function') updateBottomPanel(t); // 更新底部面板
+        if (typeof drawTrains === 'function') drawTrains(); // 重新畫線
+    }
+};
+
+// ==========================================
 // 🎨 更新底部列車資訊面板 (對接現有的 bottom-bar)
 // ==========================================
 function updateBottomPanel(train) {
@@ -3074,14 +3094,14 @@ function updateBottomPanel(train) {
                 if (c.action === "split") {
                     // 👉 物理併結 (例如 139B + 6139B)
                     partnerHtml += `
-                        <span style="background: ${pColor}30; color: ${isDarkMode ? '#FFF' : '#000'}; border: 1px solid ${pColor}; padding: 3px 10px; border-radius: 12px; font-size: 14px; margin-left: 12px; cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap; font-weight: normal; vertical-align: middle;" onclick="event.stopPropagation(); window.triggerSelectTrain('${pTrain.no}')">
+                        <span style="background: ${pColor}30; color: ${isDarkMode ? '#FFF' : '#000'}; border: 1px solid ${pColor}; padding: 3px 10px; border-radius: 12px; font-size: 14px; margin-left: 12px; cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap; font-weight: normal; vertical-align: middle;" onclick="event.stopPropagation(); window.switchTrainKeepView('${pTrain.no}')">
                             🔗 併結 ${pTrain.type} ${pTrain.no}
                         </span>
                     `;
                 } else if (c.action === "direct") {
                     // 👉 變更車次直通 (例如 139B -> 139M)
                     partnerHtml += `
-                        <span style="background: transparent; color: ${isDarkMode ? '#FFF' : '#000'}; border: 1px dashed ${pColor}; padding: 3px 10px; border-radius: 12px; font-size: 14px; margin-left: 12px; cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap; font-weight: normal; vertical-align: middle;" onclick="event.stopPropagation(); window.triggerSelectTrain('${pTrain.no}')">
+                        <span style="background: transparent; color: ${isDarkMode ? '#FFF' : '#000'}; border: 1px dashed ${pColor}; padding: 3px 10px; border-radius: 12px; font-size: 14px; margin-left: 12px; cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap; font-weight: normal; vertical-align: middle;" onclick="event.stopPropagation(); window.switchTrainKeepView('${pTrain.no}')">
                             ➡️ 直通 ${pTrain.type} ${pTrain.no}
                         </span>
                     `;
