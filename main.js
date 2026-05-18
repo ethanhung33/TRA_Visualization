@@ -911,7 +911,7 @@ function drawTrains() {
                         // --- 3. 準備文字：站名與時間 ---
                         let stationName = getStationName(seg.s[i]);
 
-                        // 🌟 1. 基礎直通時間修補
+                        // 🌟 1. 基礎直通時間修補 (自動借用前後車時間)
                         let isDirectOut = (segIdx === train.segments.length - 1 && i === seg.s.length - 1 && train.coupled_with && train.coupled_with.some(c => c.action === "direct"));
                         let isDirectIn = (segIdx === 0 && i === 0 && train.coupled_with && train.coupled_with.some(c => c.action === "direct"));
 
@@ -937,25 +937,21 @@ function drawTrains() {
                         let finalArrStr = formatTimeDisplay(arrT);
                         let finalDepStr = formatTimeDisplay(depT);
                         let displayText = "";
-                        let familyMaxTextX = x_dep; // 🌟 新增：推開文字的基準點
+                        let familyMaxTextX = x_dep; // 🌟 確保文字推到最右邊不蓋線
 
                         // ==========================================
                         // 🌟 2. 終極發言權判定機制 (Designated Speaker)
-                        // 徹底解決重疊、雙胞胎與切換殘影問題！
                         // ==========================================
                         let isDesignatedSpeaker = false;
 
                         if (isVIP) {
-                            // 主角：在我的地盤我發言，除非我正在交班(DirectOut)。
                             if (!isDirectOut) isDesignatedSpeaker = true;
                         } else if (isPartner && typeof selectedTrain !== 'undefined' && selectedTrain) {
-                            // 伴侶車：如果主角沒來這站，我來說！
                             let vipPresentHere = selectedTrain.segments.some(s => s.s.map(String).includes(String(seg.s[i])));
                             
                             if (!vipPresentHere) {
                                 isDesignatedSpeaker = true;
                             } else {
-                                // 主角有來這站，唯一例外是主角剛好在這站交班給我
                                 let vipLastSeg = selectedTrain.segments[selectedTrain.segments.length - 1];
                                 let vipLastSt = vipLastSeg.s[vipLastSeg.s.length - 1];
                                 
@@ -969,7 +965,7 @@ function drawTrains() {
                         }
 
                         // ==========================================
-                        // 🌟 3. 只有拿到麥克風的人，才能組合字串！
+                        // 🌟 3. 只有拿到麥克風的人，才能進行字串推論組合！
                         // ==========================================
                         if (isDesignatedSpeaker) {
                             let myFamily = [];
@@ -979,7 +975,6 @@ function drawTrains() {
                             let splitTrainA = null;
                             let splitTrainB = null;
 
-                            // 找找看家族裡有沒有人「在這個車站」發生拆解併結？
                             for (let ft of myFamily) {
                                 if (ft.coupled_with) {
                                     let sInfo = ft.coupled_with.find(c => c.action === "split" && String(c.station_id) === String(seg.s[i]));
@@ -992,12 +987,12 @@ function drawTrains() {
                             }
 
                             if (splitTrainA && splitTrainB) {
-                                // 🌟 尋找終點站
+                                // 🌟 尋找終點站 (自動往後追蹤直通)
                                 const getFinalDest = (tObj) => {
                                     let curr = tObj;
                                     let visited = new Set([String(curr.no || curr.train_no || curr.id)]);
-                                    while(curr.coupled_with) {
-                                        let dInfo = curr.coupled_with.find(cx => cx.action === "direct");
+                                    while(true) {
+                                        let dInfo = curr.coupled_with ? curr.coupled_with.find(cx => cx.action === "direct") : null;
                                         if(dInfo) {
                                             let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
                                             if (nxt && !visited.has(String(nxt.no || nxt.train_no || nxt.id))) { 
@@ -1009,19 +1004,25 @@ function drawTrains() {
                                     return getStationName(lSeg.s[lSeg.s.length-1]);
                                 };
                                 
-                                // 🌟 尋找起點站 (為匯合模式準備)
+                                // 🌟 尋找起點站 (自動往回追蹤直通)
                                 const getOrigin = (tObj) => {
                                     let curr = tObj;
-                                    let isDIn = curr.coupled_with && curr.coupled_with.some(cx => cx.action === "direct" && curr.segments[0].s[0] === cx.station_id);
-                                    if (isDIn) {
-                                        let dInfo = curr.coupled_with.find(cx => cx.action === "direct");
-                                        let prev = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
-                                        if (prev) curr = prev;
+                                    let visited = new Set([String(curr.no || curr.train_no || curr.id)]);
+                                    while(true) {
+                                        let isDIn = curr.coupled_with && curr.coupled_with.some(cx => cx.action === "direct" && String(curr.segments[0].s[0]) === String(cx.station_id));
+                                        if (isDIn) {
+                                            let dInfo = curr.coupled_with.find(cx => cx.action === "direct" && String(curr.segments[0].s[0]) === String(cx.station_id));
+                                            let prev = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                            if (prev && !visited.has(String(prev.no || prev.train_no || prev.id))) {
+                                                visited.add(String(prev.no || prev.train_no || prev.id));
+                                                curr = prev;
+                                            } else break;
+                                        } else break;
                                     }
                                     return getStationName(curr.segments[0].s[0]);
                                 };
 
-                                // 🌟 智慧時間萃取器 (自動修復 139M 等直通車的時間斷層)
+                                // 🌟 智慧時間萃取器
                                 const extInfo = (tObj) => {
                                     let arr = null, dep = null;
                                     for (let s of tObj.segments) {
@@ -1029,8 +1030,8 @@ function drawTrains() {
                                         if (idx !== -1) {
                                             arr = (s.t[idx*2] !== undefined && s.t[idx*2] !== null && s.t[idx*2] !== "") ? s.t[idx*2] : null;
                                             dep = (s.t[idx*2+1] !== undefined && s.t[idx*2+1] !== null && s.t[idx*2+1] !== "") ? s.t[idx*2+1] : null;
-                                            if(arr === null && dep !== null) arr = dep; // 防呆補齊
-                                            if(dep === null && arr !== null) dep = arr; // 防呆補齊
+                                            if(arr === null && dep !== null) arr = dep; 
+                                            if(dep === null && arr !== null) dep = arr; 
 
                                             let isDOut = (idx === s.s.length - 1 && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct"));
                                             if (isDOut) {
@@ -1062,39 +1063,42 @@ function drawTrains() {
                                 let iA = extInfo(splitTrainA);
                                 let iB = extInfo(splitTrainB);
 
-                                // 更新文字基準點，推到最晚發車時間的右邊！
+                                // 更新文字基準點，推到最晚發車時間的右邊，不再蓋黃線！
                                 let maxDep = Math.max(iA.dep || -Infinity, iB.dep || -Infinity);
                                 if (maxDep !== -Infinity && maxDep !== null) {
                                     let cX = timeToX(maxDep);
                                     if (!isNaN(cX)) familyMaxTextX = cX;
                                 }
 
+                                // ==========================================
                                 // 🌟 終極判斷：是匯合 (JOIN) 還是分離 (SPLIT)？
-                                // 原理：檢查兩台車離開這站後，是否還有共同停靠站
-                                let stA = splitTrainA.segments.flatMap(s => s.s).map(String);
-                                let stB = splitTrainB.segments.flatMap(s => s.s).map(String);
-                                let idxA = stA.indexOf(String(seg.s[i]));
-                                let shareAfter = false;
-                                for(let k = idxA + 1; k < stA.length; k++) {
-                                    if (stB.includes(stA[k])) { shareAfter = true; break; }
+                                // 用「目的地」與「起點」進行絕對判定！
+                                // ==========================================
+                                let isJoin = false;
+                                if (iA.dest === iB.dest) {
+                                    isJoin = true;  // 目的地一樣 -> 匯合 (JOIN)
+                                } else if (iA.origin === iB.origin) {
+                                    isJoin = false; // 起點一樣 -> 分離 (SPLIT)
+                                } else {
+                                    isJoin = (iA.arr !== iB.arr); // 防呆
                                 }
 
-                                if (shareAfter) {
-                                    // 🚄 【匯合模式 JOIN】 (例如 150B 上行)
-                                    // 格式： 抵達A(起點A) / 抵達B(起點B) - 發車(終點)
+                                if (isJoin) {
+                                    // 🚄 【匯合模式 JOIN】 (例如 156B 上行)
+                                    // 🌟 對稱格式： [抵達A](起點A)/[抵達B](起點B)-出發
                                     let joins = [
                                         { t: iA.arr, str: `${formatTimeDisplay(iA.arr)}(${iA.origin})` },
                                         { t: iB.arr, str: `${formatTimeDisplay(iB.arr)}(${iB.origin})` }
                                     ].sort((a,b) => (a.t || 0) - (b.t || 0));
                                     
                                     let sharedDep = maxDep;
-                                    let sharedDest = iA.dest === iB.dest ? iA.dest : `${iA.dest}/${iB.dest}`; // 通常合併後終點會一樣
-                                    
-                                    displayText = `${joins[0].str}/${joins[1].str}-${formatTimeDisplay(sharedDep)}(${sharedDest}) ${stationName}`;
+                                    displayText = `${joins[0].str}/${joins[1].str}-${formatTimeDisplay(sharedDep)} ${stationName}`;
                                 } else {
                                     // 🚄 【分離模式 SPLIT】 (例如 149B 下行)
-                                    // 格式： 抵達 - 發車A(終點A) / 發車B(終點B)
+                                    // 🌟 對稱格式： 抵達-[出發A](終點A)/[出發B](終點B)
                                     let sharedArr = Math.min(iA.arr || Infinity, iB.arr || Infinity);
+                                    if (sharedArr === Infinity) sharedArr = null;
+
                                     let splits = [
                                         { t: iA.dep, str: `${formatTimeDisplay(iA.dep)}(${iA.dest})` },
                                         { t: iB.dep, str: `${formatTimeDisplay(iB.dep)}(${iB.dest})` }
@@ -1115,7 +1119,7 @@ function drawTrains() {
                         }
 
                         // ==========================================
-                        // 🌟 4. 終極防護網
+                        // 🌟 4. 全域記憶體防護網 (消滅任何漏網之魚的疊影)
                         // ==========================================
                         if (displayText !== "") {
                             let uniqueKey = `${seg.s[i]}_${displayText}`;
