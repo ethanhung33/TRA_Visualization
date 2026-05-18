@@ -142,6 +142,9 @@ def fetch_single_train_detail(url):
                 time_txt = tds[time_idx].get_text(separator="\n").strip()
                 if not time_txt or any(x in time_txt for x in ["||", "レ", "==="]): continue
                     
+                # 🌟 攔截「直通」的視覺符號 (文字或箭頭)
+                is_direct = "直通" in time_txt or "└" in time_txt
+                
                 # 萃取儲存格內所有的 HH:MM
                 times = re.findall(r'\d{2}:\d{2}', time_txt)
                 
@@ -153,20 +156,17 @@ def fetch_single_train_detail(url):
                 arr = int(arr_str[:2]) * 60 + int(arr_str[3:])
                 dep = int(dep_str[:2]) * 60 + int(dep_str[3:])
                 
-                stops_by_train[i].append({"sta": sta, "arr": arr, "dep": dep})
-                    
-        # 🌟 5. 分列整理與語義併結判定 (解析官方文字)
-        grouped_results = {}
+                # 🌟 把 is_direct 標記放進字典裡
+                stops_by_train[i].append({"sta": sta, "arr": arr, "dep": dep, "is_direct": is_direct})
+
+        # 🌟 5. 封裝列車資料 (從註腳抓取併結)
+        results = []
         for i in valid_indices:
             if not stops_by_train[i]: continue
             tname = train_names[i]
-            if tname not in grouped_results: grouped_results[tname] = []
-            
-            # 取得車種
             match = re.match(r'([^\d\sa-zA-Z]+)', tname)
             clean_type = match.group(1) if match else tname
             
-            # 建立基本物件
             train_obj = {
                 "no": train_nos[i],
                 "type": clean_type,
@@ -176,43 +176,43 @@ def fetch_single_train_detail(url):
                 "variants": variants if i == valid_indices[0] else [],
                 "coupled_with": []
             }
-
-            # 🌟 恢復：從「併結運転」欄位文字精準提取資訊
+            
+            # 抓取併結 (Split) 資訊：只從官方註腳抓
             info_text = coupling_info_raw.get(i, "")
             if "併結" in info_text:
-                # 將全形文字 (１３９Ｂ) 轉為半形 (139B)，確保正則表達式 100% 命中
                 info_text_half = unicodedata.normalize('NFKC', info_text)
                 target_no_match = re.search(r'(\d+[A-Z])', info_text_half)
-                
                 if target_no_match:
                     train_obj["coupled_with"].append({
                         "train_id": target_no_match.group(1),
                         "action": "split"
-                        # ⚠️ 絕對不要在這裡填寫 station_id，交給底下的數學引擎算！
                     })
-
             
+            results.append(train_obj)
             
-            grouped_results[tname].append(train_obj)
+        # 🌟 6. 處理跨線直通 (Direct) - 完全依賴網頁儲存格上的「直通」標記
+        for idx in range(len(results) - 1):
+            t_curr = results[idx]
+            t_next = results[idx + 1]
             
-        # 🌟 6. 處理跨線直通 (Direct) 與封裝回傳
-        results = []
-        for tname, trains in grouped_results.items():
-            trains.sort(key=lambda x: x["data"][0]["dep"] if x["data"] else 9999)
+            # 找找看這台車有沒有哪一站被標記了直通
+            direct_stop = next((s for s in t_curr["data"] if s.get("is_direct")), None)
             
-            if len(trains) > 1:
-                for idx in range(len(trains) - 1):
-                    t_curr, t_next = trains[idx], trains[idx+1]
-                    link_station = t_next["data"][0]["sta"]
-                    # 確保同名列車給的是 split
-                    t_curr["coupled_with"].append({"train_id": t_next["no"], "station_id": link_station, "action": "split"})
-                    t_next["coupled_with"].append({"train_id": t_curr["no"], "station_id": link_station, "action": "split"})
-
-            for t in trains:
-                if not t["coupled_with"]: del t["coupled_with"]
-                results.append(t)
+            # 如果這台車在某站印了「直通」，它絕對是跟網頁下一欄的車次接續！
+            if direct_stop:
+                link_station = direct_stop["sta"]
+                t_curr["coupled_with"].append({"train_id": t_next["no"], "station_id": link_station, "action": "direct"})
+                t_next["coupled_with"].append({"train_id": t_curr["no"], "station_id": link_station, "action": "direct"})
+                
+        # 大掃除：為了維持 JSON 乾淨，回傳前把內部用的 is_direct 標籤刪掉
+        for t in results:
+            for s in t["data"]: 
+                s.pop("is_direct", None)
+            if not t["coupled_with"]: 
+                del t["coupled_with"]
             
         return results
+    
     except Exception as e:
         print(f"解析 {url} 發生錯誤: {e}")
         return []
@@ -221,15 +221,12 @@ def fetch_single_train_detail(url):
 # 🔗 拓樸轉換、併結與輸出
 # ==========================================
 def apply_coupling_logic(trains):
-    print("\n🔗 正在執行全量關聯優化 (單向標記雙向補齊版)...")
+    print("\n🔗 正在執行全量關聯優化 (時空拓樸純淨版)...")
     
-    # 1. 建立快取
     for t in trains:
         t.setdefault("coupled_with", [])
         t["_sched"] = {s["s"][i]: (s["t"][i*2], s["t"][i*2+1]) for s in t["segments"] for i in range(len(s["s"]))}
-        t["_route"] = [s["s"][i] for s in t["segments"] for i in range(len(s["s"]))]
             
-    # 2. 雙向補齊 & 時空計算
     for i in range(len(trains)):
         for c in trains[i].get("coupled_with", []):
             if c["action"] != "split": continue 
@@ -238,14 +235,11 @@ def apply_coupling_logic(trains):
             partner = next((pt for pt in trains if pt["no"] == c["train_id"]), None)
             if not partner: continue
             
-            # 🌟 核心：既然 A 宣稱跟 B 併結，就強制讓 B 也指向 A (雙向綁定)
+            # 雙向綁定：只要 A 說跟 B 併結，強制 B 也要說跟 A 併結
             if not any(pc["train_id"] == trains[i]["no"] for pc in partner["coupled_with"]):
-                partner["coupled_with"].append({
-                    "train_id": trains[i]["no"],
-                    "action": "split"
-                })
+                partner["coupled_with"].append({"train_id": trains[i]["no"], "action": "split"})
             
-            # 尋找時空交集 (加入 3 分鐘物理脫鉤容錯率)
+            # 時空推論尋找交會點
             overlap = []
             for st, (arr1, dep1) in trains[i]["_sched"].items():
                 if st in partner["_sched"]:
@@ -258,32 +252,23 @@ def apply_coupling_logic(trains):
                 first_over = overlap[0]
                 last_over = overlap[-1]
                 
-                # 終點站推論法
-                if len(overlap) == 1:
-                    junction = first_over
-                else:
-                    idx1_last = trains[i]["_route"].index(last_over)
-                    idx2_last = partner["_route"].index(last_over)
+                # 🌟 日本新幹線奇偶律：單數下行(尾端解連)，雙數上行(前端匯合)
+                digits = re.findall(r'\d+', trains[i]["no"])
+                is_downbound = int(digits[-1]) % 2 != 0 if digits else True
+                
+                junction = last_over if is_downbound else first_over
                     
-                    has_next_1 = idx1_last < len(trains[i]["_route"]) - 1
-                    has_next_2 = idx2_last < len(partner["_route"]) - 1
-                    
-                    junction = last_over if (has_next_1 or has_next_2) else first_over
-                    
-                # 把算出來的精準交會站填進去 (自己和伴侶都要填)
                 c["station_id"] = junction
                 for pc in partner["coupled_with"]:
                     if pc["train_id"] == trains[i]["no"]:
                         pc["station_id"] = junction
                 
-    # 3. 大掃除
+    # 大掃除
     for t in trains:
         if "_sched" in t: del t["_sched"]
-        if "_route" in t: del t["_route"]
-        if "coupled_with" in t:
-            # 濾掉沒有算出來的空包彈 (保留 direct)
-            t["coupled_with"] = [c for c in t["coupled_with"] if "station_id" in c or c["action"] == "direct"]
-            if not t["coupled_with"]: del t["coupled_with"]
+        # 保留算好的 split 以及早就寫好的 direct
+        t["coupled_with"] = [c for c in t["coupled_with"] if "station_id" in c or c["action"] == "direct"]
+        if not t["coupled_with"]: del t["coupled_with"]
             
     return trains
 
