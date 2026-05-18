@@ -1234,7 +1234,26 @@ function drawTrains() {
 
         if (!activeTrainTypes.has(train.type)) return; 
         
-        // ... (中間的 Focus Mode 過濾邏輯維持原樣) ...
+        // ==========================================
+        // 🌟 找回遺失的車站過濾邏輯 (Focus Mode)
+        // ==========================================
+        if (selectedStation) {
+            let stopsHere = false;
+            if (train.segments) {
+                for (let seg of train.segments) {
+                    for (let i = 0; i < seg.s.length; i++) {
+                        // 檢查這班車有沒有這個車站，且 v !== 2 (不是通過站)
+                        if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
+                            stopsHere = true; 
+                            break;
+                        }
+                    }
+                    if (stopsHere) break;
+                }
+            }
+            // 如果有點擊某個車站，但這班車沒有停靠，就直接 Return 跳過不畫！
+            if (!stopsHere) return; 
+        }
 
         // 🌟 3. 狀態判斷與分發 (加入伴侶車攔截)
         if (train === selectedTrain) {
