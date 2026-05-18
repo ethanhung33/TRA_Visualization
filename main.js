@@ -910,102 +910,108 @@ function drawTrains() {
 
                         // --- 3. 準備文字：站名與時間 ---
                         let stationName = getStationName(seg.s[i]);
-                        let arrTimeStr = formatTimeDisplay(arrT); 
-                        let depTimeStr = formatTimeDisplay(depT); 
+                        let arrT = seg.t[i * 2];
+                        let depT = seg.t[i * 2 + 1];
 
-                        let finalArrStr = arrTimeStr;
-                        let finalDepStr = depTimeStr;
-
-                        // 🌟 針對直通交界點：跨車次抓取另一半的時間，組合成完美的停靠時間區間！
+                        // 🌟 1. 基礎直通時間修補 (讓 139B 和 139M 的基準時間先恢復成 14:31-14:35)
                         let isDirectOut = (segIdx === train.segments.length - 1 && i === seg.s.length - 1 && train.coupled_with && train.coupled_with.some(c => c.action === "direct"));
                         let isDirectIn = (segIdx === 0 && i === 0 && train.coupled_with && train.coupled_with.some(c => c.action === "direct"));
 
                         if (isDirectOut) {
-                            // 直通前半段：去抓下一台車的「發車時間」
-                            let directInfo = train.coupled_with.find(c => c.action === "direct");
-                            if (directInfo) {
-                                let nextTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(directInfo.train_id));
-                                if (nextTrain && nextTrain.segments.length > 0) {
-                                    let nextSeg = nextTrain.segments[0];
-                                    let nextDepRaw = nextSeg.t[1] !== undefined ? nextSeg.t[1] : nextSeg.t[0];
-                                    finalDepStr = formatTimeDisplay(nextDepRaw);
-                                }
+                            let dInfo = train.coupled_with.find(c => c.action === "direct");
+                            let nxt = timetable.find(t => String(t.no || t.train_no || t.id) === String(dInfo.train_id));
+                            if (nxt && nxt.segments[0]) {
+                                depT = nxt.segments[0].t[1] !== undefined && nxt.segments[0].t[1] !== "" ? nxt.segments[0].t[1] : nxt.segments[0].t[0];
                             }
                         } else if (isDirectIn) {
-                            // 直通後半段：去抓上一台車的「抵達時間」
-                            let directInfo = train.coupled_with.find(c => c.action === "direct");
-                            if (directInfo) {
-                                let prevTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(directInfo.train_id));
-                                if (prevTrain && prevTrain.segments.length > 0) {
-                                    let prevSeg = prevTrain.segments[prevTrain.segments.length - 1];
-                                    let lastK = prevSeg.s.length - 1;
-                                    let prevArrRaw = prevSeg.t[lastK * 2] !== undefined ? prevSeg.t[lastK * 2] : prevSeg.t[lastK * 2 + 1];
-                                    finalArrStr = formatTimeDisplay(prevArrRaw);
-                                }
+                            let dInfo = train.coupled_with.find(c => c.action === "direct");
+                            let prv = timetable.find(t => String(t.no || t.train_no || t.id) === String(dInfo.train_id));
+                            if (prv && prv.segments[prv.segments.length - 1]) {
+                                let pSeg = prv.segments[prv.segments.length - 1];
+                                let lastK = pSeg.s.length - 1;
+                                arrT = pSeg.t[lastK * 2] !== undefined && pSeg.t[lastK * 2] !== "" ? pSeg.t[lastK * 2] : pSeg.t[lastK * 2 + 1];
                             }
                         }
+
+                        let finalArrStr = formatTimeDisplay(arrT);
+                        let finalDepStr = formatTimeDisplay(depT);
 
                         let displayText = "";
                         let combinedSplitText = "";
 
                         // ==========================================
-                        // 🌟 針對「併結/拆解交會站」：組合出完美的雙目的地字串！
+                        // 🌟 2. 終極家族交會站判斷 (組合出雙目的地字串)
                         // ==========================================
-                        if (train.coupled_with && isVIP) {
-                            let splitInfo = train.coupled_with.find(c => c.action === "split" && String(c.station_id) === String(seg.s[i]));
-                            if (splitInfo) {
-                                let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(splitInfo.train_id));
-                                if (partner) {
-                                    const getFinalDest = (tObj) => {
-                                        let curr = tObj;
-                                        let visited = new Set([String(curr.no || curr.train_no || curr.id)]);
-                                        while(curr.coupled_with) {
-                                            let dInfo = curr.coupled_with.find(cx => cx.action === "direct");
-                                            if(dInfo) {
-                                                let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
-                                                if (nxt && !visited.has(String(nxt.no || nxt.train_no || nxt.id))) { 
-                                                    visited.add(String(nxt.no || nxt.train_no || nxt.id)); curr = nxt; 
-                                                } else break;
-                                            } else break;
-                                        }
-                                        let lSeg = curr.segments[curr.segments.length-1];
-                                        return getStationName(lSeg.s[lSeg.s.length-1]);
-                                    };
+                        if (isVIP || isPartner) {
+                            let myFamily = [];
+                            if (typeof vipTrain !== 'undefined' && vipTrain) myFamily.push(vipTrain);
+                            if (typeof partnerTrains !== 'undefined') myFamily.push(...partnerTrains);
 
-                                    // 🌟 專門為伴侶車設計的「時間追蹤引擎」
-                                    const getPartnerDepTime = (pTrain, sId) => {
-                                        for (let s of pTrain.segments) {
-                                            let idx = s.s.findIndex(id => String(id) === String(sId));
-                                            if (idx !== -1) {
-                                                let pDep = s.t[idx*2+1] !== undefined && s.t[idx*2+1] !== "" ? s.t[idx*2+1] : s.t[idx*2];
-                                                
-                                                // 如果這台伴侶車也是直通車 (例如 139B)，就去抓它下一半 (139M) 的發車時間！
-                                                let isDOut = (idx === s.s.length - 1 && pTrain.coupled_with && pTrain.coupled_with.some(c => c.action === "direct"));
-                                                if (isDOut) {
-                                                    let dInfo = pTrain.coupled_with.find(c => c.action === "direct");
-                                                    let nxt = timetable.find(t => String(t.no || t.train_no || t.id) === String(dInfo.train_id));
-                                                    if (nxt && nxt.segments[0]) {
-                                                        pDep = nxt.segments[0].t[1] !== undefined && nxt.segments[0].t[1] !== "" ? nxt.segments[0].t[1] : nxt.segments[0].t[0];
-                                                    }
-                                                }
-                                                return formatTimeDisplay(pDep);
-                                            }
-                                        }
-                                        return "";
-                                    };
-                                    
-                                    let myDest = getFinalDest(train);
-                                    let pDest = getFinalDest(partner);
-                                    let pDepStr = getPartnerDepTime(partner, seg.s[i]);
-                                    
-                                    if (pDepStr !== "") {
-                                        combinedSplitText = `${finalArrStr}-${finalDepStr}(${myDest})/${pDepStr}(${pDest})`;
+                            let splitTrainA = null;
+                            let splitTrainB = null;
+
+                            // 找找看家族裡有沒有人「在這個車站」發生拆併？
+                            for (let ft of myFamily) {
+                                if (ft.coupled_with) {
+                                    let sInfo = ft.coupled_with.find(c => c.action === "split" && String(c.station_id) === String(seg.s[i]));
+                                    if (sInfo) {
+                                        splitTrainA = ft;
+                                        splitTrainB = timetable.find(t => String(t.no || t.train_no || t.id) === String(sInfo.train_id));
+                                        break; 
                                     }
+                                }
+                            }
+
+                            if (splitTrainA && splitTrainB) {
+                                const getFinalDest = (tObj) => {
+                                    let curr = tObj;
+                                    let visited = new Set([String(curr.no || curr.train_no || curr.id)]);
+                                    while(curr.coupled_with) {
+                                        let dInfo = curr.coupled_with.find(cx => cx.action === "direct");
+                                        if(dInfo) {
+                                            let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                            if (nxt && !visited.has(String(nxt.no || nxt.train_no || nxt.id))) { 
+                                                visited.add(String(nxt.no || nxt.train_no || nxt.id)); curr = nxt; 
+                                            } else break;
+                                        } else break;
+                                    }
+                                    let lSeg = curr.segments[curr.segments.length-1];
+                                    return getStationName(lSeg.s[lSeg.s.length-1]);
+                                };
+
+                                let destA = getFinalDest(splitTrainA);
+                                let destB = getFinalDest(splitTrainB);
+
+                                // 專用發車時間追蹤器 (它也會自動修復 139B 的殘缺時間！)
+                                const getDepTime = (tObj, sId) => {
+                                    for (let s of tObj.segments) {
+                                        let idx = s.s.findIndex(id => String(id) === String(sId));
+                                        if (idx !== -1) {
+                                            let dep = s.t[idx*2+1] !== undefined && s.t[idx*2+1] !== "" ? s.t[idx*2+1] : s.t[idx*2];
+                                            let isDOut = (idx === s.s.length - 1 && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct"));
+                                            if (isDOut) {
+                                                let dInfo = tObj.coupled_with.find(c => c.action === "direct");
+                                                let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                                if (nxt && nxt.segments[0]) {
+                                                    dep = nxt.segments[0].t[1] !== undefined && nxt.segments[0].t[1] !== "" ? nxt.segments[0].t[1] : nxt.segments[0].t[0];
+                                                }
+                                            }
+                                            return formatTimeDisplay(dep);
+                                        }
+                                    }
+                                    return "";
+                                };
+
+                                let depA = getDepTime(splitTrainA, seg.s[i]);
+                                let depB = getDepTime(splitTrainB, seg.s[i]);
+
+                                if (depA !== "" && depB !== "") {
+                                    combinedSplitText = `${finalArrStr}-${depA}(${destA})/${depB}(${destB})`;
                                 }
                             }
                         }
 
-                        // 🌟 決定最終要印出的字
+                        // 🌟 3. 決定初步的文字
                         if (combinedSplitText !== "") {
                             displayText = `${combinedSplitText} ${stationName}`; 
                         } else if (finalArrStr === finalDepStr) {
@@ -1015,22 +1021,20 @@ function drawTrains() {
                         }
 
                         // ==========================================
-                        // 🌟 終極文字去重邏輯 (消滅所有雙胞胎殘影)
+                        // 🌟 4. 終極去重防呆機制 (絕對不會再印第二次！)
                         // ==========================================
-                        
-                        // 1. 消滅直通車左邊(Out)的文字，讓它乾淨地畫在右邊
                         if (isDirectOut && (isVIP || isPartner)) {
                             displayText = ""; 
                         }
 
-                        // 2. 🌟 終極禁音令：如果這個站是主角的「拆/併交會站」，所有伴侶家族全部閉嘴！
-                        if (isPartner && !isVIP && typeof selectedTrain !== 'undefined' && selectedTrain) {
-                            let isVIPSplitHere = selectedTrain.coupled_with && selectedTrain.coupled_with.some(c => 
-                                c.action === "split" && String(c.station_id) === String(seg.s[i])
-                            );
-                            
-                            if (isVIPSplitHere) {
-                                displayText = ""; 
+                        if (displayText !== "" && (isVIP || isPartner)) {
+                            let uniqueKey = `${seg.s[i]}_${displayText}`;
+                            if (typeof printedStationTexts !== 'undefined') {
+                                if (printedStationTexts.has(uniqueKey)) {
+                                    displayText = ""; // 被印過了，消滅殘影！
+                                } else {
+                                    printedStationTexts.add(uniqueKey); // 註冊發話權！
+                                }
                             }
                         }
 
@@ -3190,13 +3194,31 @@ function updateBottomPanel(train) {
                     
                     let currentStationId = seg.s[i];
                     
-                    // 🌟 防呆：直通的交會站 (例如福島) 會在上一台車的終點與下一台車的起點重複出現，直接略過以保持畫面乾淨
+                    // 🌟 防呆：直通交會站只印一次
                     if (currentStationId === lastStationId) continue;
                     lastStationId = currentStationId;
 
                     let stName = getStationName(currentStationId);
-                    let arrT = formatTimeDisplay(seg.t[i * 2]);     
-                    let depT = formatTimeDisplay(seg.t[i * 2 + 1]); 
+                    let arrRaw = seg.t[i * 2];
+                    let depRaw = seg.t[i * 2 + 1];
+
+                    // =====================================
+                    // 🌟 終極直通時間修補 (解決 139B/139M 時間殘缺問題)
+                    // =====================================
+                    let isDirectOut = (segIdx === tr.segments.length - 1 && i === seg.s.length - 1 && tr.coupled_with && tr.coupled_with.some(c => c.action === "direct"));
+                    
+                    if (isDirectOut) {
+                        let dInfo = tr.coupled_with.find(c => c.action === "direct");
+                        let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                        if (nxt && nxt.segments && nxt.segments.length > 0) {
+                            // 139B 到了終點，強制向 139M 借「發車時間」，補齊整個停靠區間！
+                            let nxtDep = nxt.segments[0].t[1] !== undefined && nxt.segments[0].t[1] !== "" ? nxt.segments[0].t[1] : nxt.segments[0].t[0];
+                            depRaw = nxtDep; 
+                        }
+                    }
+
+                    let arrT = formatTimeDisplay(arrRaw);     
+                    let depT = formatTimeDisplay(depRaw);
                     
                     if (stopCount > 0) stationsHtml += `<div class="station-arrow">➔</div>`;
 
