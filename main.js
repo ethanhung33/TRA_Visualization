@@ -1950,7 +1950,8 @@ function setupSearch() {
             }
         } 
         // ==========================================
-        // 🌟 模式 B：多關鍵字路線搜尋
+        // 🌟 模式 B：多關鍵字路線搜尋 (BFS 跨車次拓樸尋路版)
+        // 支援直通、拆解、併結的無縫搜尋！
         // ==========================================
         else if (keywords.length >= 2) {
             let startKeyword = keywords[0];
@@ -1959,66 +1960,137 @@ function setupSearch() {
             let uniqueSearchKeys = new Set();
 
             if (timetable) {
+                // 1. 預先攤平所有車次的停靠站 (大幅提升 BFS 效能)
+                let trainStopsCache = new Map();
                 timetable.forEach(train => {
-                    let startTime = -1;
-                    let endTime = -1;
-
+                    let stops = [];
                     if (train.segments) {
                         train.segments.forEach(seg => {
-                            if (seg.s && seg.t) { 
-                                seg.s.forEach((stId, idx) => {
-                                    let v_val = (seg.v && seg.v.length > idx) ? seg.v[idx] : 1;
-                                    
-                                    if (v_val !== 2) { 
-                                        let idStr = String(stId).toLowerCase();
-                                        let nameStr = normalizeText(stationIdToNameMap.get(String(stId)) || "");
+                            seg.s.forEach((stId, idx) => {
+                                if (seg.v && seg.v[idx] === 2) return; // 跳過通過站
+                                let nameStr = normalizeText(stationIdToNameMap.get(String(stId)) || "");
+                                let idStr = String(stId).toLowerCase();
 
-                                        let isSingleTime = (seg.t.length === seg.s.length);
-                                        let arrTime = isSingleTime ? seg.t[idx] : seg.t[idx * 2];
-                                        let depTime = isSingleTime ? seg.t[idx] : seg.t[idx * 2 + 1];
-                                        
-                                        let effDep = (depTime !== undefined && depTime !== null) ? depTime : arrTime;
-                                        let effArr = (arrTime !== undefined && arrTime !== null) ? arrTime : depTime;
+                                let isSingleTime = (seg.t.length === seg.s.length);
+                                let arrTime = isSingleTime ? seg.t[idx] : seg.t[idx * 2];
+                                let depTime = isSingleTime ? seg.t[idx] : seg.t[idx * 2 + 1];
 
-                                        if (startTime === -1 && (idStr.includes(startKeyword) || nameStr.includes(startKeyword))) {
-                                            startTime = effDep; 
-                                        }
-                                        else if (startTime !== -1 && endTime === -1 && (idStr.includes(endKeyword) || nameStr.includes(endKeyword))) {
-                                            endTime = effArr; 
-                                        }
-                                    }
-                                });
-                            }
+                                let effDep = (depTime !== undefined && depTime !== null) ? depTime : arrTime;
+                                let effArr = (arrTime !== undefined && arrTime !== null) ? arrTime : depTime;
+
+                                stops.push({ stId: String(stId), nameStr, idStr, effArr, effDep });
+                            });
                         });
                     }
+                    trainStopsCache.set(String(train.no || train.train_no || train.id), stops);
+                });
 
-                    if (startTime !== -1 && endTime !== -1 && startTime < endTime) {
-                        
-                        // 🌟 防護 1：如果這段搭車區間「昨天就已經結束了 (抵達時間 < 0)」，直接過濾掉殘影！
-                        if (endTime < 0) return;
+                // 2. 開始全網掃描
+                timetable.forEach(startTrain => {
+                    let startTrainNo = String(startTrain.no || startTrain.train_no || startTrain.id || "");
+                    let stops = trainStopsCache.get(startTrainNo);
+                    if (!stops) return;
 
-                        let trainNo = String(train.no || train.train_no || train.id || "");
-                        
-                        // 🌟 防護 2：建立視覺指紋，避免推入看起來一模一樣的車次
-                        let visualKey = `${trainNo}_${startTime}_${endTime}`;
-                        
-                        if (!uniqueSearchKeys.has(visualKey)) {
-                            uniqueSearchKeys.add(visualKey); // 登記這組視覺指紋
-                            filteredTrainNos.add(trainNo); 
-                            
-                            searchData.push({
-                                type: 'train',
-                                id: trainNo,
-                                typeStr: train.type || "",
-                                startTime: startTime, 
-                                endTime: endTime,     
-                                score: 3 
-                            });
+                    // 找出這台車所有符合「起點」的車站
+                    stops.forEach((startStop, sIdx) => {
+                        if (startStop.idStr.includes(startKeyword) || startStop.nameStr.includes(startKeyword)) {
+                            let startTime = startStop.effDep;
+
+                            // 🌟 啟動 BFS 廣度優先搜尋，跨越車次尋找終點！
+                            let queue = [{
+                                tObj: startTrain,
+                                tNo: startTrainNo,
+                                stops: stops,
+                                currIdx: sIdx, // 從匹配到的起點開始往後找
+                                pathNos: [startTrainNo],
+                                sTime: startTime
+                            }];
+
+                            // 防護網：防止循環路線導致無窮迴圈
+                            let visited = new Set([startTrainNo]);
+
+                            while (queue.length > 0) {
+                                let curr = queue.shift();
+                                let foundEnd = false;
+
+                                // A. 先在「目前的車次」往下找終點
+                                for (let i = curr.currIdx; i < curr.stops.length; i++) {
+                                    let stop = curr.stops[i];
+                                    if (stop.idStr.includes(endKeyword) || stop.nameStr.includes(endKeyword)) {
+                                        let endTime = stop.effArr;
+                                        
+                                        // 確保時間是合理的 (沒有時光倒流，也沒有抓到昨天的殘影)
+                                        if (endTime > curr.sTime && endTime >= 0) { 
+                                            // 🎉 找到了！將這條路徑上的「所有車次」都加入高亮名單！
+                                            curr.pathNos.forEach(n => filteredTrainNos.add(n));
+                                            
+                                            // 視覺指紋防重複
+                                            let visualKey = `${startTrainNo}_${curr.sTime}_${endTime}`;
+                                            if (!uniqueSearchKeys.has(visualKey)) {
+                                                uniqueSearchKeys.add(visualKey);
+                                                
+                                                // 如果起迄車號不同，UI 顯示箭頭 (例如 159B ➔ 159M)
+                                                let dispId = startTrainNo;
+                                                if (startTrainNo !== curr.tNo) dispId = `${startTrainNo} ➔ ${curr.tNo}`;
+
+                                                searchData.push({
+                                                    type: 'train',
+                                                    id: startTrainNo, 
+                                                    dispId: dispId,   // 新增專門用來顯示的 ID
+                                                    typeStr: startTrain.type || "",
+                                                    startTime: curr.sTime,
+                                                    endTime: endTime,
+                                                    score: 3
+                                                });
+                                            }
+                                        }
+                                        foundEnd = true;
+                                        break; 
+                                    }
+                                }
+
+                                if (foundEnd) continue; // 這條分支已經找到目標，不需再往下擴散
+
+                                // B. 如果這台車跑完了還沒找到，跟著 coupled_with 跨越到下一台車！
+                                if (curr.tObj.coupled_with) {
+                                    curr.tObj.coupled_with.forEach(c => {
+                                        let nTrainNo = String(c.train_id);
+                                        if (!visited.has(nTrainNo)) {
+                                            let nTrain = timetable.find(t => String(t.no || t.train_no || t.id) === nTrainNo);
+                                            let nStops = trainStopsCache.get(nTrainNo);
+                                            
+                                            if (nTrain && nStops) {
+                                                // 物理驗證：確保拆解/併結的車站，是在我們上車的車站「之後」！
+                                                let isValid = false;
+                                                if (c.action === "direct") {
+                                                    isValid = true; // 直通代表全車延續，無條件合法
+                                                } else if (c.station_id) {
+                                                    let actIdx = curr.stops.findIndex(st => st.stId === String(c.station_id));
+                                                    if (actIdx >= curr.currIdx) isValid = true; 
+                                                } else {
+                                                    isValid = true;
+                                                }
+
+                                                if (isValid) {
+                                                    visited.add(nTrainNo);
+                                                    queue.push({
+                                                        tObj: nTrain,
+                                                        tNo: nTrainNo,
+                                                        stops: nStops,
+                                                        currIdx: 0, // 切換到新車，從第 0 站開始掃描
+                                                        pathNos: [...curr.pathNos, nTrainNo],
+                                                        sTime: curr.sTime
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    });
+                                }
+                            }
                         }
-                    }
+                    });
                 });
             }
-            
             activeRouteFilterTrains = filteredTrainNos;
         }
 
@@ -2062,11 +2134,11 @@ function setupSearch() {
                     let currentShowType = !(settings && settings.show_train_type === false);
                     let trainLabel = currentShowId ? "車次" : "列車";
                     
-                    // 🌟 智慧組合：根據設定決定要顯示什麼，並自動處理中間的空白
                     let displayParts = [];
                     if (currentShowType && item.typeStr) displayParts.push(item.typeStr);
-                    if (currentShowId && item.id) displayParts.push(item.id);
-                    let trainDisplayText = displayParts.join(' '); 
+                    // 🌟 如果有 dispId 就用它 (顯示直通)，沒有就維持原本的 id
+                    if (currentShowId && item.id) displayParts.push(item.dispId || item.id); 
+                    let trainDisplayText = displayParts.join(' ');
                     
                     let timeHtml = "";
                     if (item.startTime !== undefined && item.endTime !== undefined) {
