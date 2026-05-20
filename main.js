@@ -1071,81 +1071,67 @@ function drawTrains() {
                                 }
 
                                 // ==========================================
-                                // 🌟 終極判斷：純粹拓樸邏輯引擎 (通用型)
-                                // 完全採用「拆分車站往後還是往前」的物理陣列判斷法
+                                // 🌟 終極判斷：實體端點與時間差雙重驗證引擎
+                                // 完美看破直通車次斷層，100% 物理防呆！
                                 // ==========================================
                                 let isJoin = false;
                                 
-                                // 1. 攤平兩台車的車站陣列，準備進行前後比對
                                 let stA = splitTrainA.segments.flatMap(s => s.s).map(String);
                                 let stB = splitTrainB.segments.flatMap(s => s.s).map(String);
-                                
-                                // 2. 找到交會站在各自陣列中的索引位置 (Index)
                                 let currentStId = String(seg.s[i]);
                                 let idxA = stA.indexOf(currentStId);
                                 let idxB = stB.indexOf(currentStId);
 
-                                // 3. 核心拓樸判斷
-                                if (idxA === stA.length - 1 || idxB === stB.length - 1) {
-                                    // 狀況 A (資料截斷)：如果交會站是其中一台車的「最後一站」
-                                    // 代表它獨立運行結束，必須「匯入(JOIN)」另一台車繼續走
-                                    isJoin = true;
-                                } else if (idxA === 0 || idxB === 0) {
-                                    // 狀況 B (資料截斷)：如果交會站是其中一台車的「第一站」
-                                    // 代表它是從另一台車身上「拆解(SPLIT)」出來，開始自己獨立的線路
-                                    isJoin = false;
-                                } else {
-                                    // 狀況 C (資料完整)：比對交會站「之後」是否還有共同車站
-                                    let shareAfter = false;
-                                    for(let k = idxA + 1; k < stA.length; k++) {
-                                        if (stB.includes(stA[k])) { shareAfter = true; break; }
-                                    }
-                                    
-                                    let shareBefore = false;
-                                    for(let k = 0; k < idxA; k++) {
-                                        if (stB.includes(stA[k])) { shareBefore = true; break; }
-                                    }
+                                // 檢查是否具有直通屬性 (如果有，代表它在這裡不是真正的起點或終點)
+                                const hasDirect = (tObj) => tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct");
 
-                                    if (shareAfter) {
-                                        isJoin = true;  // 交會後一起走 -> 匯合
-                                    } else if (shareBefore) {
-                                        isJoin = false; // 交會前一起走 -> 拆解
-                                    } else {
-                                        // 物理防呆：如果前後都沒重疊，看誰抵達時間不同就是匯合
-                                        isJoin = (iA.arr !== iB.arr); 
-                                    }
+                                let isRealEndA = (idxA === stA.length - 1) && !hasDirect(splitTrainA);
+                                let isRealEndB = (idxB === stB.length - 1) && !hasDirect(splitTrainB);
+                                let isRealStartA = (idxA === 0) && !hasDirect(splitTrainA);
+                                let isRealStartB = (idxB === 0) && !hasDirect(splitTrainB);
+
+                                if (isRealEndA || isRealEndB) {
+                                    isJoin = true;  // 有人真正終止於此 -> 匯合
+                                } else if (isRealStartA || isRealStartB) {
+                                    isJoin = false; // 有人真正起始於此 -> 拆解
+                                } else {
+                                    isJoin = (iA.arr !== iB.arr); // 都穿過此站，直接用抵達時間判定！
                                 }
 
                                 if (isJoin) {
-                                    // 🚄 【匯合模式 JOIN】 (例如 156B/150B 上行)
-                                    // 🌟 完美對稱格式： [抵達A](起點A)/[抵達B](起點B)-發車時間 站名
+                                    // 🚄 【匯合模式 JOIN】 
                                     let joins = [
                                         { t: iA.arr, str: `${formatTimeDisplay(iA.arr)}(${iA.origin})` },
                                         { t: iB.arr, str: `${formatTimeDisplay(iB.arr)}(${iB.origin})` }
                                     ].sort((a,b) => (a.t || 0) - (b.t || 0));
                                     
-                                    let sharedDep = maxDep;
+                                    let sharedDep = maxDep !== -Infinity ? maxDep : (iA.dep || iB.dep);
                                     displayText = `${joins[0].str}/${joins[1].str}-${formatTimeDisplay(sharedDep)} ${stationName}`;
-                                } else {
-                                    // 🚄 【分離模式 SPLIT】 (例如 149B/3035B 下行)
-                                    // 🌟 完美對稱格式： 抵達時間-[出發A](終點A)/[出發B](終點B) 站名
-                                    let sharedArr = Math.min(iA.arr || Infinity, iB.arr || Infinity);
-                                    if (sharedArr === Infinity) sharedArr = null;
+                                    
+                                    // 🌟 併結特判：文字放左邊 (靠著最早抵達時間)，完美解決 Offset 游離感！
+                                    familyAlign = 'right'; // textAlign = 'right' 代表字體在座標的左邊
+                                    if (minArr !== Infinity) familyDrawX = timeToX(minArr);
+                                    if (maxDep !== -Infinity) familyFallbackX = timeToX(maxDep);
 
+                                } else {
+                                    // 🚄 【分離模式 SPLIT】
+                                    let sharedArr = minArr !== Infinity ? minArr : null;
                                     let splits = [
                                         { t: iA.dep, str: `${formatTimeDisplay(iA.dep)}(${iA.dest})` },
                                         { t: iB.dep, str: `${formatTimeDisplay(iB.dep)}(${iB.dest})` }
                                     ].sort((a,b) => (a.t || 0) - (b.t || 0));
                                     
                                     displayText = `${formatTimeDisplay(sharedArr)}-${splits[0].str}/${splits[1].str} ${stationName}`;
+                                    
+                                    // 🌟 拆解特判：文字放右邊 (推到最晚發車時間)
+                                    familyAlign = 'left';  // textAlign = 'left' 代表字體在座標的右邊
+                                    if (maxDep !== -Infinity) familyDrawX = timeToX(maxDep);
+                                    if (minArr !== Infinity) familyFallbackX = timeToX(minArr);
                                 }
                             } else {
                                 // 沒遇到交會的普通車站
-                                if (finalArrStr === finalDepStr) {
-                                    displayText = `${finalArrStr} ${stationName}`; 
-                                } else {
-                                    displayText = `${finalArrStr}-${finalDepStr} ${stationName}`; 
-                                }
+                                if (finalArrStr === finalDepStr) displayText = `${finalArrStr} ${stationName}`; 
+                                else displayText = `${finalArrStr}-${finalDepStr} ${stationName}`; 
                             }
                         } else {
                             displayText = ""; // 🌟 沒有拿到麥克風，絕對閉嘴！
