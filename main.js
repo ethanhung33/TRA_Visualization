@@ -1063,12 +1063,14 @@ function drawTrains() {
                                 let iA = extInfo(splitTrainA);
                                 let iB = extInfo(splitTrainB);
 
-                                // 更新文字基準點，推到最晚發車時間的右邊，不再蓋黃線！
+                                // 🌟 1. 補回遺失的變數：宣告排版需要的極值
+                                let minArr = Math.min(iA.arr || Infinity, iB.arr || Infinity);
                                 let maxDep = Math.max(iA.dep || -Infinity, iB.dep || -Infinity);
-                                if (maxDep !== -Infinity && maxDep !== null) {
-                                    let cX = timeToX(maxDep);
-                                    if (!isNaN(cX)) familyMaxTextX = cX;
-                                }
+                                
+                                // 🌟 2. 補回遺失的變數：雙向智慧排版變數
+                                let familyAlign = 'left';
+                                let familyDrawX = x_dep;
+                                let familyFallbackX = x_arr;
 
                                 // ==========================================
                                 // 🌟 終極判斷：實體端點與時間差雙重驗證引擎
@@ -1151,7 +1153,7 @@ function drawTrains() {
                             }
                         }
 
-                        // --- 5. 畫出文字 (智慧防撞牆版) ---
+                        // --- 5. 畫出文字 (雙向智慧防撞牆版) ---
                         if (displayText !== "") {
                             ctx.font = '14px "GlowSans", "Segoe UI", sans-serif'; 
                             ctx.fillStyle = isDarkMode ? '#FFFFFF' : '#000000'; 
@@ -1161,13 +1163,25 @@ function drawTrains() {
 
                             let textWidth = ctx.measureText(displayText).width;
 
-                            // 🌟 核心：使用推開後的 familyMaxTextX 來畫字，絕對不蓋黃線！
-                            if (familyMaxTextX + 8 + textWidth > rightBoundary) {
-                                ctx.textAlign = 'right';
-                                ctx.fillText(displayText, x_arr - 8, y);
+                            // 🌟 核心：自動根據是「合併」還是「拆解」，決定文字要靠左還靠右！
+                            if (familyAlign === 'right') {
+                                // 預設靠左放 (文字置右對齊，完美貼合抵達時間)
+                                if (familyDrawX - 8 - textWidth < leftBoundary) {
+                                    ctx.textAlign = 'left';
+                                    ctx.fillText(displayText, familyFallbackX + 8, y); // 撞牆備用
+                                } else {
+                                    ctx.textAlign = 'right';
+                                    ctx.fillText(displayText, familyDrawX - 8, y);
+                                }
                             } else {
-                                ctx.textAlign = 'left';
-                                ctx.fillText(displayText, familyMaxTextX + 8, y);
+                                // 預設靠右放 (文字置左對齊，完美貼合發車時間)
+                                if (familyDrawX + 8 + textWidth > rightBoundary) {
+                                    ctx.textAlign = 'right';
+                                    ctx.fillText(displayText, familyFallbackX - 8, y); // 撞牆備用
+                                } else {
+                                    ctx.textAlign = 'left';
+                                    ctx.fillText(displayText, familyDrawX + 8, y);
+                                }
                             }
                         }
                     }
