@@ -911,7 +911,7 @@ function drawTrains() {
                         // --- 3. 準備文字：站名與時間 ---
                         let stationName = getStationName(seg.s[i]);
 
-                        // 🌟 1. 基礎直通時間修補 (自動借用前後車時間)
+                        // 🌟 1. 基礎直通時間修補
                         let isDirectOut = (segIdx === train.segments.length - 1 && i === seg.s.length - 1 && train.coupled_with && train.coupled_with.some(c => c.action === "direct"));
                         let isDirectIn = (segIdx === 0 && i === 0 && train.coupled_with && train.coupled_with.some(c => c.action === "direct"));
 
@@ -937,10 +937,14 @@ function drawTrains() {
                         let finalArrStr = formatTimeDisplay(arrT);
                         let finalDepStr = formatTimeDisplay(depT);
                         let displayText = "";
-                        let familyMaxTextX = x_dep; // 🌟 確保文字推到最右邊不蓋線
+                        
+                        // 🌟🌟🌟 核心修復：把排版變數拉到「最外層宣告」，這樣後面的畫布才抓得到！
+                        let familyAlign = 'left';
+                        let familyDrawX = x_dep;
+                        let familyFallbackX = x_arr;
 
                         // ==========================================
-                        // 🌟 2. 終極發言權判定機制 (Designated Speaker)
+                        // 🌟 2. 終極發言權判定機制
                         // ==========================================
                         let isDesignatedSpeaker = false;
 
@@ -1063,18 +1067,11 @@ function drawTrains() {
                                 let iA = extInfo(splitTrainA);
                                 let iB = extInfo(splitTrainB);
 
-                                // 🌟 1. 補回遺失的變數：宣告排版需要的極值
                                 let minArr = Math.min(iA.arr || Infinity, iB.arr || Infinity);
                                 let maxDep = Math.max(iA.dep || -Infinity, iB.dep || -Infinity);
-                                
-                                // 🌟 2. 補回遺失的變數：雙向智慧排版變數
-                                let familyAlign = 'left';
-                                let familyDrawX = x_dep;
-                                let familyFallbackX = x_arr;
 
                                 // ==========================================
                                 // 🌟 終極判斷：實體端點與時間差雙重驗證引擎
-                                // 完美看破直通車次斷層，100% 物理防呆！
                                 // ==========================================
                                 let isJoin = false;
                                 
@@ -1084,7 +1081,6 @@ function drawTrains() {
                                 let idxA = stA.indexOf(currentStId);
                                 let idxB = stB.indexOf(currentStId);
 
-                                // 檢查是否具有直通屬性 (如果有，代表它在這裡不是真正的起點或終點)
                                 const hasDirect = (tObj) => tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct");
 
                                 let isRealEndA = (idxA === stA.length - 1) && !hasDirect(splitTrainA);
@@ -1093,11 +1089,11 @@ function drawTrains() {
                                 let isRealStartB = (idxB === 0) && !hasDirect(splitTrainB);
 
                                 if (isRealEndA || isRealEndB) {
-                                    isJoin = true;  // 有人真正終止於此 -> 匯合
+                                    isJoin = true;  
                                 } else if (isRealStartA || isRealStartB) {
-                                    isJoin = false; // 有人真正起始於此 -> 拆解
+                                    isJoin = false; 
                                 } else {
-                                    isJoin = (iA.arr !== iB.arr); // 都穿過此站，直接用抵達時間判定！
+                                    isJoin = (iA.arr !== iB.arr); 
                                 }
 
                                 if (isJoin) {
@@ -1110,8 +1106,8 @@ function drawTrains() {
                                     let sharedDep = maxDep !== -Infinity ? maxDep : (iA.dep || iB.dep);
                                     displayText = `${joins[0].str}/${joins[1].str}-${formatTimeDisplay(sharedDep)} ${stationName}`;
                                     
-                                    // 🌟 併結特判：文字放左邊 (靠著最早抵達時間)，完美解決 Offset 游離感！
-                                    familyAlign = 'right'; // textAlign = 'right' 代表字體在座標的左邊
+                                    // 🌟 更新外圍已經宣告好的變數 (直接覆寫值，不要加 let！)
+                                    familyAlign = 'right'; 
                                     if (minArr !== Infinity) familyDrawX = timeToX(minArr);
                                     if (maxDep !== -Infinity) familyFallbackX = timeToX(maxDep);
 
@@ -1125,22 +1121,21 @@ function drawTrains() {
                                     
                                     displayText = `${formatTimeDisplay(sharedArr)}-${splits[0].str}/${splits[1].str} ${stationName}`;
                                     
-                                    // 🌟 拆解特判：文字放右邊 (推到最晚發車時間)
-                                    familyAlign = 'left';  // textAlign = 'left' 代表字體在座標的右邊
+                                    // 🌟 更新外圍已經宣告好的變數 (直接覆寫值，不要加 let！)
+                                    familyAlign = 'left'; 
                                     if (maxDep !== -Infinity) familyDrawX = timeToX(maxDep);
                                     if (minArr !== Infinity) familyFallbackX = timeToX(minArr);
                                 }
                             } else {
-                                // 沒遇到交會的普通車站
                                 if (finalArrStr === finalDepStr) displayText = `${finalArrStr} ${stationName}`; 
                                 else displayText = `${finalArrStr}-${finalDepStr} ${stationName}`; 
                             }
                         } else {
-                            displayText = ""; // 🌟 沒有拿到麥克風，絕對閉嘴！
+                            displayText = ""; 
                         }
 
                         // ==========================================
-                        // 🌟 4. 全域記憶體防護網 (消滅任何漏網之魚的疊影)
+                        // 🌟 4. 全域記憶體防護網 
                         // ==========================================
                         if (displayText !== "") {
                             let uniqueKey = `${seg.s[i]}_${displayText}`;
@@ -1163,21 +1158,18 @@ function drawTrains() {
 
                             let textWidth = ctx.measureText(displayText).width;
 
-                            // 🌟 核心：自動根據是「合併」還是「拆解」，決定文字要靠左還靠右！
                             if (familyAlign === 'right') {
-                                // 預設靠左放 (文字置右對齊，完美貼合抵達時間)
                                 if (familyDrawX - 8 - textWidth < leftBoundary) {
                                     ctx.textAlign = 'left';
-                                    ctx.fillText(displayText, familyFallbackX + 8, y); // 撞牆備用
+                                    ctx.fillText(displayText, familyFallbackX + 8, y); 
                                 } else {
                                     ctx.textAlign = 'right';
                                     ctx.fillText(displayText, familyDrawX - 8, y);
                                 }
                             } else {
-                                // 預設靠右放 (文字置左對齊，完美貼合發車時間)
                                 if (familyDrawX + 8 + textWidth > rightBoundary) {
                                     ctx.textAlign = 'right';
-                                    ctx.fillText(displayText, familyFallbackX - 8, y); // 撞牆備用
+                                    ctx.fillText(displayText, familyFallbackX - 8, y); 
                                 } else {
                                     ctx.textAlign = 'left';
                                     ctx.fillText(displayText, familyDrawX + 8, y);
