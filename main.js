@@ -3853,38 +3853,37 @@ function updateBottomPanelStation(st_id) {
         if (trains.length === 0) return `<div style="color: ${theme.textSub}; font-size: 13px; padding: 10px 20px; font-style: italic;">${dirLabel} 近期無班次</div>`;
         
         return trains.map(item => {
-            let typeColors = settings?.train_color?.[item.train.type];
-            let tColor = theme.textMain; 
-            if (typeColors && typeColors.length > 0) {
-                if (isDarkMode) {
-                    tColor = typeColors[0];
-                } else {
-                    let baseColor = typeColors[0].toUpperCase();
-                    tColor = typeColors[1] || ((baseColor === '#FFFFFF' || baseColor === '#FFF' || baseColor === 'WHITE') ? '#222222' : typeColors[0]);
-                }
-            }
+            // 處理併結車次的色彩渲染 (如果有多個車次，分別取色)
+            const getTrainStyle = (tObj, tNo) => {
+                let typeColors = settings?.train_color?.[tObj.type];
+                let color = typeColors ? (isDarkMode ? typeColors[0] : (typeColors[1] || typeColors[0])) : theme.textMain;
+                return { color, label: tObj.type, no: tNo };
+            };
 
             let timeStr = formatTimeDisplay(item.depTime);
-            let displayDiff = Math.floor(item.diff); 
+            let displayDiff = Math.floor(item.diff);
             
-            let showType = !(settings && settings.show_train_type === false);
-            let showId = !(settings && settings.show_train_id === false);
-            
-            let displayTitle = "列車";
+            // 處理合併後的車次顯示：變成一個個精緻的膠囊色塊
+            let titleHtml = "";
             if (item.displayTitleOverride) {
-                displayTitle = item.displayTitleOverride; // 如果有合併標題，優先使用
+                // 如果是合併的車次，將原本的 / 改成多個色塊
+                let parts = item.train.coupled_with ? [item.train, ...item.train.coupled_with.filter(c => c.action === "split").map(c => timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id)))] : [item.train];
+                titleHtml = parts.map(p => {
+                    if (!p) return "";
+                    let style = getTrainStyle(p, p.no || p.train_no || p.id);
+                    return `<span style="background: ${style.color}; color: #fff; padding: 2px 6px; border-radius: 4px; margin-right: 4px; font-size: 11px; font-weight: bold;">${style.label} ${style.no}</span>`;
+                }).join('');
             } else {
-                if (showType && showId) displayTitle = `${item.train.type} ${item.trainNo}`;
-                else if (showType && !showId) displayTitle = `${item.train.type}`;
-                else if (!showType && showId) displayTitle = `${item.trainNo}`;
+                let style = getTrainStyle(item.train, item.trainNo);
+                titleHtml = `<span style="color: ${style.color}; font-weight: bold;">${style.label} ${style.no}</span>`;
             }
 
             return `
-                <div class="station-board-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg}; --hover-color: ${tColor};">
+                <div class="station-board-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg}; border-left: 4px solid ${item.train.coupled_with ? '#e63946' : 'transparent'};">
                     <div class="sb-desktop-layout">
                         <div class="sb-top">
                             <span class="sb-time">${timeStr}</span>
-                            <span class="sb-title" style="color: ${tColor};">${displayTitle}</span>
+                            <div class="sb-title-group" style="display: inline-flex; align-items: center;">${titleHtml}</div>
                         </div>
                         <div class="sb-bottom">
                             <span class="sb-dest">往 ${item.destName}</span>
@@ -3893,8 +3892,7 @@ function updateBottomPanelStation(st_id) {
                     </div>
                     <div class="sb-mobile-layout">
                         <div class="sb-col-title">
-                            <span style="color: ${tColor};">${displayTitle}</span>
-                            <span class="board-dir-label" style="background: ${dirColor}; margin-left: 0;">${dirLabel}</span>
+                            <div class="sb-title-group" style="display: flex; flex-wrap: wrap; gap: 4px;">${titleHtml}</div>
                         </div>
                         <div class="sb-col-time" style="color: ${theme.textMain};">${timeStr}</div>
                         <div class="sb-col-dest" style="color: ${theme.textMain};">往 ${item.destName}</div>
