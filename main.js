@@ -2282,29 +2282,68 @@ window.triggerSearchSelect = function(type, id, element, saveHistory = true) {
 };
 
 // ==========================================
-// 🖱️ 底部面板：將滑鼠上下滾輪轉換為左右滑動
+// 🖱️ 底部面板：滑鼠滾輪與手機左右滑動切換 (無衝突整合版)
 // ==========================================
 function setupBottomBarScrolling() {
     const bottomBar = document.getElementById('bottom-bar');
     if (!bottomBar) return;
 
-    // { passive: false } 是必須的，這樣我們才能呼叫 e.preventDefault() 停用預設滾動
+    // --- 1. 原本的滑鼠滾輪轉換邏輯 (維持不變) ---
+    // 讓電腦版使用者可以用滾輪左右查看長長的車站列表
     bottomBar.addEventListener('wheel', (e) => {
         const scrollContainer = document.getElementById('bottom-scroll-container');
-        
         if (scrollContainer) {
-            // 🌟 1. 防止整個網頁被上下捲動
             e.preventDefault(); 
-            
-            // 🌟 2. 極度關鍵：防止事件往上傳遞給 Canvas！
-            // 這樣在底部面板滾輪時，上面的地圖就不會跟著放大縮小！
             e.stopPropagation(); 
-            
-            // 🌟 3. 將滾輪的上下幅度 (deltaY) 轉移給容器的左右捲動軸 (scrollLeft)
-            // 加上一個倍率(例如 1.5) 可以讓滑動感覺更順暢、更快
             scrollContainer.scrollLeft += (e.deltaY * 1.5); 
         }
     }, { passive: false });
+
+    // --- 2. 🌟 新增：手機端的手勢偵測 (Swipe Gesture) ---
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    bottomBar.addEventListener('touchstart', (e) => {
+        // 如果是雙指縮放，不介入
+        if (e.touches.length > 1) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    bottomBar.addEventListener('touchend', (e) => {
+        // 🛡️ 核心防護網 A：如果是在看「車站」，讓原生 CSS 去滑動，我們 JS 絕對不插手！
+        if (selectedStation) return; 
+
+        // 🛡️ 核心防護網 B：如果根本沒有選中火車，也不做事
+        if (!selectedTrain) return;
+
+        let touchEndX = e.changedTouches[0].clientX;
+        let touchEndY = e.changedTouches[0].clientY;
+
+        let deltaX = touchEndX - touchStartX;
+        let deltaY = touchEndY - touchStartY;
+
+        // 判斷是否為「明確的水平滑動」(水平位移 > 50px 且大於垂直位移)
+        if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY)) {
+            
+            // 抓出這台車所有的關聯車次 (直通 或 併結)
+            let partners = selectedTrain.coupled_with ? selectedTrain.coupled_with.filter(c => c.action === 'split' || c.action === 'direct') : [];
+            
+            if (partners.length > 0) {
+                // 如果只有一台伴侶車 (大部分新幹線的狀況)，不管左右滑都直接切過去
+                if (partners.length === 1) {
+                    window.switchTrainKeepView(partners[0].train_id);
+                } 
+                // 如果未來有「三車併結」等狀況，利用 deltaX 正負值決定方向
+                else {
+                    let targetIndex = deltaX < 0 ? 1 : 0; 
+                    if (partners[targetIndex]) {
+                        window.switchTrainKeepView(partners[targetIndex].train_id);
+                    }
+                }
+            }
+        }
+    }, { passive: true });
 }
 
 // ==========================================
