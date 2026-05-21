@@ -3858,42 +3858,43 @@ function updateBottomPanelStation(st_id) {
             // 1. 文字上色邏輯：提取車種顏色
             const getTrainText = (trainObj, trainNo) => {
                 let colors = settings?.train_color?.[trainObj.type];
-                // 取色：深色模式用第一色，淺色模式若沒設第二色就用預設的主文字色
                 let tColor = colors ? (isDarkMode ? colors[0] : (colors[1] || colors[0])) : theme.textMain;
                 
-                // 2. 縮小字體：車種 (如：はやぶさ) 用預設字體，車次 (如：3096B) 用稍小的字體
                 return `<span style="color: ${tColor}; font-weight: bold;">${trainObj.type}</span> 
                         <span style="color: ${theme.textSub}; font-size: 12px; margin-left: 2px;">${trainNo}</span>`;
             };
 
-            // 3. 處理合併顯示 (用斜線分隔，維持純文字)
+            // 2. 處理合併顯示
             let titleHtml = "";
             if (item.displayTitleOverride) {
                 let group = item.train.coupled_with ? [item.train, ...item.train.coupled_with.filter(c => c.action === "split").map(c => timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id)))] : [item.train];
-                titleHtml = group.map(g => g ? getTrainText(g, g.no || g.train_no || g.id) : "").join('<span style="color: ${theme.textSub}; margin: 0 4px;">/</span>');
+                titleHtml = group.map(g => g ? getTrainText(g, g.no || g.train_no || g.id) : "").join(`<span style="color: ${theme.textSub}; margin: 0 4px;">/</span>`);
             } else {
                 titleHtml = getTrainText(item.train, item.trainNo);
             }
 
             return `
-                <div class="station-board-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg}; border-bottom: 1px solid ${theme.border}; padding: 10px 16px;">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="font-size: 17px; font-weight: bold; font-family: monospace; color: ${theme.textMain}; width: 55px;">
-                            ${timeStr}
+                <div class="station-board-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg}; border-bottom: 1px solid ${theme.border}; padding: 10px 16px; cursor: pointer;">
+                    <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+                        
+                        <div style="display: flex; flex-direction: column; align-items: flex-start; width: 55px; flex-shrink: 0;">
+                            <div style="font-size: 17px; font-weight: bold; font-family: monospace; color: ${theme.textMain};">
+                                ${timeStr}
+                            </div>
+                            <div style="color: ${theme.textSub}; font-size: 11px; margin-top: 2px;">
+                                ${Math.floor(item.diff)}分
+                            </div>
                         </div>
                         
-                        <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0;">
                             <div style="display: flex; align-items: baseline; flex-wrap: wrap;">
                                 ${titleHtml}
                             </div>
-                            <div style="font-size: 13px; color: ${theme.textSub};">
+                            <div style="font-size: 13px; color: ${theme.textSub}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                 往 ${item.destName}
                             </div>
                         </div>
 
-                        <div style="color: ${theme.textSub}; font-size: 11px;">
-                            ${Math.floor(item.diff)}分
-                        </div>
                     </div>
                 </div>
             `;
