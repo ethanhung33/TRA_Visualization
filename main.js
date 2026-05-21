@@ -3894,7 +3894,7 @@ function updateBottomPanelStation(st_id) {
                     <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
                         
                         <div style="display: flex; flex-direction: column; align-items: flex-start; width: 55px; flex-shrink: 0;">
-                            <div style="font-size: 17px; font-weight: bold; font-family: monospace; color: ${theme.textMain};">
+                            <div style="font-size: 17px; font-family: monospace; color: ${theme.textMain};">
                                 ${timeStr}
                             </div>
                             <div style="color: ${theme.textSub}; font-size: 11px; margin-top: 2px;">
