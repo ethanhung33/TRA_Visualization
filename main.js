@@ -3601,7 +3601,7 @@ function updateBottomPanel(train) {
 }
 
 // ==========================================
-// 🚉 更新底部面板 (精簡雙排行 + 高效能幾何方向 + 拓樸學終點互鎖優化版)
+// 🚉 更新底部面板 (拓樸學終點互鎖 + 智能同向合併版)
 // ==========================================
 function updateBottomPanelStation(st_id) {
     const panel = document.getElementById('bottom-bar'); 
@@ -3614,10 +3614,7 @@ function updateBottomPanelStation(st_id) {
     let downboundTrains = [];
     let processedTrains = new Set();
 
-    // ==========================================
     // 🧠 核心升級：拓樸學終點追蹤器 (Data-Driven Topology Tracker)
-    // 完美解決上行匯合車次「目的地斷層」與「假終點」的鐵道物理Bug
-    // ==========================================
     const getAbsoluteDest = (tObj) => {
         let curr = tObj;
         let visited = new Set([String(curr.no || curr.train_no || curr.id)]);
@@ -3625,7 +3622,6 @@ function updateBottomPanelStation(st_id) {
         while (true) {
             let advanced = false;
             
-            // 1. 先沿著「直通 (direct)」車次鏈條找到最底
             let dInfo = curr.coupled_with ? curr.coupled_with.find(cx => cx.action === "direct") : null;
             if (dInfo) {
                 let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
@@ -3637,35 +3633,28 @@ function updateBottomPanelStation(st_id) {
             }
             if (advanced) continue;
 
-            // 2. 🌟 終極互鎖推論：處理上行併結車次 (如: こまち 在盛岡併入 はやぶさ)
             let splitInfo = curr.coupled_with ? curr.coupled_with.find(cx => cx.action === "split") : null;
             if (splitInfo) {
                 let partner = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(splitInfo.train_id));
                 if (partner && !visited.has(String(partner.no || partner.train_no || partner.id))) {
                     
                     if (curr.segments && curr.segments.length > 0 && partner.segments && partner.segments.length > 0) {
-                        // 抓出自己目前的終點站 ID
                         let currLastSeg = curr.segments[curr.segments.length - 1];
                         let currLastStId = String(currLastSeg.s[currLastSeg.s.length - 1]);
                         
-                        // 攤平伴侶車的所有行經車站 ID
                         let partnerStations = partner.segments.flatMap(s => s.s).map(String);
                         let pIdx = partnerStations.indexOf(currLastStId);
                         
-                        // 🧮 鐵道拓樸幾何判定：
-                        // 如果自己的終點站出現在伴侶車的路線中，而且「不是伴侶車的終點站」
-                        // 這百分之百代表伴侶車還繼續往下開 (主線)，自己只是中途加入的支線！
                         if (pIdx !== -1 && pIdx < partnerStations.length - 1) {
                             visited.add(String(partner.no || partner.train_no || partner.id));
-                            curr = partner; // 🌟 寄生成功！切換視角至主線 Host 車次繼續追蹤！
+                            curr = partner; 
                             advanced = true;
                         }
                     }
                 }
             }
             if (advanced) continue;
-            
-            break; // 已經追蹤到物理世界的絕對邊緣，跳出迴圈
+            break; 
         }
         
         if (curr && curr.segments && curr.segments.length > 0) {
@@ -3680,12 +3669,10 @@ function updateBottomPanelStation(st_id) {
         if (!activeTrainTypes.has(train.type) || !train.segments) return;
 
         let trainNo = train.no || train.train_no || "未知";
-
         if (processedTrains.has(trainNo)) return;
 
         for (let segIdx = 0; segIdx < train.segments.length; segIdx++) {
             if (processedTrains.has(trainNo)) break; 
-
             let seg = train.segments[segIdx];
 
             for (let i = 0; i < seg.s.length; i++) {
@@ -3732,7 +3719,6 @@ function updateBottomPanelStation(st_id) {
                             }
                         }
 
-                        // 計算這班車的絕對終點
                         let destName = getAbsoluteDest(train);
 
                         let trainData = {
@@ -3748,7 +3734,7 @@ function updateBottomPanelStation(st_id) {
 
                         processedTrains.add(trainNo); 
 
-                        // 捕捉隱形的掛載伴侶 (共線路段幽靈探針)
+                        // 捕捉掛載伴侶
                         if (train.coupled_with) {
                             train.coupled_with.forEach(c => {
                                 if (c.action === "split") {
@@ -3765,7 +3751,6 @@ function updateBottomPanelStation(st_id) {
                                         }
 
                                         if (!partnerHasStation) {
-                                            // 伴侶車同步套用終點優化引擎
                                             let pDestName = getAbsoluteDest(partner);
                                             let pTrainNo = partner.no || partner.train_no || partner.id;
 
@@ -3793,9 +3778,66 @@ function updateBottomPanelStation(st_id) {
         }
     });
 
-    // 2. 依照發車時間排序 (時間相同時，依照車號排序)
+    // 2. 依照發車時間排序
     upboundTrains.sort((a, b) => a.diff !== b.diff ? a.diff - b.diff : a.trainNo.localeCompare(b.trainNo));
     downboundTrains.sort((a, b) => a.diff !== b.diff ? a.diff - b.diff : a.trainNo.localeCompare(b.trainNo));
+
+    // ==========================================
+    // 🌟 終極魔法：智能同向合併 (Smart Merge + 物理併結驗證)
+    // 必須符合：發車時間一樣 + 終點站一樣 + 具有實體 split 關聯
+    // ==========================================
+    const smartMerge = (trains) => {
+        let res = [];
+        let used = new Set();
+        let showType = !(settings && settings.show_train_type === false);
+        let showId = !(settings && settings.show_train_id === false);
+
+        for (let i = 0; i < trains.length; i++) {
+            if (used.has(i)) continue;
+            let current = trains[i];
+            let group = [current];
+
+            for (let j = i + 1; j < trains.length; j++) {
+                if (used.has(j)) continue;
+                let other = trains[j];
+                
+                // 🛡️ 核心防護：檢查兩台車是否真的有「實體併結 (split)」關係
+                let isPhysicallyCoupled = false;
+                if (current.train.coupled_with) {
+                    isPhysicallyCoupled = current.train.coupled_with.some(c => c.action === "split" && String(c.train_id) === String(other.trainNo));
+                }
+                if (!isPhysicallyCoupled && other.train.coupled_with) {
+                    isPhysicallyCoupled = other.train.coupled_with.some(c => c.action === "split" && String(c.train_id) === String(current.trainNo));
+                }
+                
+                // 條件嚴格：時間一致、終點一致，且「必須是物理上的併結車」才合併
+                if (current.depTime === other.depTime && current.destName === other.destName && isPhysicallyCoupled) {
+                    group.push(other);
+                    used.add(j);
+                }
+            }
+
+            if (group.length > 1) {
+                let titles = group.map(g => {
+                    if (showType && showId) return `${g.train.type} ${g.trainNo}`;
+                    if (showType && !showId) return `${g.train.type}`;
+                    if (!showType && showId) return `${g.trainNo}`;
+                    return "列車";
+                });
+                
+                res.push({
+                    ...current,
+                    displayTitleOverride: titles.join(" / ") // 產生合併字串
+                });
+            } else {
+                res.push(current);
+            }
+        }
+        return res;
+    };
+
+    upboundTrains = smartMerge(upboundTrains);
+    downboundTrains = smartMerge(downboundTrains);
 
     // 3. UI 主題與骨架設定
     const theme = {
@@ -3829,9 +3871,13 @@ function updateBottomPanelStation(st_id) {
             let showId = !(settings && settings.show_train_id === false);
             
             let displayTitle = "列車";
-            if (showType && showId) displayTitle = `${item.train.type} ${item.trainNo}`;
-            else if (showType && !showId) displayTitle = `${item.train.type}`;
-            else if (!showType && showId) displayTitle = `${item.trainNo}`;
+            if (item.displayTitleOverride) {
+                displayTitle = item.displayTitleOverride; // 如果有合併標題，優先使用
+            } else {
+                if (showType && showId) displayTitle = `${item.train.type} ${item.trainNo}`;
+                else if (showType && !showId) displayTitle = `${item.train.type}`;
+                else if (!showType && showId) displayTitle = `${item.trainNo}`;
+            }
 
             return `
                 <div class="station-board-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg}; --hover-color: ${tColor};">
