@@ -3601,7 +3601,7 @@ function updateBottomPanel(train) {
 }
 
 // ==========================================
-// 🚉 更新底部面板 (精簡雙排行 + 高效能幾何方向 + 幽靈掛載獨立顯示版)
+// 🚉 更新底部面板 (精簡雙排行 + 高效能幾何方向 + 拓樸學終點互鎖優化版)
 // ==========================================
 function updateBottomPanelStation(st_id) {
     const panel = document.getElementById('bottom-bar'); 
@@ -3613,6 +3613,67 @@ function updateBottomPanelStation(st_id) {
     let upboundTrains = [];
     let downboundTrains = [];
     let processedTrains = new Set();
+
+    // ==========================================
+    // 🧠 核心升級：拓樸學終點追蹤器 (Data-Driven Topology Tracker)
+    // 完美解決上行匯合車次「目的地斷層」與「假終點」的鐵道物理Bug
+    // ==========================================
+    const getAbsoluteDest = (tObj) => {
+        let curr = tObj;
+        let visited = new Set([String(curr.no || curr.train_no || curr.id)]);
+        
+        while (true) {
+            let advanced = false;
+            
+            // 1. 先沿著「直通 (direct)」車次鏈條找到最底
+            let dInfo = curr.coupled_with ? curr.coupled_with.find(cx => cx.action === "direct") : null;
+            if (dInfo) {
+                let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                if (nxt && !visited.has(String(nxt.no || nxt.train_no || nxt.id))) {
+                    visited.add(String(nxt.no || nxt.train_no || nxt.id));
+                    curr = nxt;
+                    advanced = true;
+                }
+            }
+            if (advanced) continue;
+
+            // 2. 🌟 終極互鎖推論：處理上行併結車次 (如: こまち 在盛岡併入 はやぶさ)
+            let splitInfo = curr.coupled_with ? curr.coupled_with.find(cx => cx.action === "split") : null;
+            if (splitInfo) {
+                let partner = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(splitInfo.train_id));
+                if (partner && !visited.has(String(partner.no || partner.train_no || partner.id))) {
+                    
+                    if (curr.segments && curr.segments.length > 0 && partner.segments && partner.segments.length > 0) {
+                        // 抓出自己目前的終點站 ID
+                        let currLastSeg = curr.segments[curr.segments.length - 1];
+                        let currLastStId = String(currLastSeg.s[currLastSeg.s.length - 1]);
+                        
+                        // 攤平伴侶車的所有行經車站 ID
+                        let partnerStations = partner.segments.flatMap(s => s.s).map(String);
+                        let pIdx = partnerStations.indexOf(currLastStId);
+                        
+                        // 🧮 鐵道拓樸幾何判定：
+                        // 如果自己的終點站出現在伴侶車的路線中，而且「不是伴侶車的終點站」
+                        // 這百分之百代表伴侶車還繼續往下開 (主線)，自己只是中途加入的支線！
+                        if (pIdx !== -1 && pIdx < partnerStations.length - 1) {
+                            visited.add(String(partner.no || partner.train_no || partner.id));
+                            curr = partner; // 🌟 寄生成功！切換視角至主線 Host 車次繼續追蹤！
+                            advanced = true;
+                        }
+                    }
+                }
+            }
+            if (advanced) continue;
+            
+            break; // 已經追蹤到物理世界的絕對邊緣，跳出迴圈
+        }
+        
+        if (curr && curr.segments && curr.segments.length > 0) {
+            let finalSeg = curr.segments[curr.segments.length - 1];
+            return getStationName(finalSeg.s[finalSeg.s.length - 1]);
+        }
+        return "未知";
+    };
 
     // 1. 尋找即將發車的班次
     timetable.forEach(train => {
@@ -3671,9 +3732,8 @@ function updateBottomPanelStation(st_id) {
                             }
                         }
 
-                        let lastSeg = train.segments[train.segments.length - 1];
-                        let destId = lastSeg.s[lastSeg.s.length - 1];
-                        let destName = getStationName(destId);
+                        // 計算這班車的絕對終點
+                        let destName = getAbsoluteDest(train);
 
                         let trainData = {
                             train: train,
@@ -3688,10 +3748,7 @@ function updateBottomPanelStation(st_id) {
 
                         processedTrains.add(trainNo); 
 
-                        // ==========================================
-                        // 🌟 保留魔法：捕捉隱形的掛載伴侶 (Piggyback Partners)
-                        // 讓「秋田/山形新幹線」自己獨立成為一筆發車資料！
-                        // ==========================================
+                        // 捕捉隱形的掛載伴侶 (共線路段幽靈探針)
                         if (train.coupled_with) {
                             train.coupled_with.forEach(c => {
                                 if (c.action === "split") {
@@ -3707,17 +3764,15 @@ function updateBottomPanelStation(st_id) {
                                             }
                                         }
 
-                                        // 如果伴侶車沒有這站的資料，幫它建立一個擁有同發車時間的實體！
                                         if (!partnerHasStation) {
-                                            let pLastSeg = partner.segments[partner.segments.length - 1];
-                                            let pDestId = pLastSeg.s[pLastSeg.s.length - 1];
-                                            let pDestName = getStationName(pDestId);
+                                            // 伴侶車同步套用終點優化引擎
+                                            let pDestName = getAbsoluteDest(partner);
                                             let pTrainNo = partner.no || partner.train_no || partner.id;
 
                                             let pTrainData = {
                                                 train: partner,
                                                 trainNo: String(pTrainNo),
-                                                depTime: depT, // 跟主車同時發車
+                                                depTime: depT, 
                                                 destName: pDestName,
                                                 diff: diff
                                             };
@@ -3738,7 +3793,7 @@ function updateBottomPanelStation(st_id) {
         }
     });
 
-    // 2. 依照發車時間排序 (時間相同時，依照車號排序，確保はやぶさ和こまち會黏在一起)
+    // 2. 依照發車時間排序 (時間相同時，依照車號排序)
     upboundTrains.sort((a, b) => a.diff !== b.diff ? a.diff - b.diff : a.trainNo.localeCompare(b.trainNo));
     downboundTrains.sort((a, b) => a.diff !== b.diff ? a.diff - b.diff : a.trainNo.localeCompare(b.trainNo));
 
