@@ -3546,7 +3546,7 @@ function updateBottomPanel(train) {
     }
 
     // ==========================================
-    // 🌟 2. 組裝車站列表的 HTML
+    // 🌟 2. 組裝車站列表的 HTML (已移除小標籤純淨版)
     // ==========================================
     let stationsHtml = ``;
     let stopCount = 0; 
@@ -3563,17 +3563,9 @@ function updateBottomPanel(train) {
         
         if (stopCount > 0) stationsHtml += `<div class="station-arrow">➔</div>`;
 
-        // 🌟 視覺小巧思：標示這段路是自己開的，還是跟別人直通/併結的！
-        let badgeHtml = "";
-        if (stop.directStartNo) {
-            badgeHtml = `<span style="font-size: 10px; background: rgba(255,165,0,0.15); color: #FFA500; padding: 2px 5px; border-radius: 4px; margin-left: 6px; border: 1px dashed #FFA500; vertical-align: middle;">直通 ${stop.directStartNo}</span>`;
-        } else if (stop.partnerType) {
-            badgeHtml = `<span style="font-size: 10px; background: rgba(136,136,136,0.15); color: var(--panel-text-sub); padding: 2px 5px; border-radius: 4px; margin-left: 6px; border: 1px dashed var(--panel-text-sub); vertical-align: middle;">併結 ${stop.partnerType}</span>`;
-        }
-
         stationsHtml += `
             <div class="train-stop-item" onclick="window.triggerSelectStation('${stop.id}')">
-                <div class="ts-col-name">${stName} ${badgeHtml}</div>
+                <div class="ts-col-name">${stName}</div>
                 <div class="ts-col-arr">${arrT}</div>
                 <div class="ts-col-dep">${depT}</div>
             </div>
