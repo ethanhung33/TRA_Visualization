@@ -469,7 +469,14 @@ def main():
 
     processed_final = []
     for train in all_raw_results:
-        stop_dict = {s["sta"]: (s["arr"], s["dep"]) for s in train["data"]}
+        stop_dict = {}
+        for s in train["data"]:
+            arr = s["arr"]
+            dep = s["dep"]
+            if arr == "": arr = dep
+            if dep == "": dep = arr
+            stop_dict[s["sta"]] = (arr, dep)
+            
         segs = []
         for l_id, l_sts in LINE_MAP.items():
             intersect = [s["sta"] for s in train["data"] if s["sta"] in l_sts]
