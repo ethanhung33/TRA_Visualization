@@ -3601,7 +3601,7 @@ function updateBottomPanel(train) {
 }
 
 // ==========================================
-// 🚉 更新底部面板 (精簡雙排行 + 高效能幾何方向版)
+// 🚉 更新底部面板 (精簡雙排行 + 高效能幾何方向 + 幽靈掛載獨立顯示版)
 // ==========================================
 function updateBottomPanelStation(st_id) {
     const panel = document.getElementById('bottom-bar'); 
@@ -3610,10 +3610,8 @@ function updateBottomPanelStation(st_id) {
     let stName = getStationName(st_id);
     let currentMinutes = getCurrentSystemMinutes();
 
-    // 🌟 回歸兩大陣營：只分 上行(北上) 與 下行(南下)
     let upboundTrains = [];
     let downboundTrains = [];
-
     let processedTrains = new Set();
 
     // 1. 尋找即將發車的班次
@@ -3625,8 +3623,6 @@ function updateBottomPanelStation(st_id) {
         if (processedTrains.has(trainNo)) return;
 
         for (let segIdx = 0; segIdx < train.segments.length; segIdx++) {
-            
-            // 🌟 核心修復：如果這班車已經在前面的線段被加進去了，就直接強制打斷，不要再找下一段了！
             if (processedTrains.has(trainNo)) break; 
 
             let seg = train.segments[segIdx];
@@ -3634,46 +3630,27 @@ function updateBottomPanelStation(st_id) {
             for (let i = 0; i < seg.s.length; i++) {
                 if (seg.s[i] === st_id && seg.v[i] !== 2 && seg.v[i] !== 3) {
                     let depT = seg.t[i * 2 + 1];
-                    
-                    // 鐵道標準「營業日」時間轉換
-                    // 🌟 1. 只有現實時鐘需要跨夜修正 (凌晨時段算作昨天的 24:00 之後)
                     let absoluteNow = currentMinutes < 120 ? currentMinutes + 1440 : currentMinutes;
-
-                    // 🌟 2. 直接算差值 (因為 depT 已經是支援跨日的絕對時間了，不需要再加 1440！)
                     let diff = depT - absoluteNow;
 
                     if (diff >= 0) {
-                        
-                        // ==========================================
-                        // 🌟 終極方案：絕對里程判定法 (Data-Driven Radar)
-                        // 拋棄畫布座標，直接從 topology 底層資料庫比對真實里程！
-                        // ==========================================
                         let isUpbound = true; 
                         let foundDirection = false;
 
-                        // 1. 抓出這班車的「下一站」是誰？
                         let nextStId = null;
                         if (i + 1 < seg.s.length) {
-                            nextStId = seg.s[i + 1]; // 同一條線段的下一站
+                            nextStId = seg.s[i + 1]; 
                         } else if (segIdx + 1 < train.segments.length) {
-                            nextStId = train.segments[segIdx + 1].s[0]; // 跨線段的第一站
+                            nextStId = train.segments[segIdx + 1].s[0]; 
                         }
 
-                        // 2. 去 topology.json (實體路線圖) 查水表！
                         if (nextStId && topology && topology.segments) {
                             for (let topoSeg of topology.segments) {
-                                // 找找看這條實體線有沒有包含這兩個站
                                 let currSt = topoSeg.stations.find(s => String(s.id) === String(st_id));
                                 let nextSt = topoSeg.stations.find(s => String(s.id) === String(nextStId));
                                 
-                                // 🌟 核心防呆：必須確保這兩個站「都在同一條實體線上」，才能互相比較里程！
-                                // 這樣就可以完美避開「交會站 (如新竹、八堵)」的影分身問題！
                                 if (currSt && nextSt && currSt.km !== undefined && nextSt.km !== undefined) {
                                     if (currSt.km !== nextSt.km) {
-                                        
-                                        // 🚂 鐵路物理鐵律：
-                                        // 里程變小 (往起點開) = ▲ 上行
-                                        // 里程變大 (往終點開) = ▼ 下行
                                         isUpbound = (nextSt.km < currSt.km);
                                         foundDirection = true;
                                         break;
@@ -3682,7 +3659,6 @@ function updateBottomPanelStation(st_id) {
                             }
                         }
 
-                        // 3. 🛡️ 終極保底機制 (如果這是一站到底的車，或是下一站剛好不在資料庫)
                         if (!foundDirection) {
                             let match = String(trainNo).match(/\d+/g);
                             if (match) {
@@ -3694,7 +3670,6 @@ function updateBottomPanelStation(st_id) {
                                 isUpbound = true; 
                             }
                         }
-                        // ==========================================
 
                         let lastSeg = train.segments[train.segments.length - 1];
                         let destId = lastSeg.s[lastSeg.s.length - 1];
@@ -3711,39 +3686,72 @@ function updateBottomPanelStation(st_id) {
                         if (isUpbound) upboundTrains.push(trainData);
                         else downboundTrains.push(trainData);
 
-                        // 📝 登記：這台車已經加過了！
                         processedTrains.add(trainNo); 
-                        
-                        // 🌟 把你原本那行沒有宣告的 isAdded = true 刪掉了
-                        break; // 跳出車站掃描的迴圈
+
+                        // ==========================================
+                        // 🌟 保留魔法：捕捉隱形的掛載伴侶 (Piggyback Partners)
+                        // 讓「秋田/山形新幹線」自己獨立成為一筆發車資料！
+                        // ==========================================
+                        if (train.coupled_with) {
+                            train.coupled_with.forEach(c => {
+                                if (c.action === "split") {
+                                    let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
+                                    if (partner && !processedTrains.has(String(partner.no || partner.train_no || partner.id))) {
+                                        
+                                        let partnerHasStation = false;
+                                        if (partner.segments) {
+                                            for (let pSeg of partner.segments) {
+                                                if (pSeg.s.map(String).includes(String(st_id))) {
+                                                    partnerHasStation = true; break;
+                                                }
+                                            }
+                                        }
+
+                                        // 如果伴侶車沒有這站的資料，幫它建立一個擁有同發車時間的實體！
+                                        if (!partnerHasStation) {
+                                            let pLastSeg = partner.segments[partner.segments.length - 1];
+                                            let pDestId = pLastSeg.s[pLastSeg.s.length - 1];
+                                            let pDestName = getStationName(pDestId);
+                                            let pTrainNo = partner.no || partner.train_no || partner.id;
+
+                                            let pTrainData = {
+                                                train: partner,
+                                                trainNo: String(pTrainNo),
+                                                depTime: depT, // 跟主車同時發車
+                                                destName: pDestName,
+                                                diff: diff
+                                            };
+
+                                            if (isUpbound) upboundTrains.push(pTrainData);
+                                            else downboundTrains.push(pTrainData);
+
+                                            processedTrains.add(String(pTrainNo));
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                        break; 
                     }
                 }
             }
         }
     });
 
-    // 2. 依照發車時間排序
-    // 🌟 原本是用 depTime 排序，請改成用 diff (距離現在的分鐘數) 排序！
-    upboundTrains.sort((a, b) => a.diff - b.diff);
-    downboundTrains.sort((a, b) => a.diff - b.diff);
+    // 2. 依照發車時間排序 (時間相同時，依照車號排序，確保はやぶさ和こまち會黏在一起)
+    upboundTrains.sort((a, b) => a.diff !== b.diff ? a.diff - b.diff : a.trainNo.localeCompare(b.trainNo));
+    downboundTrains.sort((a, b) => a.diff !== b.diff ? a.diff - b.diff : a.trainNo.localeCompare(b.trainNo));
 
-    // ==========================================
-    // 🌟 1. 直接使用你原本系統就有的全域變數 isDarkMode！
-    // ==========================================
+    // 3. UI 主題與骨架設定
     const theme = {
         cardBg: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
         cardHoverBg: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)',
-        textMain: isDarkMode ? '#FFFFFF' : '#222222',   // 淺色模式會變成深灰偏黑
-        textSub: isDarkMode ? '#AAAAAA' : '#666666',    // 淺色模式會變成中灰色
+        textMain: isDarkMode ? '#FFFFFF' : '#222222',   
+        textSub: isDarkMode ? '#AAAAAA' : '#666666',    
         border: isDarkMode ? '#444444' : '#DDDDDD',
         timeGray: isDarkMode ? '#BBBBBB' : '#666666' 
     };
 
-    // ==========================================
-    // 🌟 核心修改：將資料塞入完美的 RWD 抽屜與表格框架
-    // ==========================================
-    
-    // 2. 建立雙骨架卡片 UI
     const buildRowHtml = (trains, dirLabel, dirColor) => {
         if (trains.length === 0) return `<div style="color: ${theme.textSub}; font-size: 13px; padding: 10px 20px; font-style: italic;">${dirLabel} 近期無班次</div>`;
         
@@ -3754,7 +3762,6 @@ function updateBottomPanelStation(st_id) {
                 if (isDarkMode) {
                     tColor = typeColors[0];
                 } else {
-                    // 🌟 淺色模式終極防呆：如果沒設專屬淺色，且深色是白色，自動轉成深灰色！
                     let baseColor = typeColors[0].toUpperCase();
                     tColor = typeColors[1] || ((baseColor === '#FFFFFF' || baseColor === '#FFF' || baseColor === 'WHITE') ? '#222222' : typeColors[0]);
                 }
@@ -3762,18 +3769,17 @@ function updateBottomPanelStation(st_id) {
 
             let timeStr = formatTimeDisplay(item.depTime);
             let displayDiff = Math.floor(item.diff); 
+            
             let showType = !(settings && settings.show_train_type === false);
             let showId = !(settings && settings.show_train_id === false);
+            
             let displayTitle = "列車";
             if (showType && showId) displayTitle = `${item.train.type} ${item.trainNo}`;
             else if (showType && !showId) displayTitle = `${item.train.type}`;
             else if (!showType && showId) displayTitle = `${item.trainNo}`;
 
-            // 🌟 一張卡片，兩種排版！
             return `
                 <div class="station-board-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg}; --hover-color: ${tColor};">
-
-                    <!-- 💻 電腦版排版骨架 (手機上會自動隱藏) -->
                     <div class="sb-desktop-layout">
                         <div class="sb-top">
                             <span class="sb-time">${timeStr}</span>
@@ -3784,25 +3790,20 @@ function updateBottomPanelStation(st_id) {
                             <span class="sb-diff">約 ${displayDiff} 分</span>
                         </div>
                     </div>
-
-                    <!-- 📱 手機版表格排版骨架 (電腦上會自動隱藏) -->
                     <div class="sb-mobile-layout">
                         <div class="sb-col-title">
                             <span style="color: ${tColor};">${displayTitle}</span>
                             <span class="board-dir-label" style="background: ${dirColor}; margin-left: 0;">${dirLabel}</span>
                         </div>
-                        
-                        <!-- 🌟 補上 style，讓它們會跟著日夜模式切換成黑色/白色！ -->
                         <div class="sb-col-time" style="color: ${theme.textMain};">${timeStr}</div>
                         <div class="sb-col-dest" style="color: ${theme.textMain};">往 ${item.destName}</div>
                     </div>
-                    
                 </div>
             `;
         }).join('');
     };
 
-    // 4. 組裝最終介面 (車站面板 - 左右分頁版)
+    // 4. 組裝最終介面
     panel.innerHTML = `
         <div class="bottom-panel-wrapper">
             <div class="train-info-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')">
@@ -3813,14 +3814,12 @@ function updateBottomPanelStation(st_id) {
                 <div class="mobile-drag-handle"></div>
             </div>
 
-            <!-- 電腦版保留原本的文字提示 -->
             <div class="desktop-dir-col">
                 <div style="color: var(--up-text); font-size: 13px; font-weight: bold; white-space: nowrap;">▲ 上行</div>
                 <div style="color: var(--down-text); font-size: 13px; font-weight: bold; white-space: nowrap;">▼ 下行</div>
             </div>
 
-            <!-- 📱 手機版專屬頁籤列 -->
-            <div class="station-tab-bar" style="display: none;"> <!-- 電腦版預設隱藏，手機版 CSS 會打開它 -->
+            <div class="station-tab-bar" style="display: none;"> 
                 <div class="station-tab active" id="tab-up" onclick="switchStationTab(0)">▲ 上行</div>
                 <div class="station-tab" id="tab-down" onclick="switchStationTab(1)">▼ 下行</div>
             </div>
@@ -3831,15 +3830,12 @@ function updateBottomPanelStation(st_id) {
                 <div style="flex: 1; text-align: right; padding-right: 10px;">目的地</div>
             </div>
 
-            <!-- 🌟 左右滑動的容器 -->
             <div id="bottom-scroll-container" class="is-station">
-                <!-- 第一頁：上行 -->
                 <div class="swipe-panel">
                     <div class="board-group" style="margin-top: 4px;">
                         ${buildRowHtml(upboundTrains, '▲ 上行', 'var(--up-badge-bg)')}
                     </div>
                 </div>
-                <!-- 第二頁：下行 -->
                 <div class="swipe-panel">
                     <div class="board-group">
                         ${buildRowHtml(downboundTrains, '▼ 下行', 'var(--down-badge-bg)')}
@@ -3848,7 +3844,6 @@ function updateBottomPanelStation(st_id) {
             </div>
         </div>
     `;
-
 }
 
 // ==========================================
