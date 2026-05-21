@@ -3734,7 +3734,9 @@ function updateBottomPanelStation(st_id) {
 
                         processedTrains.add(trainNo); 
 
-                        // 捕捉掛載伴侶
+                        // ==========================================
+                        // 👻 修正版：捕捉隱形的掛載伴侶 (具備拓樸學共線區間判定)
+                        // ==========================================
                         if (train.coupled_with) {
                             train.coupled_with.forEach(c => {
                                 if (c.action === "split") {
@@ -3750,7 +3752,34 @@ function updateBottomPanelStation(st_id) {
                                             }
                                         }
 
+                                        // 🌟 新增：地理拓樸共線判定
+                                        let isSharedRoute = false;
                                         if (!partnerHasStation) {
+                                            let hostStations = [];
+                                            train.segments.forEach(seg => {
+                                                hostStations.push(...seg.s.map(String));
+                                            });
+                                            
+                                            // 找出當前車站與交會站(例如福島)在主車路線中的順序
+                                            let currIdx = hostStations.indexOf(String(st_id));
+                                            let splitIdx = hostStations.indexOf(String(c.station_id));
+                                            
+                                            if (currIdx !== -1 && splitIdx !== -1) {
+                                                if (isUpbound) {
+                                                    // 上行 (往東京)：交會站「之後」才開始共線 (例如福島之後的郡山、大宮)
+                                                    isSharedRoute = (currIdx >= splitIdx);
+                                                } else {
+                                                    // 下行 (離開東京)：交會站「之前」才是共線 (例如東京到福島區間)
+                                                    isSharedRoute = (currIdx <= splitIdx);
+                                                }
+                                            } else {
+                                                // 防呆機制
+                                                isSharedRoute = true; 
+                                            }
+                                        }
+
+                                        // 只有確認在「共線區間」內，才幫伴侶車建立幽靈實體！
+                                        if (!partnerHasStation && isSharedRoute) {
                                             let pDestName = getAbsoluteDest(partner);
                                             let pTrainNo = partner.no || partner.train_no || partner.id;
 
