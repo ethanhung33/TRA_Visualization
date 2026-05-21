@@ -3865,11 +3865,9 @@ function updateBottomPanelStation(st_id) {
                 
                 let parts = [];
                 if (showType) {
-                    // 🌟 調整 1：縮小車種字體 (14px)
                     parts.push(`<span style="color: ${tColor}; font-weight: bold; font-size: 14px;">${trainObj.type}</span>`);
                 }
                 if (showId) {
-                    // 🌟 調整 2：提亮車次字體 (使用 theme.textMain)
                     parts.push(`<span style="color: ${theme.textMain}; font-size: 13px; margin-left: 4px;">${trainNo}</span>`);
                 }
                 
@@ -3894,7 +3892,7 @@ function updateBottomPanelStation(st_id) {
                     <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
                         
                         <div style="display: flex; flex-direction: column; align-items: flex-start; width: 55px; flex-shrink: 0;">
-                            <div style="font-size: 17px; font-family: monospace; color: ${theme.textMain};">
+                            <div style="font-size: 17px; color: ${theme.textMain};">
                                 ${timeStr}
                             </div>
                             <div style="color: ${theme.textSub}; font-size: 11px; margin-top: 2px;">
