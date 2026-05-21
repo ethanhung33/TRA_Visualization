@@ -3428,90 +3428,158 @@ function updateBottomPanel(train) {
     // ==========================================
     // 🌟 自動抓取這班車 (含直通後) 的「絕對起點」與「絕對終點」
     // ==========================================
-    let startStationName = "未知";
-    let endStationName = "未知";
-
-    // 起點：鏈條中第一台車的第一站
-    if (displayTrains[0].segments && displayTrains[0].segments.length > 0) {
-        let firstSeg = displayTrains[0].segments[0];
-        if (typeof getStationName === 'function') {
-            startStationName = getStationName(firstSeg.s[0]);
-        }
-    }
+    let mainChainFirstSt = null;
+    let mainChainLastSt = null;
     
-    // 終點：鏈條中最後一台車的最後一站
-    let lastTrainInChain = displayTrains[displayTrains.length - 1];
-    if (lastTrainInChain.segments && lastTrainInChain.segments.length > 0) {
-        let lastSeg = lastTrainInChain.segments[lastTrainInChain.segments.length - 1];
-        if (typeof getStationName === 'function') {
-            endStationName = getStationName(lastSeg.s[lastSeg.s.length - 1]);
+    if (displayTrains.length > 0 && displayTrains[0].segments && displayTrains[0].segments.length > 0) {
+        mainChainFirstSt = String(displayTrains[0].segments[0].s[0]);
+        let lastTr = displayTrains[displayTrains.length - 1];
+        if (lastTr.segments && lastTr.segments.length > 0) {
+            let lastSeg = lastTr.segments[lastTr.segments.length - 1];
+            mainChainLastSt = String(lastSeg.s[lastSeg.s.length - 1]);
         }
     }
 
     // ==========================================
-    // 🌟 2. 組裝車站列表的 HTML (跨越直通車次串接)
+    // 🌟 核心升級：解析併結路段 (自動補齊東京-盛岡等主幹線)
     // ==========================================
-    let stationsHtml = ``;
-    let stopCount = 0; 
-    let lastStationId = null;
+    let prefixStops = [];
+    let suffixStops = [];
 
+    // 只看使用者點擊的第一台車 (train) 有沒有併結
+    if (train.coupled_with) {
+        let splitInfo = train.coupled_with.find(c => c.action === "split");
+        if (splitInfo) {
+            // 找到它的伴侶車 (例如: はやぶさ 3007B)
+            let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(splitInfo.train_id));
+            let splitStId = String(splitInfo.station_id);
+
+            if (partner && mainChainFirstSt && mainChainLastSt) {
+                // 👉 狀況 A (下行)：如果這台車(支線)的起點就是解連站 (如盛岡)，代表前面有一段跟主線共用的路 (如東京-盛岡)
+                if (mainChainFirstSt === splitStId) {
+                    let capturing = true;
+                    for (let seg of partner.segments) {
+                        for (let i = 0; i < seg.s.length; i++) {
+                            let currId = String(seg.s[i]);
+                            if (currId === splitStId) { capturing = false; break; }
+                            if (capturing && seg.v[i] !== 2) {
+                                prefixStops.push({
+                                    id: seg.s[i], arr: seg.t[i*2], dep: seg.t[i*2+1],
+                                    partnerNo: partner.no, partnerType: partner.type
+                                });
+                            }
+                        }
+                        if (!capturing) break;
+                    }
+                } 
+                // 👉 狀況 B (上行)：如果這台車(支線)的終點是解連站，代表後面有一段跟主線共用的路
+                else if (mainChainLastSt === splitStId) {
+                    let capturing = false;
+                    for (let seg of partner.segments) {
+                        for (let i = 0; i < seg.s.length; i++) {
+                            let currId = String(seg.s[i]);
+                            // 跳過交會站本身，從下一站開始抓取
+                            if (!capturing && currId === splitStId) { capturing = true; continue; } 
+                            if (capturing && seg.v[i] !== 2) {
+                                suffixStops.push({
+                                    id: seg.s[i], arr: seg.t[i*2], dep: seg.t[i*2+1],
+                                    partnerNo: partner.no, partnerType: partner.type
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ==========================================
+    // 🌟 將所有停靠站平坦化為單一陣列，方便統一處理
+    // ==========================================
+    let allStops = [];
+    
+    // 1. 塞入前段併結路段 (如有)
+    allStops.push(...prefixStops);
+
+    // 2. 塞入原本這台車 (含直通) 的主路段
     displayTrains.forEach((tr, trIdx) => {
         if (tr.segments) {
-            tr.segments.forEach((seg, segIdx) => { // 🌟 加上 segIdx 就治百病了！
+            tr.segments.forEach((seg, segIdx) => {
                 for (let i = 0; i < seg.s.length; i++) {
                     if (seg.v[i] === 2) continue; // 跳過通過站
                     
-                    let currentStationId = seg.s[i];
-                    
-                    // 🌟 防呆：直通交會站只印一次
-                    if (currentStationId === lastStationId) continue;
-                    lastStationId = currentStationId;
-
-                    let stName = getStationName(currentStationId);
                     let arrRaw = seg.t[i * 2];
                     let depRaw = seg.t[i * 2 + 1];
 
-                    // =====================================
-                    // 🌟 終極直通時間修補 (解決 139B/139M 時間殘缺問題)
-                    // =====================================
+                    // 直通時間修補 (維持原邏輯)
                     let isDirectOut = (segIdx === tr.segments.length - 1 && i === seg.s.length - 1 && tr.coupled_with && tr.coupled_with.some(c => c.action === "direct"));
-                    
                     if (isDirectOut) {
                         let dInfo = tr.coupled_with.find(c => c.action === "direct");
                         let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
                         if (nxt && nxt.segments && nxt.segments.length > 0) {
-                            // 139B 到了終點，強制向 139M 借「發車時間」，補齊整個停靠區間！
-                            let nxtDep = nxt.segments[0].t[1] !== undefined && nxt.segments[0].t[1] !== "" ? nxt.segments[0].t[1] : nxt.segments[0].t[0];
-                            depRaw = nxtDep; 
+                            depRaw = nxt.segments[0].t[1] !== undefined && nxt.segments[0].t[1] !== "" ? nxt.segments[0].t[1] : nxt.segments[0].t[0];
                         }
                     }
 
-                    let arrT = formatTimeDisplay(arrRaw);     
-                    let depT = formatTimeDisplay(depRaw);
-                    
-                    if (stopCount > 0) stationsHtml += `<div class="station-arrow">➔</div>`;
-
-                    // 🌟 視覺小巧思：標記出這是從哪裡開始換車號直通的！
-                    let directBadge = "";
-                    if (trIdx > 0 && i === 0) {
-                        directBadge = `<span style="font-size: 10px; background: rgba(255,165,0,0.15); color: #FFA500; padding: 2px 5px; border-radius: 4px; margin-left: 6px; border: 1px dashed #FFA500; vertical-align: middle;">直通 ${tr.no}</span>`;
-                    }
-
-                    stationsHtml += `
-                        <div class="train-stop-item" onclick="window.triggerSelectStation('${currentStationId}')">
-                            <div class="ts-col-name">${stName} ${directBadge}</div>
-                            <div class="ts-col-arr">${arrT}</div>
-                            <div class="ts-col-dep">${depT}</div>
-                        </div>
-                    `;
-                    stopCount++;
+                    allStops.push({
+                        id: seg.s[i],
+                        arr: arrRaw,
+                        dep: depRaw,
+                        directStartNo: (trIdx > 0 && i === 0) ? tr.no : null // 標記直通起點
+                    });
                 }
             });
         }
     });
 
-    // 3. 塞進 bottom-bar (火車面板)
-    // ... (這行以下的 panel.innerHTML 維持原樣不變) ...
+    // 3. 塞入後段併結路段 (如有)
+    allStops.push(...suffixStops);
+
+    // ==========================================
+    // 🌟 動態更新標題的「絕對起點」與「絕對終點」
+    // ==========================================
+    let startStationName = "未知";
+    let endStationName = "未知";
+    if (allStops.length > 0) {
+        startStationName = getStationName(allStops[0].id);
+        endStationName = getStationName(allStops[allStops.length - 1].id);
+    }
+
+    // ==========================================
+    // 🌟 2. 組裝車站列表的 HTML
+    // ==========================================
+    let stationsHtml = ``;
+    let stopCount = 0; 
+    let lastStationId = null;
+
+    allStops.forEach(stop => {
+        // 防呆：交會站只印一次 (例如直通交界)
+        if (stop.id === lastStationId) return;
+        lastStationId = stop.id;
+
+        let stName = getStationName(stop.id);
+        let arrT = formatTimeDisplay(stop.arr);     
+        let depT = formatTimeDisplay(stop.dep);
+        
+        if (stopCount > 0) stationsHtml += `<div class="station-arrow">➔</div>`;
+
+        // 🌟 視覺小巧思：標示這段路是自己開的，還是跟別人直通/併結的！
+        let badgeHtml = "";
+        if (stop.directStartNo) {
+            badgeHtml = `<span style="font-size: 10px; background: rgba(255,165,0,0.15); color: #FFA500; padding: 2px 5px; border-radius: 4px; margin-left: 6px; border: 1px dashed #FFA500; vertical-align: middle;">直通 ${stop.directStartNo}</span>`;
+        } else if (stop.partnerType) {
+            badgeHtml = `<span style="font-size: 10px; background: rgba(136,136,136,0.15); color: var(--panel-text-sub); padding: 2px 5px; border-radius: 4px; margin-left: 6px; border: 1px dashed var(--panel-text-sub); vertical-align: middle;">併結 ${stop.partnerType}</span>`;
+        }
+
+        stationsHtml += `
+            <div class="train-stop-item" onclick="window.triggerSelectStation('${stop.id}')">
+                <div class="ts-col-name">${stName} ${badgeHtml}</div>
+                <div class="ts-col-arr">${arrT}</div>
+                <div class="ts-col-dep">${depT}</div>
+            </div>
+        `;
+        stopCount++;
+    });
 
     // 3. 塞進 bottom-bar (火車面板)
     panel.innerHTML = `
