@@ -130,7 +130,7 @@ function getCurrentSystemMinutes() {
     let systemMinutes = utcMinutesTotal + (settings.timezone_offset * 60);
 
     // 3. 處理跨日問題，保證數值完美落在 0 ~ 1439 的區間內循環
-    return ((systemMinutes % 1440) + 1440) % 1440;
+    return ((systemMinutes % 1440) + 720) % 1440;
 }
 
 // ==========================================
