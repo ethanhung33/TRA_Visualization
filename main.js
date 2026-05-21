@@ -3853,49 +3853,47 @@ function updateBottomPanelStation(st_id) {
         if (trains.length === 0) return `<div style="color: ${theme.textSub}; font-size: 13px; padding: 10px 20px; font-style: italic;">${dirLabel} 近期無班次</div>`;
         
         return trains.map(item => {
-            // 處理併結車次的色彩渲染 (如果有多個車次，分別取色)
-            const getTrainStyle = (tObj, tNo) => {
-                let typeColors = settings?.train_color?.[tObj.type];
-                let color = typeColors ? (isDarkMode ? typeColors[0] : (typeColors[1] || typeColors[0])) : theme.textMain;
-                return { color, label: tObj.type, no: tNo };
+            let timeStr = formatTimeDisplay(item.depTime);
+            
+            // 1. 文字上色邏輯：提取車種顏色
+            const getTrainText = (trainObj, trainNo) => {
+                let colors = settings?.train_color?.[trainObj.type];
+                // 取色：深色模式用第一色，淺色模式若沒設第二色就用預設的主文字色
+                let tColor = colors ? (isDarkMode ? colors[0] : (colors[1] || colors[0])) : theme.textMain;
+                
+                // 2. 縮小字體：車種 (如：はやぶさ) 用預設字體，車次 (如：3096B) 用稍小的字體
+                return `<span style="color: ${tColor}; font-weight: bold;">${trainObj.type}</span> 
+                        <span style="color: ${theme.textSub}; font-size: 12px; margin-left: 2px;">${trainNo}</span>`;
             };
 
-            let timeStr = formatTimeDisplay(item.depTime);
-            let displayDiff = Math.floor(item.diff);
-            
-            // 處理合併後的車次顯示：變成一個個精緻的膠囊色塊
+            // 3. 處理合併顯示 (用斜線分隔，維持純文字)
             let titleHtml = "";
             if (item.displayTitleOverride) {
-                // 如果是合併的車次，將原本的 / 改成多個色塊
-                let parts = item.train.coupled_with ? [item.train, ...item.train.coupled_with.filter(c => c.action === "split").map(c => timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id)))] : [item.train];
-                titleHtml = parts.map(p => {
-                    if (!p) return "";
-                    let style = getTrainStyle(p, p.no || p.train_no || p.id);
-                    return `<span style="background: ${style.color}; color: #fff; padding: 2px 6px; border-radius: 4px; margin-right: 4px; font-size: 11px; font-weight: bold;">${style.label} ${style.no}</span>`;
-                }).join('');
+                let group = item.train.coupled_with ? [item.train, ...item.train.coupled_with.filter(c => c.action === "split").map(c => timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id)))] : [item.train];
+                titleHtml = group.map(g => g ? getTrainText(g, g.no || g.train_no || g.id) : "").join('<span style="color: ${theme.textSub}; margin: 0 4px;">/</span>');
             } else {
-                let style = getTrainStyle(item.train, item.trainNo);
-                titleHtml = `<span style="color: ${style.color}; font-weight: bold;">${style.label} ${style.no}</span>`;
+                titleHtml = getTrainText(item.train, item.trainNo);
             }
 
             return `
-                <div class="station-board-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg}; border-left: 4px solid ${item.train.coupled_with ? '#e63946' : 'transparent'};">
-                    <div class="sb-desktop-layout">
-                        <div class="sb-top">
-                            <span class="sb-time">${timeStr}</span>
-                            <div class="sb-title-group" style="display: inline-flex; align-items: center;">${titleHtml}</div>
+                <div class="station-board-item" onclick="window.triggerSelectTrain('${item.trainNo}')" style="background: ${theme.cardBg}; border-bottom: 1px solid ${theme.border}; padding: 10px 16px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="font-size: 17px; font-weight: bold; font-family: monospace; color: ${theme.textMain}; width: 55px;">
+                            ${timeStr}
                         </div>
-                        <div class="sb-bottom">
-                            <span class="sb-dest">往 ${item.destName}</span>
-                            <span class="sb-diff">約 ${displayDiff} 分</span>
+                        
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                            <div style="display: flex; align-items: baseline; flex-wrap: wrap;">
+                                ${titleHtml}
+                            </div>
+                            <div style="font-size: 13px; color: ${theme.textSub};">
+                                往 ${item.destName}
+                            </div>
                         </div>
-                    </div>
-                    <div class="sb-mobile-layout">
-                        <div class="sb-col-title">
-                            <div class="sb-title-group" style="display: flex; flex-wrap: wrap; gap: 4px;">${titleHtml}</div>
+
+                        <div style="color: ${theme.textSub}; font-size: 11px;">
+                            ${Math.floor(item.diff)}分
                         </div>
-                        <div class="sb-col-time" style="color: ${theme.textMain};">${timeStr}</div>
-                        <div class="sb-col-dest" style="color: ${theme.textMain};">往 ${item.destName}</div>
                     </div>
                 </div>
             `;
