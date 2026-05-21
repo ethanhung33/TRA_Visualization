@@ -3855,7 +3855,6 @@ function updateBottomPanelStation(st_id) {
         return trains.map(item => {
             let timeStr = formatTimeDisplay(item.depTime);
             
-            // 🌟 重新讀取你的顯示開關設定 (預設為 true)
             let showType = !(settings && settings.show_train_type === false);
             let showId = !(settings && settings.show_train_id === false);
             
@@ -3865,17 +3864,17 @@ function updateBottomPanelStation(st_id) {
                 let tColor = colors ? (isDarkMode ? colors[0] : (colors[1] || colors[0])) : theme.textMain;
                 
                 let parts = [];
-                // 根據開關決定要不要印出車種與車次
                 if (showType) {
-                    parts.push(`<span style="color: ${tColor}; font-weight: bold;">${trainObj.type}</span>`);
+                    // 🌟 調整 1：縮小車種字體 (14px)
+                    parts.push(`<span style="color: ${tColor}; font-weight: bold; font-size: 14px;">${trainObj.type}</span>`);
                 }
                 if (showId) {
-                    parts.push(`<span style="color: ${theme.textSub}; font-size: 12px; margin-left: 2px;">${trainNo}</span>`);
+                    // 🌟 調整 2：提亮車次字體 (使用 theme.textMain)
+                    parts.push(`<span style="color: ${theme.textMain}; font-size: 13px; margin-left: 4px;">${trainNo}</span>`);
                 }
                 
-                // 防呆：如果兩個都關掉，保底顯示「列車」並套用顏色
                 if (parts.length === 0) {
-                    return `<span style="color: ${tColor}; font-weight: bold;">列車</span>`;
+                    return `<span style="color: ${tColor}; font-weight: bold; font-size: 14px;">列車</span>`;
                 }
                 
                 return parts.join('');
@@ -3884,7 +3883,6 @@ function updateBottomPanelStation(st_id) {
             // 2. 處理合併顯示
             let titleHtml = "";
             if (item.displayTitleOverride) {
-                // 如果有合併屬性，重新抓出所有關聯車次並套用開關邏輯
                 let group = item.train.coupled_with ? [item.train, ...item.train.coupled_with.filter(c => c.action === "split").map(c => timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id)))] : [item.train];
                 titleHtml = group.map(g => g ? getTrainText(g, g.no || g.train_no || g.id) : "").join(`<span style="color: ${theme.textSub}; margin: 0 4px;">/</span>`);
             } else {
@@ -3908,7 +3906,7 @@ function updateBottomPanelStation(st_id) {
                             <div style="display: flex; align-items: baseline; flex-wrap: wrap;">
                                 ${titleHtml}
                             </div>
-                            <div style="font-size: 13px; color: ${theme.textSub}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            <div style="font-size: 13px; color: ${theme.textMain}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                 往 ${item.destName}
                             </div>
                         </div>
