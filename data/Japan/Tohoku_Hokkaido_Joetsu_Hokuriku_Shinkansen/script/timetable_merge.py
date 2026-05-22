@@ -60,13 +60,13 @@ def clean_text(text):
     return cleaned
 
 # ==========================================
-# 🚂 引擎 A：JR 東日本全量爬蟲
+# 🌟 修正版：解析 JR 東日本月曆 (破解 JavaScript 隱藏連結)
 # ==========================================
 def parse_calendar_logic(soup, current_url):
     current_dates = set()
     variant_urls = set()
     calendar_div = soup.find('div', class_='serviceDayCalendar')
-    if not calendar_div: return current_dates, variant_urls
+    if not calendar_div: return current_dates, list(variant_urls)
 
     for table in calendar_div.find_all('table', class_='calendar-month'):
         caption = table.find('caption')
@@ -81,7 +81,15 @@ def parse_calendar_logic(soup, current_url):
             
             a_tag = td.find('a')
             if a_tag:
-                variant_urls.add(urljoin(current_url, a_tag['href']))
+                # 🔍 破解 JR 東日本的 JS 點擊事件
+                href = a_tag.get('href', '')
+                onclick = a_tag.get('onclick', '')
+                target_str = href + " " + onclick
+                
+                # 尋找任何以 .html 結尾的路徑 (例如 030048.html 或 /2605/train/025/030048.html)
+                match = re.search(r"([a-zA-Z0-9_/]+\.html)", target_str)
+                if match:
+                    variant_urls.add(urljoin(current_url, match.group(1)))
             elif 'none' not in classes:
                 day_text = td.get_text(strip=True)
                 if day_text.isdigit():
@@ -447,18 +455,26 @@ def main():
     east_trains = fetch_jreast_data()
     west_trains = fetch_odekake_hokuriku(target_date_str)
     
-    # 2. 嚴謹合併：利用列車編號 (Train No.) 去重，確保跨區不重疊
+    # 2. 嚴謹合併：利用列車編號 (Train No.) 進行同車次變體合併與去重
+    # ==========================================
+    # 🌟 核心修復：允許變體共存 (捨棄暴力的 Smart Merge)
+    # JR 東日本特意拆分的排點有其意義(避讓或微調)，必須完整保留！
+    # ==========================================
     all_raw_results = east_trains.copy()
-    existing_nos = {t["no"] for t in all_raw_results}
+    
+    # 處理 JR 西日本：利用 (車次號, 日期特徵) 作為唯一鍵值，避免重複抓取
+    seen_signatures = {(t["no"], tuple(sorted(t.get("dates", [])))) for t in all_raw_results}
     
     added_count = 0
     for ot in west_trains:
-        if ot["no"] not in existing_nos:
+        sig = (ot["no"], tuple(sorted(ot.get("dates", []))))
+        if sig not in seen_signatures:
             all_raw_results.append(ot)
-            existing_nos.add(ot["no"])
+            seen_signatures.add(sig)
             added_count += 1
             
-    print(f"\n✨ 合併完畢，總計 {len(all_raw_results)} 班車次 (從 JR 西日本補齊 {added_count} 班)。")
+    print(f"\n✨ 變體解析完畢，總計保留 {len(all_raw_results)} 筆獨立運行軌跡 (從 JR 西日本補齊 {added_count} 筆)。")
+
 
     # 3. 讀取 topology 並進行 Segment 映射
     print("🗺️ 正在處理拓樸轉換與分類...")
@@ -491,10 +507,18 @@ def main():
         if not segs: continue
         d_set = train["dates"]
         
-        if d_set.issuperset(REF_WEEKDAY) and d_set.issuperset(REF_WEEKEND): op = "daily"
-        elif d_set.issuperset(REF_WEEKDAY): op = "weekday"
-        elif d_set.issuperset(REF_WEEKEND): op = "weekend"
-        else: op = "irregular"
+        # ==========================================
+        # 🌟 致命 Bug 修正：嚴格比對營運日，防止常規車次被誤判為單純假日車
+        # ==========================================
+        ref_daily = REF_WEEKDAY.union(REF_WEEKEND)
+        if d_set == ref_daily:
+            op = "daily"
+        elif d_set == REF_WEEKDAY:
+            op = "weekday"
+        elif d_set == REF_WEEKEND:
+            op = "weekend"
+        else:
+            op = "irregular"
         
         item = {
             "no": train["no"], 

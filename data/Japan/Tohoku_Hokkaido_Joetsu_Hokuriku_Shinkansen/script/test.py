@@ -1,43 +1,46 @@
 import requests
 from bs4 import BeautifulSoup
+import re
+from urllib.parse import urljoin
 
-def test_jreast_structure():
-    # 我們拿最複雜、車種最多的「東京站」來當測試基準
-    url = "https://www.jreast-timetable.jp/timetable/list1039.html"
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-    
-    print(f"正在請求測試網址: {url}")
-    res = requests.get(url, headers=headers)
-    res.encoding = 'utf-8'
-    soup = BeautifulSoup(res.text, 'html.parser')
-    
-    
-    # 找出網頁中所有的發車時刻表區塊
-    tables = soup.find_all('div', class_='rosentable')
-    
-    print(f"\n找到 {len(tables)} 個時刻表區塊，開始解析結構：\n")
-    print("=" * 50)
-    
-    for i, table in enumerate(tables):
-        # 1. 看看它前一個兄弟節點（通常是標題）長怎樣
-        prev_sibling = table.find_previous_sibling()
-        heading_text = prev_sibling.get_text(strip=True) if prev_sibling else "【找不到前置標題】"
-        
-        # 2. 看看這個表格裡面的前 3 個目的地是寫什麼
-        links = table.find_all('a', class_='fortimeLink')
-        sample_links = []
-        for a in links[:3]:
-            # 抓取連結所在的 <tr> 裡面的文字 (目的地)
-            row_tr = a.find_parent('tr')
-            row_text = row_tr.get_text(strip=True) if row_tr else "【無內容】"
-            sample_links.append(row_text)
-            
-        print(f"📦 [區塊 {i+1}]")
-        print(f"👉 標題文字: {heading_text}")
-        print(f"👉 內部樣本 (前3筆):")
-        for sample in sample_links:
-            print(f"   - {sample}")
-        print("-" * 50)
+# 這是 157B 在 5/1 的專屬網址
+url = "https://timetables.jreast.co.jp/2605/train/025/029872.html"
+HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
-if __name__ == "__main__":
-    test_jreast_structure()
+print(f"🚀 正在抓取測試網址: {url}\n" + "="*50)
+res = requests.get(url, headers=HEADERS)
+res.encoding = res.apparent_encoding
+soup = BeautifulSoup(res.text, 'html.parser')
+
+calendar_div = soup.find('div', class_='serviceDayCalendar')
+if not calendar_div:
+    print("❌ 找不到日曆區塊！(可能是網頁結構變更，或被伺服器阻擋)")
+else:
+    print("✅ 成功找到日曆區塊！開始分析 5 月份的每一天...\n")
+    for table in calendar_div.find_all('table', class_='calendar-month'):
+        caption = table.find('caption')
+        if caption and "5月" in caption.text:
+            for td in table.find_all('td'):
+                day_text = td.get_text(strip=True)
+                if not day_text.isdigit(): 
+                    continue
+                
+                a_tag = td.find('a')
+                if a_tag:
+                    href = a_tag.get('href', '')
+                    onclick = a_tag.get('onclick', '')
+                    target_str = f"href=\"{href}\" | onclick=\"{onclick}\""
+                    print(f"🔍 [5月{day_text.zfill(2)}日] 有連結 -> {target_str}")
+                    
+                    # 測試：原本的正則表達式
+                    match1 = re.search(r"([a-zA-Z0-9_/]+\.html)", target_str)
+                    # 測試：放寬條件的正則表達式 (允許 . 和 -)
+                    match2 = re.search(r"['\"]([^'\"]*\.html)['\"]", target_str)
+                    
+                    if not match1:
+                        print(f"   ⚠️ 原本的正則：抓取失敗！")
+                    if match2:
+                        print(f"   ✅ 放寬的正則：{urljoin(url, match2.group(1))}")
+                    print("-" * 50)
+                else:
+                    print(f"⚪ [5月{day_text.zfill(2)}日] 無連結 (當前頁面或無營運)")
