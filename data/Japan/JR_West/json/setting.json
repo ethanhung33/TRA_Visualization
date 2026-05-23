@@ -14,7 +14,7 @@
     "tokaido_sanyo": {
         "name": "北陸・東海道・山陽本線 (敦賀-米原-神戶-小倉)",
         "lines": [
-            "hokuriku_line",
+            "hokuriku_main_line",
             "biwako_line",
             "jr_kyoto_line",
             "jr_kobe_line",
@@ -35,7 +35,7 @@
     "kansai": {
         "name": "関西本線 (亀山-奈良-大阪)",
         "lines": [
-            "kansai_line",
+            "kansai_main_line",
             "yamatoji_line"
         ],
         "view_type": "LINEAR",
@@ -66,7 +66,7 @@
     "kisei": {
         "name": "紀勢本線 (新宮-和歌山-和歌山市)",
         "lines": [
-            "kisei_line"
+            "kisei_main_line"
         ],
         "view_type": "LINEAR",
         "button_color": ["#FFC300", "#C79E00"]

@@ -237,7 +237,15 @@ def parse_route(name, url):
         k_cands = [i for i, c in enumerate(cols) if "累計" in c]
         if not k_cands:
             k_cands = [i for i, c in enumerate(cols) if "営業" in c or "キロ" in c]
-        
+            
+        # 🌟 精準特判：針對會跨越法定路線、導致里程歸零的營業路線，強制鎖定連續里程欄位
+        if name == "JR神戸線":
+            # 只要欄位名稱包含「大阪」且跟里程有關，就強制鎖定
+            osaka_cands = [i for i, c in enumerate(cols) if "大阪" in c and ("累計" in c or "キロ" in c)]
+            if osaka_cands:
+                k_cands = osaka_cands
+                print(f"    🎯 成功鎖定 JR 神戶線『大阪起算』欄位: {cols[k_cands[0]]}")
+
         if n_cands and k_cands:
             code_idx = c_cands[0] if c_cands else -1
             name_idx = n_cands[0]
