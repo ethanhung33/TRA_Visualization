@@ -156,6 +156,8 @@ def main():
             segs.append({"id": l_id, "s": s_list, "t": t_list, "v": v_list})
             
         if not segs: continue
+
+        segs.sort(key=lambda x: x["t"][0])
         
         processed_trains.append({
             "no": t_info["no"],
