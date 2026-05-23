@@ -20,43 +20,26 @@ output_dir = os.path.join(json_dir, "timetable")
 # ==========================================
 def clean_station_name(text):
     """清理車站名稱，包含全半形轉換與去除多餘符號"""
-    # 1. 🌟 核心修正：將全形字元 (如 ＪＲ) 強制轉為半形 (JR)
     text = unicodedata.normalize('NFKC', text)
-    
-    # 2. 移除各種括號與無用記號
     text = re.sub(r'\[.*?\]|（.*?）|\(.*?\)|[†*※‡駅]', '', text)
-    
-    # 3. 處理特例
     anomalies = {"大阪駅": "大阪", "京都駅": "京都"}
     return anomalies.get(text.strip(), text.strip())
 
 def clean_train_type(type_str, name_str):
     """智慧清洗車種名稱，過濾全半形字母、括號與號數"""
-    
-    # 1. 清理英文字母與空白
     clean_type = re.sub(r'[A-Za-z\uFF21-\uFF3A]+', '', type_str).replace(" ", "")
     clean_name = re.sub(r'[A-Za-z\uFF21-\uFF3A]+', '', name_str).replace(" ", "")
     
-    # 🌟 關鍵修正：無情移除所有全形與半形的括號
     clean_name = re.sub(r'[（）\(\)\[\]【】]', '', clean_name)
     clean_type = re.sub(r'[（）\(\)\[\]【】]', '', clean_type)
-    
-    # 移除名字裡的號碼 (例如 430号 -> "")
     clean_name = re.sub(r'\d+号|号', '', clean_name)
     
-    # 2. 核心鐵道邏輯判斷
-    
-    # 狀況 A：環狀線普通車預告直通快速
     if clean_type == "普通" and ("快速" in clean_name or "普通" in clean_name):
         return "普通"
-        
-    # 狀況 B：兩邊字眼重複
     if clean_type and clean_type in clean_name:
         return clean_name
     if clean_name and clean_name in clean_type:
         return clean_type
-        
-    # 狀況 C：正常拼接
     return f"{clean_type}{clean_name}"
 
 # ==========================================
@@ -91,33 +74,36 @@ def main():
             continue
         valid_trains.append(train)
 
-    # 3. 緩衝區：僅合併「相同車次號碼」的段落
+    # 3. 緩衝區：合併「相同車次號碼」且「行駛路線相同」的段落
     train_buffer = {}
     for train in valid_trains:
         no = train.get("列車番号", "未知")
+        route_list = train.get("route", [])
         
-        if no not in train_buffer:
-            train_buffer[no] = {
-                "no": no,
+        # 🌟 核心修正：利用路線產生複合鍵，防止不同路線的同名車次混在一起
+        route_key = "_".join(sorted(route_list))
+        unique_id = f"{no}::{route_key}"
+        
+        if unique_id not in train_buffer:
+            train_buffer[unique_id] = {
+                "no": no,  # 保留真實的車次號碼，供後續直通關聯使用
                 "type": clean_train_type(train.get("列車種別", ""), train.get("列車名", "")),
                 "is_wd": False,
                 "is_we": False,
                 "segments_data": [],
-                "thru_links": set()  # 記錄該車次指定要直通的外部車次
+                "thru_links": set()
             }
             
         op_text = train.get("運転日", "")
         if "土曜・休日運休" in op_text or "平日運転" in op_text or "毎日" in op_text or not op_text:
-            train_buffer[no]["is_wd"] = True
+            train_buffer[unique_id]["is_wd"] = True
         if "土曜・休日運転" in op_text or "毎日" in op_text or not op_text:
-            train_buffer[no]["is_we"] = True
+            train_buffer[unique_id]["is_we"] = True
 
-        # 收集直通關聯目標
         thru = train.get("直通運転")
         if thru and thru != no:
-            train_buffer[no]["thru_links"].add(thru)
+            train_buffer[unique_id]["thru_links"].add(thru)
 
-        # 整理當前段落的車站與時間
         stop_dict = {}
         ordered_stops = []
         for s in train.get("data", []):
@@ -131,7 +117,7 @@ def main():
 
         if ordered_stops:
             start_time = stop_dict[ordered_stops[0]][1]
-            train_buffer[no]["segments_data"].append({
+            train_buffer[unique_id]["segments_data"].append({
                 "stops": stop_dict,
                 "ordered_stops": ordered_stops,
                 "start_time": start_time if isinstance(start_time, int) else 9999
@@ -139,13 +125,12 @@ def main():
 
     # 4. 基礎轉換與拓樸映射
     processed_trains = []
-    for no, t_info in train_buffer.items():
+    for unique_id, t_info in train_buffer.items():
         t_info["segments_data"].sort(key=lambda x: x["start_time"])
 
         merged_stops = {}
         full_ordered_stops = []
         
-        # 融合相同車次的所有內部段落
         for seg in t_info["segments_data"]:
             for st in seg["ordered_stops"]:
                 if st not in full_ordered_stops:
@@ -172,9 +157,8 @@ def main():
             
         if not segs: continue
         
-        # 建立暫存物件（保留特徵供直通對齊使用）
         processed_trains.append({
-            "no": no,
+            "no": t_info["no"],
             "type": t_info["type"],
             "segments": segs,
             "coupled_with": [],
@@ -186,39 +170,38 @@ def main():
         })
 
     # ==========================================
-    # 🌟 核心修正：異車次智慧直通關聯 (coupled_with: direct)
+    # 🌟 核心修正：嚴格的空間直通配對
     # ==========================================
     for t in processed_trains:
         for target_no in t["_thru_links"]:
-            # 尋找目標直通車次物件
-            partner = next((p for p in processed_trains if p["no"] == target_no), None)
-            if not partner: continue
+            # 抓出所有符合該車次號碼的候選車 (例如所有的 430Y)
+            partners = [p for p in processed_trains if p["no"] == target_no]
             
-            # 判斷直通的邊界交會車站（t的終點是partner的起點，或反之）
-            junction_name = None
-            if t["_last_sta"] == partner["_first_sta"]:
-                junction_name = t["_last_sta"]
-            elif t["_first_sta"] == partner["_last_sta"]:
-                junction_name = t["_first_sta"]
-                
-            if junction_name:
-                junction_id = STA_MAP.get(junction_name, junction_name)
-                
-                # 雙向寫入直通連結，並防範重複寫入
-                if not any(c["train_id"] == partner["no"] and c["action"] == "direct" for c in t["coupled_with"]):
-                    t["coupled_with"].append({
-                        "train_id": partner["no"],
-                        "station_id": junction_id,
-                        "action": "direct"
-                    })
-                if not any(c["train_id"] == t["no"] and c["action"] == "direct" for c in partner["coupled_with"]):
-                    partner["coupled_with"].append({
-                        "train_id": t["no"],
-                        "station_id": junction_id,
-                        "action": "direct"
-                    })
+            for partner in partners:
+                # 只有當「終點接上起點」時，才認定為真正的直通對象！
+                junction_name = None
+                if t["_last_sta"] == partner["_first_sta"]:
+                    junction_name = t["_last_sta"]
+                elif t["_first_sta"] == partner["_last_sta"]:
+                    junction_name = t["_first_sta"]
+                    
+                if junction_name:
+                    junction_id = STA_MAP.get(junction_name, junction_name)
+                    
+                    if not any(c["train_id"] == partner["no"] and c["action"] == "direct" for c in t["coupled_with"]):
+                        t["coupled_with"].append({
+                            "train_id": partner["no"],
+                            "station_id": junction_id,
+                            "action": "direct"
+                        })
+                    if not any(c["train_id"] == t["no"] and c["action"] == "direct" for c in partner["coupled_with"]):
+                        partner["coupled_with"].append({
+                            "train_id": t["no"],
+                            "station_id": junction_id,
+                            "action": "direct"
+                        })
 
-    # 5. 清理暫存特徵並進行平假日分流
+    # 5. 清理暫存特徵並分流
     wd_final, we_final = [], []
     for t in processed_trains:
         is_wd = t.pop("_is_wd")
@@ -227,14 +210,13 @@ def main():
         t.pop("_last_sta", None)
         t.pop("_thru_links", None)
         
-        # 如果該車次沒有任何直通或解聯關係，就把該欄位拔掉保持 JSON 純淨
         if not t["coupled_with"]:
             del t["coupled_with"]
             
         if is_wd: wd_final.append(t)
         if is_we: we_final.append(t)
 
-    # 6. 輸出存檔 (每班車一行)
+    # 6. 輸出存檔
     os.makedirs(output_dir, exist_ok=True)
     def save_one_train_per_line(file_path, train_list):
         with open(file_path, "w", encoding="utf-8") as f:
@@ -249,7 +231,6 @@ def main():
 
     print(f"\n🎉 轉換與直通優化大功告成！")
     print(f"👉 平日：{len(wd_final)} 班次 | 假日：{len(we_final)} 班次")
-    print(f"👉 成功將 2430Y 與 430Y 保持獨立，並在交會站進行了直通關聯！")
 
 if __name__ == "__main__":
     main()
