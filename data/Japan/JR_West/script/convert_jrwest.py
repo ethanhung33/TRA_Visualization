@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import unicodedata
 from collections import OrderedDict
 
 # ==========================================
@@ -18,7 +19,14 @@ output_dir = os.path.join(json_dir, "timetable")
 # 🛠️ 工具函數
 # ==========================================
 def clean_station_name(text):
+    """清理車站名稱，包含全半形轉換與去除多餘符號"""
+    # 1. 🌟 核心修正：將全形字元 (如 ＪＲ) 強制轉為半形 (JR)
+    text = unicodedata.normalize('NFKC', text)
+    
+    # 2. 移除各種括號與無用記號
     text = re.sub(r'\[.*?\]|（.*?）|\(.*?\)|[†*※‡駅]', '', text)
+    
+    # 3. 處理特例
     anomalies = {"大阪駅": "大阪", "京都駅": "京都"}
     return anomalies.get(text.strip(), text.strip())
 
