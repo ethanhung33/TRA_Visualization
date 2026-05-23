@@ -4778,16 +4778,6 @@
       "name": "湖西線",
       "stations": [
         {
-          "id": "JRW_Kansai_A01",
-          "name": "敦賀",
-          "km": 14.5
-        },
-        {
-          "id": "JRW_Kansai_A02",
-          "name": "新疋田",
-          "km": 7.8
-        },
-        {
           "id": "JRW_Kansai_A03",
           "name": "近江塩津",
           "km": 0.0
