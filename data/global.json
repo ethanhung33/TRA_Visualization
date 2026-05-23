@@ -39,6 +39,11 @@
                     "id": "Tohoku_Hokkaido_Joetsu_Hokuriku_Shinkansen",
                     "chinese_name": "東北・北海道・上越・北陸新幹線",
                     "is_active": true
+                },
+                {
+                    "id": "JR_West",
+                    "chinese_name": "西日本旅客鉄道",
+                    "is_active": true
                 }
             ]
         }
