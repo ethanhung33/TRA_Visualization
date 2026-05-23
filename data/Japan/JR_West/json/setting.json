@@ -18,7 +18,7 @@
             "biwako_line",
             "jr_kyoto_line",
             "jr_kobe_line",
-            "sanyo_line"
+            "sanyo_main_line"
         ],
         "view_type": "LINEAR",
         "button_color": ["#2196F3", "#1565C0"]
@@ -27,7 +27,7 @@
         "name": "山陰本線 (京都-幡生)",
         "lines": [
             "sagano_line",
-            "sanin_line"
+            "sanin_main_line"
         ],
         "view_type": "LINEAR",
         "button_color": ["#4CAF50", "#2E7D32"]
@@ -75,7 +75,7 @@
         "name": "呉線 (広島-呉-三原)",
         "lines": [
             "kure_line",
-            {"id": "sanyo_line", "start": "海田市", "end": "広島"}
+            {"id": "sanyo_main_line", "start": "海田市", "end": "広島"}
         ],
         "view_type": "LINEAR",
         "button_color": ["#607D8B", "#37474F"]
@@ -83,7 +83,7 @@
     "takayama": {
         "name": "高山本線 (猪谷-富山)",
         "lines": [
-            "takayama_line"
+            "takayama_main_line"
         ],
         "view_type": "LINEAR",
         "button_color": ["#33CCFF", "#1A1AFF"]
@@ -328,9 +328,9 @@
     "hakubi": {
         "name": "伯備線 (岡山-米子)",
         "lines": [
-            {"id": "sanyo_line", "start": "岡山", "end": "倉敷"},
+            {"id": "sanyo_main_line", "start": "岡山", "end": "倉敷"},
             "hakubi_line",
-            {"id": "sanin_line", "start": "伯耆大山", "end": "米子"}
+            {"id": "sanin_main_line", "start": "伯耆大山", "end": "米子"}
         ],
         "view_type": "LINEAR",
         "button_color": ["#4CAF50", "#2E7D32"]
