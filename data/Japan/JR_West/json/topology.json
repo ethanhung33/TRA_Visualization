@@ -4512,62 +4512,52 @@
       "name": "芸備線",
       "stations": [
         {
-          "id": "JRW_Kansai_K33",
-          "name": "新見",
-          "km": 6.4
-        },
-        {
           "id": "JRW_Chugoku_P01",
-          "name": "布原",
-          "km": 2.5
-        },
-        {
-          "id": "JRW_Chugoku_P02",
           "name": "備中神代",
           "km": 0.0
         },
         {
-          "id": "JRW_Chugoku_P03",
+          "id": "JRW_Chugoku_P02",
           "name": "坂根",
           "km": 3.9
         },
         {
-          "id": "JRW_Chugoku_P04",
+          "id": "JRW_Chugoku_P03",
           "name": "市岡",
           "km": 6.5
         },
         {
-          "id": "JRW_Chugoku_P05",
+          "id": "JRW_Chugoku_P04",
           "name": "矢神",
           "km": 10.0
         },
         {
-          "id": "JRW_Chugoku_P06",
+          "id": "JRW_Chugoku_P05",
           "name": "野馳",
           "km": 13.6
         },
         {
-          "id": "JRW_Chugoku_P07",
+          "id": "JRW_Chugoku_P06",
           "name": "東城",
           "km": 18.8
         },
         {
-          "id": "JRW_Chugoku_P08",
+          "id": "JRW_Chugoku_P07",
           "name": "備後八幡",
           "km": 25.3
         },
         {
-          "id": "JRW_Chugoku_P09",
+          "id": "JRW_Chugoku_P08",
           "name": "内名",
           "km": 29.0
         },
         {
-          "id": "JRW_Chugoku_P10",
+          "id": "JRW_Chugoku_P09",
           "name": "小奴可",
           "km": 33.6
         },
         {
-          "id": "JRW_Chugoku_P11",
+          "id": "JRW_Chugoku_P10",
           "name": "道後山",
           "km": 37.8
         },
@@ -4577,162 +4567,162 @@
           "km": 44.6
         },
         {
-          "id": "JRW_Chugoku_P12",
+          "id": "JRW_Chugoku_P11",
           "name": "比婆山",
           "km": 50.2
         },
         {
-          "id": "JRW_Chugoku_P13",
+          "id": "JRW_Chugoku_P12",
           "name": "備後西城",
           "km": 53.2
         },
         {
-          "id": "JRW_Chugoku_P14",
+          "id": "JRW_Chugoku_P13",
           "name": "平子",
           "km": 57.4
         },
         {
-          "id": "JRW_Chugoku_P15",
+          "id": "JRW_Chugoku_P14",
           "name": "高",
           "km": 62.3
         },
         {
-          "id": "JRW_Chugoku_P16",
+          "id": "JRW_Chugoku_P15",
           "name": "備後庄原",
           "km": 68.5
         },
         {
-          "id": "JRW_Chugoku_P17",
+          "id": "JRW_Chugoku_P16",
           "name": "備後三日市",
           "km": 70.5
         },
         {
-          "id": "JRW_Chugoku_P18",
+          "id": "JRW_Chugoku_P17",
           "name": "七塚",
           "km": 72.2
         },
         {
-          "id": "JRW_Chugoku_P19",
+          "id": "JRW_Chugoku_P18",
           "name": "山ノ内",
           "km": 75.2
         },
         {
-          "id": "JRW_Chugoku_P20",
+          "id": "JRW_Chugoku_P19",
           "name": "下和知",
           "km": 80.1
         },
         {
-          "id": "JRW_Chugoku_P21",
+          "id": "JRW_Chugoku_P20",
           "name": "塩町",
           "km": 83.2
         },
         {
-          "id": "JRW_Chugoku_P22",
+          "id": "JRW_Chugoku_P21",
           "name": "神杉",
           "km": 84.7
         },
         {
-          "id": "JRW_Chugoku_P23",
+          "id": "JRW_Chugoku_P22",
           "name": "八次",
           "km": 88.0
         },
         {
-          "id": "JRW_Chugoku_P24",
+          "id": "JRW_Chugoku_P23",
           "name": "三次",
           "km": 90.3
         },
         {
-          "id": "JRW_Chugoku_P25",
+          "id": "JRW_Chugoku_P24",
           "name": "西三次",
           "km": 91.9
         },
         {
-          "id": "JRW_Chugoku_P26",
+          "id": "JRW_Chugoku_P25",
           "name": "志和地",
           "km": 99.6
         },
         {
-          "id": "JRW_Chugoku_P27",
+          "id": "JRW_Chugoku_P26",
           "name": "上川立",
           "km": 102.2
         },
         {
-          "id": "JRW_Chugoku_P28",
+          "id": "JRW_Chugoku_P27",
           "name": "甲立",
           "km": 106.5
         },
         {
-          "id": "JRW_Chugoku_P29",
+          "id": "JRW_Chugoku_P28",
           "name": "吉田口",
           "km": 109.9
         },
         {
-          "id": "JRW_Chugoku_P30",
+          "id": "JRW_Chugoku_P29",
           "name": "向原",
           "km": 116.1
         },
         {
-          "id": "JRW_Chugoku_P31",
+          "id": "JRW_Chugoku_P30",
           "name": "井原市",
           "km": 122.0
         },
         {
-          "id": "JRW_Chugoku_P32",
+          "id": "JRW_Chugoku_P31",
           "name": "志和口",
           "km": 126.0
         },
         {
-          "id": "JRW_Chugoku_P33",
+          "id": "JRW_Chugoku_P32",
           "name": "上三田",
           "km": 129.5
         },
         {
-          "id": "JRW_Chugoku_P34",
+          "id": "JRW_Chugoku_P33",
           "name": "中三田",
           "km": 134.0
         },
         {
-          "id": "JRW_Chugoku_P35",
+          "id": "JRW_Chugoku_P34",
           "name": "白木山",
           "km": 136.3
         },
         {
-          "id": "JRW_Chugoku_P36",
+          "id": "JRW_Chugoku_P35",
           "name": "狩留家",
           "km": 138.5
         },
         {
-          "id": "JRW_Chugoku_P37",
+          "id": "JRW_Chugoku_P36",
           "name": "上深川",
           "km": 140.7
         },
         {
-          "id": "JRW_Chugoku_P38",
+          "id": "JRW_Chugoku_P37",
           "name": "中深川",
           "km": 143.5
         },
         {
-          "id": "JRW_Chugoku_P39",
+          "id": "JRW_Chugoku_P38",
           "name": "下深川",
           "km": 144.9
         },
         {
-          "id": "JRW_Chugoku_P40",
+          "id": "JRW_Chugoku_P39",
           "name": "玖村",
           "km": 146.8
         },
         {
-          "id": "JRW_Chugoku_P41",
+          "id": "JRW_Chugoku_P40",
           "name": "安芸矢口",
           "km": 149.3
         },
         {
-          "id": "JRW_Chugoku_P42",
+          "id": "JRW_Chugoku_P41",
           "name": "戸坂",
           "km": 152.1
         },
         {
-          "id": "JRW_Chugoku_P43",
+          "id": "JRW_Chugoku_P42",
           "name": "矢賀",
           "km": 156.9
         },
@@ -5558,67 +5548,67 @@
           "km": 64.4
         },
         {
-          "id": "JRW_Chugoku_P01",
+          "id": "JRW_Chugoku_V12",
           "name": "布原",
           "km": 68.3
         },
         {
-          "id": "JRW_Chugoku_P02",
+          "id": "JRW_Chugoku_P01",
           "name": "備中神代",
           "km": 70.8
         },
         {
-          "id": "JRW_Chugoku_V12",
+          "id": "JRW_Chugoku_V13",
           "name": "足立",
           "km": 77.0
         },
         {
-          "id": "JRW_Chugoku_V13",
+          "id": "JRW_Chugoku_V14",
           "name": "新郷",
           "km": 82.8
         },
         {
-          "id": "JRW_Chugoku_V14",
+          "id": "JRW_Chugoku_V15",
           "name": "上石見",
           "km": 86.7
         },
         {
-          "id": "JRW_Chugoku_V15",
+          "id": "JRW_Chugoku_V16",
           "name": "生山",
           "km": 95.4
         },
         {
-          "id": "JRW_Chugoku_V16",
+          "id": "JRW_Chugoku_V17",
           "name": "上菅",
           "km": 98.9
         },
         {
-          "id": "JRW_Chugoku_V17",
+          "id": "JRW_Chugoku_V18",
           "name": "黒坂",
           "km": 103.7
         },
         {
-          "id": "JRW_Chugoku_V18",
+          "id": "JRW_Chugoku_V19",
           "name": "根雨",
           "km": 111.3
         },
         {
-          "id": "JRW_Chugoku_V19",
+          "id": "JRW_Chugoku_V20",
           "name": "武庫",
           "km": 116.0
         },
         {
-          "id": "JRW_Chugoku_V20",
+          "id": "JRW_Chugoku_V21",
           "name": "江尾",
           "km": 118.1
         },
         {
-          "id": "JRW_Chugoku_V21",
+          "id": "JRW_Chugoku_V22",
           "name": "伯耆溝口",
           "km": 127.3
         },
         {
-          "id": "JRW_Chugoku_V22",
+          "id": "JRW_Chugoku_V23",
           "name": "岸本",
           "km": 132.3
         },
@@ -5901,22 +5891,22 @@
           "km": 73.6
         },
         {
-          "id": "JRW_Chugoku_P21",
+          "id": "JRW_Chugoku_P20",
           "name": "塩町",
           "km": 78.0
         },
         {
-          "id": "JRW_Chugoku_P22",
+          "id": "JRW_Chugoku_P21",
           "name": "神杉",
           "km": 79.5
         },
         {
-          "id": "JRW_Chugoku_P23",
+          "id": "JRW_Chugoku_P22",
           "name": "八次",
           "km": 82.8
         },
         {
-          "id": "JRW_Chugoku_P24",
+          "id": "JRW_Chugoku_P23",
           "name": "三次",
           "km": 85.1
         }
