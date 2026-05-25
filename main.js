@@ -912,25 +912,35 @@ function drawTrains() {
                         let stationName = getStationName(seg.s[i]);
 
                         // 🌟 1. 基礎直通時間修補
-                        let isDirectOut = (segIdx === train.segments.length - 1 && i === seg.s.length - 1 && train.coupled_with && train.coupled_with.some(c => c.action === "direct"));
-                        let isDirectIn = (segIdx === 0 && i === 0 && train.coupled_with && train.coupled_with.some(c => c.action === "direct"));
+                        // ==========================================
+                        // 🌟 修正：畫布文字也必須加入終點站與起點站的嚴格驗證
+                        // ==========================================
+                        let trLastSeg = train.segments[train.segments.length - 1];
+                        let trLastSt = String(trLastSeg.s[trLastSeg.s.length - 1]);
+                        let trFirstSt = String(train.segments[0].s[0]);
+
+                        let isDirectOut = (segIdx === train.segments.length - 1 && i === seg.s.length - 1 && 
+                            train.coupled_with && train.coupled_with.some(c => c.action === "direct" && String(c.station_id) === trLastSt));
+                            
+                        let isDirectIn = (segIdx === 0 && i === 0 && 
+                            train.coupled_with && train.coupled_with.some(c => c.action === "direct" && String(c.station_id) === trFirstSt));
 
                         if (isDirectOut) {
-                            let dInfo = train.coupled_with.find(c => c.action === "direct");
+                            let dInfo = train.coupled_with.find(c => c.action === "direct" && String(c.station_id) === trLastSt);
                             let nxt = timetable.find(t => String(t.no || t.train_no || t.id) === String(dInfo.train_id));
                             if (nxt && nxt.segments[0]) {
                                 let nt = nxt.segments[0].t;
                                 depT = (nt[1] !== undefined && nt[1] !== null && nt[1] !== "") ? nt[1] : nt[0];
-                                x_dep = timeToX(depT); // 同步修正繪圖座標
+                                x_dep = timeToX(depT); 
                             }
                         } else if (isDirectIn) {
-                            let dInfo = train.coupled_with.find(c => c.action === "direct");
+                            let dInfo = train.coupled_with.find(c => c.action === "direct" && String(c.station_id) === trFirstSt);
                             let prv = timetable.find(t => String(t.no || t.train_no || t.id) === String(dInfo.train_id));
                             if (prv && prv.segments[prv.segments.length - 1]) {
                                 let pt = prv.segments[prv.segments.length - 1].t;
                                 let lastK = prv.segments[prv.segments.length - 1].s.length - 1;
                                 arrT = (pt[lastK * 2] !== undefined && pt[lastK * 2] !== null && pt[lastK * 2] !== "") ? pt[lastK * 2] : pt[lastK * 2 + 1];
-                                x_arr = timeToX(arrT); // 同步修正繪圖座標
+                                x_arr = timeToX(arrT); 
                             }
                         }
 
@@ -1028,41 +1038,50 @@ function drawTrains() {
 
                                 // 🌟 智慧時間萃取器
                                 const extInfo = (tObj) => {
-                                    let arr = null, dep = null;
-                                    for (let s of tObj.segments) {
-                                        let idx = s.s.findIndex(id => String(id) === String(seg.s[i]));
-                                        if (idx !== -1) {
-                                            arr = (s.t[idx*2] !== undefined && s.t[idx*2] !== null && s.t[idx*2] !== "") ? s.t[idx*2] : null;
-                                            dep = (s.t[idx*2+1] !== undefined && s.t[idx*2+1] !== null && s.t[idx*2+1] !== "") ? s.t[idx*2+1] : null;
-                                            if(arr === null && dep !== null) arr = dep; 
-                                            if(dep === null && arr !== null) dep = arr; 
+                                let arr = null, dep = null;
+                                
+                                // 🌟 新增：找出該車次的絕對頭尾站
+                                let objLastSeg = tObj.segments[tObj.segments.length - 1];
+                                let objLastSt = String(objLastSeg.s[objLastSeg.s.length - 1]);
+                                let objFirstSt = String(tObj.segments[0].s[0]);
 
-                                            let isDOut = (idx === s.s.length - 1 && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct"));
-                                            if (isDOut) {
-                                                let dInfo = tObj.coupled_with.find(c => c.action === "direct");
-                                                let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
-                                                if (nxt && nxt.segments[0]) {
-                                                    let nt = nxt.segments[0].t;
-                                                    let nDep = (nt[1] !== undefined && nt[1] !== null && nt[1] !== "") ? nt[1] : nt[0];
-                                                    if (nDep !== null) dep = nDep;
-                                                }
+                                for (let s of tObj.segments) {
+                                    let idx = s.s.findIndex(id => String(id) === String(seg.s[i]));
+                                    if (idx !== -1) {
+                                        arr = (s.t[idx*2] !== undefined && s.t[idx*2] !== null && s.t[idx*2] !== "") ? s.t[idx*2] : null;
+                                        dep = (s.t[idx*2+1] !== undefined && s.t[idx*2+1] !== null && s.t[idx*2+1] !== "") ? s.t[idx*2+1] : null;
+                                        if(arr === null && dep !== null) arr = dep; 
+                                        if(dep === null && arr !== null) dep = arr; 
+
+                                        // 🌟 加入 objLastSt 驗證
+                                        let isDOut = (idx === s.s.length - 1 && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct" && String(c.station_id) === objLastSt));
+                                        if (isDOut) {
+                                            let dInfo = tObj.coupled_with.find(c => c.action === "direct" && String(c.station_id) === objLastSt);
+                                            let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                            if (nxt && nxt.segments[0]) {
+                                                let nt = nxt.segments[0].t;
+                                                let nDep = (nt[1] !== undefined && nt[1] !== null && nt[1] !== "") ? nt[1] : nt[0];
+                                                if (nDep !== null) dep = nDep;
                                             }
-                                            let isDIn = (idx === 0 && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct"));
-                                            if (isDIn) {
-                                                let dInfo = tObj.coupled_with.find(c => c.action === "direct");
-                                                let prv = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
-                                                if (prv && prv.segments[prv.segments.length-1]) {
-                                                    let pt = prv.segments[prv.segments.length-1].t;
-                                                    let lK = prv.segments[prv.segments.length-1].s.length - 1;
-                                                    let pArr = (pt[lK*2] !== undefined && pt[lK*2] !== null && pt[lK*2] !== "") ? pt[lK*2] : pt[lK*2+1];
-                                                    if (pArr !== null) arr = pArr;
-                                                }
-                                            }
-                                            break;
                                         }
+                                        
+                                        // 🌟 加入 objFirstSt 驗證
+                                        let isDIn = (idx === 0 && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct" && String(c.station_id) === objFirstSt));
+                                        if (isDIn) {
+                                            let dInfo = tObj.coupled_with.find(c => c.action === "direct" && String(c.station_id) === objFirstSt);
+                                            let prv = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                            if (prv && prv.segments[prv.segments.length-1]) {
+                                                let pt = prv.segments[prv.segments.length-1].t;
+                                                let lK = prv.segments[prv.segments.length-1].s.length - 1;
+                                                let pArr = (pt[lK*2] !== undefined && pt[lK*2] !== null && pt[lK*2] !== "") ? pt[lK*2] : pt[lK*2+1];
+                                                if (pArr !== null) arr = pArr;
+                                            }
+                                        }
+                                        break;
                                     }
-                                    return { arr, dep, dest: getFinalDest(tObj), origin: getOrigin(tObj) };
-                                };
+                                }
+                                return { arr, dep, dest: getFinalDest(tObj), origin: getOrigin(tObj) };
+                            };
 
                                 let iA = extInfo(splitTrainA);
                                 let iB = extInfo(splitTrainB);
@@ -3196,7 +3215,7 @@ function requestRedraw() {
 // 將分鐘數轉換為 HH:MM 格式 (純淨版，支援負數校正)
 // ==========================================
 function formatTimeDisplay(minutesRaw) {
-    if (minutesRaw === undefined || minutesRaw === null) return "--:--";
+    if (minutesRaw === undefined || minutesRaw === null || minutesRaw === "") return "--:--";
     
     // 利用 ((x % 1440) + 1440) % 1440 讓負數時間也能完美回到 24 小時制的正確循環
     let wrappedMinutes = ((Math.floor(minutesRaw) % 1440) + 1440) % 1440; 
@@ -3532,9 +3551,17 @@ function updateBottomPanel(train) {
                     let depRaw = seg.t[i * 2 + 1];
 
                     // 直通時間修補 (維持原邏輯)
-                    let isDirectOut = (segIdx === tr.segments.length - 1 && i === seg.s.length - 1 && tr.coupled_with && tr.coupled_with.some(c => c.action === "direct"));
+                    // ==========================================
+                    // 🌟 修正：加入「交會站 ID 必須等於自己的終點站」的拓樸學驗證
+                    // ==========================================
+                    let lastSeg = tr.segments[tr.segments.length - 1];
+                    let myLastSt = String(lastSeg.s[lastSeg.s.length - 1]);
+
+                    let isDirectOut = (segIdx === tr.segments.length - 1 && i === seg.s.length - 1 && 
+                        tr.coupled_with && tr.coupled_with.some(c => c.action === "direct" && String(c.station_id) === myLastSt));
+
                     if (isDirectOut) {
-                        let dInfo = tr.coupled_with.find(c => c.action === "direct");
+                        let dInfo = tr.coupled_with.find(c => c.action === "direct" && String(c.station_id) === myLastSt);
                         let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
                         if (nxt && nxt.segments && nxt.segments.length > 0) {
                             depRaw = nxt.segments[0].t[1] !== undefined && nxt.segments[0].t[1] !== "" ? nxt.segments[0].t[1] : nxt.segments[0].t[0];
