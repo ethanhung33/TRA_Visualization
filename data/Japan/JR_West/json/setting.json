@@ -139,7 +139,7 @@
     "etsumi": {
         "name": "越美北線 (福井-九頭竜湖)",
         "lines": [
-            "etsumi_line"
+            "etsumi_kita_line"
         ],
         "view_type": "LINEAR",
         "button_color": ["#4CAF50", "#2E7D32"]
@@ -289,7 +289,7 @@
     "touzai": {
         "name": "東西線 (尼崎-京橋)",
         "lines": [
-            "touzai_line"
+            "jr_touzai_line"
         ],
         "view_type": "LINEAR",
         "button_color": ["#FF9800", "#EF6C00"]
@@ -364,7 +364,7 @@
     "fukuchiyama": {
         "name": "福知山線 (尼崎-福知山)",
         "lines": [
-            {"id": "jr_kyoto_line", "start": "大阪", "end": "尼崎"},
+            {"id": "jr_kobe_line", "start": "大阪", "end": "尼崎"},
             "fukuchiyama_line"
         ],
         "view_type": "LINEAR",

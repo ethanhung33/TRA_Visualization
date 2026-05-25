@@ -3340,121 +3340,116 @@
       "stations": [
         {
           "id": "JRW_Etsumi_01",
-          "name": "福井",
-          "km": 2.6
-        },
-        {
-          "id": "JRW_Etsumi_02",
           "name": "南福井",
           "km": 0.8
         },
         {
-          "id": "JRW_Etsumi_03",
+          "id": "JRW_Etsumi_02",
           "name": "越前花堂",
           "km": 0.0
         },
         {
-          "id": "JRW_Etsumi_04",
+          "id": "JRW_Etsumi_03",
           "name": "六条",
           "km": 2.3
         },
         {
-          "id": "JRW_Etsumi_05",
+          "id": "JRW_Etsumi_04",
           "name": "足羽",
           "km": 3.7
         },
         {
-          "id": "JRW_Etsumi_06",
+          "id": "JRW_Etsumi_05",
           "name": "越前東郷",
           "km": 5.7
         },
         {
-          "id": "JRW_Etsumi_07",
+          "id": "JRW_Etsumi_06",
           "name": "一乗谷",
           "km": 8.3
         },
         {
-          "id": "JRW_Etsumi_08",
+          "id": "JRW_Etsumi_07",
           "name": "越前高田",
           "km": 11.4
         },
         {
-          "id": "JRW_Etsumi_09",
+          "id": "JRW_Etsumi_08",
           "name": "市波",
           "km": 12.6
         },
         {
-          "id": "JRW_Etsumi_10",
+          "id": "JRW_Etsumi_09",
           "name": "小和清水",
           "km": 14.6
         },
         {
-          "id": "JRW_Etsumi_11",
+          "id": "JRW_Etsumi_10",
           "name": "美山",
           "km": 17.5
         },
         {
-          "id": "JRW_Etsumi_12",
+          "id": "JRW_Etsumi_11",
           "name": "越前薬師",
           "km": 19.5
         },
         {
-          "id": "JRW_Etsumi_13",
+          "id": "JRW_Etsumi_12",
           "name": "越前大宮",
           "km": 22.2
         },
         {
-          "id": "JRW_Etsumi_14",
+          "id": "JRW_Etsumi_13",
           "name": "計石",
           "km": 24.4
         },
         {
-          "id": "JRW_Etsumi_15",
+          "id": "JRW_Etsumi_14",
           "name": "牛ケ原",
           "km": 27.6
         },
         {
-          "id": "JRW_Etsumi_16",
+          "id": "JRW_Etsumi_15",
           "name": "北大野",
           "km": 29.4
         },
         {
-          "id": "JRW_Etsumi_17",
+          "id": "JRW_Etsumi_16",
           "name": "越前大野",
           "km": 31.4
         },
         {
-          "id": "JRW_Etsumi_18",
+          "id": "JRW_Etsumi_17",
           "name": "越前田野",
           "km": 34.3
         },
         {
-          "id": "JRW_Etsumi_19",
+          "id": "JRW_Etsumi_18",
           "name": "越前富田",
           "km": 35.7
         },
         {
-          "id": "JRW_Etsumi_20",
+          "id": "JRW_Etsumi_19",
           "name": "下唯野",
           "km": 38.8
         },
         {
-          "id": "JRW_Etsumi_21",
+          "id": "JRW_Etsumi_20",
           "name": "柿ケ島",
           "km": 39.8
         },
         {
-          "id": "JRW_Etsumi_22",
+          "id": "JRW_Etsumi_21",
           "name": "勝原",
           "km": 42.3
         },
         {
-          "id": "JRW_Etsumi_23",
+          "id": "JRW_Etsumi_22",
           "name": "越前下山",
           "km": 48.8
         },
         {
-          "id": "JRW_Etsumi_24",
+          "id": "JRW_Etsumi_23",
           "name": "九頭竜湖",
           "km": 52.5
         }
@@ -3467,7 +3462,7 @@
         {
           "id": "JRW_Oito_33",
           "name": "南小谷",
-          "km": 70.1
+          "km": 0.0
         },
         {
           "id": "JRW_Oito_34",
@@ -5342,116 +5337,101 @@
       "stations": [
         {
           "id": "JRW_Nanao_01",
-          "name": "金沢",
-          "km": 11.5
-        },
-        {
-          "id": "JRW_Nanao_02",
-          "name": "東金沢",
-          "km": 8.9
-        },
-        {
-          "id": "JRW_Nanao_03",
-          "name": "森本",
-          "km": 6.1
-        },
-        {
-          "id": "JRW_Nanao_04",
           "name": "津幡",
           "km": 0.0
         },
         {
-          "id": "JRW_Nanao_05",
+          "id": "JRW_Nanao_02",
           "name": "中津幡",
           "km": 1.8
         },
         {
-          "id": "JRW_Nanao_06",
+          "id": "JRW_Nanao_03",
           "name": "本津幡",
           "km": 2.9
         },
         {
-          "id": "JRW_Nanao_07",
+          "id": "JRW_Nanao_04",
           "name": "能瀬",
           "km": 5.1
         },
         {
-          "id": "JRW_Nanao_08",
+          "id": "JRW_Nanao_05",
           "name": "宇野気",
           "km": 8.8
         },
         {
-          "id": "JRW_Nanao_09",
+          "id": "JRW_Nanao_06",
           "name": "横山",
           "km": 11.8
         },
         {
-          "id": "JRW_Nanao_10",
+          "id": "JRW_Nanao_07",
           "name": "高松",
           "km": 14.4
         },
         {
-          "id": "JRW_Nanao_11",
+          "id": "JRW_Nanao_08",
           "name": "免田",
           "km": 17.8
         },
         {
-          "id": "JRW_Nanao_12",
+          "id": "JRW_Nanao_09",
           "name": "宝達",
           "km": 20.9
         },
         {
-          "id": "JRW_Nanao_13",
+          "id": "JRW_Nanao_10",
           "name": "敷浪",
           "km": 24.2
         },
         {
-          "id": "JRW_Nanao_14",
+          "id": "JRW_Nanao_11",
           "name": "南羽咋",
           "km": 26.7
         },
         {
-          "id": "JRW_Nanao_15",
+          "id": "JRW_Nanao_12",
           "name": "羽咋",
           "km": 29.7
         },
         {
-          "id": "JRW_Nanao_16",
+          "id": "JRW_Nanao_13",
           "name": "千路",
           "km": 33.8
         },
         {
-          "id": "JRW_Nanao_17",
+          "id": "JRW_Nanao_14",
           "name": "金丸",
           "km": 37.5
         },
         {
-          "id": "JRW_Nanao_18",
+          "id": "JRW_Nanao_15",
           "name": "能登部",
           "km": 41.1
         },
         {
-          "id": "JRW_Nanao_19",
+          "id": "JRW_Nanao_16",
           "name": "良川",
           "km": 43.9
         },
         {
-          "id": "JRW_Nanao_20",
+          "id": "JRW_Nanao_17",
           "name": "能登二宮",
           "km": 46.1
         },
         {
-          "id": "JRW_Nanao_21",
+          "id": "JRW_Nanao_18",
           "name": "徳田",
           "km": 48.9
         },
         {
-          "id": "JRW_Nanao_22",
+          "id": "JRW_Nanao_19",
           "name": "七尾",
           "km": 54.4
         },
         {
-          "id": "JRW_Nanao_23",
+          "id": "JRW_Nanao_20",
           "name": "和倉温泉",
           "km": 59.5
         }
