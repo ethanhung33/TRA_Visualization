@@ -4434,26 +4434,39 @@ window.triggerSelectTrain = function(trainNo) {
 // 🔄 跨系統無縫切換器 (防呆與路徑檢查版)
 // ==========================================
 window.switchToSystem = async function(systemPath) {
+    // 1. 喚醒 Loading
     const loader = document.getElementById('loading-overlay');
     loader.classList.remove('hidden');
 
-    // 🌟 修正：補上絕對路徑開頭，確保 GitHub Pages 能正確抓到資料夾
-    // 假設你的資料夾結構是 /TRA_Visualization/data/...
-    const fullPath = window.location.pathname.includes('TRA_Visualization') 
-                     ? '/TRA_Visualization/' + systemPath 
-                     : '/' + systemPath;
-
     try {
-        // 🌟 測試路徑改為拼接好的 fullPath
-        const checkRes = await fetch(`${fullPath}json/setting.json?t=${Date.now()}`);
-        if (!checkRes.ok) throw new Error("Path not found");
+        // 2. 核心邏輯：從 global.json 檢查該路徑對應的系統是否為 active
+        const res = await fetch('data/global.json');
+        const globalData = await res.json();
         
-        // 成功後，init 也必須用這個正確的 fullPath
+        // 將系統清單攤平為一個陣列，方便查找
+        const allSystems = globalData.countries.flatMap(c => c.systems);
+        
+        // 檢查目標路徑是否存在，且 is_active 為 true
+        const target = allSystems.find(s => systemPath.includes(s.id));
+        
+        if (!target || !target.is_active) {
+            alert("🚧 該路線的運行圖尚未建置完成，敬請期待！");
+            loader.classList.add('hidden');
+            return;
+        }
+
+        // 3. 檢查通過，繼續原本的流程
+        const basePath = window.location.hostname === 'localhost' ? '' : '/TRA_Visualization';
+        const fullPath = `${basePath}/${systemPath}`;
+
+        const checkRes = await fetch(`${fullPath}json/setting.json?t=${Date.now()}`);
+        if (!checkRes.ok) throw new Error("File not found");
+        
         init(fullPath); 
     } catch (e) {
         loader.classList.add('hidden');
-        alert("🚧 智頭急行線的資料尚未建置完成 (路徑測試失敗)");
-        console.warn("System path not found:", fullPath);
+        alert("🚧 系統切換失敗，請確認該系統資料已部署至伺服器。");
+        console.error("Switch failed:", e);
     }
 };
 
