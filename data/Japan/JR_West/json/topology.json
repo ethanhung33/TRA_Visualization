@@ -3935,16 +3935,6 @@
       "name": "可部線",
       "stations": [
         {
-          "id": "JRW_Chugoku_Y31",
-          "name": "広島",
-          "km": 3.0
-        },
-        {
-          "id": "JRW_Sanyo_49",
-          "name": "新白島",
-          "km": 1.2
-        },
-        {
           "id": "JRW_Sanyo_50",
           "name": "横川",
           "km": 0.0
