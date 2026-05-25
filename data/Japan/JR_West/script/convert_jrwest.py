@@ -55,7 +55,14 @@ def main():
         stations_in_seg = []
         for st in seg.get("stations", []):
             sta_name = clean_station_name(st.get("name", ""))
-            STA_MAP[sta_name] = st.get("id") or sta_name
+            
+            # 🌟 核心修正：使用 (路線ID, 站名) 當作複合鍵，避免同名覆蓋
+            STA_MAP[(seg_id, sta_name)] = st.get("id") or sta_name
+            
+            # 依然保留純站名，供直通運轉尋找交會大站使用
+            if sta_name not in STA_MAP:
+                STA_MAP[sta_name] = st.get("id") or sta_name
+                
             stations_in_seg.append(sta_name)
         LINE_MAP[seg_id] = stations_in_seg
 
@@ -184,7 +191,9 @@ def main():
             if len(intersect) < 2: continue
             s_list, t_list, v_list = [], [], []
             for i, s_name in enumerate(intersect):
-                s_list.append(STA_MAP.get(s_name, s_name))
+                st_id = STA_MAP.get((l_id, s_name)) or STA_MAP.get(s_name, s_name)
+                
+                s_list.append(st_id)
                 t_list.extend([merged_stops[s_name][0], merged_stops[s_name][1]])
                 v_list.append(0 if i == 0 else (3 if i == len(intersect)-1 else 1))
             segs.append({"id": l_id, "s": s_list, "t": t_list, "v": v_list})

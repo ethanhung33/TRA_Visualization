@@ -2678,77 +2678,77 @@
           "km": 23.9
         },
         {
-          "id": "JRW_Sanyo_76",
+          "id": "JRW_Kansai_R19",
           "name": "下松",
           "km": 25.1
         },
         {
-          "id": "JRW_Kansai_R19",
+          "id": "JRW_Kansai_R20",
           "name": "東岸和田",
           "km": 26.5
         },
         {
-          "id": "JRW_Kansai_R20",
+          "id": "JRW_Kansai_R21",
           "name": "東貝塚",
           "km": 28.1
         },
         {
-          "id": "JRW_Kansai_R21",
+          "id": "JRW_Kansai_R22",
           "name": "和泉橋本",
           "km": 30.0
         },
         {
-          "id": "JRW_Kansai_R22",
+          "id": "JRW_Kansai_R23",
           "name": "東佐野",
           "km": 31.5
         },
         {
-          "id": "JRW_Kansai_R23",
+          "id": "JRW_Kansai_R24",
           "name": "熊取",
           "km": 33.0
         },
         {
-          "id": "JRW_Kansai_R24",
+          "id": "JRW_Kansai_R25",
           "name": "日根野",
           "km": 34.9
         },
         {
-          "id": "JRW_Kansai_R25",
+          "id": "JRW_Kansai_R26",
           "name": "長滝",
           "km": 36.3
         },
         {
-          "id": "JRW_Kansai_R26",
+          "id": "JRW_Kansai_R27",
           "name": "新家",
           "km": 38.6
         },
         {
-          "id": "JRW_Kansai_R27",
+          "id": "JRW_Kansai_R28",
           "name": "和泉砂川",
           "km": 40.5
         },
         {
-          "id": "JRW_Kansai_R28",
+          "id": "JRW_Kansai_R29",
           "name": "和泉鳥取",
           "km": 43.3
         },
         {
-          "id": "JRW_Kansai_R29",
+          "id": "JRW_Kansai_R30",
           "name": "山中渓",
           "km": 45.2
         },
         {
-          "id": "JRW_Kansai_R30",
+          "id": "JRW_Kansai_R31",
           "name": "紀伊",
           "km": 53.3
         },
         {
-          "id": "JRW_Kansai_R31",
+          "id": "JRW_Kansai_R32",
           "name": "六十谷",
           "km": 57.2
         },
         {
-          "id": "JRW_Kansai_R32",
+          "id": "JRW_Kansai_R33",
           "name": "紀伊中ノ島",
           "km": 60.2
         },
@@ -4011,7 +4011,7 @@
       "name": "関西空港線",
       "stations": [
         {
-          "id": "JRW_Kansai_R24",
+          "id": "JRW_Kansai_R25",
           "name": "日根野",
           "km": 0.0
         },
