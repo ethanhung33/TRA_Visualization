@@ -74,31 +74,34 @@ def main():
             continue
         valid_trains.append(train)
 
-    # 3. 緩衝區：合併「相同車次號碼」且「行駛路線相同」的段落
+    # 3. 緩衝區：合併「車次號碼 + 路線 + 行駛日曆」皆相同的段落
     train_buffer = {}
     for train in valid_trains:
         no = train.get("列車番号", "未知")
         route_list = train.get("route", [])
         
+        # 🌟 判斷這筆資料的「行駛日曆」屬性
+        op_text = train.get("運転日", "")
+        op_type = "daily"
+        if "土曜・休日運休" in op_text or "平日運転" in op_text:
+            op_type = "weekday"
+        elif "土曜・休日運転" in op_text or "休日運転" in op_text:
+            op_type = "holiday"
+            
+        # 🌟 核心修正：將 op_type 加入複合鍵，徹底分開平假日的同號碼車次！
         route_key = "_".join(sorted(route_list))
-        unique_id = f"{no}::{route_key}"
+        unique_id = f"{no}::{route_key}::{op_type}"
         
         if unique_id not in train_buffer:
             train_buffer[unique_id] = {
                 "no": no, 
                 "type": clean_train_type(train.get("列車種別", ""), train.get("列車名", "")),
-                "is_wd": True,  # 🌟 先預設為 True (每天行駛)
-                "is_we": True,  # 🌟 先預設為 True (每天行駛)
+                # 直接根據 op_type 決定這筆資料要丟去哪裡，不用再互相覆蓋了
+                "is_wd": op_type in ["daily", "weekday"],
+                "is_we": op_type in ["daily", "holiday"],
                 "segments_data": [],
                 "thru_links": set()
             }
-            
-        # 🌟 核心修正：只要該車次「任何一個段落」帶有平假日的限制條件，就嚴格剔除
-        op_text = train.get("運転日", "")
-        if "土曜・休日運転" in op_text or "休日運転" in op_text:
-            train_buffer[unique_id]["is_wd"] = False # 假日限定 -> 關閉平日開關
-        elif "土曜・休日運休" in op_text or "平日運転" in op_text:
-            train_buffer[unique_id]["is_we"] = False # 平日限定/假日停駛 -> 關閉假日開關
 
         # ...(下面繼續接 thru = train.get("直通運転") 等原本的程式碼)...
 
