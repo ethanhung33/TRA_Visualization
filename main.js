@@ -3566,14 +3566,13 @@ function updateBottomPanel(train) {
             if (stopCount > 0) stationsHtml += `<div class="station-arrow" style="color: #FFA500;">➔</div>`;
             
             stationsHtml += `
-                <div class="train-stop-item" style="background: ${isDarkMode ? 'rgba(255, 165, 0, 0.15)' : 'rgba(255, 165, 0, 0.1)'}; cursor: pointer; border-left: 4px solid #FFA500;" onclick="window.open('https://your-other-system-url.com', '_blank')">
-                    <div class="ts-col-name" style="color: #FFA500; font-weight: bold;">🔗 直通其他系統</div>
+                <div class="train-stop-item" style="background: ${isDarkMode ? 'rgba(255, 165, 0, 0.15)' : 'rgba(255, 165, 0, 0.1)'}; cursor: pointer; border-left: 4px solid #FFA500;" onclick="window.switchToSystem('${stop.systemPath}')">
+                    <div class="ts-col-name" style="color: #FFA500; font-weight: bold;">🔗 ${stop.systemName}</div>
                     <div class="ts-col-arr" style="opacity: 0.8; font-size: 12px; grid-column: span 2; text-align: left; color: #FFA500;">
-                        (點擊前往查看該路線)
+                        (點擊載入該系統運行圖)
                     </div>
                 </div>
             `;
-            // 注意：這裡不增加 stopCount，讓下一個實體車站自己印出相連的箭頭
             return;
         }
 
@@ -4426,6 +4425,47 @@ window.triggerSelectTrain = function(trainNo) {
             redrawAll();
         }
     }
+};
+
+// ==========================================
+// 🔄 跨系統無縫切換器 (防呆與路徑檢查版)
+// ==========================================
+window.switchToSystem = async function(systemPath) {
+    // 1. 喚醒轉圈圈 Loading 動畫
+    const loader = document.getElementById('loading-overlay');
+    if (loader) {
+        // 確保每次喚醒時，都是乾淨的轉圈圈 UI (避免被先前的錯誤文字污染)
+        loader.innerHTML = '<div class="loader"></div><div style="margin-top: 15px; color: #FFF; font-weight: bold;">系統切換中...</div>';
+        loader.style.display = 'flex';
+        loader.classList.remove('hidden');
+    }
+
+    // 🌟 2. 核心防護：先遣部隊去測試路徑存不存在！
+    try {
+        const checkRes = await fetch(`${systemPath}json/setting.json?t=${Date.now()}`);
+        if (!checkRes.ok) {
+            // 如果回傳 404 (找不到檔案)，跳出提示並終止跳轉！
+            alert("🚧 系統建置中！目前尚未開放此路線的運行圖。");
+            if (loader) loader.classList.add('hidden'); // 隱藏轉圈圈，讓畫面安全留在原本的系統
+            return; 
+        }
+    } catch (e) {
+        alert("🚧 網路連線異常，無法連線至新系統！");
+        if (loader) loader.classList.add('hidden');
+        return;
+    }
+
+    // 3. 確定新系統存在後，才開始收合目前的 UI
+    const panel = document.getElementById('bottom-bar');
+    if (panel) panel.classList.remove('expanded');
+    
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    if (searchInput) searchInput.value = '';
+    if (searchResults) searchResults.style.display = 'none';
+
+    // 4. 正式呼叫核心系統灌入新資料
+    init(systemPath);
 };
 
 // ==========================================

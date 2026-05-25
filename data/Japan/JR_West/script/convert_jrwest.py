@@ -81,7 +81,12 @@ def main():
     # 將路線註冊進 LINE_MAP
     LINE_MAP["chizu_express_line"] = ["上郡", "佐用", "大原", "智頭"]
 
-    OTHER_LINES = {"chizu_express_line"}
+    OTHER_LINES = {
+        "chizu_express_line": {
+            "path": "data/Japan/Chizu_Express/",
+            "name": "智頭急行線"
+        }
+    }
     # ==========================================
 
     # 2. 讀取與過濾原始資料
@@ -195,6 +200,8 @@ def main():
                     segs.append({"id": current_line, "s": current_seg_s, "t": current_seg_t, "v": current_seg_v})
                     if current_line in OTHER_LINES:
                         segs[-1]["is_other"] = True
+                        segs[-1]["system_path"] = OTHER_LINES[current_line]["path"]
+                        segs[-1]["system_name"] = OTHER_LINES[current_line]["name"]
 
                 current_line = chosen_line
                 st1_id = STA_MAP.get((current_line, s1)) or STA_MAP.get(s1, s1)
@@ -210,6 +217,8 @@ def main():
             segs.append({"id": current_line, "s": current_seg_s, "t": current_seg_t, "v": current_seg_v})
             if current_line in OTHER_LINES:
                 segs[-1]["is_other"] = True
+                segs[-1]["system_path"] = OTHER_LINES[current_line]["path"]
+                segs[-1]["system_name"] = OTHER_LINES[current_line]["name"]
             
         # 修補 v 值 (0=起點, 3=終點, 1=中間)
         for seg in segs:
