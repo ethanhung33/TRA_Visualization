@@ -106,21 +106,20 @@ function normalizeText(text) {
 // 🌟 全域顯示攔截器：自動移除 "|" 後綴
 // 確保所有 train.no 在顯示時都只呈現「車次編號」本身
 // ==========================================
+// 確保這段程式碼在 main.js 的最最最頂端
 (function() {
-    // 取得 Object 原本對 'no' 屬性的定義 (如果有的話)
-    const originalNoDescriptor = Object.getOwnPropertyDescriptor(Object.prototype, 'no');
+    const proto = Object.prototype;
+    const descriptor = Object.getOwnPropertyDescriptor(proto, 'no');
     
-    Object.defineProperty(Object.prototype, 'no', {
+    Object.defineProperty(proto, 'no', {
         get: function() {
-            // 優先讀取真實的 _no (這是 Python 產出的 "編號|起點站")
-            // 如果沒有，就呼叫原本的 getter
-            let val = this._no || (originalNoDescriptor && originalNoDescriptor.get ? originalNoDescriptor.get.call(this) : "");
+            // 優先讀取原始值，無論是 _no 還是原屬性
+            let val = this._no || (descriptor && descriptor.get ? descriptor.get.call(this) : undefined);
             
-            // 處理顯示：若含有 "|"，只取 "|" 前面的字串
-            return typeof val === 'string' ? val.split('|')[0] : val;
+            // 顯示時永遠只取 "|" 前面，並處理可能的 null/undefined
+            return (typeof val === 'string') ? val.split('|')[0] : val;
         },
         set: function(val) {
-            // 存入完整的值 (例如 "320D|清音")，確保 Python 連結時 UID 是完整的
             this._no = val;
         },
         configurable: true,
