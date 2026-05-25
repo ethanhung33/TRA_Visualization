@@ -80,25 +80,27 @@ def main():
         no = train.get("列車番号", "未知")
         route_list = train.get("route", [])
         
-        # 🌟 核心修正：利用路線產生複合鍵，防止不同路線的同名車次混在一起
         route_key = "_".join(sorted(route_list))
         unique_id = f"{no}::{route_key}"
         
         if unique_id not in train_buffer:
             train_buffer[unique_id] = {
-                "no": no,  # 保留真實的車次號碼，供後續直通關聯使用
+                "no": no, 
                 "type": clean_train_type(train.get("列車種別", ""), train.get("列車名", "")),
-                "is_wd": False,
-                "is_we": False,
+                "is_wd": True,  # 🌟 先預設為 True (每天行駛)
+                "is_we": True,  # 🌟 先預設為 True (每天行駛)
                 "segments_data": [],
                 "thru_links": set()
             }
             
+        # 🌟 核心修正：只要該車次「任何一個段落」帶有平假日的限制條件，就嚴格剔除
         op_text = train.get("運転日", "")
-        if "土曜・休日運休" in op_text or "平日運転" in op_text or "毎日" in op_text or not op_text:
-            train_buffer[unique_id]["is_wd"] = True
-        if "土曜・休日運転" in op_text or "毎日" in op_text or not op_text:
-            train_buffer[unique_id]["is_we"] = True
+        if "土曜・休日運転" in op_text or "休日運転" in op_text:
+            train_buffer[unique_id]["is_wd"] = False # 假日限定 -> 關閉平日開關
+        elif "土曜・休日運休" in op_text or "平日運転" in op_text:
+            train_buffer[unique_id]["is_we"] = False # 平日限定/假日停駛 -> 關閉假日開關
+
+        # ...(下面繼續接 thru = train.get("直通運転") 等原本的程式碼)...
 
         thru = train.get("直通運転")
         if thru and thru != no:
