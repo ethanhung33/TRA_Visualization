@@ -3507,9 +3507,12 @@ function updateBottomPanel(train) {
             tr.segments.forEach((seg, segIdx) => {
 
                 if (seg.is_other) {
-                    // 防呆：避免連續塞入多個標記
                     if (allStops.length === 0 || allStops[allStops.length - 1].type !== 'other_link') {
-                        allStops.push({ type: 'other_link' });
+                        allStops.push({ 
+                            type: 'other_link',
+                            systemPath: seg.system_path,              // ⬅️ 動態路徑
+                            systemName: seg.system_name || "其他系統"  // ⬅️ 動態名稱
+                        });
                     }
                 }
 
@@ -4431,41 +4434,30 @@ window.triggerSelectTrain = function(trainNo) {
 // 🔄 跨系統無縫切換器 (防呆與路徑檢查版)
 // ==========================================
 window.switchToSystem = async function(systemPath) {
-    // 1. 喚醒轉圈圈 Loading 動畫
+    // 1. 顯示 Loading
     const loader = document.getElementById('loading-overlay');
-    if (loader) {
-        // 確保每次喚醒時，都是乾淨的轉圈圈 UI (避免被先前的錯誤文字污染)
-        loader.innerHTML = '<div class="loader"></div><div style="margin-top: 15px; color: #FFF; font-weight: bold;">系統切換中...</div>';
-        loader.style.display = 'flex';
-        loader.classList.remove('hidden');
-    }
+    loader.classList.remove('hidden');
 
-    // 🌟 2. 核心防護：先遣部隊去測試路徑存不存在！
     try {
-        const checkRes = await fetch(`${systemPath}json/setting.json?t=${Date.now()}`);
-        if (!checkRes.ok) {
-            // 如果回傳 404 (找不到檔案)，跳出提示並終止跳轉！
-            alert("🚧 系統建置中！目前尚未開放此路線的運行圖。");
-            if (loader) loader.classList.add('hidden'); // 隱藏轉圈圈，讓畫面安全留在原本的系統
-            return; 
+        // 2. 先嘗試 fetch 資料夾內的 index.json 或 setting.json
+        const response = await fetch(`${systemPath}json/topology.json`);
+        
+        // 3. 關鍵防護：如果發現檔案不存在，直接拋出錯誤並中斷
+        if (!response.ok) {
+            throw new Error("System not ready");
         }
-    } catch (e) {
-        alert("🚧 網路連線異常，無法連線至新系統！");
-        if (loader) loader.classList.add('hidden');
-        return;
+
+        // 4. 如果一切正常，才執行初始化
+        init(systemPath);
+
+    } catch (error) {
+        // 5. 隱藏 Loading，避免畫面卡住
+        loader.classList.add('hidden');
+        
+        // 6. 用優雅的彈窗取代瀏覽器的 Console Error
+        alert("🚧 智頭急行線的資料尚未建置完成，敬請期待！");
+        console.warn("System path not found:", systemPath);
     }
-
-    // 3. 確定新系統存在後，才開始收合目前的 UI
-    const panel = document.getElementById('bottom-bar');
-    if (panel) panel.classList.remove('expanded');
-    
-    const searchInput = document.getElementById('search-input');
-    const searchResults = document.getElementById('search-results');
-    if (searchInput) searchInput.value = '';
-    if (searchResults) searchResults.style.display = 'none';
-
-    // 4. 正式呼叫核心系統灌入新資料
-    init(systemPath);
 };
 
 // ==========================================
