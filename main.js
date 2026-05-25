@@ -3950,10 +3950,11 @@ function updateBottomPanelStation(st_id) {
             let showId = !(settings && settings.show_train_id === false);
             
             // 1. 文字上色與開關邏輯
-            const getTrainText = (trainObj, trainNo) => {
+            const getTrainText = (trainObj, rawTrainNo) => {
                 let colors = settings?.train_color?.[trainObj.type];
                 let tColor = colors ? (isDarkMode ? colors[0] : (colors[1] || colors[0])) : theme.textMain;
                 
+
                 let cleanTrainNo = String(rawTrainNo).split('|')[0];
 
                 let parts = [];
@@ -3961,7 +3962,7 @@ function updateBottomPanelStation(st_id) {
                     parts.push(`<span style="color: ${tColor}; font-weight: bold; font-size: 14px;">${trainObj.type}</span>`);
                 }
                 if (showId) {
-                    parts.push(`<span style="color: ${theme.textMain}; font-size: 13px; margin-left: 4px;">${trainNo}</span>`);
+                    parts.push(`<span style="color: ${theme.textMain}; font-size: 13px; margin-left: 4px;">${cleanTrainNo}</span>`);
                 }
                 
                 if (parts.length === 0) {

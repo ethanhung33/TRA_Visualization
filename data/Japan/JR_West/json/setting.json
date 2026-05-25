@@ -207,7 +207,8 @@
     "gantoku": {
         "name": "岩徳線 (岩国-徳山)",
         "lines": [
-            "gantoku_line"
+            "gantoku_line",
+            {"id": "sanyo_main_line", "start": "櫛ケ浜", "end": "徳山"}
         ],
         "view_type": "LINEAR",
         "button_color": ["#9E9E9E", "#616161"]
@@ -247,6 +248,7 @@
     "geibi": {
         "name": "芸備線 (広島-三次-備後落合)",
         "lines": [
+            {"id": "hakubi_line", "start": "新見", "end": "備中神代"},
             "geibi_line"
         ],
         "view_type": "LINEAR",
