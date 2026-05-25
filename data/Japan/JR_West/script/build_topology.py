@@ -375,6 +375,12 @@ def parse_route(name, url):
             print(f"✂️ 呉線已成功截斷，忽略海田市以後的所有車站。")
         except ValueError:
             print(f"⚠️ 找不到海田市站，無法截斷呉線。")
+    if name == "仙崎支線":
+        stations = [
+            {"id": "JRW_Sanin_124", "name": "長門市", "km": 0.0},
+            {"id": "JRW_Senzaki_01", "name": "仙崎", "km": 2.2}
+        ]
+        print("    🎯 成功攔截並修正「仙崎支線」的車站與里程資料！")
 
     return stations
 
