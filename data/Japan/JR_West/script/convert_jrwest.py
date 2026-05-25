@@ -74,8 +74,8 @@ def main():
     
     # 將這條虛擬路線註冊進複合鍵字典
     STA_MAP[("chizu_express_line", "上郡")] = kamigori_id
-    STA_MAP[("chizu_express_line", "佐用")] = "Chizu_Sayo"
-    STA_MAP[("chizu_express_line", "大原")] = "Chizu_Ohara"
+    STA_MAP[("chizu_express_line", "佐用")] = "佐用"
+    STA_MAP[("chizu_express_line", "大原")] = "大原"
     STA_MAP[("chizu_express_line", "智頭")] = chizu_id
     
     # 將路線註冊進 LINE_MAP

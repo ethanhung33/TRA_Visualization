@@ -4434,29 +4434,26 @@ window.triggerSelectTrain = function(trainNo) {
 // 🔄 跨系統無縫切換器 (防呆與路徑檢查版)
 // ==========================================
 window.switchToSystem = async function(systemPath) {
-    // 1. 顯示 Loading
     const loader = document.getElementById('loading-overlay');
     loader.classList.remove('hidden');
 
+    // 🌟 修正：補上絕對路徑開頭，確保 GitHub Pages 能正確抓到資料夾
+    // 假設你的資料夾結構是 /TRA_Visualization/data/...
+    const fullPath = window.location.pathname.includes('TRA_Visualization') 
+                     ? '/TRA_Visualization/' + systemPath 
+                     : '/' + systemPath;
+
     try {
-        // 2. 先嘗試 fetch 資料夾內的 index.json 或 setting.json
-        const response = await fetch(`${systemPath}json/topology.json`);
+        // 🌟 測試路徑改為拼接好的 fullPath
+        const checkRes = await fetch(`${fullPath}json/setting.json?t=${Date.now()}`);
+        if (!checkRes.ok) throw new Error("Path not found");
         
-        // 3. 關鍵防護：如果發現檔案不存在，直接拋出錯誤並中斷
-        if (!response.ok) {
-            throw new Error("System not ready");
-        }
-
-        // 4. 如果一切正常，才執行初始化
-        init(systemPath);
-
-    } catch (error) {
-        // 5. 隱藏 Loading，避免畫面卡住
+        // 成功後，init 也必須用這個正確的 fullPath
+        init(fullPath); 
+    } catch (e) {
         loader.classList.add('hidden');
-        
-        // 6. 用優雅的彈窗取代瀏覽器的 Console Error
-        alert("🚧 智頭急行線的資料尚未建置完成，敬請期待！");
-        console.warn("System path not found:", systemPath);
+        alert("🚧 智頭急行線的資料尚未建置完成 (路徑測試失敗)");
+        console.warn("System path not found:", fullPath);
     }
 };
 
