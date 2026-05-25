@@ -3505,6 +3505,14 @@ function updateBottomPanel(train) {
     displayTrains.forEach((tr, trIdx) => {
         if (tr.segments) {
             tr.segments.forEach((seg, segIdx) => {
+
+                if (seg.is_other) {
+                    // 防呆：避免連續塞入多個標記
+                    if (allStops.length === 0 || allStops[allStops.length - 1].type !== 'other_link') {
+                        allStops.push({ type: 'other_link' });
+                    }
+                }
+
                 for (let i = 0; i < seg.s.length; i++) {
                     if (seg.v[i] === 2) continue; // 跳過通過站
                     
@@ -3553,6 +3561,22 @@ function updateBottomPanel(train) {
     let lastStationId = null;
 
     allStops.forEach(stop => {
+
+        if (stop.type === 'other_link') {
+            if (stopCount > 0) stationsHtml += `<div class="station-arrow" style="color: #FFA500;">➔</div>`;
+            
+            stationsHtml += `
+                <div class="train-stop-item" style="background: ${isDarkMode ? 'rgba(255, 165, 0, 0.15)' : 'rgba(255, 165, 0, 0.1)'}; cursor: pointer; border-left: 4px solid #FFA500;" onclick="window.open('https://your-other-system-url.com', '_blank')">
+                    <div class="ts-col-name" style="color: #FFA500; font-weight: bold;">🔗 直通其他系統</div>
+                    <div class="ts-col-arr" style="opacity: 0.8; font-size: 12px; grid-column: span 2; text-align: left; color: #FFA500;">
+                        (點擊前往查看該路線)
+                    </div>
+                </div>
+            `;
+            // 注意：這裡不增加 stopCount，讓下一個實體車站自己印出相連的箭頭
+            return;
+        }
+
         // 防呆：交會站只印一次 (例如直通交界)
         if (stop.id === lastStationId) return;
         lastStationId = stop.id;

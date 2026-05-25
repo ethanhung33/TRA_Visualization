@@ -61,6 +61,29 @@ def main():
             stations_in_seg.append(sta_name)
         LINE_MAP[seg_id] = stations_in_seg
 
+    # ==========================================
+    # 🌟 專屬特判：為「特急 スーパーはくと」手動注入智頭急行線
+    # ==========================================
+    # 動態取得上郡(山陽本線)與智頭(因美線)的既有 ID，讓軌道無縫接軌
+    kamigori_id = STA_MAP.get("上郡", "上郡")
+    chizu_id = STA_MAP.get("智頭", "智頭")
+    
+    # 建立中間站的虛擬 ID
+    STA_MAP["佐用"] = "Chizu_Sayo"
+    STA_MAP["大原"] = "Chizu_Ohara"
+    
+    # 將這條虛擬路線註冊進複合鍵字典
+    STA_MAP[("chizu_express_line", "上郡")] = kamigori_id
+    STA_MAP[("chizu_express_line", "佐用")] = "Chizu_Sayo"
+    STA_MAP[("chizu_express_line", "大原")] = "Chizu_Ohara"
+    STA_MAP[("chizu_express_line", "智頭")] = chizu_id
+    
+    # 將路線註冊進 LINE_MAP
+    LINE_MAP["chizu_express_line"] = ["上郡", "佐用", "大原", "智頭"]
+
+    OTHER_LINES = {"chizu_express_line"}
+    # ==========================================
+
     # 2. 讀取與過濾原始資料
     with open(raw_data_path, 'r', encoding='utf-8') as f:
         raw_trains = json.load(f)
@@ -170,6 +193,9 @@ def main():
             if chosen_line != current_line:
                 if current_line is not None:
                     segs.append({"id": current_line, "s": current_seg_s, "t": current_seg_t, "v": current_seg_v})
+                    if current_line in OTHER_LINES:
+                        segs[-1]["is_other"] = True
+
                 current_line = chosen_line
                 st1_id = STA_MAP.get((current_line, s1)) or STA_MAP.get(s1, s1)
                 current_seg_s, current_seg_t, current_seg_v = [st1_id], [merged_stops[s1][0], merged_stops[s1][1]], [0]
@@ -182,6 +208,8 @@ def main():
 
         if current_line is not None:
             segs.append({"id": current_line, "s": current_seg_s, "t": current_seg_t, "v": current_seg_v})
+            if current_line in OTHER_LINES:
+                segs[-1]["is_other"] = True
             
         # 修補 v 值 (0=起點, 3=終點, 1=中間)
         for seg in segs:
