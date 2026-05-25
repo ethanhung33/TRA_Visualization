@@ -328,6 +328,19 @@ def parse_route(name, url):
             target_idx = [s['name'] for s in stations].index("猪谷")
             # 直接切片，只保留豬谷以後的車站
             stations = stations[target_idx:] 
+
+            if len(stations) > 1:
+                base_km = stations[0]['km']
+                next_km = stations[1]['km']
+                
+                # 狀況 A：如果維基百科第二站(楡原)是 7.0，代表它已經是相對里程，我們只要把猪谷強制改為 0 即可
+                if next_km < base_km:
+                    stations[0]['km'] = 0.0
+                # 狀況 B (防呆)：如果維基百科未來改成絕對里程 (196.2)，就把全線平移扣除 base_km
+                else:
+                    for st in stations:
+                        st['km'] = round(st['km'] - base_km, 2)
+
             print(f"✂️ 高山本線已成功截斷，忽略猪谷之前的所有車站。")
         except ValueError:
             print(f"⚠️ 找不到猪谷站，無法截斷高山本線。")
