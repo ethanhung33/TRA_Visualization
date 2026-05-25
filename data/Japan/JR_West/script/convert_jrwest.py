@@ -102,7 +102,7 @@ def main():
     # 3. 資料碎解 (Chunks)
     all_chunks = []
     for train in valid_trains:
-        no = train.get("列車番号", "未知")
+        original_no = train.get("列車番号", "未知")
         op_text = train.get("運転日", "")
         op_type = "daily"
         if "土曜・休日運休" in op_text or "平日運転" in op_text:
@@ -121,9 +121,14 @@ def main():
             ordered_stops.append(sta_name)
             
         if not ordered_stops: continue
+
+        start_st_name = clean_station_name(train.get("data", [])[0]["sta"])
+        start_st_id = STA_MAP.get(start_st_name, start_st_name)
+
+        unique_no = f"{original_no}|{start_st_id}"
         
         all_chunks.append({
-            "no": no, "op_type": op_type,
+            "no": unique_no, "op_type": op_type,
             "type": clean_train_type(train.get("列車種別", ""), train.get("列車名", "")),
             "thru_link": train.get("直通運転"),
             "stops": stop_dict, "ordered_stops": ordered_stops,
@@ -236,7 +241,9 @@ def main():
     # 5. 直通運轉配對
     for t in processed_trains:
         for target_no in t["_thru_links"]:
-            for partner in [p for p in processed_trains if p["no"] == target_no]:
+            partners = [p for p in processed_trains if p["no"].split('|')[0] == target_no]
+            
+            for partner in partners:
                 j_name = t["_last_sta"] if t["_last_sta"] == partner["_first_sta"] else (t["_first_sta"] if t["_first_sta"] == partner["_last_sta"] else None)
                 if j_name:
                     j_id = STA_MAP.get(j_name, j_name)

@@ -102,6 +102,32 @@ function normalizeText(text) {
     return result.toLowerCase();
 }
 
+// ==========================================
+// 🌟 全域顯示攔截器：自動移除 "|" 後綴
+// 確保所有 train.no 在顯示時都只呈現「車次編號」本身
+// ==========================================
+(function() {
+    // 取得 Object 原本對 'no' 屬性的定義 (如果有的話)
+    const originalNoDescriptor = Object.getOwnPropertyDescriptor(Object.prototype, 'no');
+    
+    Object.defineProperty(Object.prototype, 'no', {
+        get: function() {
+            // 優先讀取真實的 _no (這是 Python 產出的 "編號|起點站")
+            // 如果沒有，就呼叫原本的 getter
+            let val = this._no || (originalNoDescriptor && originalNoDescriptor.get ? originalNoDescriptor.get.call(this) : "");
+            
+            // 處理顯示：若含有 "|"，只取 "|" 前面的字串
+            return typeof val === 'string' ? val.split('|')[0] : val;
+        },
+        set: function(val) {
+            // 存入完整的值 (例如 "320D|清音")，確保 Python 連結時 UID 是完整的
+            this._no = val;
+        },
+        configurable: true,
+        enumerable: true
+    });
+})();
+
 // 🌟 事件代理：這輩子只綁定一次，且無論 UI 怎麼重刷都有效
 document.addEventListener('click', (e) => {
     // 透過 ID 判斷點擊的是哪一個系統按鈕 (請確認你首頁按鈕的 ID 是這兩個)
