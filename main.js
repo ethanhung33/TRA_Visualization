@@ -102,31 +102,6 @@ function normalizeText(text) {
     return result.toLowerCase();
 }
 
-// ==========================================
-// 🌟 全域顯示攔截器：自動移除 "|" 後綴
-// 確保所有 train.no 在顯示時都只呈現「車次編號」本身
-// ==========================================
-// 確保這段程式碼在 main.js 的最最最頂端
-(function() {
-    const proto = Object.prototype;
-    const descriptor = Object.getOwnPropertyDescriptor(proto, 'no');
-    
-    Object.defineProperty(proto, 'no', {
-        get: function() {
-            // 優先讀取原始值，無論是 _no 還是原屬性
-            let val = this._no || (descriptor && descriptor.get ? descriptor.get.call(this) : undefined);
-            
-            // 顯示時永遠只取 "|" 前面，並處理可能的 null/undefined
-            return (typeof val === 'string') ? val.split('|')[0] : val;
-        },
-        set: function(val) {
-            this._no = val;
-        },
-        configurable: true,
-        enumerable: true
-    });
-})();
-
 // 🌟 事件代理：這輩子只綁定一次，且無論 UI 怎麼重刷都有效
 document.addEventListener('click', (e) => {
     // 透過 ID 判斷點擊的是哪一個系統按鈕 (請確認你首頁按鈕的 ID 是這兩個)
@@ -1747,7 +1722,8 @@ window.SearchHistoryManager = {
 window.buildTrainHistoryData = function(train) {
     if (!train) return { id: "", keyword: "未知", displayHtml: "未知" };
     
-    let trainNo = train.no || train.train_no || train.id || "未知";
+    let rawNo = train.no || train.train_no || train.id || "未知";
+    let trainNo = String(rawNo).split('|')[0];
     let tType = train.type || "";
     
     // 1. 讀取顯示設定
@@ -2162,7 +2138,12 @@ function setupSearch() {
                     let displayParts = [];
                     if (currentShowType && item.typeStr) displayParts.push(item.typeStr);
                     // 🌟 如果有 dispId 就用它 (顯示直通)，沒有就維持原本的 id
-                    if (currentShowId && item.id) displayParts.push(item.dispId || item.id); 
+                    if (currentShowId && item.id) {
+                        let dispIdStr = item.dispId || item.id;
+                        // 用正則表達式把可能包含的 |xxx 後綴都清掉 (支援處理 "123|A ➔ 456|B" 這種格式)
+                        dispIdStr = String(dispIdStr).replace(/\|[^ ]+/g, ''); 
+                        displayParts.push(dispIdStr); 
+                    }
                     let trainDisplayText = displayParts.join(' ');
                     
                     let timeHtml = "";
@@ -3344,7 +3325,8 @@ function updateBottomPanel(train) {
     }
 
     // 1. 取得車次與顏色
-    let trainNo = train.no || train.train_no || train.id || "未知";
+    let rawNo = train.no || train.train_no || train.id || "未知";
+    let trainNo = String(rawNo).split('|')[0];
     let trainType = train.type || "";
     
     let trainColor = "#888888"; 
@@ -3391,16 +3373,18 @@ function updateBottomPanel(train) {
                 
                 if (c.action === "split") {
                     // 👉 物理併結 (例如 139B + 6139B)
+                    let cleanPno = String(pTrain.no).split('|')[0]; // 🌟 加這行
                     partnerHtml += `
-                        <span style="background: ${pColor}30; color: ${isDarkMode ? '#FFF' : '#000'}; border: 1px solid ${pColor}; padding: 3px 10px; border-radius: 12px; font-size: 14px; margin-left: 12px; cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap; font-weight: normal; vertical-align: middle;" onclick="event.stopPropagation(); window.switchTrainKeepView('${pTrain.no}')">
-                            🔗 併結 ${pTrain.type} ${pTrain.no}
+                        <span style="..." onclick="event.stopPropagation(); window.switchTrainKeepView('${pTrain.no}')">
+                            🔗 併結 ${pTrain.type} ${cleanPno} 
                         </span>
                     `;
                 } else if (c.action === "direct") {
                     // 👉 變更車次直通 (例如 139B -> 139M)
+                    let cleanPno = String(pTrain.no).split('|')[0]; // 🌟 加這行
                     partnerHtml += `
-                        <span style="background: transparent; color: ${isDarkMode ? '#FFF' : '#000'}; border: 1px dashed ${pColor}; padding: 3px 10px; border-radius: 12px; font-size: 14px; margin-left: 12px; cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap; font-weight: normal; vertical-align: middle;" onclick="event.stopPropagation(); window.switchTrainKeepView('${pTrain.no}')">
-                            ➡️ 直通 ${pTrain.type} ${pTrain.no}
+                        <span style="..." onclick="event.stopPropagation(); window.switchTrainKeepView('${pTrain.no}')">
+                            ➡️ 直通 ${pTrain.type} ${cleanPno}
                         </span>
                     `;
                 }
@@ -3943,6 +3927,8 @@ function updateBottomPanelStation(st_id) {
                 let colors = settings?.train_color?.[trainObj.type];
                 let tColor = colors ? (isDarkMode ? colors[0] : (colors[1] || colors[0])) : theme.textMain;
                 
+                let cleanTrainNo = String(rawTrainNo).split('|')[0];
+
                 let parts = [];
                 if (showType) {
                     parts.push(`<span style="color: ${tColor}; font-weight: bold; font-size: 14px;">${trainObj.type}</span>`);
