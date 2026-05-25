@@ -2,10 +2,10 @@ import json
 import os
 import re
 import unicodedata
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 # ==========================================
-# 🌟 路徑設定 (完美對應你的資料夾架構)
+# 🌟 路徑設定
 # ==========================================
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(script_dir)
@@ -19,14 +19,12 @@ output_dir = os.path.join(json_dir, "timetable")
 # 🛠️ 工具函數
 # ==========================================
 def clean_station_name(text):
-    """清理車站名稱，包含全半形轉換與去除多餘符號"""
     text = unicodedata.normalize('NFKC', text)
     text = re.sub(r'\[.*?\]|（.*?）|\(.*?\)|[†*※‡駅]', '', text)
     anomalies = {"大阪駅": "大阪", "京都駅": "京都"}
     return anomalies.get(text.strip(), text.strip())
 
 def clean_train_type(type_str, name_str):
-    """智慧清洗車種名稱，過濾全半形字母、括號與號數"""
     clean_type = re.sub(r'[A-Za-z\uFF21-\uFF3A]+', '', type_str).replace(" ", "")
     clean_name = re.sub(r'[A-Za-z\uFF21-\uFF3A]+', '', name_str).replace(" ", "")
     
@@ -48,7 +46,6 @@ def clean_train_type(type_str, name_str):
 def main():
     print("🚀 開始解析 JR 西日本原始時刻表...")
     
-    # 1. 讀取 Topology
     with open(topo_path, 'r', encoding='utf-8') as f:
         topo = json.load(f)
         
@@ -62,7 +59,6 @@ def main():
             stations_in_seg.append(sta_name)
         LINE_MAP[seg_id] = stations_in_seg
 
-    # 2. 讀取 JR 西日本原始資料並過濾新幹線
     with open(raw_data_path, 'r', encoding='utf-8') as f:
         raw_trains = json.load(f)
 
@@ -74,13 +70,12 @@ def main():
             continue
         valid_trains.append(train)
 
-    # 3. 緩衝區：合併「車次號碼 + 路線 + 行駛日曆」皆相同的段落
-    train_buffer = {}
+    # ==========================================
+    # 🌟 核心修正 1：將所有資料碎解為獨立段落 (Chunks)
+    # ==========================================
+    all_chunks = []
     for train in valid_trains:
         no = train.get("列車番号", "未知")
-        route_list = train.get("route", [])
-        
-        # 🌟 判斷這筆資料的「行駛日曆」屬性
         op_text = train.get("運転日", "")
         op_type = "daily"
         if "土曜・休日運休" in op_text or "平日運転" in op_text:
@@ -88,27 +83,6 @@ def main():
         elif "土曜・休日運転" in op_text or "休日運転" in op_text:
             op_type = "holiday"
             
-        # 🌟 核心修正：將 op_type 加入複合鍵，徹底分開平假日的同號碼車次！
-        route_key = "_".join(sorted(route_list))
-        unique_id = f"{no}::{route_key}::{op_type}"
-        
-        if unique_id not in train_buffer:
-            train_buffer[unique_id] = {
-                "no": no, 
-                "type": clean_train_type(train.get("列車種別", ""), train.get("列車名", "")),
-                # 直接根據 op_type 決定這筆資料要丟去哪裡，不用再互相覆蓋了
-                "is_wd": op_type in ["daily", "weekday"],
-                "is_we": op_type in ["daily", "holiday"],
-                "segments_data": [],
-                "thru_links": set()
-            }
-
-        # ...(下面繼續接 thru = train.get("直通運転") 等原本的程式碼)...
-
-        thru = train.get("直通運転")
-        if thru and thru != no:
-            train_buffer[unique_id]["thru_links"].add(thru)
-
         stop_dict = {}
         ordered_stops = []
         for s in train.get("data", []):
@@ -119,23 +93,78 @@ def main():
             if arr == "" and dep == "": continue
             stop_dict[sta_name] = (arr, dep)
             ordered_stops.append(sta_name)
+            
+        if not ordered_stops: continue
+        start_time = stop_dict[ordered_stops[0]][1]
+        
+        all_chunks.append({
+            "no": no,
+            "op_type": op_type,
+            "type": clean_train_type(train.get("列車種別", ""), train.get("列車名", "")),
+            "thru_link": train.get("直通運転"),
+            "stops": stop_dict,
+            "ordered_stops": ordered_stops,
+            "start_time": start_time if isinstance(start_time, int) else 9999
+        })
 
-        if ordered_stops:
-            start_time = stop_dict[ordered_stops[0]][1]
-            train_buffer[unique_id]["segments_data"].append({
-                "stops": stop_dict,
-                "ordered_stops": ordered_stops,
-                "start_time": start_time if isinstance(start_time, int) else 9999
-            })
+    # ==========================================
+    # 🌟 核心修正 2：利用「空間連通性」進行智慧分群
+    # ==========================================
+    grouped_chunks = defaultdict(list)
+    for chunk in all_chunks:
+        grouped_chunks[f'{chunk["no"]}::{chunk["op_type"]}'].append(chunk)
 
-    # 4. 基礎轉換與拓樸映射
+    train_buffer = {}
+    buffer_idx = 0
+    
+    for key, chunks in grouped_chunks.items():
+        instances = []
+        # 將擁有相同車次號碼的積木，嘗試用「共用車站」接合起來
+        for chunk in chunks:
+            chunk_stations = set(chunk["ordered_stops"])
+            matched_idxs = []
+            for i, instance in enumerate(instances):
+                instance_stations = set(s for c in instance for s in c["ordered_stops"])
+                if chunk_stations.intersection(instance_stations):
+                    matched_idxs.append(i)
+            
+            # 如果這塊積木接不上任何已知的同號碼列車，它就是一台全新的獨立列車！
+            if not matched_idxs:
+                instances.append([chunk])
+            else:
+                new_instance = [chunk]
+                for i in sorted(matched_idxs, reverse=True):
+                    new_instance.extend(instances.pop(i))
+                instances.append(new_instance)
+                
+        # 將接合完成的獨立列車存入 Buffer
+        for instance in instances:
+            no = instance[0]["no"]
+            op_type = instance[0]["op_type"]
+            t_type = instance[0]["type"]
+            thru_links = set(c["thru_link"] for c in instance if c["thru_link"] and c["thru_link"] != no)
+            
+            unique_id = f"train_{buffer_idx}"
+            buffer_idx += 1
+            
+            train_buffer[unique_id] = {
+                "no": no,
+                "type": t_type,
+                "is_wd": op_type in ["daily", "weekday"],
+                "is_we": op_type in ["daily", "holiday"],
+                "segments_data": instance,
+                "thru_links": thru_links
+            }
+
+    # ==========================================
+    # 轉換與拓樸映射
+    # ==========================================
     processed_trains = []
     for unique_id, t_info in train_buffer.items():
         t_info["segments_data"].sort(key=lambda x: x["start_time"])
-
+        
         merged_stops = {}
         full_ordered_stops = []
-        
         for seg in t_info["segments_data"]:
             for st in seg["ordered_stops"]:
                 if st not in full_ordered_stops:
@@ -161,7 +190,7 @@ def main():
             segs.append({"id": l_id, "s": s_list, "t": t_list, "v": v_list})
             
         if not segs: continue
-
+        
         segs.sort(key=lambda x: x["t"][0])
         
         processed_trains.append({
@@ -176,16 +205,11 @@ def main():
             "_is_we": t_info["is_we"]
         })
 
-    # ==========================================
-    # 🌟 核心修正：嚴格的空間直通配對
-    # ==========================================
+    # 直通運轉配對
     for t in processed_trains:
         for target_no in t["_thru_links"]:
-            # 抓出所有符合該車次號碼的候選車 (例如所有的 430Y)
             partners = [p for p in processed_trains if p["no"] == target_no]
-            
             for partner in partners:
-                # 只有當「終點接上起點」時，才認定為真正的直通對象！
                 junction_name = None
                 if t["_last_sta"] == partner["_first_sta"]:
                     junction_name = t["_last_sta"]
@@ -194,21 +218,12 @@ def main():
                     
                 if junction_name:
                     junction_id = STA_MAP.get(junction_name, junction_name)
-                    
                     if not any(c["train_id"] == partner["no"] and c["action"] == "direct" for c in t["coupled_with"]):
-                        t["coupled_with"].append({
-                            "train_id": partner["no"],
-                            "station_id": junction_id,
-                            "action": "direct"
-                        })
+                        t["coupled_with"].append({"train_id": partner["no"], "station_id": junction_id, "action": "direct"})
                     if not any(c["train_id"] == t["no"] and c["action"] == "direct" for c in partner["coupled_with"]):
-                        partner["coupled_with"].append({
-                            "train_id": t["no"],
-                            "station_id": junction_id,
-                            "action": "direct"
-                        })
+                        partner["coupled_with"].append({"train_id": t["no"], "station_id": junction_id, "action": "direct"})
 
-    # 5. 清理暫存特徵並分流
+    # 分流與清理
     wd_final, we_final = [], []
     for t in processed_trains:
         is_wd = t.pop("_is_wd")
@@ -223,7 +238,7 @@ def main():
         if is_wd: wd_final.append(t)
         if is_we: we_final.append(t)
 
-    # 6. 輸出存檔
+    # 輸出存檔
     os.makedirs(output_dir, exist_ok=True)
     def save_one_train_per_line(file_path, train_list):
         with open(file_path, "w", encoding="utf-8") as f:
