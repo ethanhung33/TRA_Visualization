@@ -2535,31 +2535,44 @@ function bindThemeToggle() {
 }
 
 // ==========================================
-// 🌟 視角自動適應 (防過度壓縮 + 支援預設縮放版)
+// 🌟 視角自動適應 (支援環狀線特判與獨立縮放版)
 // ==========================================
 function autoFitScale() {
     const wrapper = document.getElementById('canvas-wrapper');
     if (!wrapper || typeof loopKm === 'undefined' || loopKm <= 0) return;
 
-    // 算出 Y 軸要「完美塞滿螢幕」所需要的最低倍率
-    const minScaleY = (wrapper.clientHeight - 150) / loopKm;
+    let presetKey = currentRouteView; 
+    let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+    
+    let targetScaleY = 2.0; // 保底預設值
+
+    // 🌟 核心修正 1：環狀線特判
+    if (isCircular) {
+        // 對於環狀線，強制讓「一圈」的高度佔滿螢幕高度的 70%
+        // 這樣像大阪環狀線 (21km) 這種短路線，scaleY 就會自動放大到 20 甚至 30！
+        targetScaleY = (wrapper.clientHeight * 0.7) / loopKm;
+    } else {
+        // 🌟 直線路線：原本的邏輯
+        const minScaleY = (wrapper.clientHeight - 150) / loopKm;
+        targetScaleY = minScaleY;
+
+        if (settings && settings.default_scale_y !== undefined) {
+            targetScaleY = settings.default_scale_y;
+        } else if (minScaleY < 2.0) {
+            targetScaleY = 2.0; 
+        }
+    }
+
+    // 🌟 核心修正 2：允許路線個別設定覆蓋 (最高優先權)
+    // 如果你在 setting.json 的 view_presets 裡面特別指定了 default_scale_y，就聽它的
+    if (settings?.view_presets?.[presetKey]?.default_scale_y !== undefined) {
+        targetScaleY = settings.view_presets[presetKey].default_scale_y;
+    }
 
     // 讀取時間拉伸係數
     let timeStretchRatio = 0.4;
     if (settings && settings.time_stretch_ratio !== undefined) {
         timeStretchRatio = settings.time_stretch_ratio;
-    }
-
-    // 🌟 核心修改：不再無腦硬塞滿螢幕！
-    let targetScaleY = minScaleY;
-
-    // 1. 如果設定檔有明確指示「預設放大倍率」，絕對聽設定檔的！
-    if (settings && settings.default_scale_y !== undefined) {
-        targetScaleY = settings.default_scale_y;
-    } 
-    // 2. 如果沒設定，且路線太長導致比例被壓得太扁 (例如小於 2.0)，強制放大，讓使用者自己滾動
-    else if (minScaleY < 2.0) {
-        targetScaleY = 2.0; 
     }
 
     // 正式套用比例
