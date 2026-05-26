@@ -204,6 +204,41 @@ function getProcessedSegments(selectedSegments, topology) {
         return { segId, stations, userReversed };
     }).filter(Boolean);
 
+
+    let isCircular = false;
+    if (settings && settings.view_presets) {
+        for (let key in settings.view_presets) {
+            if (settings.view_presets[key].lines === selectedSegments) {
+                if (settings.view_presets[key].view_type === "CIRCULAR") {
+                    isCircular = true;
+                }
+                break;
+            }
+        }
+    }
+
+    if (isCircular) {
+        // 如果這個環狀線剛好是由「2 條路線」組成
+        if (segmentsData.length === 2) {
+            let seg1 = segmentsData[0].stations;
+            let seg2 = segmentsData[1].stations;
+            
+            let tailOfFirst = seg1[seg1.length - 1].id;
+            let headOfSecond = seg2[0].id;
+            
+            // 比較第一段的尾巴跟第二段的頭
+            if (tailOfFirst !== headOfSecond) {
+                // 不一樣！啟動自我修復：把第二段反轉
+                console.log("🔄 偵測到 2 段式環狀線方向不接續，自動翻轉第二段！");
+                segmentsData[1].stations.reverse();
+            } else {
+                console.log("✅ 2 段式環狀線方向完美接續，不須翻轉。");
+            }
+        }
+        // 處理完畢，直接回傳，跳過下方容易錯亂的直線翻轉演算法
+        return segmentsData; 
+    }
+
     // 2. 自動判斷是否需要翻轉
     for (let i = 0; i < segmentsData.length; i++) {
         if (segmentsData[i].userReversed) continue; // 使用者已手動翻轉，不干涉
