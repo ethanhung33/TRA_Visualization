@@ -110,15 +110,16 @@ def main():
         elif "土曜・休日運転" in op_text or "休日運転" in op_text:
             op_type = "holiday"
             
-        stop_dict, ordered_stops = {}, []
+        stop_times, ordered_stops = [], []  # 🌟 改為平行陣列
         for s in train.get("data", []):
             sta_name = clean_station_name(s["sta"])
             arr, dep = s.get("arr", ""), s.get("dep", "")
             if arr == "": arr = dep
             if dep == "": dep = arr
             if arr == "" and dep == "": continue
-            stop_dict[sta_name] = (arr, dep)
+            
             ordered_stops.append(sta_name)
+            stop_times.append((arr, dep))  # 🌟 循序存入陣列，避免覆蓋
             
         if not ordered_stops: continue
 
@@ -131,9 +132,11 @@ def main():
             "no": unique_no, "op_type": op_type,
             "type": clean_train_type(train.get("列車種別", ""), train.get("列車名", "")),
             "thru_link": train.get("直通運転"),
-            "stops": stop_dict, "ordered_stops": ordered_stops,
-            "start_time": stop_dict[ordered_stops[0]][1] if isinstance(stop_dict[ordered_stops[0]][1], int) else 9999
+            "stops": stop_times,  # 🌟 這裡現在儲存的是陣列
+            "ordered_stops": ordered_stops,
+            "start_time": stop_times[0][1] if isinstance(stop_times[0][1], int) else 9999
         })
+            
 
     # 4. 空間連通性分群
     grouped_chunks = defaultdict(list)
@@ -175,20 +178,27 @@ def main():
         t_info["segments_data"].sort(key=lambda x: x["start_time"])
         
         merged_stops, full_ordered_stops = {}, []
-        # 🌟 修正：改用平行陣列，支援環狀線「起訖站同名」
+        # 🌟 修正：改用平行陣列，並加入去重複機制
         full_ordered_stops = []
         full_ordered_times = []
+        seen_chunks = set() # 🌟 防止相同區段疊加
         
         for seg in t_info["segments_data"]:
-            for st in seg["ordered_stops"]:
-                # 只有當「這站」跟「前一站」名字不同的時候才加入（允許繞一圈後重複）
+            # 排除完全重複的時刻表區塊
+            chunk_hash = str(seg["ordered_stops"]) + str(seg["stops"])
+            if chunk_hash in seen_chunks: continue
+            seen_chunks.add(chunk_hash)
+            
+            for idx, st in enumerate(seg["ordered_stops"]): # 🌟 取得當前車站索引
+                st_time = seg["stops"][idx] # 🌟 從對應的 Index 精準取得時間
+                
                 if not full_ordered_stops or full_ordered_stops[-1] != st:
                     full_ordered_stops.append(st)
-                    full_ordered_times.append(seg["stops"][st])
+                    full_ordered_times.append(st_time)
                 else:
                     # 處理跨 Chunk 資料交界處的時間合併
                     prev_arr, prev_dep = full_ordered_times[-1]
-                    new_arr, new_dep = seg["stops"][st]
+                    new_arr, new_dep = st_time
                     full_ordered_times[-1] = (
                         prev_arr if prev_arr != "" else new_arr,
                         new_dep if new_dep != "" else prev_dep
