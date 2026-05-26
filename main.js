@@ -1407,6 +1407,9 @@ function handleRouteSwitch(newRoute) {
     });
     
     loopKm = newLoopKm;
+    
+
+    autoFitScale();
 
     // --- 5. 座標補償：以「螢幕正中央」為基準，還原時間和里程 ---
     // 先算出目標時間和里程在新比例下的「絕對像素座標」
