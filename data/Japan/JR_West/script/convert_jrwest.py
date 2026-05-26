@@ -175,14 +175,24 @@ def main():
         t_info["segments_data"].sort(key=lambda x: x["start_time"])
         
         merged_stops, full_ordered_stops = {}, []
+        # 🌟 修正：改用平行陣列，支援環狀線「起訖站同名」
+        full_ordered_stops = []
+        full_ordered_times = []
+        
         for seg in t_info["segments_data"]:
             for st in seg["ordered_stops"]:
-                if st not in full_ordered_stops: full_ordered_stops.append(st)
-                if st not in merged_stops:
-                    merged_stops[st] = seg["stops"][st]
+                # 只有當「這站」跟「前一站」名字不同的時候才加入（允許繞一圈後重複）
+                if not full_ordered_stops or full_ordered_stops[-1] != st:
+                    full_ordered_stops.append(st)
+                    full_ordered_times.append(seg["stops"][st])
                 else:
-                    merged_stops[st] = (merged_stops[st][0] if merged_stops[st][0] != "" else seg["stops"][st][0],
-                                        seg["stops"][st][1] if seg["stops"][st][1] != "" else merged_stops[st][1])
+                    # 處理跨 Chunk 資料交界處的時間合併
+                    prev_arr, prev_dep = full_ordered_times[-1]
+                    new_arr, new_dep = seg["stops"][st]
+                    full_ordered_times[-1] = (
+                        prev_arr if prev_arr != "" else new_arr,
+                        new_dep if new_dep != "" else prev_dep
+                    )
 
         segs = []
         current_line = None
@@ -191,6 +201,8 @@ def main():
         for i in range(len(full_ordered_stops) - 1):
             s1 = full_ordered_stops[i]
             s2 = full_ordered_stops[i+1]
+            t1 = full_ordered_times[i]   # 🌟 取得 s1 的時間
+            t2 = full_ordered_times[i+1] # 🌟 取得 s2 的時間
             
             # 尋找同時包含這相鄰兩站的路線
             possible_lines = [l_id for l_id, l_sts in LINE_MAP.items() if s1 in l_sts and s2 in l_sts]
@@ -210,12 +222,16 @@ def main():
 
                 current_line = chosen_line
                 st1_id = STA_MAP.get((current_line, s1)) or STA_MAP.get(s1, s1)
-                current_seg_s, current_seg_t, current_seg_v = [st1_id], [merged_stops[s1][0], merged_stops[s1][1]], [0]
+                
+                # 🌟 改用 t1 讀取時間
+                current_seg_s, current_seg_t, current_seg_v = [st1_id], [t1[0], t1[1]], [0]
                 
             # 推進下一站
             st2_id = STA_MAP.get((current_line, s2)) or STA_MAP.get(s2, s2)
             current_seg_s.append(st2_id)
-            current_seg_t.extend([merged_stops[s2][0], merged_stops[s2][1]])
+            
+            # 🌟 改用 t2 讀取時間
+            current_seg_t.extend([t2[0], t2[1]])
             current_seg_v.append(1)
 
         if current_line is not None:
