@@ -44,7 +44,7 @@
     "osaka_circular": {
         "name": "大阪環状線 (天王寺-大阪-天王寺)",
         "lines": [
-            "osaka_circular_line",
+            "osaka_loop_line",
             {
                 "id": "yamatoji_line",
                 "start": "新今宮",
