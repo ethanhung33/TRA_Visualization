@@ -557,11 +557,6 @@
           "id": "JRW_Kansai_O17",
           "name": "今宮",
           "km": 19.5
-        },
-        {
-          "id": "JRW_Kansai_O18",
-          "name": "新今宮",
-          "km": 20.7
         }
       ]
     },
@@ -6427,7 +6422,7 @@
           "km": 50.5
         },
         {
-          "id": "JRW_Kansai_O18",
+          "id": "JRW_Kansai_Q13",
           "name": "新今宮",
           "km": 51.5
         },
@@ -6437,7 +6432,7 @@
           "km": 52.7
         },
         {
-          "id": "JRW_Kansai_Q13",
+          "id": "JRW_Kansai_Q14",
           "name": "JR難波",
           "km": 54.0
         }
