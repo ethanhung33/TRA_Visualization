@@ -2827,10 +2827,19 @@ function setupCanvasInteractions() {
         let safeMargin = (typeof SIDE_MARGIN !== 'undefined') ? SIDE_MARGIN : 0;
 
         const minScaleX = (wrapperW - safeMargin * 2) / 1560;
-        const minScaleY = wrapperH / safeLoopKm;
+        
+        // 🌟 1. 判斷現在是不是環狀線
+        let presetKey = currentRouteView; 
+        let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
+
+        // 🌟 2. 實作你的神級邏輯：直線最少 1 倍螢幕高，環狀線最少 1/3 倍螢幕高 (三倍圖)
+        const minScaleY = isCircular ? (wrapperH / 3) / safeLoopKm : wrapperH / safeLoopKm;
 
         if (zoom < 1) {
-            let minAllowedZoom = Math.min(minScaleX / CONFIG.scaleX, minScaleY / CONFIG.scaleY);
+            // 🌟 3. 數學修正：把 Math.min 改成 Math.max！
+            // 確保 X 軸和 Y 軸「任何一邊」撞到底線時，就不准再縮小！
+            let minAllowedZoom = Math.max(minScaleX / CONFIG.scaleX, minScaleY / CONFIG.scaleY);
+            
             if (minAllowedZoom > 1) minAllowedZoom = 1;
             if (zoom < minAllowedZoom) zoom = minAllowedZoom;
         }
