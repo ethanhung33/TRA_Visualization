@@ -39,6 +39,35 @@ def clean_train_type(type_str, name_str):
         return clean_type
     return f"{clean_type}{clean_name}"
 
+def parse_japanese_dates(text, default_year=2026):
+    """將日文的行駛日期字串，轉換為 YYYY-MM-DD 的標準陣列"""
+    if not text: return []
+    text = unicodedata.normalize('NFKC', text) # 轉為半形
+    text = text.replace('運転', '').strip()
+    
+    dates = []
+    # 使用正則表達式，以「月」為界線切割字串
+    parts = re.split(r'(\d+)月', text)
+    
+    for i in range(1, len(parts), 2):
+        month = int(parts[i])
+        # 處理後面的日期字串 (例如 "25・26・29日・")
+        days_str = parts[i+1].replace('日', '').strip('・')
+        
+        for part in days_str.split('・'):
+            if not part: continue
+            # 處理連續日期範圍 (例如 2～6)
+            if '～' in part or '~' in part or '-' in part:
+                bounds = re.split(r'[～~-]', part)
+                if len(bounds) == 2 and bounds[0].isdigit() and bounds[1].isdigit():
+                    for d in range(int(bounds[0]), int(bounds[1]) + 1):
+                        dates.append(f"{default_year}-{month:02d}-{d:02d}")
+            # 處理單一日期
+            elif part.isdigit():
+                dates.append(f"{default_year}-{month:02d}-{int(part):02d}")
+                
+    return sorted(list(set(dates)))
+
 # ==========================================
 # 🚀 主程式
 # ==========================================
@@ -108,11 +137,19 @@ def main():
     for train in valid_trains:
         original_no = train.get("列車番号", "未知")
         op_text = train.get("運転日", "")
+        
+        # 🌟 升級：預設陣列與臨時列車判定
         op_type = "daily"
+        dates = []
+        
         if "土曜・休日運休" in op_text or "平日運転" in op_text:
             op_type = "weekday"
         elif "土曜・休日運転" in op_text or "休日運転" in op_text:
             op_type = "holiday"
+        elif "月" in op_text and ("日" in op_text or "・" in op_text):
+            # 🌟 攔截臨時列車，並呼叫你寫好的解析器
+            op_type = "irregular"
+            dates = parse_japanese_dates(op_text, 2026)
             
         stop_times, ordered_stops = [], []  # 🌟 改為平行陣列
         for s in train.get("data", []):
@@ -134,9 +171,11 @@ def main():
         
         all_chunks.append({
             "no": unique_no, "op_type": op_type,
+            "operation": op_type, # 🌟 寫入 operation 屬性
+            "dates": dates,       # 🌟 寫入日期陣列
             "type": clean_train_type(train.get("列車種別", ""), train.get("列車名", "")),
             "thru_link": train.get("直通運転"),
-            "stops": stop_times,  # 🌟 這裡現在儲存的是陣列
+            "stops": stop_times,  
             "ordered_stops": ordered_stops,
             "start_time": stop_times[0][1] if isinstance(stop_times[0][1], int) else 9999
         })
@@ -168,8 +207,13 @@ def main():
             buffer_idx += 1
             train_buffer[unique_id] = {
                 "no": instance[0]["no"], "type": instance[0]["type"],
-                "is_wd": instance[0]["op_type"] in ["daily", "weekday"],
-                "is_we": instance[0]["op_type"] in ["daily", "holiday"],
+                
+                # 🌟 核心魔法：讓 irregular 列車同時獲得兩份檔案的寫入權！
+                "is_wd": instance[0]["op_type"] in ["daily", "weekday", "irregular"],
+                "is_we": instance[0]["op_type"] in ["daily", "holiday", "irregular"],
+                "operation": instance[0]["operation"], # 🌟 繼承狀態
+                "dates": instance[0]["dates"],         # 🌟 繼承日期
+                
                 "segments_data": instance,
                 "thru_links": set(c["thru_link"] for c in instance if c["thru_link"] and c["thru_link"] != instance[0]["no"])
             }
@@ -335,8 +379,14 @@ def main():
         
         if not segs: continue
         
+        # 🌟 在這裡將 operation 與 dates 放入最終 JSON 結構
         processed_trains.append({
-            "no": t_info["no"], "type": t_info["type"], "segments": segs, "coupled_with": [],
+            "no": t_info["no"], 
+            "type": t_info["type"], 
+            "operation": t_info["operation"], # 🌟 新增
+            "dates": t_info["dates"],         # 🌟 新增
+            "segments": segs, 
+            "coupled_with": [],
             "_first_sta": full_ordered_stops[0], "_last_sta": full_ordered_stops[-1],
             "_thru_links": t_info["thru_links"], "_is_wd": t_info["is_wd"], "_is_we": t_info["is_we"]
         })
@@ -370,6 +420,9 @@ def main():
         # 安全移除空的 coupled_with (使用 in 判斷避免 KeyError)
         if "coupled_with" in t and not t["coupled_with"]:
             del t["coupled_with"]
+
+        if t.get("operation") != "irregular" and "dates" in t:
+            del t["dates"]
             
         # 進行分流
         if is_wd: wd_final.append(t)
