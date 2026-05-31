@@ -2045,13 +2045,21 @@ function setupSearch() {
                             });
                         });
                     }
-                    trainStopsCache.set(String(train.no || train.train_no || train.id), stops);
+                    let cacheKey = String(train.no || train.train_no || train.id || "");
+                    if (train._isYesterday) {
+                        cacheKey += "_yest";
+                    }
+                    trainStopsCache.set(cacheKey, stops);
                 });
 
                 // 2. 開始全網掃描
                 timetable.forEach(startTrain => {
                     let startTrainNo = String(startTrain.no || startTrain.train_no || startTrain.id || "");
-                    let stops = trainStopsCache.get(startTrainNo);
+    
+                    // 🌟 讀取對應的專屬鑰匙
+                    let cacheKey = startTrain._isYesterday ? startTrainNo + "_yest" : startTrainNo;
+                    let stops = trainStopsCache.get(cacheKey);
+                    
                     if (!stops) return;
 
                     if (startTrainNo.includes("448")) {
@@ -2099,7 +2107,7 @@ function setupSearch() {
                                         let endTime = stop.effArr;
                                         
                                         // 確保時間是合理的 (沒有時光倒流，也沒有抓到昨天的殘影)
-                                        if (endTime > curr.sTime && endTime >= 0) { 
+                                        if (endTime > curr.sTime) { 
                                             // 🎉 找到了！將這條路徑上的「所有車次」都加入高亮名單！
                                             curr.pathNos.forEach(n => filteredTrainNos.add(n));
                                             
