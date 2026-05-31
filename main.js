@@ -2037,6 +2037,11 @@ function setupSearch() {
                                 let effArr = (arrTime !== undefined && arrTime !== null) ? arrTime : depTime;
 
                                 stops.push({ stId: String(stId), nameStr, idStr, effArr, effDep });
+                                
+                                let tNo = String(train.no || train.train_no || train.id || "");
+                                if (tNo.includes("448")) {
+                                    console.log("🔍 [觀測站一：448次快取資料]", stops);
+                                }
                             });
                         });
                     }
@@ -2048,6 +2053,12 @@ function setupSearch() {
                     let startTrainNo = String(startTrain.no || startTrain.train_no || startTrain.id || "");
                     let stops = trainStopsCache.get(startTrainNo);
                     if (!stops) return;
+
+                    if (startTrainNo.includes("448")) {
+                        console.log(`🔍 [觀測站二：448次起點比對] 正在比對關鍵字: "${startKeyword}"`);
+                        let hasStart = stops.some(s => s.idStr.includes(startKeyword) || s.nameStr.includes(startKeyword));
+                        console.log(`   👉 448次是否包含起點 "${startKeyword}"？`, hasStart);
+                    }
 
                     // 找出這台車所有符合「起點」的車站
                     stops.forEach((startStop, sIdx) => {
@@ -2074,6 +2085,16 @@ function setupSearch() {
                                 // A. 先在「目前的車次」往下找終點
                                 for (let i = curr.currIdx; i < curr.stops.length; i++) {
                                     let stop = curr.stops[i];
+
+                                    if (curr.tNo.includes("448") && (stop.idStr.includes(endKeyword) || stop.nameStr.includes(endKeyword))) {
+                                        let endTime = stop.effArr;
+                                        console.log(`🔍 [觀測站三：448次命中終點]`);
+                                        console.log(`   👉 找到站名: ${stop.nameStr}`);
+                                        console.log(`   👉 抵達時間 (endTime): ${endTime} (型別: ${typeof endTime})`);
+                                        console.log(`   👉 發車時間 (curr.sTime): ${curr.sTime} (型別: ${typeof curr.sTime})`);
+                                        console.log(`   👉 邏輯判定 (endTime > curr.sTime && endTime >= 0):`, (endTime > curr.sTime && endTime >= 0));
+                                    }
+                                    
                                     if (stop.idStr.includes(endKeyword) || stop.nameStr.includes(endKeyword)) {
                                         let endTime = stop.effArr;
                                         
