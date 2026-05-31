@@ -2107,7 +2107,7 @@ function setupSearch() {
                                         let endTime = stop.effArr;
                                         
                                         // 確保時間是合理的 (沒有時光倒流，也沒有抓到昨天的殘影)
-                                        if (endTime > curr.sTime) { 
+                                        if (endTime > curr.sTime && endTime >= 0) { 
                                             // 🎉 找到了！將這條路徑上的「所有車次」都加入高亮名單！
                                             curr.pathNos.forEach(n => filteredTrainNos.add(n));
                                             
