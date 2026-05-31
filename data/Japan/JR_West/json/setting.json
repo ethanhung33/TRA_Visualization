@@ -196,8 +196,8 @@
         "name": "関西空港線 (京都-大阪-天王寺-日根野-関西空港)",
         "lines": [
             "jr_kyoto_line",
-            {"id": "osaka_loop_line", "start": "大阪", "end": "新今宮"},
-            {"id": "yamatoji_line", "start": "新今宮", "end": "天王寺"},
+            {"id": "osaka_loop_line", "start": "大阪", "end": "今宮"},
+            {"id": "yamatoji_line", "start": "今宮", "end": "天王寺"},
             {"id": "hanwa_line", "start": "天王寺", "end": "日根野"},
             "kansai_airport_line"
         ],
