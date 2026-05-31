@@ -49,7 +49,7 @@ def main():
     with open(topo_path, 'r', encoding='utf-8') as f:
         topo = json.load(f)
         
-    STA_MAP, LINE_MAP = {}, {}
+    STA_MAP, LINE_MAP, KM_MAP = {}, {}, {} # 🌟 新增 KM_MAP
     for i, seg in enumerate(topo.get("segments", [])):
         seg_id = seg.get("id") or seg.get("line_id") or seg.get("name") or f"line_{i}"
         stations_in_seg = []
@@ -58,6 +58,10 @@ def main():
             STA_MAP[(seg_id, sta_name)] = st.get("id") or sta_name
             if sta_name not in STA_MAP:
                 STA_MAP[sta_name] = st.get("id") or sta_name
+                
+            # 🌟 紀錄該站在路線上的里程數 (預設為 0.0)
+            KM_MAP[(seg_id, sta_name)] = float(st.get("km", 0.0))
+            
             stations_in_seg.append(sta_name)
         LINE_MAP[seg_id] = stations_in_seg
 
@@ -203,6 +207,78 @@ def main():
                         prev_arr if prev_arr != "" else new_arr,
                         new_dep if new_dep != "" else prev_dep
                     )
+        
+        # 🌟 初始化 v 值陣列 (原始停靠站預設 1 = 停靠)
+        full_ordered_v = [1] * len(full_ordered_stops)
+
+        # ==========================================
+        # 🌟 核心升級：拓樸斷層修復 (精準里程內插 + 通過站特判)
+        # ==========================================
+        fixed_stops, fixed_times, fixed_v = [], [], []
+        
+        for i in range(len(full_ordered_stops) - 1):
+            s1 = full_ordered_stops[i]
+            s2 = full_ordered_stops[i+1]
+            t1 = full_ordered_times[i]
+            t2 = full_ordered_times[i+1]
+            v1 = full_ordered_v[i]
+            
+            fixed_stops.append(s1)
+            fixed_times.append(t1)
+            fixed_v.append(v1) # 寫入真實 v 值
+            
+            common_lines = [l_id for l_id, l_sts in LINE_MAP.items() if s1 in l_sts and s2 in l_sts]
+            
+            if not common_lines:
+                s1_lines = [l_id for l_id, l_sts in LINE_MAP.items() if s1 in l_sts]
+                s2_lines = [l_id for l_id, l_sts in LINE_MAP.items() if s2 in l_sts]
+                
+                is_loop_to_yamatoji = "osaka_loop_line" in s1_lines and "yamatoji_line" in s2_lines
+                is_yamatoji_to_loop = "yamatoji_line" in s1_lines and "osaka_loop_line" in s2_lines
+                
+                if is_loop_to_yamatoji or is_yamatoji_to_loop:
+                    intersection = "今宮"
+                    fixed_stops.append(intersection)
+                    fixed_v.append(2) # 🌟 關鍵：賦予橋樑站 v=2 (通過) 屬性
+                    
+                    # 🌟 透過里程精準內插時間
+                    try:
+                        dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
+                        arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
+                        
+                        # 動態找出 s1 到 今宮，以及 今宮 到 s2 所屬的路線
+                        l1 = next((l for l in s1_lines if intersection in LINE_MAP[l]), s1_lines[0])
+                        l2 = next((l for l in s2_lines if intersection in LINE_MAP[l]), s2_lines[0])
+                        
+                        # 讀取里程並計算絕對距離
+                        d1 = abs(KM_MAP.get((l1, intersection), 0.0) - KM_MAP.get((l1, s1), 0.0))
+                        d2 = abs(KM_MAP.get((l2, s2), 0.0) - KM_MAP.get((l2, intersection), 0.0))
+                        total_d = d1 + d2
+                        
+                        if total_d > 0:
+                            # 依照物理距離比例，算出通過時間
+                            ratio = d1 / total_d
+                            mid_time = dep1 + (arr2 - dep1) * ratio
+                            mid_time = int(round(mid_time))
+                        else:
+                            mid_time = (dep1 + arr2) // 2
+                            
+                        fixed_times.append((mid_time, mid_time)) 
+                    except:
+                        # 備用防呆：如果有資料毀損，才退回平均值
+                        dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
+                        arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
+                        mid_time = (dep1 + arr2) // 2
+                        fixed_times.append((mid_time, mid_time))
+                        
+        fixed_stops.append(full_ordered_stops[-1])
+        fixed_times.append(full_ordered_times[-1])
+        fixed_v.append(full_ordered_v[-1])
+        
+        # 覆蓋回原陣列，準備進行換軌判定
+        full_ordered_stops = fixed_stops
+        full_ordered_times = fixed_times
+        full_ordered_v = fixed_v
 
         segs = []
         current_line = None
@@ -233,8 +309,7 @@ def main():
                 current_line = chosen_line
                 st1_id = STA_MAP.get((current_line, s1)) or STA_MAP.get(s1, s1)
                 
-                # 🌟 改用 t1 讀取時間
-                current_seg_s, current_seg_t, current_seg_v = [st1_id], [t1[0], t1[1]], [0]
+                current_seg_s, current_seg_t, current_seg_v = [st1_id], [t1[0], t1[1]], [full_ordered_v[i]]
                 
             # 推進下一站
             st2_id = STA_MAP.get((current_line, s2)) or STA_MAP.get(s2, s2)
@@ -242,7 +317,7 @@ def main():
             
             # 🌟 改用 t2 讀取時間
             current_seg_t.extend([t2[0], t2[1]])
-            current_seg_v.append(1)
+            current_seg_v.append(full_ordered_v[i+1])
 
         if current_line is not None:
             segs.append({"id": current_line, "s": current_seg_s, "t": current_seg_t, "v": current_seg_v})
@@ -252,9 +327,11 @@ def main():
                 segs[-1]["system_name"] = OTHER_LINES[current_line]["name"]
             
         # 修補 v 值 (0=起點, 3=終點, 1=中間)
-        for seg in segs:
-            if len(seg["v"]) > 0:
-                seg["v"][0], seg["v"][-1] = 0, 3
+        if segs:
+            if len(segs[0]["v"]) > 0:
+                segs[0]["v"][0] = 0
+            if len(segs[-1]["v"]) > 0:
+                segs[-1]["v"][-1] = 3
         
         if not segs: continue
         
