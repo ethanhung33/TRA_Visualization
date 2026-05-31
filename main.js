@@ -229,10 +229,7 @@ function getProcessedSegments(selectedSegments, topology) {
             // 比較第一段的尾巴跟第二段的頭
             if (tailOfFirst !== headOfSecond) {
                 // 不一樣！啟動自我修復：把第二段反轉
-                console.log("🔄 偵測到 2 段式環狀線方向不接續，自動翻轉第二段！");
                 segmentsData[1].stations.reverse();
-            } else {
-                console.log("✅ 2 段式環狀線方向完美接續，不須翻轉。");
             }
         }
         // 處理完畢，直接回傳，跳過下方容易錯亂的直線翻轉演算法
