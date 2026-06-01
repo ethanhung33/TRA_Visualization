@@ -229,65 +229,110 @@ def main():
         full_ordered_v = [1] * len(full_ordered_stops)
 
         # 拓樸斷層修復
-        fixed_stops, fixed_times, fixed_v = [], [], []
-        
+        # fixed_preferred[i]: 第 i 段邊（i→i+1）的強制路線，None 表示自動選
+        fixed_stops, fixed_times, fixed_v, fixed_preferred = [], [], [], []
+
         for i in range(len(full_ordered_stops) - 1):
             s1 = full_ordered_stops[i]
             s2 = full_ordered_stops[i+1]
             t1 = full_ordered_times[i]
             t2 = full_ordered_times[i+1]
             v1 = full_ordered_v[i]
-            
+
             fixed_stops.append(s1)
             fixed_times.append(t1)
             fixed_v.append(v1)
+            fixed_preferred.append(None)
             
             common_lines = [l_id for l_id, l_sts in LINE_MAP.items() if s1 in l_sts and s2 in l_sts]
-            
-            if not common_lines:
-                s1_lines = [l_id for l_id, l_sts in LINE_MAP.items() if s1 in l_sts]
-                s2_lines = [l_id for l_id, l_sts in LINE_MAP.items() if s2 in l_sts]
-                
-                is_loop_to_yamatoji = "osaka_loop_line" in s1_lines and "yamatoji_line" in s2_lines
-                is_yamatoji_to_loop = "yamatoji_line" in s1_lines and "osaka_loop_line" in s2_lines
-                
-                if is_loop_to_yamatoji or is_yamatoji_to_loop:
-                    intersection = "今宮"
-                    fixed_stops.append(intersection)
-                    fixed_v.append(2)
-                    
-                    try:
-                        dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
-                        arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
-                        
-                        l1 = next((l for l in s1_lines if intersection in LINE_MAP[l]), s1_lines[0])
-                        l2 = next((l for l in s2_lines if intersection in LINE_MAP[l]), s2_lines[0])
-                        
-                        d1 = abs(KM_MAP.get((l1, intersection), 0.0) - KM_MAP.get((l1, s1), 0.0))
-                        d2 = abs(KM_MAP.get((l2, s2), 0.0) - KM_MAP.get((l2, intersection), 0.0))
-                        total_d = d1 + d2
-                        
-                        if total_d > 0:
-                            ratio = d1 / total_d
-                            mid_time = dep1 + (arr2 - dep1) * ratio
-                            mid_time = int(round(mid_time))
-                        else:
-                            mid_time = (dep1 + arr2) // 2
-                            
-                        fixed_times.append((mid_time, mid_time)) 
-                    except:
-                        dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
-                        arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
+            s1_lines = [l_id for l_id, l_sts in LINE_MAP.items() if s1 in l_sts]
+            s2_lines = [l_id for l_id, l_sts in LINE_MAP.items() if s2 in l_sts]
+
+            # 今宮 patch：osaka_loop_line → yamatoji_line 切換
+            # 需在 common_lines 檢查之外執行，因為大阪/天王寺同屬 osaka_loop_line，
+            # 但 Haruka 等列車實際走大和路線支線，必須經過今宮換線。
+            # "yamatoji_line" not in s1_lines 避免今宮本身（同時屬兩線）再觸發。
+            is_loop_to_yamatoji = ("osaka_loop_line" in s1_lines and "yamatoji_line" in s2_lines
+                                   and "yamatoji_line" not in s1_lines)
+            is_yamatoji_to_loop = ("yamatoji_line" in s1_lines and "osaka_loop_line" in s2_lines
+                                   and "yamatoji_line" not in s2_lines)
+
+            is_hanwa_to_kansai = "hanwa_line" in s1_lines and "kansai_airport_line" in s2_lines
+            is_kansai_to_hanwa = "kansai_airport_line" in s1_lines and "hanwa_line" in s2_lines
+
+            if is_loop_to_yamatoji or is_yamatoji_to_loop:
+                intersection = "今宮"
+                fixed_stops.append(intersection)
+                fixed_v.append(2)
+                # 今宮→天王寺 這段邊必須走大和路線，不能繼續留在大阪環状線（否則會繞一整圈）
+                fixed_preferred.append("yamatoji_line" if is_loop_to_yamatoji else "osaka_loop_line")
+
+                try:
+                    dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
+                    arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
+
+                    l1 = next((l for l in s1_lines if intersection in LINE_MAP[l]), s1_lines[0])
+                    l2 = next((l for l in s2_lines if intersection in LINE_MAP[l]), s2_lines[0])
+
+                    d1 = abs(KM_MAP.get((l1, intersection), 0.0) - KM_MAP.get((l1, s1), 0.0))
+                    d2 = abs(KM_MAP.get((l2, s2), 0.0) - KM_MAP.get((l2, intersection), 0.0))
+                    total_d = d1 + d2
+
+                    if total_d > 0:
+                        ratio = d1 / total_d
+                        mid_time = dep1 + (arr2 - dep1) * ratio
+                        mid_time = int(round(mid_time))
+                    else:
                         mid_time = (dep1 + arr2) // 2
-                        fixed_times.append((mid_time, mid_time))
+
+                    fixed_times.append((mid_time, mid_time))
+                except:
+                    dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
+                    arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
+                    mid_time = (dep1 + arr2) // 2
+                    fixed_times.append((mid_time, mid_time))
+
+            elif not common_lines and (is_hanwa_to_kansai or is_kansai_to_hanwa):
+                # はるか等直通列車跳過日根野，需補插此分岔站
+                intersection = "日根野"
+                fixed_stops.append(intersection)
+                fixed_v.append(2)
+                fixed_preferred.append(None)  # 下一段只有 kansai_airport_line 可選，不需強制
+
+                try:
+                    dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
+                    arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
+
+                    l1 = next((l for l in s1_lines if intersection in LINE_MAP[l]), s1_lines[0])
+                    l2 = next((l for l in s2_lines if intersection in LINE_MAP[l]), s2_lines[0])
+
+                    d1 = abs(KM_MAP.get((l1, intersection), 0.0) - KM_MAP.get((l1, s1), 0.0))
+                    d2 = abs(KM_MAP.get((l2, s2), 0.0) - KM_MAP.get((l2, intersection), 0.0))
+                    total_d = d1 + d2
+
+                    if total_d > 0:
+                        ratio = d1 / total_d
+                        mid_time = dep1 + (arr2 - dep1) * ratio
+                        mid_time = int(round(mid_time))
+                    else:
+                        mid_time = (dep1 + arr2) // 2
+
+                    fixed_times.append((mid_time, mid_time))
+                except:
+                    dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
+                    arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
+                    mid_time = (dep1 + arr2) // 2
+                    fixed_times.append((mid_time, mid_time))
                         
         fixed_stops.append(full_ordered_stops[-1])
         fixed_times.append(full_ordered_times[-1])
         fixed_v.append(full_ordered_v[-1])
-        
+        fixed_preferred.append(None)
+
         full_ordered_stops = fixed_stops
         full_ordered_times = fixed_times
         full_ordered_v = fixed_v
+        full_ordered_preferred = fixed_preferred
 
         segs = []
         current_line = None
@@ -301,8 +346,12 @@ def main():
             
             possible_lines = [l_id for l_id, l_sts in LINE_MAP.items() if s1 in l_sts and s2 in l_sts]
             if not possible_lines: continue
-                
-            chosen_line = current_line if current_line in possible_lines else possible_lines[0]
+
+            preferred = full_ordered_preferred[i]
+            if preferred and preferred in possible_lines:
+                chosen_line = preferred
+            else:
+                chosen_line = current_line if current_line in possible_lines else possible_lines[0]
                 
             if chosen_line != current_line:
                 if current_line is not None:
