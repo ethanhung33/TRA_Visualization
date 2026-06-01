@@ -177,6 +177,13 @@ function timeToX(minutes) {
     return CONFIG.paddingLeft + (minutes * CONFIG.scaleX);
 }
 
+function getCircularCopyRange(loopH, vTop, vBottom) {
+    if (!(loopH > 0)) return { copyStart: -1, copyEnd: 1 };
+    const cStart = Math.floor((vTop - CONFIG.paddingTop - loopH) / loopH);
+    const cEnd   = Math.ceil((vBottom - CONFIG.paddingTop - loopH) / loopH);
+    return { copyStart: cStart - 1, copyEnd: cEnd + 1 };
+}
+
 // ==========================================
 // 🌟 智慧路線整理器：自動判斷交會站並翻轉方向
 // ==========================================
@@ -336,17 +343,9 @@ function drawGrid(viewKey, layer = 'all') {
 
     // ... (下面維持你原本的畫橫線、畫時間標籤的迴圈邏輯) ...
 
-    // 🌟 替換為動態影分身計算：確保上下無死角填滿螢幕
-    let copyStart = 0;
-    let copyEnd = 0;
-    if (isCircular && loopHeight > 0) {
-        let cStart = Math.floor((viewTop - CONFIG.paddingTop - loopHeight) / loopHeight);
-        let cEnd = Math.ceil((viewBottom - CONFIG.paddingTop - loopHeight) / loopHeight);
-        copyStart = cStart - 1; // 上方多畫一圈當緩衝
-        copyEnd = cEnd + 1;     // 下方多畫一圈當緩衝
-    } else if (isCircular) {
-        copyStart = -1; copyEnd = 1; // 防呆保底
-    }
+    const { copyStart, copyEnd } = isCircular
+        ? getCircularCopyRange(loopHeight, viewTop, viewBottom)
+        : { copyStart: 0, copyEnd: 0 };
 
     for (let copy = copyStart; copy <= copyEnd; copy++) {
         let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
@@ -585,17 +584,9 @@ function drawTrains() {
 
     let presetKey = currentRouteView; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
-    // 🌟 替換為動態影分身計算：火車無限延伸
-    let copyStart = 0;
-    let copyEnd = 0;
-    if (isCircular && loopHeight > 0) {
-        let cStart = Math.floor((viewTop - CONFIG.paddingTop - loopHeight) / loopHeight);
-        let cEnd = Math.ceil((viewBottom - CONFIG.paddingTop - loopHeight) / loopHeight);
-        copyStart = cStart - 1;
-        copyEnd = cEnd + 1;
-    } else if (isCircular) {
-        copyStart = -1; copyEnd = 1;
-    }
+    const { copyStart, copyEnd } = isCircular
+        ? getCircularCopyRange(loopHeight, viewTop, viewBottom)
+        : { copyStart: 0, copyEnd: 0 };
 
     let colorIndex = isDarkMode ? 0 : 1;
     let fallbackColor = isDarkMode ? "#FFFFFF" : "#000000";
@@ -2780,7 +2771,7 @@ function clampCamera() {
 // 瞬移補償：讓攝影機永遠保持在「中間那一圈」
 // ==========================================
 function checkInfiniteScroll() {
-    if (typeof loopHeight === 'undefined' || loopHeight <= 0) return;
+    if (!(loopHeight > 0)) return;
 
     let presetKey = currentRouteView; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
@@ -2926,33 +2917,21 @@ function setupCanvasInteractions() {
         let closestStationTextId = null;
         let minStationDist = 12; 
         let isCircular = settings?.view_presets?.[currentRouteView]?.view_type === "CIRCULAR";
-        let safeLoopH = (typeof loopHeight !== 'undefined') ? loopHeight : 0;
-
         if (typeof lookupY !== 'undefined') {
             // 借用畫筆來測量站名文字的真實寬度
             const tempCtx = canvas.getContext('2d');
             tempCtx.font = "bold 16px 'GlowSans', sans-serif";
+            const { copyStart, copyEnd } = isCircular
+                ? getCircularCopyRange(loopHeight, camera.y - 100, camera.y + wrapper.clientHeight + 100)
+                : { copyStart: 0, copyEnd: 0 };
 
             for (let st_id in lookupY) {
                 let stName = getStationName(st_id);
                 let textWidth = tempCtx.measureText(stName).width; // 量測文字寬度
 
                 for (let opt of lookupY[st_id]) {
-                    // 🌟 替換為動態偵測拷貝區間 (防止邊緣站名無法點擊)
-                    let copyStart = 0, copyEnd = 0;
-                    if (isCircular && safeLoopH > 0) {
-                        let vTop = camera.y - 100;
-                        let vBottom = camera.y + wrapper.clientHeight + 100;
-                        let cStart = Math.floor((vTop - CONFIG.paddingTop - safeLoopH) / safeLoopH);
-                        let cEnd = Math.ceil((vBottom - CONFIG.paddingTop - safeLoopH) / safeLoopH);
-                        copyStart = cStart - 1;
-                        copyEnd = cEnd + 1;
-                    } else if (isCircular) {
-                        copyStart = -1; copyEnd = 1;
-                    }
-
                     for (let copy = copyStart; copy <= copyEnd; copy++) {
-                        let offsetY = isCircular ? ((copy * safeLoopH) + CONFIG.paddingTop + safeLoopH) : CONFIG.paddingTop;
+                        let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
                         let stationY = opt.y + offsetY;
                         
                         // 偵測 A：是否點在車站橫線上
@@ -3086,32 +3065,20 @@ function setupCanvasInteractions() {
             let hitStationText = null;
             let minStationDist = 12; 
             let isCircular = settings?.view_presets?.[currentRouteView]?.view_type === "CIRCULAR";
-            let safeLoopH = loopHeight || 0;
-
             if (typeof lookupY !== 'undefined') {
                 const tempCtx = canvas.getContext('2d');
                 tempCtx.font = "bold 16px 'GlowSans', sans-serif";
+                const { copyStart, copyEnd } = isCircular
+                    ? getCircularCopyRange(loopHeight, camera.y - 100, camera.y + wrapper.clientHeight + 100)
+                    : { copyStart: 0, copyEnd: 0 };
 
                 for (let st_id in lookupY) {
                     let stName = getStationName(st_id);
                     let textWidth = tempCtx.measureText(stName).width;
 
                     for (let opt of lookupY[st_id]) {
-                        // 🌟 替換為動態偵測拷貝區間 (防止邊緣站名無法點擊)
-                        let copyStart = 0, copyEnd = 0;
-                        if (isCircular && safeLoopH > 0) {
-                            let vTop = camera.y - 100;
-                            let vBottom = camera.y + wrapper.clientHeight + 100;
-                            let cStart = Math.floor((vTop - CONFIG.paddingTop - safeLoopH) / safeLoopH);
-                            let cEnd = Math.ceil((vBottom - CONFIG.paddingTop - safeLoopH) / safeLoopH);
-                            copyStart = cStart - 1;
-                            copyEnd = cEnd + 1;
-                        } else if (isCircular) {
-                            copyStart = -1; copyEnd = 1;
-                        }
-
                         for (let copy = copyStart; copy <= copyEnd; copy++) {
-                            let offsetY = isCircular ? ((copy * safeLoopH) + CONFIG.paddingTop + safeLoopH) : CONFIG.paddingTop;
+                            let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
                             let stationY = opt.y + offsetY;
                             
                             // A. 滑鼠碰到車站橫線
