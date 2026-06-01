@@ -39,6 +39,18 @@ def clean_train_type(type_str, name_str):
         return clean_type
     return f"{clean_type}{clean_name}"
 
+def parse_couple_text(text):
+    """解析 '日根野－天王寺は4584Hを併結' → ('4584H', '日根野', '天王寺')
+    忽略含有〔〕或「間」的複雜特急格式（サンライズ、ひだ 等非 topology 範圍）"""
+    if not text:
+        return None
+    if '〔' in text or ('間' in text and 'は' not in text):
+        return None
+    m = re.match(r'([^－–－]+)[－–－]([^は]+)は([^をに〔（\s]+)[をに]併結', text)
+    if m:
+        return (m.group(3).strip(), m.group(1).strip(), m.group(2).strip())
+    return None
+
 def parse_japanese_dates(text, default_year=2026):
     """將日文的行駛日期字串，轉換為 YYYY-MM-DD 的標準陣列"""
     if not text: return []
@@ -149,13 +161,14 @@ def main():
         unique_no = f"{original_no}|{start_st_id}"
         
         all_chunks.append({
-            "no": unique_no, 
+            "no": unique_no,
             "op_type": op_type,
-            "operation": op_type, 
-            "dates": dates,       
+            "operation": op_type,
+            "dates": dates,
             "type": clean_train_type(train.get("列車種別", ""), train.get("列車名", "")),
             "thru_link": train.get("直通運転"),
-            "stops": stop_times,  
+            "couple_text": train.get("併結運転"),
+            "stops": stop_times,
             "ordered_stops": ordered_stops,
             "start_time": stop_times[0][1] if isinstance(stop_times[0][1], int) else 9999
         })
@@ -195,7 +208,8 @@ def main():
                 "operation": instance[0]["operation"], 
                 "dates": instance[0]["dates"],         
                 "segments_data": instance,
-                "thru_links": set(c["thru_link"] for c in instance if c["thru_link"] and c["thru_link"] != instance[0]["no"])
+                "thru_links": set(c["thru_link"] for c in instance if c["thru_link"] and c["thru_link"] != instance[0]["no"]),
+                "couple_texts": list({c["couple_text"] for c in instance if c.get("couple_text")})
             }
 
     # 5. 邊遍歷演算法 (Stop-by-Stop Edge Mapping)
@@ -412,7 +426,9 @@ def main():
             "segments": segs, 
             "coupled_with": [],
             "_first_sta": full_ordered_stops[0], "_last_sta": full_ordered_stops[-1],
-            "_thru_links": t_info["thru_links"], "_is_wd": t_info["is_wd"], "_is_we": t_info["is_we"]
+            "_thru_links": t_info["thru_links"],
+            "_couple_texts": t_info.get("couple_texts", []),
+            "_is_wd": t_info["is_wd"], "_is_we": t_info["is_we"]
         })
 
     # 直通運轉配對
@@ -427,15 +443,47 @@ def main():
                     if not any(c["train_id"] == partner["no"] for c in t["coupled_with"]): t["coupled_with"].append({"train_id": partner["no"], "station_id": j_id, "action": "direct"})
                     if not any(c["train_id"] == t["no"] for c in partner["coupled_with"]): partner["coupled_with"].append({"train_id": t["no"], "station_id": j_id, "action": "direct"})
 
+    # 併結配對（split）
+    # 格式：'日根野－天王寺は4584Hを併結' → junction = 兩班都停的中間站（日根野）
+    def _has_station(train_obj, sta_id):
+        sta_id_str = str(sta_id)
+        return any(sta_id_str in [str(s) for s in seg["s"]] for seg in train_obj.get("segments", []))
+
+    for t in processed_trains:
+        for couple_text in t.get("_couple_texts", []):
+            parsed = parse_couple_text(couple_text)
+            if not parsed:
+                continue
+            partner_no, sta1, sta2 = parsed
+
+            partners = [p for p in processed_trains if p["no"].split('|')[0] == partner_no]
+            for partner in partners:
+                # 找到兩班車都經過的站（sta1 或 sta2），作為 split station_id
+                junction_id = None
+                for sta_name in [clean_station_name(sta1), clean_station_name(sta2)]:
+                    sid = STA_MAP.get(sta_name, sta_name)
+                    if _has_station(t, sid) and _has_station(partner, sid):
+                        junction_id = sid
+                        break
+
+                if not junction_id:
+                    continue
+
+                if not any(c["train_id"] == partner["no"] for c in t["coupled_with"]):
+                    t["coupled_with"].append({"train_id": partner["no"], "station_id": junction_id, "action": "split"})
+                if not any(c["train_id"] == t["no"] for c in partner["coupled_with"]):
+                    partner["coupled_with"].append({"train_id": t["no"], "station_id": junction_id, "action": "split"})
+
     # 6. 分流與清理
     wd_final, we_final = [], []
     for t in processed_trains:
         is_wd = t.pop("_is_wd", False)
         is_we = t.pop("_is_we", False)
-        
+
         t.pop("_first_sta", None)
         t.pop("_last_sta", None)
         t.pop("_thru_links", None)
+        t.pop("_couple_texts", None)
         
         if "coupled_with" in t and not t["coupled_with"]:
             del t["coupled_with"]

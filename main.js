@@ -818,6 +818,11 @@ function drawTrains() {
                                 if (isCoupledBefore === false && splitIndex === seg.s.length - 1) {
                                     isCoupledBefore = true;  // 自己在這站就終點了，不可能在「之後」併結
                                 }
+                                // 邊界單飛段防呆：split 站在本段末位且只有一個共同站
+                                // → 本段是「單飛段」（如 kansai_airport_line 末站=日根野），共線段在下一路段，本段不畫虛線
+                                if (isCoupledBefore === true && splitIndex === seg.s.length - 1 && commonIndices.length === 1) {
+                                    isCoupledBefore = null;
+                                }
 
                                 // 🌟 5. 執行繪圖
                                 if (isCoupledBefore !== null) {
@@ -864,6 +869,40 @@ function drawTrains() {
 
                                         ctx.strokeStyle = pColor;
                                         ctx.lineWidth = lineWidth + 0.8; 
+                                        ctx.setLineDash([12, 12]);
+                                        ctx.stroke();
+                                        ctx.restore();
+                                    }
+                                }
+                            } else {
+                                // splitIndex === -1：split 站不在本段
+                                // 若 split 站出現在前面的路段，代表本段是「共線段」，應畫虛線
+                                let splitInPrevSeg = false;
+                                for (let si = 0; si < segIdx; si++) {
+                                    if (train.segments[si].s.some(id => String(id) === splitSt)) {
+                                        splitInPrevSeg = true; break;
+                                    }
+                                }
+                                if (splitInPrevSeg) {
+                                    // partner 資料可能只到 split 站為止（如 4584H 只到日根野），
+                                    // 但兩車物理上仍聯結繼續行走。此時整段都畫虛線，
+                                    // 不要求 partner 在本段有共同站。
+                                    let si2 = 0, ei2 = seg.s.length - 1;
+                                    if (si2 !== ei2) {
+                                        ctx.save();
+                                        ctx.beginPath();
+                                        let ifp2 = true;
+                                        for (let i = si2; i <= ei2; i++) {
+                                            let y_raw = unwrappedCoords[i];
+                                            if (y_raw === null) { ifp2 = true; continue; }
+                                            let y = y_raw + offsetY;
+                                            let xa = timeToX(seg.t[i*2]), xd = timeToX(seg.t[i*2+1]);
+                                            if (ifp2) { ctx.moveTo(xa, y); ifp2 = false; }
+                                            else { ctx.lineTo(xa, y); }
+                                            if (seg.v[i] !== 2) ctx.lineTo(xd, y);
+                                        }
+                                        ctx.strokeStyle = pColor;
+                                        ctx.lineWidth = lineWidth + 0.8;
                                         ctx.setLineDash([12, 12]);
                                         ctx.stroke();
                                         ctx.restore();
@@ -1198,9 +1237,11 @@ function drawTrains() {
                                     displayText = `${joins[0].str}/${joins[1].str}-${formatTimeDisplay(sharedDep)} ${stationName}`;
                                     
                                     // 🌟 更新外圍已經宣告好的變數 (直接覆寫值，不要加 let！)
-                                    familyAlign = 'right'; 
-                                    if (minArr !== Infinity) familyDrawX = timeToX(minArr);
-                                    if (maxDep !== -Infinity) familyFallbackX = timeToX(maxDep);
+                                    // JOIN：left-align 從出發時間往右延伸，與 SPLIT 對稱
+                                    // （right-align 會因標籤過長而延伸到抵達時間之前，位置偏左）
+                                    familyAlign = 'left';
+                                    if (maxDep !== -Infinity) familyDrawX = timeToX(maxDep);
+                                    if (minArr !== Infinity) familyFallbackX = timeToX(minArr);
 
                                 } else {
                                     // 🚄 【分離模式 SPLIT】
@@ -2008,7 +2049,7 @@ function setupSearch() {
             return;
         }
 
-        currentFocus = -1; 
+        currentFocus = -1;
         const keywords = normalizeText(rawText).split(/[~\-\s,，、]+/).filter(k => k.length > 0);
         let searchData = [];
         let currentShowId = !(settings && settings.show_train_id === false);
@@ -2096,9 +2137,6 @@ function setupSearch() {
                                 stops.push({ stId: String(stId), nameStr, idStr, effArr, effDep });
                                 
                                 let tNo = String(train.no || train.train_no || train.id || "");
-                                if (tNo.includes("448")) {
-                                    console.log("🔍 [觀測站一：448次快取資料]", stops);
-                                }
                             });
                         });
                     }
@@ -2118,12 +2156,6 @@ function setupSearch() {
                     let stops = trainStopsCache.get(cacheKey);
                     
                     if (!stops) return;
-
-                    if (startTrainNo.includes("448")) {
-                        console.log(`🔍 [觀測站二：448次起點比對] 正在比對關鍵字: "${startKeyword}"`);
-                        let hasStart = stops.some(s => s.idStr.includes(startKeyword) || s.nameStr.includes(startKeyword));
-                        console.log(`   👉 448次是否包含起點 "${startKeyword}"？`, hasStart);
-                    }
 
                     // 找出這台車所有符合「起點」的車站
                     stops.forEach((startStop, sIdx) => {
@@ -2151,14 +2183,6 @@ function setupSearch() {
                                 for (let i = curr.currIdx; i < curr.stops.length; i++) {
                                     let stop = curr.stops[i];
 
-                                    if (curr.tNo.includes("448") && (stop.idStr.includes(endKeyword) || stop.nameStr.includes(endKeyword))) {
-                                        let endTime = stop.effArr;
-                                        console.log(`🔍 [觀測站三：448次命中終點]`);
-                                        console.log(`   👉 找到站名: ${stop.nameStr}`);
-                                        console.log(`   👉 抵達時間 (endTime): ${endTime} (型別: ${typeof endTime})`);
-                                        console.log(`   👉 發車時間 (curr.sTime): ${curr.sTime} (型別: ${typeof curr.sTime})`);
-                                        console.log(`   👉 邏輯判定 (endTime > curr.sTime && endTime >= 0):`, (endTime > curr.sTime && endTime >= 0));
-                                    }
                                     
                                     if (stop.idStr.includes(endKeyword) || stop.nameStr.includes(endKeyword)) {
                                         let endTime = stop.effArr;
@@ -2235,7 +2259,26 @@ function setupSearch() {
                     });
                 });
             }
-            activeRouteFilterTrains = filteredTrainNos;
+            if (filteredTrainNos.size === 0 && timetable) {
+                // 路線搜尋無結果 → fallback：嘗試「每個關鍵字符合車種 OR 車號」
+                // 例如「普通 1552」→ keywords=["普通","1552"] → 找 type="普通" AND no includes "1552"
+                let seenFallbackNos = new Set();
+                timetable.forEach(train => {
+                    let typeLower = (train.type || "").toLowerCase();
+                    let fullId = String(train.no || train.train_no || train.id || "");
+                    let noDisplay = fullId.split("|")[0];
+                    let noLower = noDisplay.toLowerCase();
+                    if (keywords.every(k => typeLower.includes(k) || noLower.includes(k))) {
+                        if (!seenFallbackNos.has(noDisplay)) {
+                            seenFallbackNos.add(noDisplay);
+                            searchData.push({ type: 'train', id: fullId, typeStr: train.type || "", score: 2 });
+                        }
+                    }
+                });
+                activeRouteFilterTrains = null; // fallback 不做路線過濾
+            } else {
+                activeRouteFilterTrains = filteredTrainNos;
+            }
         }
 
         if (activeRouteFilterTrains !== previousFilterState) {
@@ -2321,34 +2364,44 @@ function setupSearch() {
         if (e.key === "Enter") {
             e.preventDefault(); // 防止表單預設送出
 
-            // 🌟 新增：區間搜尋的歷史紀錄儲存
             let rawText = searchInput.value.trim();
             let keywords = normalizeText(rawText).split(/[~\-\s,，、]+/).filter(k => k.length > 0);
-            
-            // 如果是區間搜尋 (例如: 台北~花蓮)，按下 Enter 就存入歷史紀錄並收起選單
+
+            // 判斷是否為區間搜尋（至少一個關鍵字符合拓樸站名）
+            let isRouteSearch = false;
             if (keywords.length >= 2) {
-                SearchHistoryManager.add({ 
-                    type: 'route', 
-                    id: rawText, 
-                    keyword: rawText, 
-                    displayHtml: `<span class="search-item-badge" style="background: #FFA500; color: #000;">區間</span> <span style="margin-left: 8px;">${rawText}</span>` 
-                });
-                searchResults.style.display = 'none';
-                return;
+                if (topology && topology.segments) {
+                    isRouteSearch = keywords.some(k =>
+                        topology.segments.some(seg =>
+                            seg.stations.some(st => normalizeText(st.name || "").includes(k))
+                        )
+                    );
+                } else {
+                    isRouteSearch = /[~\-,，、]/.test(rawText);
+                }
+                if (isRouteSearch) {
+                    SearchHistoryManager.add({
+                        type: 'route',
+                        id: rawText,
+                        keyword: rawText,
+                        displayHtml: `<span class="search-item-badge" style="background: #FFA500; color: #000;">區間</span> <span style="margin-left: 8px;">${rawText}</span>`
+                    });
+                }
             }
 
-            // 狀況 A：如果此時選單是隱藏的，強制觸發一次輸入事件來「喚醒」選單！
+            // 狀況 A：選單是隱藏的 → 觸發新搜尋（不顯示可能過期的舊內容）
             if (searchResults.style.display === 'none') {
-                searchInput.dispatchEvent(new Event('input'));
+                searchInput.dispatchEvent(new InputEvent('input', { bubbles: true }));
                 return;
-            } 
-            // 狀況 B：如果選單已經開著，就執行選取動作
+            }
+            // 狀況 B：選單已開著 → 執行選取動作
             else {
-                if (currentFocus > -1) { 
-                    if (items[currentFocus]) items[currentFocus].click(); 
+                if (currentFocus > -1) {
+                    if (items[currentFocus]) items[currentFocus].click();
                 }
-                else if (items.length > 0) { 
-                    items[0].click(); 
+                else if (items.length > 0 && !isRouteSearch) {
+                    // 區間搜尋時不自動選第一班車，讓使用者用方向鍵選擇
+                    items[0].click();
                 }
             }
         } 
@@ -2420,12 +2473,12 @@ window.triggerSearchSelect = function(type, id, element, saveHistory = true) {
         let targetTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(id));
         if (targetTrain && !activeTrainTypes.has(targetTrain.type)) {
             activeTrainTypes.add(targetTrain.type);
-            document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { 
-                if(b._updateStyle) b._updateStyle(); 
+            document.querySelectorAll('#train-type-container .pill-btn').forEach(b => {
+                if(b._updateStyle) b._updateStyle();
             });
         }
         if (typeof window.triggerSelectTrain === 'function') {
-            window.triggerSelectTrain(id);
+            window.triggerSelectTrain(id, false); // history already saved above
         }
     }
 };
@@ -4563,14 +4616,16 @@ function optimizeTrainTimesForDisplay(trainsData) {
 // ==========================================
 // 🔄 跨面板互動觸發器：點擊火車自動置中版
 // ==========================================
-window.triggerSelectTrain = function(trainNo) {
+window.triggerSelectTrain = function(trainNo, saveHistory = true) {
     let targetTrain = timetable.find(t => (t.no === trainNo || t.train_no === trainNo));
-    
+
     if (targetTrain) {
         // 🌟 透過產生器獲取文字與介面
         let historyData = window.buildTrainHistoryData(targetTrain);
-        window.updateSearchInputText(historyData.keyword); 
-        SearchHistoryManager.add({ type: 'train', id: historyData.id, keyword: historyData.keyword, displayHtml: historyData.displayHtml });
+        window.updateSearchInputText(historyData.keyword);
+        if (saveHistory) {
+            SearchHistoryManager.add({ type: 'train', id: historyData.id, keyword: historyData.keyword, displayHtml: historyData.displayHtml });
+        }
 
         // 1. 記住我們是從「哪個車站」點擊這班車的...
         let originStationId = selectedStation;
