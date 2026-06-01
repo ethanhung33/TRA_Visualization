@@ -2746,15 +2746,21 @@ function autoFitScale() {
         targetScaleY = settings.view_presets[presetKey].default_scale_y;
     }
 
-    // 讀取時間拉伸係數
+    // 讀取時間拉伸係數（view_preset 可個別覆蓋）
     let timeStretchRatio = 0.4;
     if (settings && settings.time_stretch_ratio !== undefined) {
         timeStretchRatio = settings.time_stretch_ratio;
     }
+    if (settings?.view_presets?.[presetKey]?.time_stretch_ratio !== undefined) {
+        timeStretchRatio = settings.view_presets[presetKey].time_stretch_ratio;
+    }
 
     // 正式套用比例
     CONFIG.scaleY = targetScaleY;
-    CONFIG.scaleX = targetScaleY * timeStretchRatio; 
+    CONFIG.scaleX = targetScaleY * timeStretchRatio;
+    // 儲存 fit scale，作為縮放的下限（讓使用者永遠能縮回初始視角）
+    CONFIG.scaleY_fit = CONFIG.scaleY;
+    CONFIG.scaleX_fit = CONFIG.scaleX;
 }
 
 // ==========================================
@@ -2929,13 +2935,19 @@ function setupCanvasInteractions() {
         let safeMargin = (typeof SIDE_MARGIN !== 'undefined') ? SIDE_MARGIN : 0;
 
         const minScaleX = (wrapperW - safeMargin * 2) / 1560;
-        
+
         // 🌟 1. 判斷現在是不是環狀線
-        let presetKey = currentRouteView; 
+        let presetKey = currentRouteView;
         let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
 
-        // 🌟 2. 實作你的神級邏輯：直線最少 1 倍螢幕高，環狀線最少 1/3 倍螢幕高 (三倍圖)
-        const minScaleY = isCircular ? (wrapperH / 3) / safeLoopKm : wrapperH / safeLoopKm;
+        // 🌟 2. 縮放下限：
+        //    環狀線：至少 1/3 倍螢幕高（保留三倍圖效果）
+        //    直線路線：允許縮到 fit scale 的 50%，讓短路線有更多縮小空間
+        const minScaleY = isCircular
+            ? (wrapperH / 3) / safeLoopKm
+            : (CONFIG.scaleY_fit && CONFIG.scaleY_fit > 0)
+                ? CONFIG.scaleY_fit * 0.5
+                : (wrapperH / 2) / safeLoopKm;
 
         if (zoom < 1) {
             // 🌟 3. 數學修正：把 Math.min 改成 Math.max！

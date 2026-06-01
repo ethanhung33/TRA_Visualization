@@ -408,7 +408,8 @@
             "hakata_minami_line"
         ],
         "view_type": "LINEAR",
-        "button_color": ["#2196F3", "#1565C0"]
+        "button_color": ["#2196F3", "#1565C0"],
+        "time_stretch_ratio": 0.1
     },
     "wadamisaki": {
         "name": "和田岬線 (兵庫-和田岬)",
@@ -416,7 +417,8 @@
             "wadamisaki_line"
         ],
         "view_type": "LINEAR",
-        "button_color": ["#FF5722", "#BF360C"]
+        "button_color": ["#FF5722", "#BF360C"],
+        "time_stretch_ratio": 0.1
     },
     "senzaki": {
         "name": "仙崎支線 (仙崎-長門市)",
@@ -424,7 +426,8 @@
             "senzaki_line"
         ],
         "view_type": "LINEAR",
-        "button_color": ["#9E9E9E", "#616161"]
+        "button_color": ["#9E9E9E", "#616161"],
+        "time_stretch_ratio": 0.1
     },
     "hagoromo": {
         "name": "羽衣線 (東羽衣-鳳)",
@@ -432,7 +435,8 @@
             "hagoromo_line"
         ],
         "view_type": "LINEAR",
-        "button_color": ["#4CAF50", "#2E7D32"]
+        "button_color": ["#4CAF50", "#2E7D32"],
+        "time_stretch_ratio": 0.1
     }
   },
   "train_color": {
