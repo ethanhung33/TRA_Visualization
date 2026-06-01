@@ -966,22 +966,34 @@ function drawTrains() {
                         let isDirectIn = (segIdx === 0 && i === 0 && 
                             train.coupled_with && train.coupled_with.some(c => c.action === "direct" && String(c.station_id) === trFirstSt));
 
-                        if (isDirectOut) {
+                        // 環狀列車（trFirstSt === trLastSt）的起點/終點不套用直通時間覆寫
+                        const isCircularTrain = (trFirstSt === trLastSt);
+
+                        // 輔助函式：判斷某班車是否為環狀
+                        const _checkPartnerCircular = (partnerTrain) => {
+                            if (!partnerTrain || !partnerTrain.segments || partnerTrain.segments.length === 0) return false;
+                            const pFirst = String(partnerTrain.segments[0].s[0]);
+                            const pLastSeg = partnerTrain.segments[partnerTrain.segments.length - 1];
+                            return pFirst === String(pLastSeg.s[pLastSeg.s.length - 1]);
+                        };
+
+                        if (isDirectOut && !isCircularTrain) {
                             let dInfo = train.coupled_with.find(c => c.action === "direct" && String(c.station_id) === trLastSt);
-                            let nxt = timetable.find(t => String(t.no || t.train_no || t.id) === String(dInfo.train_id));
-                            if (nxt && nxt.segments[0]) {
+                            let nxt = dInfo && timetable.find(t => String(t.no || t.train_no || t.id) === String(dInfo.train_id));
+                            // partner 是環狀代表只是「同一地點車次接續」，不覆寫時間
+                            if (nxt && !_checkPartnerCircular(nxt) && nxt.segments[0]) {
                                 let nt = nxt.segments[0].t;
                                 depT = (nt[1] !== undefined && nt[1] !== null && nt[1] !== "") ? nt[1] : nt[0];
-                                x_dep = timeToX(depT); 
+                                x_dep = timeToX(depT);
                             }
-                        } else if (isDirectIn) {
+                        } else if (isDirectIn && !isCircularTrain) {
                             let dInfo = train.coupled_with.find(c => c.action === "direct" && String(c.station_id) === trFirstSt);
-                            let prv = timetable.find(t => String(t.no || t.train_no || t.id) === String(dInfo.train_id));
-                            if (prv && prv.segments[prv.segments.length - 1]) {
+                            let prv = dInfo && timetable.find(t => String(t.no || t.train_no || t.id) === String(dInfo.train_id));
+                            if (prv && !_checkPartnerCircular(prv) && prv.segments[prv.segments.length - 1]) {
                                 let pt = prv.segments[prv.segments.length - 1].t;
                                 let lastK = prv.segments[prv.segments.length - 1].s.length - 1;
                                 arrT = (pt[lastK * 2] !== undefined && pt[lastK * 2] !== null && pt[lastK * 2] !== "") ? pt[lastK * 2] : pt[lastK * 2 + 1];
-                                x_arr = timeToX(arrT); 
+                                x_arr = timeToX(arrT);
                             }
                         }
 
@@ -1000,21 +1012,40 @@ function drawTrains() {
                         let isDesignatedSpeaker = false;
 
                         if (isVIP) {
-                            if (!isDirectOut) isDesignatedSpeaker = true;
+                            // 環狀列車（起站 == 終站）的末站：isDirectOut=true 但時間不覆寫，正常顯示
+                            // 本身是環狀，或 partner 是環狀（只是車次接續），終點標籤照常顯示
+                            const _nxtForCheck = isDirectOut && (() => {
+                                let di = train.coupled_with && train.coupled_with.find(c => c.action === "direct" && String(c.station_id) === trLastSt);
+                                return di && timetable.find(t => String(t.no || t.train_no || t.id) === String(di.train_id));
+                            })();
+                            if (!isDirectOut || isCircularTrain || _checkPartnerCircular(_nxtForCheck)) isDesignatedSpeaker = true;
                         } else if (isPartner && typeof selectedTrain !== 'undefined' && selectedTrain) {
                             let vipPresentHere = selectedTrain.segments.some(s => s.s.map(String).includes(String(seg.s[i])));
-                            
+
                             if (!vipPresentHere) {
                                 isDesignatedSpeaker = true;
                             } else {
-                                let vipLastSeg = selectedTrain.segments[selectedTrain.segments.length - 1];
-                                let vipLastSt = vipLastSeg.s[vipLastSeg.s.length - 1];
-                                
-                                if (String(vipLastSt) === String(seg.s[i])) {
-                                    let vipDirectsToMe = selectedTrain.coupled_with && selectedTrain.coupled_with.some(c => 
-                                        c.action === "direct" && String(c.train_id) === String(train.no || train.train_no || train.id)
-                                    );
-                                    if (vipDirectsToMe) isDesignatedSpeaker = true; 
+                                // VIP 也停同一站，但若時間差距 > 10 分鐘，代表是不同時刻的過站
+                                // （如 4237 在 22:00 出發天王寺，4237M 在 22:41 過天王寺），應各自顯示標籤
+                                let myTime = seg.t[i * 2];
+                                let vipTimeAtStation = null;
+                                const stIdStr = String(seg.s[i]);
+                                for (let vs of selectedTrain.segments) {
+                                    let idx = vs.s.findIndex(id => String(id) === stIdStr);
+                                    if (idx !== -1) { vipTimeAtStation = vs.t[idx * 2]; break; }
+                                }
+                                if (typeof myTime === 'number' && typeof vipTimeAtStation === 'number'
+                                    && Math.abs(myTime - vipTimeAtStation) > 10) {
+                                    isDesignatedSpeaker = true; // 時間差太大，不互相抑制
+                                } else {
+                                    let vipLastSeg = selectedTrain.segments[selectedTrain.segments.length - 1];
+                                    let vipLastSt = vipLastSeg.s[vipLastSeg.s.length - 1];
+                                    if (String(vipLastSt) === String(seg.s[i])) {
+                                        let vipDirectsToMe = selectedTrain.coupled_with && selectedTrain.coupled_with.some(c =>
+                                            c.action === "direct" && String(c.train_id) === String(train.no || train.train_no || train.id)
+                                        );
+                                        if (vipDirectsToMe) isDesignatedSpeaker = true;
+                                    }
                                 }
                             }
                         }
@@ -1198,10 +1229,11 @@ function drawTrains() {
                         // 🌟 4. 全域記憶體防護網 
                         // ==========================================
                         if (displayText !== "") {
-                            let uniqueKey = `${seg.s[i]}_${displayText}`;
+                            // copy 編號納入 key：環狀圖每個複製版各自獨立，不互相抑制
+                            let uniqueKey = `${copy}_${seg.s[i]}_${displayText}`;
                             if (typeof printedStationTexts !== 'undefined') {
                                 if (printedStationTexts.has(uniqueKey)) {
-                                    displayText = ""; 
+                                    displayText = "";
                                 } else {
                                     printedStationTexts.add(uniqueKey);
                                 }
@@ -1258,16 +1290,35 @@ function drawTrains() {
     let pQueue = [];
     if (selectedTrain) pQueue.push(selectedTrain);
 
+    // 判斷列車是否為環狀（起站 == 終站）的輔助函式
+    const _isCircularTrain = (t) => {
+        if (!t.segments || t.segments.length === 0) return false;
+        const fSt = String(t.segments[0].s[0]);
+        const lSeg = t.segments[t.segments.length - 1];
+        return fSt === String(lSeg.s[lSeg.s.length - 1]);
+    };
+
     while (pQueue.length > 0) {
         let curr = pQueue.shift();
         if (curr.coupled_with) {
             curr.coupled_with.forEach(c => {
-                if (!partnerIds.has(String(c.train_id))) {
-                    let pTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
-                    if (pTrain && pTrain !== selectedTrain) {
-                        partnerIds.add(String(c.train_id));
-                        pQueue.push(pTrain); // 把找到的伴侶再丟進去，繼續往下找它的直通車！
-                    }
+                if (partnerIds.has(String(c.train_id))) return;
+                let pTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
+                if (!pTrain || pTrain === selectedTrain) return;
+
+                if (c.action === "split") {
+                    // 物理連結（新幹線はやぶさ+こまち 等）：一定上色
+                    partnerIds.add(String(c.train_id));
+                    pQueue.push(pTrain);
+                } else if (c.action === "direct") {
+                    // 任一方是環狀列車就不上色（對稱處理）：
+                    // ・完整環互接（大阪環状線）：curr 環狀 → 排除
+                    // ・部分環(2580)選完整環(1570)：pTrain 環狀 → 排除
+                    // ・完整環(1570)選部分環(2580)：curr 環狀 → 排除
+                    // ・跨路線直通（Haruka，雙方皆非環狀）→ 仍上色
+                    if (_isCircularTrain(curr) || _isCircularTrain(pTrain)) return;
+                    partnerIds.add(String(c.train_id));
+                    pQueue.push(pTrain);
                 }
             });
         }
@@ -3391,23 +3442,7 @@ window.switchTrainKeepView = (trainNo) => {
         selectedTrain = t; // 直接替換主角
         if (typeof updateBottomPanel === 'function') updateBottomPanel(t); // 更新底部面板
         
-        // 🌟 終極除殘影術：不要只呼叫 drawTrains()！
-        // 我們直接呼叫系統主程式的 draw()，或者發射假事件騙系統重繪！
-        if (typeof draw === 'function') {
-            draw(); // 如果你的主渲染函式叫做 draw，直接呼叫它
-        } else {
-            // 如果不確定主函式名稱，直接對畫布發射假的滑鼠移動事件！
-            let canvasEl = document.getElementById('canvas') || document.querySelector('canvas');
-            if (canvasEl) {
-                let fakeEvent = new MouseEvent('mousemove', {
-                    bubbles: true,
-                    cancelable: true,
-                    clientX: -1, // 丟到畫面外，避免觸發其他 hover 效果
-                    clientY: -1
-                });
-                canvasEl.dispatchEvent(fakeEvent);
-            }
-        }
+        if (typeof redrawAll === 'function') redrawAll();
     }
 };
 
@@ -3542,6 +3577,40 @@ function updateBottomPanel(train) {
     });
 
     // ==========================================
+    // 同路線循環直通偵測（如大阪環状線每班接續的車）
+    // 條件：直通鏈中有任一班車的起站 == 終站（環狀列車）
+    // 這類不展開全鏈，改為只顯示本班停靠站 + 左右導覽按鈕
+    // 跨路線直通（如 はるか 京都→関西空港）維持原本合併顯示
+    // ==========================================
+    const isSameRouteChain = displayTrains.length > 1 && displayTrains.some(t => {
+        if (!t.segments || t.segments.length === 0) return false;
+        const fSt = String(t.segments[0].s[0]);
+        const lSeg = t.segments[t.segments.length - 1];
+        return fSt === String(lSeg.s[lSeg.s.length - 1]);
+    });
+
+    let chainPrev = null, chainNext = null;
+    if (isSameRouteChain) {
+        const myIdx = displayTrains.findIndex(t => String(t.no) === String(train.no));
+        chainPrev = myIdx > 0 ? displayTrains[myIdx - 1] : null;
+        chainNext = myIdx < displayTrains.length - 1 ? displayTrains[myIdx + 1] : null;
+        // 覆寫 partnerHtml：改為前後班次導覽按鈕
+        const navStyle = `cursor:pointer; font-size:clamp(11px,2.5vw,14px); padding:3px 10px; border-radius:12px; background:rgba(255,255,255,0.12); display:inline-block; margin:0 4px; vertical-align:middle;`;
+        partnerHtml = "";
+        if (chainPrev) {
+            const pNo = String(chainPrev.no).split('|')[0];
+            partnerHtml += `<span style="${navStyle}" onclick="event.stopPropagation(); window.switchTrainKeepView('${chainPrev.no}')">← ${chainPrev.type} ${pNo}</span>`;
+        }
+        if (chainNext) {
+            const nNo = String(chainNext.no).split('|')[0];
+            partnerHtml += `<span style="${navStyle}" onclick="event.stopPropagation(); window.switchTrainKeepView('${chainNext.no}')">${chainNext.type} ${nNo} →</span>`;
+        }
+    }
+
+    // 同路線鏈只渲染本班車；跨路線鏈保留完整鏈
+    const effectiveDisplayTrains = isSameRouteChain ? [train] : displayTrains;
+
+    // ==========================================
     // 🌟 自動抓取這班車 (含直通後) 的「絕對起點」與「絕對終點」
     // ==========================================
     let mainChainFirstSt = null;
@@ -3618,7 +3687,7 @@ function updateBottomPanel(train) {
     allStops.push(...prefixStops);
 
     // 2. 塞入原本這台車 (含直通) 的主路段
-    displayTrains.forEach((tr, trIdx) => {
+    effectiveDisplayTrains.forEach((tr, trIdx) => {
         if (tr.segments) {
             tr.segments.forEach((seg, segIdx) => {
 
@@ -4692,7 +4761,7 @@ async function loadTimetableData(dateOrType) {
         // ------------------------------------------
         // 1. 載入「今天」的時刻表並進行過濾
         // ------------------------------------------
-        const timeRes = await fetch(todayFileUrl);
+        const timeRes = await fetch(todayFileUrl + '?t=' + Date.now());
         if (!timeRes.ok) throw new Error(`找不到檔案: ${todayFileUrl}`);
         let todayData = await timeRes.json();
 
@@ -4719,7 +4788,7 @@ async function loadTimetableData(dateOrType) {
         // ------------------------------------------
         let yesterdayData = [];
         try {
-            const yestRes = await fetch(yestFileUrl);
+            const yestRes = await fetch(yestFileUrl + '?t=' + Date.now());
             if (yestRes.ok) {
                 let rawYesterday = await yestRes.json();
 
@@ -5108,7 +5177,7 @@ async function init(systemPath) {
         }
 
         // 2. 載入 topology.json
-        const topoRes = await fetch(dirc_path + 'topology.json');
+        const topoRes = await fetch(dirc_path + 'topology.json?t=' + Date.now());
         topology = await topoRes.json();
 
         // ==========================================
