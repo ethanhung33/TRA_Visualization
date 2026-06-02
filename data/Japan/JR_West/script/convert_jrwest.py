@@ -134,14 +134,37 @@ def main():
         
         op_type = "daily"
         dates = []
-        
+        _bus_info = None
+
+        # 先決定基本運行類型（weekday / holiday / irregular / daily）
         if "土曜・休日運休" in op_text or "平日運転" in op_text:
             op_type = "weekday"
         elif "土曜・休日運転" in op_text or "休日運転" in op_text:
             op_type = "holiday"
-        elif "月" in op_text and ("日" in op_text or "・" in op_text):
+        elif "月" in op_text and ("日" in op_text or "・" in op_text) \
+                and "バス代行" not in op_text and "代行輸送" not in op_text:
             op_type = "irregular"
             dates = parse_japanese_dates(op_text, 2026)
+
+        # バス代行の解析は op_type と独立して実行（土曜・休日運休との共存も対応）
+        if "バス代行" in op_text or "代行輸送" in op_text:
+            _norm = unicodedata.normalize('NFKC', op_text)
+            # Pattern 1: 部分区間代行 "X月Y日はA－B間運休・同区間バス代行"
+            # [\s・]* allows "・" between multi-month date groups e.g. "5月22・29日・6月5日"
+            _bm = re.search(r'((?:\d+月[\d・]+日[\s・]*)+)は(.+?)[－\-](.+?)間運休', _norm)
+            if _bm:
+                _bus_dates = parse_japanese_dates(_bm.group(1), 2026)
+                _bus_from = clean_station_name(_bm.group(2).strip())
+                _bus_to   = clean_station_name(_bm.group(3).strip())
+                if _bus_dates:
+                    _bus_info = (_bus_dates, _bus_from, _bus_to)
+            else:
+                # Pattern 2: 全線代行 "X月Y日は運休・バス代行" → bus 範囲は首尾站
+                _bm2 = re.search(r'((?:\d+月[\d・]+日[\s・]*)+)は運休', _norm)
+                if _bm2:
+                    _bus_dates = parse_japanese_dates(_bm2.group(1), 2026)
+                    if _bus_dates:
+                        _bus_info = (_bus_dates, None, None)  # None = 全線，後で首尾站を使う
             
         stop_times, ordered_stops = [], [] 
         for s in train.get("data", []):
@@ -160,11 +183,15 @@ def main():
         start_st_id = STA_MAP.get(start_st_name, start_st_name)
         unique_no = f"{original_no}|{start_st_id}"
         
+        # 代行がある日は元の列車を exclude（Pattern 1・2 共通）
+        _chunk_exclude = _bus_info[0] if _bus_info else []
+
         all_chunks.append({
             "no": unique_no,
             "op_type": op_type,
             "operation": op_type,
             "dates": dates,
+            "exclude_dates": _chunk_exclude,
             "type": clean_train_type(train.get("列車種別", ""), train.get("列車名", "")),
             "thru_link": train.get("直通運転"),
             "couple_text": train.get("併結運転"),
@@ -172,7 +199,83 @@ def main():
             "ordered_stops": ordered_stops,
             "start_time": stop_times[0][1] if isinstance(stop_times[0][1], int) else 9999
         })
-            
+
+        if _bus_info:
+            bus_dates, bus_from, bus_to = _bus_info
+            try:
+                if bus_from is None:
+                    # Pattern 2: 全線代行 → バスのみ（元列車は exclude_dates で消える）
+                    fi, ti = 0, len(ordered_stops) - 1
+                    bus_stops = ordered_stops[fi:ti + 1]
+                    bus_times = stop_times[fi:ti + 1]
+                    bus_start_id = STA_MAP.get(bus_stops[0], bus_stops[0])
+                    all_chunks.append({
+                        "no": f"{original_no}_B|{bus_start_id}",
+                        "op_type": "irregular", "operation": "irregular",
+                        "dates": bus_dates, "exclude_dates": [],
+                        "type": "バス",
+                        "thru_link": None, "couple_text": None,
+                        "stops": bus_times, "ordered_stops": bus_stops,
+                        "start_time": bus_times[0][1] if isinstance(bus_times[0][1], int) else 9999
+                    })
+                else:
+                    # Pattern 1: 部分区間代行 → 截短普通車 + バス、直通連結
+                    fi = ordered_stops.index(bus_from)
+                    ti = ordered_stops.index(bus_to)
+                    if fi < ti:
+                        train_type = clean_train_type(train.get("列車種別", ""), train.get("列車名", ""))
+                        last_idx   = len(ordered_stops) - 1
+                        bus_no      = f"{original_no}_B|{STA_MAP.get(bus_from, bus_from)}"
+                        trunc_pre_no  = f"{original_no}_T|{start_st_id}"
+                        trunc_post_no = f"{original_no}_T2|{STA_MAP.get(ordered_stops[ti], ordered_stops[ti])}"
+
+                        # ① バス前段普通車（fi > 0 のときのみ）: 首站 → 代行開始站
+                        if fi > 0:
+                            all_chunks.append({
+                                "no": trunc_pre_no,
+                                "display_no": original_no,  # 表示用は元の車番
+                                "op_type": "irregular", "operation": "irregular",
+                                "dates": bus_dates, "exclude_dates": [],
+                                "type": train_type,
+                                "thru_link": original_no + "_B",
+                                "couple_text": None,
+                                "stops": stop_times[:fi + 1],
+                                "ordered_stops": ordered_stops[:fi + 1],
+                                "start_time": stop_times[0][1] if isinstance(stop_times[0][1], int) else 9999
+                            })
+
+                        # ② バス：代行開始站 → 代行終點站
+                        bus_thru = (original_no + "_T2") if ti < last_idx else train.get("直通運転")
+                        all_chunks.append({
+                            "no": bus_no,
+                            "display_no": original_no,  # 表示用は元の車番
+                            "op_type": "irregular", "operation": "irregular",
+                            "dates": bus_dates, "exclude_dates": [],
+                            "type": "バス",
+                            "thru_link": bus_thru,
+                            "couple_text": None,
+                            "stops": stop_times[fi:ti + 1],
+                            "ordered_stops": ordered_stops[fi:ti + 1],
+                            "start_time": stop_times[fi][1] if isinstance(stop_times[fi][1], int) else 9999
+                        })
+
+                        # ③ バス後段普通車（ti < last_idx のときのみ）: 代行終點站 → 終着站
+                        if ti < last_idx:
+                            all_chunks.append({
+                                "no": trunc_post_no,
+                                "display_no": original_no,  # 表示用は元の車番
+                                "op_type": "irregular", "operation": "irregular",
+                                "dates": bus_dates, "exclude_dates": [],
+                                "type": train_type,
+                                "thru_link": train.get("直通運転"),
+                                "couple_text": None,
+                                "stops": stop_times[ti:],
+                                "ordered_stops": ordered_stops[ti:],
+                                "start_time": stop_times[ti][1] if isinstance(stop_times[ti][1], int) else 9999
+                            })
+            except (ValueError, IndexError):
+                pass
+
     # 4. 空間連通性分群
     grouped_chunks = defaultdict(list)
     for chunk in all_chunks:
@@ -201,12 +304,14 @@ def main():
             unique_id = f"train_{buffer_idx}"
             buffer_idx += 1
             train_buffer[unique_id] = {
-                "no": instance[0]["no"], 
+                "no": instance[0]["no"],
                 "type": instance[0]["type"],
                 "is_wd": instance[0]["op_type"] in ["daily", "weekday", "irregular"],
                 "is_we": instance[0]["op_type"] in ["daily", "holiday", "irregular"],
-                "operation": instance[0]["operation"], 
-                "dates": instance[0]["dates"],         
+                "operation": instance[0]["operation"],
+                "dates": instance[0]["dates"],
+                "exclude_dates": instance[0].get("exclude_dates", []),
+                "display_no": instance[0].get("display_no"),
                 "segments_data": instance,
                 "thru_links": set(c["thru_link"] for c in instance if c["thru_link"] and c["thru_link"] != instance[0]["no"]),
                 "couple_texts": list({c["couple_text"] for c in instance if c.get("couple_text")})
@@ -418,18 +523,23 @@ def main():
         
         if not segs: continue
         
-        processed_trains.append({
-            "no": t_info["no"], 
-            "type": t_info["type"], 
-            "operation": t_info["operation"], 
-            "dates": t_info["dates"],         
-            "segments": segs, 
+        train_obj = {
+            "no": t_info["no"],
+            "type": t_info["type"],
+            "operation": t_info["operation"],
+            "dates": t_info["dates"],
+            "segments": segs,
             "coupled_with": [],
             "_first_sta": full_ordered_stops[0], "_last_sta": full_ordered_stops[-1],
             "_thru_links": t_info["thru_links"],
             "_couple_texts": t_info.get("couple_texts", []),
             "_is_wd": t_info["is_wd"], "_is_we": t_info["is_we"]
-        })
+        }
+        if t_info.get("exclude_dates"):
+            train_obj["exclude_dates"] = t_info["exclude_dates"]
+        if t_info.get("display_no"):
+            train_obj["display_no"] = t_info["display_no"]
+        processed_trains.append(train_obj)
 
     # 直通運轉配對
     for t in processed_trains:
@@ -440,8 +550,8 @@ def main():
                 j_name = t["_last_sta"] if t["_last_sta"] == partner["_first_sta"] else (t["_first_sta"] if t["_first_sta"] == partner["_last_sta"] else None)
                 if j_name:
                     j_id = STA_MAP.get(j_name, j_name)
+                    # 單向直通：只在「前段→後段」方向寫入 coupled_with（t 是前段，partner 是後段）
                     if not any(c["train_id"] == partner["no"] for c in t["coupled_with"]): t["coupled_with"].append({"train_id": partner["no"], "station_id": j_id, "action": "direct"})
-                    if not any(c["train_id"] == t["no"] for c in partner["coupled_with"]): partner["coupled_with"].append({"train_id": t["no"], "station_id": j_id, "action": "direct"})
 
     # 併結配對（split）
     # 格式：'日根野－天王寺は4584Hを併結' → junction = 兩班都停的中間站（日根野）
@@ -473,6 +583,20 @@ def main():
                     t["coupled_with"].append({"train_id": partner["no"], "station_id": junction_id, "action": "split"})
                 if not any(c["train_id"] == t["no"] for c in partner["coupled_with"]):
                     partner["coupled_with"].append({"train_id": t["no"], "station_id": junction_id, "action": "split"})
+
+    # 6a. バス代行 suffix 除去（_B / _T / _T2 を no と coupled_with.train_id から削除）
+    _suffix_re = re.compile(r'_(?:B|T2?)\|')
+    no_remap = {}
+    for t in processed_trains:
+        old = t["no"]
+        new = _suffix_re.sub('|', old)
+        if new != old:
+            no_remap[old] = new
+    for t in processed_trains:
+        t["no"] = no_remap.get(t["no"], t["no"])
+        for c in t.get("coupled_with", []):
+            c["train_id"] = no_remap.get(c["train_id"], c["train_id"])
+        t.pop("display_no", None)  # no 已是乾淨車番，display_no 欄位不需輸出
 
     # 6. 分流與清理
     wd_final, we_final = [], []

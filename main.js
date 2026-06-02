@@ -1120,8 +1120,8 @@ function drawTrains() {
                                         let dInfo = curr.coupled_with ? curr.coupled_with.find(cx => cx.action === "direct") : null;
                                         if(dInfo) {
                                             let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
-                                            if (nxt && !visited.has(String(nxt.no || nxt.train_no || nxt.id))) { 
-                                                visited.add(String(nxt.no || nxt.train_no || nxt.id)); curr = nxt; 
+                                            if (nxt && !visited.has(String(nxt.no || nxt.train_no || nxt.id))) {
+                                                visited.add(String(nxt.no || nxt.train_no || nxt.id)); curr = nxt;
                                             } else break;
                                         } else break;
                                     }
@@ -1365,6 +1365,48 @@ function drawTrains() {
         }
     }
 
+    // 選取車站時：BFS 追蹤整條直通鏈，把所有相關班次加入白名單
+    let stationChainSet = null;
+    if (selectedStation) {
+        stationChainSet = new Set();
+        let bfsQueue = [];
+        timetable.forEach(t => {
+            if (!t.segments) return;
+            let stops = t.segments.some(seg =>
+                seg.s.some((s, i) => String(s) === String(selectedStation) && seg.v[i] !== 2)
+            );
+            if (stops) {
+                let no = String(t.no || t.train_no || t.id);
+                if (!stationChainSet.has(no)) { stationChainSet.add(no); bfsQueue.push(t); }
+            }
+        });
+        while (bfsQueue.length > 0) {
+            let curr = bfsQueue.shift();
+            let currNo = String(curr.no || curr.train_no || curr.id);
+            // Forward: curr → successor
+            if (curr.coupled_with && curr.segments) {
+                let cLast = curr.segments[curr.segments.length - 1];
+                let cLastSt = String(cLast.s[cLast.s.length - 1]);
+                let si = curr.coupled_with.find(c => c.action === "direct" && String(c.station_id) === cLastSt);
+                if (si) {
+                    let succ = timetable.find(t => String(t.no || t.train_no || t.id) === String(si.train_id));
+                    if (succ) { let sNo = String(succ.no || succ.train_no || succ.id); if (!stationChainSet.has(sNo)) { stationChainSet.add(sNo); bfsQueue.push(succ); } }
+                }
+            }
+            // Backward: curr ← predecessor（反向搜尋）
+            if (curr.segments) {
+                let cFirstSt = String(curr.segments[0].s[0]);
+                let pred = timetable.find(pt => {
+                    if (!pt.coupled_with || !pt.segments) return false;
+                    let pLast = pt.segments[pt.segments.length - 1];
+                    if (String(pLast.s[pLast.s.length - 1]) !== cFirstSt) return false;
+                    return pt.coupled_with.some(c => c.action === "direct" && String(c.train_id) === currNo);
+                });
+                if (pred) { let pNo = String(pred.no || pred.train_no || pred.id); if (!stationChainSet.has(pNo)) { stationChainSet.add(pNo); bfsQueue.push(pred); } }
+            }
+        }
+    }
+
     // 第一次迴圈：畫普通車，把 VIP、Hover 和 Partner 扣留起來
     timetable.forEach(train => {
         
@@ -1381,23 +1423,7 @@ function drawTrains() {
         // ==========================================
         // 🌟 找回遺失的車站過濾邏輯 (Focus Mode)
         // ==========================================
-        if (selectedStation) {
-            let stopsHere = false;
-            if (train.segments) {
-                for (let seg of train.segments) {
-                    for (let i = 0; i < seg.s.length; i++) {
-                        // 檢查這班車有沒有這個車站，且 v !== 2 (不是通過站)
-                        if (String(seg.s[i]) === String(selectedStation) && seg.v[i] !== 2) {
-                            stopsHere = true; 
-                            break;
-                        }
-                    }
-                    if (stopsHere) break;
-                }
-            }
-            // 如果有點擊某個車站，但這班車沒有停靠，就直接 Return 跳過不畫！
-            if (!stopsHere) return; 
-        }
+        if (stationChainSet && !stationChainSet.has(trainNoStr)) return;
 
         // 🌟 3. 狀態判斷與分發 (加入伴侶車攔截)
         if (train === selectedTrain) {
@@ -2098,11 +2124,21 @@ function setupSearch() {
                 let matchedTrains = new Map(); 
                 timetable.forEach(train => {
                     let trainNo = String(train.no || train.train_no || train.id || "");
-                    let noLower = trainNo.toLowerCase();
-                    let score = noLower === keyword ? 3 : (noLower.startsWith(keyword) ? 2 : (noLower.includes(keyword) ? 1 : 0));
-                    if (score > 0 && !matchedTrains.has(trainNo)) matchedTrains.set(trainNo, { typeStr: train.type || "", no: trainNo, score: score });
+                    let displayNo = trainNo.split('|')[0];
+                    let displayNoLower = displayNo.toLowerCase();
+                    let score = displayNoLower === keyword ? 3 : (displayNoLower.startsWith(keyword) ? 2 : (displayNoLower.includes(keyword) ? 1 : 0));
+                    if (score > 0 && !matchedTrains.has(trainNo)) {
+                        let startSta = "", endSta = "";
+                        if (train.segments && train.segments.length > 0) {
+                            let fSeg = train.segments[0];
+                            let lSeg = train.segments[train.segments.length - 1];
+                            if (fSeg.s && fSeg.s.length > 0) startSta = getStationName(String(fSeg.s[0]));
+                            if (lSeg.s && lSeg.s.length > 0) endSta = getStationName(String(lSeg.s[lSeg.s.length - 1]));
+                        }
+                        matchedTrains.set(trainNo, { typeStr: train.type || "", no: trainNo, displayNo, score, startSta, endSta });
+                    }
                 });
-                matchedTrains.forEach(data => searchData.push({ type: 'train', id: data.no, typeStr: data.typeStr, score: data.score }));
+                matchedTrains.forEach(data => searchData.push({ type: 'train', id: data.no, typeStr: data.typeStr, score: data.score, displayNo: data.displayNo, startSta: data.startSta, endSta: data.endSta }));
             }
         } 
         // ==========================================
@@ -2323,14 +2359,16 @@ function setupSearch() {
                     
                     let displayParts = [];
                     if (currentShowType && item.typeStr) displayParts.push(item.typeStr);
-                    // 🌟 如果有 dispId 就用它 (顯示直通)，沒有就維持原本的 id
                     if (currentShowId && item.id) {
-                        let dispIdStr = item.dispId || item.id;
-                        // 用正則表達式把可能包含的 |xxx 後綴都清掉 (支援處理 "123|A ➔ 456|B" 這種格式)
-                        dispIdStr = String(dispIdStr).replace(/\|[^ ]+/g, ''); 
-                        displayParts.push(dispIdStr); 
+                        let dispIdStr = item.displayNo || item.dispId || item.id;
+                        dispIdStr = String(dispIdStr).replace(/\|[^ ]+/g, '');
+                        displayParts.push(dispIdStr);
                     }
                     let trainDisplayText = displayParts.join(' ');
+                    // 起訖站備註（有 display_no 代行班次、或多班同號時區分用）
+                    let staAnnotation = (item.startSta || item.endSta)
+                        ? `<span style="font-size:11px;opacity:0.5;margin-left:4px;">${item.startSta}→${item.endSta}</span>`
+                        : "";
                     
                     let timeHtml = "";
                     if (item.startTime !== undefined && item.endTime !== undefined) {
@@ -2340,9 +2378,9 @@ function setupSearch() {
                     }
 
                     return `<div class="search-item selectable-item" style="display: flex; align-items: center;" onclick="triggerSearchSelect('train', '${item.id}', this)">
-                        <span class="search-item-badge badge-train">${trainLabel}</span> 
-                        <span style="margin-right: 4px;">${trainDisplayText}</span> 
-                        ${routeBadge} 
+                        <span class="search-item-badge badge-train">${trainLabel}</span>
+                        <span style="margin-right: 4px;">${trainDisplayText}</span>${staAnnotation}
+                        ${routeBadge}
                         ${timeHtml}
                     </div>`;
                 }
@@ -2946,7 +2984,7 @@ function setupCanvasInteractions() {
         const minScaleY = isCircular
             ? (wrapperH / 3) / safeLoopKm
             : (CONFIG.scaleY_fit && CONFIG.scaleY_fit > 0)
-                ? CONFIG.scaleY_fit * 0.5
+                ? CONFIG.scaleY_fit * 0.3
                 : (wrapperH / 2) / safeLoopKm;
 
         if (zoom < 1) {
@@ -3964,7 +4002,6 @@ function updateBottomPanelStation(st_id) {
                     let depT = seg.t[i * 2 + 1];
                     let absoluteNow = currentMinutes < 120 ? currentMinutes + 1440 : currentMinutes;
                     let diff = depT - absoluteNow;
-
                     if (diff >= 0) {
                         let isUpbound = true; 
                         let foundDirection = false;
@@ -4016,12 +4053,47 @@ function updateBottomPanelStation(st_id) {
                         if (isUpbound) upboundTrains.push(trainData);
                         else downboundTrains.push(trainData);
 
-                        processedTrains.add(trainNo); 
+                        processedTrains.add(trainNo);
 
-                        // ==========================================
-                        // 👻 修正版：捕捉隱形的掛載伴侶 (具備拓樸學共線區間判定)
-                        // ==========================================
+                        // 直通前段（predecessor）：反向搜尋，不受 coupled_with 是否存在影響
+                        {
+                            let firstStId = String(train.segments[0].s[0]);
+                            let predTrain = timetable.find(pt => {
+                                if (!pt.coupled_with || !pt.segments || pt.segments.length === 0) return false;
+                                let ptLastSeg = pt.segments[pt.segments.length - 1];
+                                if (String(ptLastSeg.s[ptLastSeg.s.length - 1]) !== firstStId) return false;
+                                return pt.coupled_with.some(c => c.action === "direct" && String(c.train_id) === String(train.no || train.train_no));
+                            });
+                            if (predTrain) {
+                                let predNo = String(predTrain.no || predTrain.train_no || predTrain.id);
+                                if (activeTrainTypes.has(predTrain.type) && !processedTrains.has(predNo)) {
+                                    let pDestName = getAbsoluteDest(train);
+                                    let pData = { train: predTrain, trainNo: predNo, depTime: depT, destName: pDestName, diff };
+                                    if (isUpbound) upboundTrains.push(pData);
+                                    else downboundTrains.push(pData);
+                                    processedTrains.add(predNo);
+                                }
+                            }
+                        }
+
+                        // 直通後段（successor）＋ split 伴侶：需要 coupled_with 存在
                         if (train.coupled_with) {
+                            // 直通後段
+                            let lastSeg = train.segments[train.segments.length - 1];
+                            let lastStId = String(lastSeg.s[lastSeg.s.length - 1]);
+                            let succInfo = train.coupled_with.find(c => c.action === "direct" && String(c.station_id) === lastStId);
+                            if (succInfo) {
+                                let succTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(succInfo.train_id));
+                                let succNo = succTrain && String(succTrain.no || succTrain.train_no || succTrain.id);
+                                if (succTrain && activeTrainTypes.has(succTrain.type) && !processedTrains.has(succNo)) {
+                                    let sDestName = getAbsoluteDest(succTrain);
+                                    let sData = { train: succTrain, trainNo: succNo, depTime: depT, destName: sDestName, diff };
+                                    if (isUpbound) upboundTrains.push(sData);
+                                    else downboundTrains.push(sData);
+                                    processedTrains.add(succNo);
+                                }
+                            }
+
                             train.coupled_with.forEach(c => {
                                 if (c.action === "split") {
                                     let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
@@ -4835,12 +4907,14 @@ async function loadTimetableData(dateOrType) {
         // 🌟 核心過濾器：如果此系統有日曆且是新幹線模式 (情境 3)，過濾不開的車
         if (settings.data_fetch_strategy === "WEEKEND_FILE" && settings.calendar_type === "WEEKDAY_BITMAP") {
             todayData = todayData.filter(train => {
-                // 如果這班車被標記為不定期 (irregular)，就檢查日期陣列
                 if (train.operation === "irregular") {
                     return train.dates && Array.isArray(train.dates) && train.dates.includes(targetDateStr);
                 }
-                // 標記為 daily，或是沒有標記的常規車次，直接放行
-                return true; 
+                // バス全線代行などで特定日を除外
+                if (train.exclude_dates && Array.isArray(train.exclude_dates) && train.exclude_dates.includes(targetDateStr)) {
+                    return false;
+                }
+                return true;
             });
         }
 
@@ -4864,6 +4938,9 @@ async function loadTimetableData(dateOrType) {
                     rawYesterday = rawYesterday.filter(train => {
                         if (train.operation === "irregular") {
                             return train.dates && Array.isArray(train.dates) && train.dates.includes(targetYestStr);
+                        }
+                        if (train.exclude_dates && Array.isArray(train.exclude_dates) && train.exclude_dates.includes(targetYestStr)) {
+                            return false;
                         }
                         return true;
                     });
