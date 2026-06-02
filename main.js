@@ -607,8 +607,9 @@ function drawTrains() {
         let baseColor = fallbackColor;
         let baseWidth = train.w || 1.5; // 通用的保底粗細 (如果設定檔沒寫，預設 1.5)
 
-        if (settings && settings.train_color && settings.train_color[train.type]) {
-            let typeStyle = settings.train_color[train.type];
+        let _tc = getTrainColorValue(train.type);
+        if (_tc) {
+            let typeStyle = _tc;
             baseColor = typeStyle[colorIndex]; // 抓取顏色 (深色/淺色模式)
             
             // 🌟 終極通用解法：如果有設定第三個參數，就把它當作該車種的專屬粗細！
@@ -764,9 +765,8 @@ function drawTrains() {
                         
                         if (partner && partner.segments && partner.segments.length > 0) {
                             let pColor = fallbackColor;
-                            if (settings && settings.train_color && settings.train_color[partner.type]) {
-                                pColor = settings.train_color[partner.type][colorIndex];
-                            }
+                            let _ptc = getTrainColorValue(partner.type);
+                            if (_ptc) pColor = _ptc[colorIndex];
 
                             // 1. 抓出解連站在這班車的陣列位置 (Index)
                             let splitSt = String(splitInfo.station_id);
@@ -1590,6 +1590,19 @@ function handleRouteSwitch(newRoute) {
     updateTrainTypeVisibility();
 }
 
+// 取得車種顏色陣列，相容舊格式（平鋪）和新格式（巢狀分組）
+function getTrainColorValue(type) {
+    if (!settings?.train_color) return null;
+    const tc = settings.train_color;
+    if (settings._trainColorGrouped) {
+        for (const group of Object.values(tc)) {
+            if (group[type]) return group[type];
+        }
+        return null;
+    }
+    return tc[type] || null;
+}
+
 function buildUI() {
     // ---- 取得當下主題色碼的輔助函數 ----
     function getColor(colorsArray) {
@@ -1743,23 +1756,19 @@ function buildUI() {
         }
     };
 
-    // 4. 使用排好序的 sortedTypes 來生成按鈕
-    sortedTypes.forEach(type => {
+    // 4. 建立個別車種按鈕的工廠函數（共用邏輯）
+    const makeTypeBtn = (type) => {
         activeTrainTypes.add(type);
-
         const btn = document.createElement('button');
         btn.className = 'pill-btn';
         btn.textContent = type;
-        
-        // 🌟 車種按鈕的配色邏輯
-        const updateTrainBtnStyle = () => {
+        const updateStyle = () => {
             let defaultBg = isDarkMode ? "#444444" : "#E0E0E0";
             let defaultBorder = isDarkMode ? "#555555" : "#CCCCCC";
             let defaultText = isDarkMode ? "#CCCCCC" : "#000000";
             let selectedText = isDarkMode ? "#000000" : "#FFFFFF";
-
             if (activeTrainTypes.has(type)) {
-                let tColor = getColor(settings?.train_color?.[type]);
+                let tColor = getColor(getTrainColorValue(type));
                 btn.style.backgroundColor = tColor;
                 btn.style.borderColor = tColor;
                 btn.style.color = selectedText;
@@ -1769,29 +1778,107 @@ function buildUI() {
                 btn.style.color = defaultText;
             }
         };
-
-        updateTrainBtnStyle();
-        btn._updateStyle = updateTrainBtnStyle; 
-
+        updateStyle();
+        btn._updateStyle = updateStyle;
         btn.addEventListener('click', () => {
             if (activeTrainTypes.has(type)) activeTrainTypes.delete(type);
             else activeTrainTypes.add(type);
-            updateTrainBtnStyle();
-            
-            syncBottomPanel(); // 🌟 1. 單一按鈕點擊時：同步更新面板！
+            updateStyle();
+            syncBottomPanel();
             redrawAll();
         });
-        trainTypeContainer.appendChild(btn);
-    });
+        return btn;
+    };
+
+    // 5. 分組格式 vs 平鋪格式的渲染
+    const allGroupUpdateFns = []; // 收集各群組的狀態更新函數，供全域按鈕呼叫
+    if (settings._trainColorGrouped && settings.train_color) {
+        // 巢狀分組：群組標題可折疊，點標題可全選/全取消該群組
+        const groupBorderColor = isDarkMode ? "#444" : "#ddd";
+        Object.entries(settings.train_color).forEach(([groupLabel, groupTypes]) => {
+            const groupTypesInData = Object.keys(groupTypes).filter(t => sortedTypes.includes(t));
+            if (groupTypesInData.length === 0) return;
+
+            // 群組容器
+            const groupDiv = document.createElement('div');
+            groupDiv.style.cssText = `width:100%; margin-bottom:4px; border:1px solid ${groupBorderColor}; border-radius:8px; overflow:hidden;`;
+
+            // 群組標題列
+            const header = document.createElement('div');
+            header.style.cssText = `display:flex; align-items:center; gap:6px; padding:4px 10px; cursor:pointer; user-select:none; font-size:12px; font-weight:bold; color:${isDarkMode?"#aaa":"#555"};`;
+            const arrow = document.createElement('span');
+            arrow.textContent = '▶';
+            arrow.style.cssText = 'font-size:9px; transition:transform 0.2s;';
+            const label = document.createElement('span');
+            label.textContent = groupLabel;
+            label.style.flex = '1';
+
+            // 群組全選/全取消按鈕
+            const groupToggleBtn = document.createElement('button');
+            groupToggleBtn.style.cssText = `font-size:10px; padding:1px 6px; border-radius:4px; border:1px solid; cursor:pointer; font-weight:normal;`;
+            const updateGroupToggle = () => {
+                const allOn  = groupTypesInData.every(t => activeTrainTypes.has(t));
+                const anyOn  = groupTypesInData.some(t => activeTrainTypes.has(t));
+                const bg  = isDarkMode ? "#444" : "#e8e8e8";
+                const bdr = isDarkMode ? "#666" : "#ccc";
+                groupToggleBtn.textContent = allOn ? '全部不選' : '全選';
+                groupToggleBtn.style.backgroundColor = allOn ? (isDarkMode?"#555":"#ddd") : bg;
+                groupToggleBtn.style.borderColor = bdr;
+                groupToggleBtn.style.color = isDarkMode ? "#ccc" : "#444";
+                groupToggleBtn.style.opacity = anyOn || !allOn ? '1' : '0.6';
+            };
+            groupToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const allOn = groupTypesInData.every(t => activeTrainTypes.has(t));
+                if (allOn) groupTypesInData.forEach(t => activeTrainTypes.delete(t));
+                else       groupTypesInData.forEach(t => activeTrainTypes.add(t));
+                // 更新群組內個別按鈕樣式
+                content.querySelectorAll('.pill-btn').forEach(b => { if (b._updateStyle) b._updateStyle(); });
+                updateGroupToggle();
+                syncBottomPanel();
+                redrawAll();
+            });
+            updateGroupToggle();
+            allGroupUpdateFns.push(updateGroupToggle);
+            header.append(arrow, label, groupToggleBtn);
+
+            // 群組內容（預設折疊）
+            const content = document.createElement('div');
+            content.style.cssText = `display:none; flex-wrap:wrap; gap:6px; padding:6px 8px;`;
+
+            // 展開/折疊切換
+            header.addEventListener('click', (e) => {
+                if (e.target.closest('button')) return;
+                const open = content.style.display === 'none';
+                content.style.display = open ? 'flex' : 'none';
+                arrow.style.transform = open ? 'rotate(90deg)' : '';
+            });
+
+            // 加入各車種按鈕（點個別按鈕後同步更新群組狀態）
+            groupTypesInData.forEach(type => {
+                const btn = makeTypeBtn(type);
+                btn.addEventListener('click', () => updateGroupToggle());
+                content.appendChild(btn);
+            });
+            groupDiv.append(header, content);
+            trainTypeContainer.appendChild(groupDiv);
+        });
+        // 不在任何分組的車種補在最後（平鋪）
+        const grouped = new Set(Object.values(settings.train_color).flatMap(g => Object.keys(g)));
+        sortedTypes.filter(t => !grouped.has(t)).forEach(type => trainTypeContainer.appendChild(makeTypeBtn(type)));
+    } else {
+        // 舊格式：平鋪
+        sortedTypes.forEach(type => trainTypeContainer.appendChild(makeTypeBtn(type)));
+    }
 
     // ==========================================
     // 🌟 修正：將 addEventListener 改成 onclick
     // ==========================================
-    // 全選 
+    // 全選
     btnAllTrains.onclick = () => {
         activeTrainTypes = new Set(sortedTypes);
         document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
-        
+        allGroupUpdateFns.forEach(fn => fn());
         syncBottomPanel();
         redrawAll();
     };
@@ -1800,7 +1887,7 @@ function buildUI() {
     btnNoTrains.onclick = () => {
         activeTrainTypes.clear();
         document.querySelectorAll('#train-type-container .pill-btn').forEach(b => { if(b._updateStyle) b._updateStyle(); });
-        
+        allGroupUpdateFns.forEach(fn => fn());
         syncBottomPanel();
         redrawAll();
     };
@@ -3575,8 +3662,9 @@ function updateBottomPanel(train) {
     let trainType = train.type || "";
     
     let trainColor = "#888888"; 
-    if (settings && settings.train_color && settings.train_color[trainType]) {
-        let typeColors = settings.train_color[trainType];
+    let _typeColors = getTrainColorValue(trainType);
+    if (_typeColors) {
+        let typeColors = _typeColors;
         if (isDarkMode) {
             trainColor = typeColors[0]; 
         } else {
@@ -5305,16 +5393,19 @@ async function init(systemPath) {
         settings = JSON.parse(settingText);
 
 
-        // 🌟 通用破解法：用正規表達式從純文字中挖出 train_color 的原始 Key 順序
-        let extractedOrder = [];
-        const colorBlockMatch = settingText.match(/"train_color"\s*:\s*\{([^}]*)\}/);
-        if (colorBlockMatch) {
-            // 抓出 block 裡所有的 "key":
-            const keyMatches = [...colorBlockMatch[1].matchAll(/"([^"]+)"\s*:/g)];
-            extractedOrder = keyMatches.map(m => m[1]);
+        // 偵測 train_color 是否為巢狀分組格式，並建立 _rawOrder（葉節點型別順序）
+        if (settings.train_color) {
+            const firstVal = Object.values(settings.train_color)[0];
+            const isGrouped = firstVal && typeof firstVal === 'object' && !Array.isArray(firstVal);
+            settings._trainColorGrouped = isGrouped;
+            if (isGrouped) {
+                // 巢狀格式：從各分組依序收集葉節點車種名稱
+                settings._rawOrder = Object.values(settings.train_color).flatMap(g => Object.keys(g));
+            } else {
+                // 舊格式：用 Object.keys 取得順序
+                settings._rawOrder = Object.keys(settings.train_color);
+            }
         }
-        // 將挖出來的原汁原味順序，掛載到 settings 物件上
-        settings._rawOrder = extractedOrder;
 
         if (settings.system_name) {
             document.title = settings.system_name + " - 運行圖";
