@@ -1712,8 +1712,13 @@ function buildUI() {
 
     // ---- B. 動態生成車種篩選按鈕 (通用萬用版，免寫 train_order) ----
     
-    // 1. 抓出時刻表內實際有出現的車種集合
-    const dataTypes = new Set(timetable.map(t => t.type));
+    // 1. 抓出時刻表內實際有出現的車種集合，且在當前路線 view 有班次（依 lookupY 過濾）
+    const viewTypes = new Set(
+        timetable
+            .filter(t => t.segments && t.segments.some(seg => seg.s.some(s => lookupY[s] !== undefined)))
+            .map(t => t.type)
+    );
+    const dataTypes = viewTypes.size > 0 ? viewTypes : new Set(timetable.map(t => t.type));
     
     let sortedTypes = [];
     
@@ -1791,7 +1796,8 @@ function buildUI() {
     };
 
     // 5. 分組格式 vs 平鋪格式的渲染
-    const allGroupUpdateFns = []; // 收集各群組的狀態更新函數，供全域按鈕呼叫
+    window._allGroupUpdateFns = []; // 提升到 window，主題切換時也能呼叫
+    const allGroupUpdateFns = window._allGroupUpdateFns;
     if (settings._trainColorGrouped && settings.train_color) {
         // 巢狀分組：群組標題可折疊，點標題可全選/全取消該群組
         const groupBorderColor = isDarkMode ? "#444" : "#ddd";
@@ -1801,6 +1807,7 @@ function buildUI() {
 
             // 群組容器
             const groupDiv = document.createElement('div');
+            groupDiv.className = 'train-type-group';
             groupDiv.style.cssText = `width:100%; margin-bottom:4px; border:1px solid ${groupBorderColor}; border-radius:8px; overflow:hidden;`;
 
             // 群組標題列
@@ -2132,7 +2139,9 @@ function setupSearch() {
     let currentFocus = -1; 
 
     document.addEventListener('click', (e) => {
-        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+        const themeBtn = document.getElementById('btn-theme');
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)
+            && !(themeBtn && themeBtn.contains(e.target))) {
             searchResults.style.display = 'none';
         }
     });
@@ -2799,6 +2808,8 @@ function bindThemeToggle() {
         document.querySelectorAll('#train-type-container .pill-btn').forEach(btn => {
             if(btn._updateStyle) btn._updateStyle();
         });
+        // 同步更新群組全選/全取消按鈕樣式
+        if (window._allGroupUpdateFns) window._allGroupUpdateFns.forEach(fn => fn());
 
         // ==========================================
         // 🌟 核心修復：在重新渲染面板前，先「記住」目前的展開狀態與滾動進度！
@@ -5273,19 +5284,26 @@ function updateTrainTypeVisibility() {
     });
 
     // 3. 掃描右側面板的所有車種按鈕，控制顯示或隱藏
-    let typeButtons = document.querySelectorAll('#train-type-container .pill-btn'); 
-    
+    let typeButtons = document.querySelectorAll('#train-type-container .pill-btn');
+
     typeButtons.forEach(btn => {
-        let typeName = btn.innerText.trim(); 
-        
+        let typeName = btn.innerText.trim();
+
         // 防呆：全選 / 全部不選 的按鈕絕對不能被隱藏
         if (btn.id === 'btn-all-trains' || btn.id === 'btn-no-trains') return;
 
         if (visibleTypes.has(typeName)) {
-            btn.style.display = 'inline-block'; 
+            btn.style.display = 'inline-block';
         } else {
-            btn.style.display = 'none'; 
+            btn.style.display = 'none';
         }
+    });
+
+    // 4. 群組容器：若群組內所有 pill-btn 都被隱藏，整個群組也隱藏
+    document.querySelectorAll('#train-type-container .train-type-group').forEach(groupDiv => {
+        const haVisible = Array.from(groupDiv.querySelectorAll('.pill-btn'))
+            .some(b => b.style.display !== 'none');
+        groupDiv.style.display = haVisible ? '' : 'none';
     });
 }
 
