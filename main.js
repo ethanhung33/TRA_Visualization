@@ -85,7 +85,9 @@ const KANJI_MAP = {
     '国': '國',   // 国鉄
     '嶋': '島',   // 異體字
     '徳': '德',   // 德山
-    '戸': '戶'    // 神戸
+    '戸': '戶',   // 神戸
+    '満': '滿',   // 天満
+    '応': '應',   // 天応
 };
 
 /**
@@ -1259,8 +1261,30 @@ function drawTrains() {
                                     if (minArr !== Infinity) familyFallbackX = timeToX(minArr);
                                 }
                             } else {
-                                if (finalArrStr === finalDepStr) displayText = `${finalArrStr} ${stationName}`; 
-                                else displayText = `${finalArrStr}-${finalDepStr} ${stationName}`; 
+                                // 聚合時刻：取 myFamily 所有成員在此站最早到達、最晚出發
+                                // 只合併時間接近（≤10分）的成員，避免把不同批次的天王寺停靠混在一起
+                                let clusterArr = arrT;
+                                let clusterDep = depT;
+                                const refTime = (typeof arrT === 'number' ? arrT : depT) ?? 0;
+                                for (let ft of myFamily) {
+                                    if (ft === train || !ft.segments) continue;
+                                    for (let fSeg of ft.segments) {
+                                        let fi = fSeg.s.findIndex(s => String(s) === String(seg.s[i]));
+                                        if (fi < 0) continue;
+                                        let fArr = fSeg.t[fi * 2];
+                                        let fDep = fSeg.t[fi * 2 + 1];
+                                        // 時間接近才納入聚合（拒絕同站不同批次）
+                                        let fRef = typeof fArr === 'number' ? fArr : (typeof fDep === 'number' ? fDep : null);
+                                        if (fRef === null || Math.abs(fRef - refTime) > 10) break;
+                                        if (typeof fArr === 'number' && (clusterArr === null || fArr < clusterArr)) clusterArr = fArr;
+                                        if (typeof fDep === 'number' && (clusterDep === null || fDep > clusterDep)) clusterDep = fDep;
+                                        break;
+                                    }
+                                }
+                                let cArr = formatTimeDisplay(clusterArr);
+                                let cDep = formatTimeDisplay(clusterDep);
+                                if (cArr === cDep) displayText = `${cArr} ${stationName}`;
+                                else displayText = `${cArr}-${cDep} ${stationName}`;
                             }
                         } else {
                             displayText = ""; 
@@ -1272,12 +1296,10 @@ function drawTrains() {
                         if (displayText !== "") {
                             // copy 編號納入 key：環狀圖每個複製版各自獨立，不互相抑制
                             let uniqueKey = `${copy}_${seg.s[i]}_${displayText}`;
-                            if (typeof printedStationTexts !== 'undefined') {
-                                if (printedStationTexts.has(uniqueKey)) {
-                                    displayText = "";
-                                } else {
-                                    printedStationTexts.add(uniqueKey);
-                                }
+                            if (printedStationTexts.has(uniqueKey)) {
+                                displayText = "";
+                            } else {
+                                printedStationTexts.add(uniqueKey);
                             }
                         }
 
@@ -1339,8 +1361,18 @@ function drawTrains() {
         return fSt === String(lSeg.s[lSeg.s.length - 1]);
     };
 
+    // chainNos：selectedTrain 本身及其 backward predecessors 的 no 集合
+    // 只有 chainNos 裡的成員才能跟進 direct 後段，避免 split 夥伴的後段誤入 partnerIds
+    const chainNos = selectedTrain
+        ? new Set([String(selectedTrain.no || selectedTrain.train_no || selectedTrain.id)])
+        : new Set();
+
     while (pQueue.length > 0) {
         let curr = pQueue.shift();
+        let currNo = String(curr.no || curr.train_no || curr.id);
+        const isChainMember = chainNos.has(currNo);
+
+        // Forward：追蹤 curr.coupled_with 指向的後段/併結車
         if (curr.coupled_with) {
             curr.coupled_with.forEach(c => {
                 if (partnerIds.has(String(c.train_id))) return;
@@ -1348,18 +1380,32 @@ function drawTrains() {
                 if (!pTrain || pTrain === selectedTrain) return;
 
                 if (c.action === "split") {
-                    // 物理連結（新幹線はやぶさ+こまち 等）：一定上色
                     partnerIds.add(String(c.train_id));
                     pQueue.push(pTrain);
                 } else if (c.action === "direct") {
-                    // 任一方是環狀列車就不上色（對稱處理）：
-                    // ・完整環互接（大阪環状線）：curr 環狀 → 排除
-                    // ・部分環(2580)選完整環(1570)：pTrain 環狀 → 排除
-                    // ・完整環(1570)選部分環(2580)：curr 環狀 → 排除
-                    // ・跨路線直通（Haruka，雙方皆非環狀）→ 仍上色
                     if (_isCircularTrain(curr) || _isCircularTrain(pTrain)) return;
+                    // 直通鏈成員的後段也記入 chainNos，供 backward 搜尋判斷
+                    if (isChainMember) chainNos.add(String(c.train_id));
                     partnerIds.add(String(c.train_id));
                     pQueue.push(pTrain);
+                }
+            });
+        }
+
+        // Backward（單向 coupling 補丁）：只對直通鏈成員做反向搜尋
+        if (isChainMember && curr.segments && curr.segments.length > 0 && !_isCircularTrain(curr)) {
+            let currFirstSt = String(curr.segments[0].s[0]);
+            timetable.forEach(pt => {
+                if (!pt.coupled_with || !pt.segments || pt.segments.length === 0) return;
+                if (pt === selectedTrain || partnerIds.has(String(pt.no || pt.train_no || pt.id))) return;
+                if (_isCircularTrain(pt)) return;
+                let ptLast = pt.segments[pt.segments.length - 1];
+                if (String(ptLast.s[ptLast.s.length - 1]) !== currFirstSt) return;
+                if (pt.coupled_with.some(c => c.action === "direct" && String(c.train_id) === currNo)) {
+                    let ptNo = String(pt.no || pt.train_no || pt.id);
+                    chainNos.add(ptNo);
+                    partnerIds.add(ptNo);
+                    pQueue.push(pt);
                 }
             });
         }
@@ -1406,6 +1452,9 @@ function drawTrains() {
             }
         }
     }
+
+    // 每幀重置站名去重 Set，讓 VIP/Partner 的 drawSingleTrain 共享同一組記憶
+    const printedStationTexts = new Set();
 
     // 第一次迴圈：畫普通車，把 VIP、Hover 和 Partner 扣留起來
     timetable.forEach(train => {
@@ -2391,6 +2440,35 @@ function setupSearch() {
                     });
                 });
             }
+            // 路線搜尋完成後，把已篩出車次的 direct 前段/後段也一起加入
+            // （如 関空快速 4156M 過京橋後直通的 普通，從京橋出發故不在原路徑內）
+            if (filteredTrainNos.size > 0 && timetable) {
+                let extraNos = new Set();
+                timetable.forEach(t => {
+                    let tNo = String(t.no || t.train_no || t.id || "");
+                    if (!filteredTrainNos.has(tNo)) return;
+                    // Forward: direct successor
+                    if (t.coupled_with) {
+                        t.coupled_with.forEach(c => {
+                            if (c.action === "direct") extraNos.add(String(c.train_id));
+                        });
+                    }
+                    // Backward: direct predecessor
+                    if (t.segments && t.segments.length > 0) {
+                        let tFirstSt = String(t.segments[0].s[0]);
+                        timetable.forEach(pt => {
+                            if (!pt.coupled_with || !pt.segments || pt.segments.length === 0) return;
+                            let ptLast = pt.segments[pt.segments.length - 1];
+                            if (String(ptLast.s[ptLast.s.length - 1]) !== tFirstSt) return;
+                            if (pt.coupled_with.some(c => c.action === "direct" && String(c.train_id) === tNo)) {
+                                extraNos.add(String(pt.no || pt.train_no || pt.id || ""));
+                            }
+                        });
+                    }
+                });
+                extraNos.forEach(n => filteredTrainNos.add(n));
+            }
+
             if (filteredTrainNos.size === 0 && timetable) {
                 // 路線搜尋無結果 → fallback：嘗試「每個關鍵字符合車種 OR 車號」
                 // 例如「普通 1552」→ keywords=["普通","1552"] → 找 type="普通" AND no includes "1552"
@@ -3706,26 +3784,38 @@ function updateBottomPanel(train) {
     // 🌟 新增：找出它的伴侶車，做成精美的快捷按鈕 (支援直通與併結)
     // ==========================================
     let partnerHtml = "";
+
+    // 反向找「把 train 當 direct 後段」的前段車（single-direction coupling 補丁）
+    const _findDirectPredecessor = (t) => {
+        if (!t.segments || t.segments.length === 0) return null;
+        let tNo = String(t.no || t.train_no || t.id);
+        let tFirstSt = String(t.segments[0].s[0]);
+        return timetable.find(pt => {
+            if (!pt.coupled_with || !pt.segments || pt.segments.length === 0) return false;
+            let ptLast = pt.segments[pt.segments.length - 1];
+            if (String(ptLast.s[ptLast.s.length - 1]) !== tFirstSt) return false;
+            return pt.coupled_with.some(c => c.action === "direct" && String(c.train_id) === tNo);
+        });
+    };
+
+    const _pColor = (pTrain) => {
+        let c = getTrainColorValue(pTrain.type);
+        return c ? c[0] : "#888888";
+    };
+
     if (train.coupled_with && train.coupled_with.length > 0) {
         train.coupled_with.forEach(c => {
             let pTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
             if (pTrain) {
-                let pColor = "#888888";
-                if (settings && settings.train_color && settings.train_color[pTrain.type]) {
-                    pColor = settings.train_color[pTrain.type][0];
-                }
-                
+                let pColor = _pColor(pTrain);
+                let cleanPno = String(pTrain.no).split('|')[0];
                 if (c.action === "split") {
-                    // 👉 物理併結 (例如 139B + 6139B)
-                    let cleanPno = String(pTrain.no).split('|')[0]; // 🌟 加這行
                     partnerHtml += `
                         <span style="..." onclick="event.stopPropagation(); window.switchTrainKeepView('${pTrain.no}')">
-                            🔗 併結 ${pTrain.type} ${cleanPno} 
+                            🔗 併結 ${pTrain.type} ${cleanPno}
                         </span>
                     `;
                 } else if (c.action === "direct") {
-                    // 👉 變更車次直通 (例如 139B -> 139M)
-                    let cleanPno = String(pTrain.no).split('|')[0]; // 🌟 加這行
                     partnerHtml += `
                         <span style="..." onclick="event.stopPropagation(); window.switchTrainKeepView('${pTrain.no}')">
                             ➡️ 直通 ${pTrain.type} ${cleanPno}
@@ -3734,6 +3824,36 @@ function updateBottomPanel(train) {
                 }
             }
         });
+    }
+    // 單向 coupling：向前找前段車（如 普通 4140 找到 関空快速 4140M）
+    const predTrain = _findDirectPredecessor(train);
+    // 只要找到前段車，且 train 的 coupled_with 沒有反指回前段車（避免重複顯示），就加入
+    const _predAlreadyShown = predTrain && train.coupled_with &&
+        train.coupled_with.some(c => String(c.train_id) === String(predTrain.no || predTrain.train_no));
+    if (predTrain && !_predAlreadyShown) {
+        let cleanPno = String(predTrain.no).split('|')[0];
+        // 前段車用 ⬅️ 表示「来自該車直通而來」
+        let predBadge = `
+            <span style="..." onclick="event.stopPropagation(); window.switchTrainKeepView('${predTrain.no}')">
+                ⬅️ 前段 ${predTrain.type} ${cleanPno}
+            </span>
+        `;
+        // 同時顯示前段車的 split 伴侶（如 紀州路快速）
+        if (predTrain.coupled_with) {
+            predTrain.coupled_with.forEach(c => {
+                if (c.action !== "split") return;
+                let sp = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
+                if (sp) {
+                    let spNo = String(sp.no).split('|')[0];
+                    predBadge += `
+                        <span style="..." onclick="event.stopPropagation(); window.switchTrainKeepView('${sp.no}')">
+                            🔗 併結 ${sp.type} ${spNo}
+                        </span>
+                    `;
+                }
+            });
+        }
+        partnerHtml = predBadge + partnerHtml;
     }
 
     // ==========================================
@@ -3747,12 +3867,12 @@ function updateBottomPanel(train) {
     while (queue.length > 0) {
         let curr = queue.shift();
         let currId = String(curr.no || curr.train_no || curr.id);
-        
+
         if (!visitedNos.has(currId)) {
             visitedNos.add(currId);
-            displayTrains.push(curr); // 收編進家族
-            
-            // 找找看這台車有沒有直通的好兄弟，有的話也丟進搜尋佇列
+            displayTrains.push(curr);
+
+            // Forward：curr.coupled_with → direct 後段
             if (curr.coupled_with) {
                 curr.coupled_with.forEach(c => {
                     if (c.action === "direct") {
@@ -3763,7 +3883,43 @@ function updateBottomPanel(train) {
                     }
                 });
             }
+
+            // Backward（single-direction coupling 補丁）：找「把 curr 當 direct 後段」的前段車
+            const pred = _findDirectPredecessor(curr);
+            if (pred && !visitedNos.has(String(pred.no || pred.train_no || pred.id))) {
+                queue.push(pred);
+            }
         }
+    }
+
+    // 1b. 追加：split 夥伴的 direct 後段（如 紀州路快速 → 関空快速 → 普通）
+    //      不加 split 夥伴本身（路線不同），只加它的直通後段作為本班的延伸
+    {
+        let extras = [];
+        displayTrains.forEach(dt => {
+            if (!dt.coupled_with) return;
+            dt.coupled_with.forEach(c => {
+                if (c.action !== "split") return;
+                let sp = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
+                if (!sp) return;
+                // 從 split 夥伴往後追 direct 鏈
+                let curr = sp;
+                let spVisited = new Set([String(sp.no || sp.train_no || sp.id)]);
+                while (curr && curr.coupled_with) {
+                    let di = curr.coupled_with.find(c2 => c2.action === "direct");
+                    if (!di) break;
+                    let nxt = timetable.find(t => String(t.no || t.train_no || t.id) === String(di.train_id));
+                    if (!nxt || spVisited.has(String(nxt.no || nxt.train_no || nxt.id))) break;
+                    spVisited.add(String(nxt.no || nxt.train_no || nxt.id));
+                    if (!visitedNos.has(String(nxt.no || nxt.train_no || nxt.id))) {
+                        visitedNos.add(String(nxt.no || nxt.train_no || nxt.id));
+                        extras.push(nxt);
+                    }
+                    curr = nxt;
+                }
+            });
+        });
+        displayTrains.push(...extras);
     }
 
     // 2. 依據每台車第一站的「發車時間」由小到大排序 (確保物理順序正確)
@@ -3994,13 +4150,131 @@ function updateBottomPanel(train) {
         stopCount++;
     });
 
-    // 3. 塞進 bottom-bar (火車面板)
+    // 3. 塞進 bottom-bar（火車面板）
+    // ── 家族全成員 chip row ──────────────────────────────────────────
+    // 直通（→）水平排列，split 夥伴（🔗）垂直疊在同一柱
+    const _buildFamilyRow = () => {
+        if (isSameRouteChain) return '';
+
+        // BFS：同時展開 split + direct + 反向 predecessor，收集完整家族
+        let familyNos = new Set();
+        let allMembers = [];
+        let bfsQ = [...displayTrains];
+        const pred0 = _findDirectPredecessor(train);
+        if (pred0) bfsQ.push(pred0);
+
+        while (bfsQ.length > 0) {
+            let t = bfsQ.shift();
+            let tNo = String(t.no || t.train_no || t.id);
+            if (familyNos.has(tNo)) continue;
+            familyNos.add(tNo); allMembers.push(t);
+            if (t.coupled_with) {
+                t.coupled_with.forEach(c => {
+                    if (c.action !== "split" && c.action !== "direct") return;
+                    let nx = timetable.find(x => String(x.no || x.train_no || x.id) === String(c.train_id));
+                    if (nx && !familyNos.has(String(nx.no || nx.train_no || nx.id))) bfsQ.push(nx);
+                });
+            }
+            let p = _findDirectPredecessor(t);
+            if (p && !familyNos.has(String(p.no || p.train_no || p.id))) bfsQ.push(p);
+        }
+
+        if (allMembers.length <= 1) return '';
+
+        // ── 把家族分成「直通柱」：同一柱 = split 夥伴（縱向），柱間用 → 串接 ──
+        const familySet = new Set(allMembers.map(t => String(t.no || t.train_no || t.id)));
+        const isSplitPair = (a, b) => {
+            let aNo = String(a.no || a.train_no || a.id), bNo = String(b.no || b.train_no || b.id);
+            return (a.coupled_with && a.coupled_with.some(c => c.action === "split" && String(c.train_id) === bNo))
+                || (b.coupled_with && b.coupled_with.some(c => c.action === "split" && String(c.train_id) === aNo));
+        };
+        const isDirectPair = (a, b) => {
+            let bNo = String(b.no || b.train_no || b.id);
+            if (a.coupled_with && a.coupled_with.some(c => c.action === "direct" && String(c.train_id) === bNo)) return true;
+            let p = _findDirectPredecessor(b);
+            return p && String(p.no || p.train_no || p.id) === String(a.no || a.train_no || a.id);
+        };
+
+        // 找直通鏈的根（在家族內沒有直通前段的那個）
+        let root = allMembers.find(t => {
+            let p = _findDirectPredecessor(t);
+            return !p || !familySet.has(String(p.no || p.train_no || p.id));
+        }) || allMembers[0];
+
+        // 從根出發，按 direct 順序建立柱鏈
+        let columns = [];
+        let placed = new Set();
+
+        const buildColumn = (seed) => {
+            let col = [seed];
+            placed.add(String(seed.no || seed.train_no || seed.id));
+            allMembers.forEach(t => {
+                let tNo = String(t.no || t.train_no || t.id);
+                if (!placed.has(tNo) && isSplitPair(seed, t)) {
+                    col.push(t); placed.add(tNo);
+                }
+            });
+            return col;
+        };
+
+        let cur = root;
+        while (cur && !placed.has(String(cur.no || cur.train_no || cur.id))) {
+            let col = buildColumn(cur);
+            columns.push(col);
+            // 找直通後段（從這柱任一成員）
+            cur = null;
+            for (let cm of col) {
+                if (cm.coupled_with) {
+                    let di = cm.coupled_with.find(c => c.action === "direct" && familySet.has(c.train_id) && !placed.has(c.train_id));
+                    if (di) { cur = timetable.find(t => String(t.no || t.train_no || t.id) === String(di.train_id)); break; }
+                }
+            }
+        }
+        // 補上還沒放入的成員
+        allMembers.forEach(t => {
+            if (!placed.has(String(t.no || t.train_no || t.id))) columns.push([t]);
+        });
+
+        if (columns.length <= 1 && columns[0].length <= 1) return '';
+
+        // ── 渲染 ──
+        const selectedNo = String(train.no || train.train_no || train.id);
+        const mkChip = (t, extraStyle = '') => {
+            let tNo = String(t.no || t.train_no || t.id);
+            let isSelected = tNo === selectedNo;
+            let tColor = _pColor(t);
+            let cleanNo = tNo.split('|')[0];
+            let label = (showType && t.type ? t.type + ' ' : '') + (showId ? cleanNo : t.type || '');
+            if (isSelected) {
+                return `<span style="font-size:clamp(20px,5vw,26px);font-weight:900;color:${tColor};letter-spacing:1px;line-height:1.2;${extraStyle}">${label}</span>`;
+            }
+            return `<span style="font-size:clamp(11px,2.5vw,13px);font-weight:600;color:${tColor};padding:2px 7px;border:1.5px solid ${tColor};border-radius:10px;opacity:0.8;cursor:pointer;${extraStyle}" onclick="event.stopPropagation();window.switchTrainKeepView('${tNo}')">${label}</span>`;
+        };
+
+        let html = '';
+        columns.forEach((col, ci) => {
+            if (ci > 0) {
+                html += `<span style="font-size:14px;color:${isDarkMode?'#999':'#888'};align-self:center;margin:0 6px;flex-shrink:0;">→</span>`;
+            }
+            // 柱：垂直疊放 split 夥伴
+            let colHtml = col.map(t => mkChip(t)).join('');
+            html += `<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start;">${colHtml}</div>`;
+        });
+
+        return `<div style="display:flex;align-items:center;flex-wrap:nowrap;gap:0;margin-bottom:4px;">${html}</div>`;
+    };
+    const familyRowHtml = _buildFamilyRow();
+    const mainTitleHtml = familyRowHtml
+        ? ''  // 有家族 row 時，主標題已包含在裡面
+        : `<span style="font-size:clamp(20px,5vw,26px);font-weight:900;color:${trainColor};letter-spacing:1px;">${displayTitle}</span>`;
+
     panel.innerHTML = `
         <div class="bottom-panel-wrapper">
             <div class="train-info-header" onclick="document.getElementById('bottom-bar').classList.toggle('expanded')">
-                <div style="font-size: clamp(20px, 5vw, 26px); font-weight: 900; color: ${trainColor}; letter-spacing: 1px; line-height: 1.2; display: flex; align-items: center; flex-wrap: wrap;">
-                    ${displayTitle}
-                    ${partnerHtml} </div>
+                <div style="line-height:1.3; display:flex; flex-direction:column;">
+                    ${familyRowHtml || mainTitleHtml}
+                    ${(!familyRowHtml && partnerHtml) ? `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:4px;">${partnerHtml}</div>` : ''}
+                </div>
                 <div style="font-size: clamp(13px, 3.5vw, 16px); color: ${isDarkMode ? '#E0E0E0' : '#333333'}; opacity: 0.9; margin-top: 6px; font-weight: bold;">
                     ${startStationName} <span style="margin: 0 4px; opacity: 0.7; font-size: 0.8em;">▶</span> ${endStationName}
                 </div>
@@ -4154,8 +4428,20 @@ function updateBottomPanelStation(st_id) {
 
                         processedTrains.add(trainNo);
 
-                        // 直通前段（predecessor）：反向搜尋，不受 coupled_with 是否存在影響
-                        {
+                        // 輔助：判斷某車是否在本站有實際停靠（若有，主迴圈會自行加入，不需要在這裡補）
+                        const _stopsAt = (t) => t.segments && t.segments.some(seg =>
+                            seg.s.some((s, vi) => String(s) === String(st_id) && seg.v[vi] !== 2)
+                        );
+
+                        // 直通前段/後段（predecessor/successor）：
+                        // 僅對「バス 代行」類型生效，避免環状線直通等場合誤加不相關班次
+                        const _isBusRelated = (t) => t.type === "バス" ||
+                            (t.coupled_with && t.coupled_with.some(c => c.action === "direct" && timetable.some(x =>
+                                String(x.no || x.train_no || x.id) === String(c.train_id) && x.type === "バス"
+                            )));
+
+                        if (train.type === "バス") {
+                            // 前段（バス が発見された時：前に走った普通車を表示）
                             let firstStId = String(train.segments[0].s[0]);
                             let predTrain = timetable.find(pt => {
                                 if (!pt.coupled_with || !pt.segments || pt.segments.length === 0) return false;
@@ -4163,7 +4449,7 @@ function updateBottomPanelStation(st_id) {
                                 if (String(ptLastSeg.s[ptLastSeg.s.length - 1]) !== firstStId) return false;
                                 return pt.coupled_with.some(c => c.action === "direct" && String(c.train_id) === String(train.no || train.train_no));
                             });
-                            if (predTrain) {
+                            if (predTrain && !_stopsAt(predTrain)) {
                                 let predNo = String(predTrain.no || predTrain.train_no || predTrain.id);
                                 if (activeTrainTypes.has(predTrain.type) && !processedTrains.has(predNo)) {
                                     let pDestName = getAbsoluteDest(train);
@@ -4177,20 +4463,22 @@ function updateBottomPanelStation(st_id) {
 
                         // 直通後段（successor）＋ split 伴侶：需要 coupled_with 存在
                         if (train.coupled_with) {
-                            // 直通後段
+                            // 直通後段：バス 類型才加「本身不停靠本站」的後段車
+                            if (train.type === "バス") {
                             let lastSeg = train.segments[train.segments.length - 1];
                             let lastStId = String(lastSeg.s[lastSeg.s.length - 1]);
                             let succInfo = train.coupled_with.find(c => c.action === "direct" && String(c.station_id) === lastStId);
                             if (succInfo) {
                                 let succTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(succInfo.train_id));
                                 let succNo = succTrain && String(succTrain.no || succTrain.train_no || succTrain.id);
-                                if (succTrain && activeTrainTypes.has(succTrain.type) && !processedTrains.has(succNo)) {
+                                if (succTrain && !_stopsAt(succTrain) && activeTrainTypes.has(succTrain.type) && !processedTrains.has(succNo)) {
                                     let sDestName = getAbsoluteDest(succTrain);
                                     let sData = { train: succTrain, trainNo: succNo, depTime: depT, destName: sDestName, diff };
                                     if (isUpbound) upboundTrains.push(sData);
                                     else downboundTrains.push(sData);
                                     processedTrains.add(succNo);
                                 }
+                            }
                             }
 
                             train.coupled_with.forEach(c => {
@@ -4344,7 +4632,7 @@ function updateBottomPanelStation(st_id) {
             
             // 1. 文字上色與開關邏輯
             const getTrainText = (trainObj, rawTrainNo) => {
-                let colors = settings?.train_color?.[trainObj.type];
+                let colors = getTrainColorValue(trainObj.type);
                 let tColor = colors ? (isDarkMode ? colors[0] : (colors[1] || colors[0])) : theme.textMain;
                 
 
