@@ -418,15 +418,14 @@ def main():
                     if total_d > 0:
                         ratio = d1 / total_d
                         mid_time = dep1 + (arr2 - dep1) * ratio
-                        mid_time = int(round(mid_time))
                     else:
-                        mid_time = (dep1 + arr2) // 2
+                        mid_time = (dep1 + arr2) / 2
 
                     fixed_times.append((mid_time, mid_time))
                 except:
                     dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
                     arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
-                    mid_time = (dep1 + arr2) // 2
+                    mid_time = (dep1 + arr2) / 2
                     fixed_times.append((mid_time, mid_time))
 
             elif not common_lines and (is_hanwa_to_kansai or is_kansai_to_hanwa):
@@ -450,17 +449,16 @@ def main():
                     if total_d > 0:
                         ratio = d1 / total_d
                         mid_time = dep1 + (arr2 - dep1) * ratio
-                        mid_time = int(round(mid_time))
                     else:
-                        mid_time = (dep1 + arr2) // 2
+                        mid_time = (dep1 + arr2) / 2
 
                     fixed_times.append((mid_time, mid_time))
                 except:
                     dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
                     arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
-                    mid_time = (dep1 + arr2) // 2
+                    mid_time = (dep1 + arr2) / 2
                     fixed_times.append((mid_time, mid_time))
-                        
+
         fixed_stops.append(full_ordered_stops[-1])
         fixed_times.append(full_ordered_times[-1])
         fixed_v.append(full_ordered_v[-1])

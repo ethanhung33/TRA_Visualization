@@ -10,6 +10,8 @@
 
   "timezone_offset": 9,
 
+  "show_train_id": true,
+
   "view_presets": {
     "tokaido_sanyo": {
         "name": "北陸・東海道・山陽本線 (敦賀-米原-神戶-小倉)",
