@@ -42,6 +42,9 @@ let hoveredTrain = null;
 let selectedStation = null; // 加在 let selectedTrain = null; 旁邊
 let hoveredStation = null;
 
+let cachedPartnerIds = new Set();
+let cachedStationChainSet = null;
+
 let availableDates = [];
 let currentDate = "";
 
@@ -1346,14 +1349,14 @@ function drawTrains() {
     // 🌟 真正的繪圖流程開始！(分四層畫)
     let vipTrain = null;
     let hoverTrainDraw = null;
-    let partnerTrains = []; // 🌟 新增：用來裝伴侶車的陣列
+    let partnerTrains = []; 
 
-    // 🌟 建立伴侶車的 ID 快速通關名單 (支援直通與併結的 BFS 家族擴散)
-    let partnerIds = new Set();
-    let pQueue = [];
-    if (selectedTrain) pQueue.push(selectedTrain);
-
-    // 判斷列車是否為環狀（起站 == 終站）的輔助函式
+    // ==========================================
+    // 🌟 效能大躍進：改用「快取機制」代替每幀重算！
+    // 只有在「選中的火車/車站發生改變」時，才重新執行 BFS，否則直接讀取快取。
+    // ==========================================
+    
+    // 判斷列車是否為環狀的輔助函式
     const _isCircularTrain = (t) => {
         if (!t.segments || t.segments.length === 0) return false;
         const fSt = String(t.segments[0].s[0]);
@@ -1361,103 +1364,16 @@ function drawTrains() {
         return fSt === String(lSeg.s[lSeg.s.length - 1]);
     };
 
-    // chainNos：selectedTrain 本身及其 backward predecessors 的 no 集合
-    // 只有 chainNos 裡的成員才能跟進 direct 後段，避免 split 夥伴的後段誤入 partnerIds
-    const chainNos = selectedTrain
-        ? new Set([String(selectedTrain.no || selectedTrain.train_no || selectedTrain.id)])
-        : new Set();
-
-    while (pQueue.length > 0) {
-        let curr = pQueue.shift();
-        let currNo = String(curr.no || curr.train_no || curr.id);
-        const isChainMember = chainNos.has(currNo);
-
-        // Forward：追蹤 curr.coupled_with 指向的後段/併結車
-        if (curr.coupled_with) {
-            curr.coupled_with.forEach(c => {
-                if (partnerIds.has(String(c.train_id))) return;
-                let pTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
-                if (!pTrain || pTrain === selectedTrain) return;
-
-                if (c.action === "split") {
-                    partnerIds.add(String(c.train_id));
-                    pQueue.push(pTrain);
-                } else if (c.action === "direct") {
-                    if (_isCircularTrain(curr) || _isCircularTrain(pTrain)) return;
-                    // 直通鏈成員的後段也記入 chainNos，供 backward 搜尋判斷
-                    if (isChainMember) chainNos.add(String(c.train_id));
-                    partnerIds.add(String(c.train_id));
-                    pQueue.push(pTrain);
-                }
-            });
-        }
-
-        // Backward（單向 coupling 補丁）：只對直通鏈成員做反向搜尋
-        if (isChainMember && curr.segments && curr.segments.length > 0 && !_isCircularTrain(curr)) {
-            let currFirstSt = String(curr.segments[0].s[0]);
-            timetable.forEach(pt => {
-                if (!pt.coupled_with || !pt.segments || pt.segments.length === 0) return;
-                if (pt === selectedTrain || partnerIds.has(String(pt.no || pt.train_no || pt.id))) return;
-                if (_isCircularTrain(pt)) return;
-                let ptLast = pt.segments[pt.segments.length - 1];
-                if (String(ptLast.s[ptLast.s.length - 1]) !== currFirstSt) return;
-                if (pt.coupled_with.some(c => c.action === "direct" && String(c.train_id) === currNo)) {
-                    let ptNo = String(pt.no || pt.train_no || pt.id);
-                    chainNos.add(ptNo);
-                    partnerIds.add(ptNo);
-                    pQueue.push(pt);
-                }
-            });
-        }
-    }
-
-    // 選取車站時：BFS 追蹤整條直通鏈，把所有相關班次加入白名單
-    let stationChainSet = null;
-    if (selectedStation) {
-        stationChainSet = new Set();
-        let bfsQueue = [];
-        timetable.forEach(t => {
-            if (!t.segments) return;
-            let stops = t.segments.some(seg =>
-                seg.s.some((s, i) => String(s) === String(selectedStation) && seg.v[i] !== 2)
-            );
-            if (stops) {
-                let no = String(t.no || t.train_no || t.id);
-                if (!stationChainSet.has(no)) { stationChainSet.add(no); bfsQueue.push(t); }
-            }
-        });
-        while (bfsQueue.length > 0) {
-            let curr = bfsQueue.shift();
-            let currNo = String(curr.no || curr.train_no || curr.id);
-            // Forward: curr → successor
-            if (curr.coupled_with && curr.segments) {
-                let cLast = curr.segments[curr.segments.length - 1];
-                let cLastSt = String(cLast.s[cLast.s.length - 1]);
-                let si = curr.coupled_with.find(c => c.action === "direct" && String(c.station_id) === cLastSt);
-                if (si) {
-                    let succ = timetable.find(t => String(t.no || t.train_no || t.id) === String(si.train_id));
-                    if (succ) { let sNo = String(succ.no || succ.train_no || succ.id); if (!stationChainSet.has(sNo)) { stationChainSet.add(sNo); bfsQueue.push(succ); } }
-                }
-            }
-            // Backward: curr ← predecessor（反向搜尋）
-            if (curr.segments) {
-                let cFirstSt = String(curr.segments[0].s[0]);
-                let pred = timetable.find(pt => {
-                    if (!pt.coupled_with || !pt.segments) return false;
-                    let pLast = pt.segments[pt.segments.length - 1];
-                    if (String(pLast.s[pLast.s.length - 1]) !== cFirstSt) return false;
-                    return pt.coupled_with.some(c => c.action === "direct" && String(c.train_id) === currNo);
-                });
-                if (pred) { let pNo = String(pred.no || pred.train_no || pred.id); if (!stationChainSet.has(pNo)) { stationChainSet.add(pNo); bfsQueue.push(pred); } }
-            }
-        }
-    }
+    // 每次畫圖前，只要讀取剛剛存好的快取結果就好
+    let partnerIds = cachedPartnerIds;
+    let stationChainSet = cachedStationChainSet;
 
     // 每幀重置站名去重 Set，讓 VIP/Partner 的 drawSingleTrain 共享同一組記憶
     const printedStationTexts = new Set();
 
     // 第一次迴圈：畫普通車，把 VIP、Hover 和 Partner 扣留起來
     timetable.forEach(train => {
+    // ... (下面接續你原本的 timetable.forEach 邏輯)
         
         if (!train._hitPoints) train._hitPoints = [];
         train._hitPoints.length = 0; 
@@ -2933,7 +2849,7 @@ function bindThemeToggle() {
 }
 
 // ==========================================
-// 🌟 視角自動適應 (支援環狀線特判與獨立縮放版)
+// 🌟 視角自動適應 (完美結合環狀防護網與無極限拉伸)
 // ==========================================
 function autoFitScale() {
     const wrapper = document.getElementById('canvas-wrapper');
@@ -2942,32 +2858,28 @@ function autoFitScale() {
     let presetKey = currentRouteView; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
     
-    let targetScaleY = 2.0; // 保底預設值
+    // 🌟 1. 讀取自訂拉伸比例 (預設 1.0)
+    let customRatio = settings?.view_presets?.[presetKey]?.stretch_ratio || 1.0;
 
-    // 🌟 核心修正 1：環狀線特判
+    let targetScaleY = 2.0; 
+
+    // 🌟 2. 重新計算基礎 Y 軸比例
     if (isCircular) {
-        // 對於環狀線，讓 loopHeight > viewBottom - paddingTop（viewBottom = wrapperH + 100）
-        // 確保第二份 copy 起始 Y = paddingTop + loopHeight > viewBottom，完全在 buffer 外
-        targetScaleY = (wrapper.clientHeight + 110) / loopKm;
+        // 環狀線不需要被強迫撐滿螢幕！給它一個舒適的預設值。
+        // 大阪環狀線會因為這樣，自然地在螢幕上呈現出 2~3 圈的完美循環。
+        targetScaleY = 15.0 * customRatio;
     } else {
-        // 🌟 直線路線：原本的邏輯
-        const minScaleY = (wrapper.clientHeight - 150) / loopKm;
-        targetScaleY = minScaleY;
-
-        if (settings && settings.default_scale_y !== undefined) {
-            targetScaleY = settings.default_scale_y;
-        } else if (minScaleY < 2.0) {
-            targetScaleY = 2.0; 
-        }
+        // 直線路線：剛好佔滿畫面 90%
+        targetScaleY = ((wrapper.clientHeight * 0.9) / loopKm) * customRatio;
     }
 
-    // 🌟 核心修正 2：允許路線個別設定覆蓋 (最高優先權)
-    // 如果你在 setting.json 的 view_presets 裡面特別指定了 default_scale_y，就聽它的
     if (settings?.view_presets?.[presetKey]?.default_scale_y !== undefined) {
         targetScaleY = settings.view_presets[presetKey].default_scale_y;
     }
 
-    // 讀取時間拉伸係數（view_preset 可個別覆蓋）
+    CONFIG.scaleY = Math.min(Math.max(targetScaleY, 0.5), 100);
+
+    // 🌟 3. 處理 X 軸 (時間軸) 比例，維持優雅的傾斜度
     let timeStretchRatio = 0.4;
     if (settings && settings.time_stretch_ratio !== undefined) {
         timeStretchRatio = settings.time_stretch_ratio;
@@ -2976,33 +2888,16 @@ function autoFitScale() {
         timeStretchRatio = settings.view_presets[presetKey].time_stretch_ratio;
     }
 
-    // 正式套用比例
-    CONFIG.scaleY = targetScaleY;
-    CONFIG.scaleX = targetScaleY * timeStretchRatio;
+    CONFIG.scaleX = CONFIG.scaleY * timeStretchRatio;
 
-    // 確保初始視角的時間軸不超出 viewport（camera.x 最小值 = paddingLeft - SIDE_MARGIN）
-    // 同時確保時間軸至少填滿 viewport 的 75%（避免大片空白）
-    const _safeMargin = (typeof SIDE_MARGIN !== 'undefined') ? SIDE_MARGIN : 150;
-    const _viewportEffectiveWidth = wrapper.clientWidth - _safeMargin;  // camera 最左時可用寬度
-    const _maxScaleX = _viewportEffectiveWidth / 1560;  // 時間軸恰好填滿有效寬度
+    // 🌟 4. 核心防護：徹底移除「強迫 26 小時塞進螢幕」的毒瘤！
+    // 讓使用者可以自由橫向滾動，不再把火車擠成垂直線！
     const _minScaleX = (wrapper.clientWidth * 0.75 - CONFIG.paddingLeft) / 1560;
 
-    if (_maxScaleX > 0 && CONFIG.scaleX > _maxScaleX) {
-        if (isCircular) {
-            // 環狀線：只縮 scaleX，保留 scaleY（scaleY 由 loopHeight 控制，不能動）
-            CONFIG.scaleX = _maxScaleX;
-        } else {
-            // 直線路線：等比縮小，維持 time_stretch_ratio 關係
-            const factor = _maxScaleX / CONFIG.scaleX;
-            CONFIG.scaleX = _maxScaleX;
-            CONFIG.scaleY *= factor;
-        }
-    } else if (_minScaleX > 0 && CONFIG.scaleX < _minScaleX) {
-        // 時間軸過窄：放大到至少 75% viewport（不改 scaleY）
+    if (_minScaleX > 0 && CONFIG.scaleX < _minScaleX) {
         CONFIG.scaleX = _minScaleX;
     }
 
-    // 儲存 fit scale，作為縮放的下限（讓使用者永遠能縮回初始視角）
     CONFIG.scaleY_fit = CONFIG.scaleY;
     CONFIG.scaleX_fit = CONFIG.scaleX;
 }
@@ -3184,23 +3079,17 @@ function setupCanvasInteractions() {
         let availableWidth = Math.max(wrapperW - safeMargin * 2, 400); 
         const minScaleX = availableWidth / 1560;
 
-        // 🌟 1. 判斷現在是不是環狀線
         let presetKey = currentRouteView;
         let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
 
-        // 🌟 2. 縮放下限：
-        //    環狀線：至少 1/3 倍螢幕高（保留三倍圖效果）
-        //    直線路線：允許縮到 fit scale 的 50%，讓短路線有更多縮小空間
-        const minScaleY = isCircular
-            ? (wrapperH / 3) / safeLoopKm
-            : (CONFIG.scaleY_fit && CONFIG.scaleY_fit > 0)
-                ? CONFIG.scaleY_fit * 0.3
-                : (wrapperH / 2) / safeLoopKm;
+        // 🌟 徹底解除環狀線的縮小封印！
+        // 讓所有路線都能自由縮小到最初適應比例的 20% (可以看到好幾圈)
+        const minScaleY = (CONFIG.scaleY_fit && CONFIG.scaleY_fit > 0)
+            ? CONFIG.scaleY_fit * 0.2
+            : (wrapperH / 2) / safeLoopKm;
 
         if (zoom < 1) {
-            // 🌟 3. 數學修正：把 Math.min 改成 Math.max！
             let minAllowedZoom = Math.max(minScaleX / CONFIG.scaleX, minScaleY / CONFIG.scaleY);
-            
             if (minAllowedZoom > 1) minAllowedZoom = 1;
             if (zoom < minAllowedZoom) zoom = minAllowedZoom;
         }
@@ -5111,27 +5000,79 @@ function optimizeTrainTimesForDisplay(trainsData) {
     });
 }
 
-// ==========================================
-// 🔄 跨面板互動觸發器：點擊火車自動置中版
-// ==========================================
 window.triggerSelectTrain = function(trainNo, saveHistory = true) {
     let targetTrain = timetable.find(t => (t.no === trainNo || t.train_no === trainNo));
 
     if (targetTrain) {
-        // 🌟 透過產生器獲取文字與介面
         let historyData = window.buildTrainHistoryData(targetTrain);
         window.updateSearchInputText(historyData.keyword);
         if (saveHistory) {
             SearchHistoryManager.add({ type: 'train', id: historyData.id, keyword: historyData.keyword, displayHtml: historyData.displayHtml });
         }
 
-        // 1. 記住我們是從「哪個車站」點擊這班車的...
         let originStationId = selectedStation;
 
-        // 2. 切換狀態：選中火車，清空車站面板，更新底部 UI
         selectedTrain = targetTrain;
         selectedStation = null;
+        
+        // ==========================================
+        // 🌟 新增：只有在點擊時，才執行一次龐大的 BFS 家族擴散運算！
+        // ==========================================
+        cachedStationChainSet = null; // 清空車站快取
+        cachedPartnerIds = new Set();
+        let pQueue = [selectedTrain];
+        const chainNos = new Set([String(selectedTrain.no || selectedTrain.train_no || selectedTrain.id)]);
+
+        const _isCircularTrain = (t) => {
+            if (!t.segments || t.segments.length === 0) return false;
+            return String(t.segments[0].s[0]) === String(t.segments[t.segments.length - 1].s[t.segments[t.segments.length - 1].s.length - 1]);
+        };
+
+        while (pQueue.length > 0) {
+            let curr = pQueue.shift();
+            let currNo = String(curr.no || curr.train_no || curr.id);
+            const isChainMember = chainNos.has(currNo);
+
+            if (curr.coupled_with) {
+                curr.coupled_with.forEach(c => {
+                    if (cachedPartnerIds.has(String(c.train_id))) return;
+                    let pTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
+                    if (!pTrain || pTrain === selectedTrain) return;
+
+                    if (c.action === "split") {
+                        cachedPartnerIds.add(String(c.train_id));
+                        pQueue.push(pTrain);
+                    } else if (c.action === "direct") {
+                        if (_isCircularTrain(curr) || _isCircularTrain(pTrain)) return;
+                        if (isChainMember) chainNos.add(String(c.train_id));
+                        cachedPartnerIds.add(String(c.train_id));
+                        pQueue.push(pTrain);
+                    }
+                });
+            }
+
+            if (isChainMember && curr.segments && curr.segments.length > 0 && !_isCircularTrain(curr)) {
+                let currFirstSt = String(curr.segments[0].s[0]);
+                timetable.forEach(pt => {
+                    if (!pt.coupled_with || !pt.segments || pt.segments.length === 0) return;
+                    if (pt === selectedTrain || cachedPartnerIds.has(String(pt.no || pt.train_no || pt.id))) return;
+                    if (_isCircularTrain(pt)) return;
+                    let ptLast = pt.segments[pt.segments.length - 1];
+                    if (String(ptLast.s[ptLast.s.length - 1]) !== currFirstSt) return;
+                    if (pt.coupled_with.some(c => c.action === "direct" && String(c.train_id) === currNo)) {
+                        let ptNo = String(pt.no || pt.train_no || pt.id);
+                        chainNos.add(ptNo);
+                        cachedPartnerIds.add(ptNo);
+                        pQueue.push(pt);
+                    }
+                });
+            }
+        }
+        // ==========================================
+
         updateBottomPanel(selectedTrain);
+
+        // ... (後面維持你原本尋找 targetMinutes 的邏輯)
 
         // 🌟 3. 查出這班車在剛剛那個車站的「準確時間」
         let targetMinutes = null;
