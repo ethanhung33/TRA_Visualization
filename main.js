@@ -171,7 +171,6 @@ function calculateStationWeights() {
             }
         });
     });
-    console.log("📊 修正版單純停靠次數統計完成！", window.globalStationWeights);
 }
 
 
@@ -761,158 +760,119 @@ function drawTrains() {
                 ctx.stroke(); // 👈 這是你原本畫完主線條的這行！
 
                 // ==========================================
-                // 🌟🌟🌟 新增 A：精準疊加雙色虛線 (終極共同路徑推論版)
+                // 🌟🌟🌟 新增 A：精準疊加雙色虛線 (主從路線邏輯推理法)
+                // 專為新幹線設計：用短車(小町號)的頭尾站，推論長車(隼號)的隱藏共線區間
                 // ==========================================
                 if (train.coupled_with && !isVIP && !isPartner) {
                     let splitInfo = train.coupled_with.find(c => c.action === "split");
                     if (splitInfo) {
                         let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(splitInfo.train_id));
-                        
+
                         if (partner && partner.segments && partner.segments.length > 0) {
                             let pColor = fallbackColor;
                             let _ptc = getTrainColorValue(partner.type);
                             if (_ptc) pColor = _ptc[colorIndex];
 
-                            // 1. 抓出解連站在這班車的陣列位置 (Index)
-                            let splitSt = String(splitInfo.station_id);
-                            let splitIndex = seg.s.findIndex(id => String(id) === splitSt);
+                            // 🌟 1. 取得伴侶車 (例如 Komachi) 的所有車站
+                            let pStations = [];
+                            partner.segments.forEach(pSeg => {
+                                pSeg.s.forEach(id => pStations.push(String(id)));
+                            });
 
-                            if (splitIndex !== -1) {
-                                let partnerStations = new Set();
-                                partner.segments.forEach(pSeg => {
-                                    pSeg.s.forEach(id => partnerStations.add(String(id)));
+                            if (pStations.length > 0) {
+                                let pFirst = pStations[0];
+                                let pLast = pStations[pStations.length - 1];
+
+                                // 🌟 2. 取得自己 (例如 Hayabusa) 的所有車站順序，用來定位
+                                let myStations = [];
+                                train.segments.forEach(tSeg => {
+                                    tSeg.s.forEach(id => myStations.push(String(id)));
                                 });
 
-                                // 🌟 2. 找出所有共同停靠站的 Index
-                                let commonIndices = [];
+                                // 🌟 3. 核心大腦：推論併結方向與分離點 (實現你的完美邏輯！)
+                                let splitStation = null;
+                                let coupledDirection = null; // 'before' 或 'after'
+
+                                if (myStations.includes(pFirst)) {
+                                    splitStation = pFirst;
+                                    coupledDirection = 'before'; // 伴侶從這站開始跑，代表這站「之前」是接在一起的
+                                } else if (myStations.includes(pLast)) {
+                                    splitStation = pLast;
+                                    coupledDirection = 'after';  // 伴侶在這站結束，代表這站「之後」是接在一起的
+                                }
+
+                                ctx.save();
+                                ctx.beginPath();
+                                let isDrawingDash = false;
+                                let splitIdx = myStations.indexOf(splitStation);
+
                                 for (let i = 0; i < seg.s.length; i++) {
-                                    if (partnerStations.has(String(seg.s[i]))) {
-                                        commonIndices.push(i);
+                                    let stId = String(seg.s[i]);
+                                    let y_raw = unwrappedCoords[i];
+                                    
+                                    if (y_raw === null) { 
+                                        isDrawingDash = false; 
+                                        continue; 
                                     }
-                                }
+                                    
+                                    let y = y_raw + offsetY;
+                                    let myArr = seg.t[i * 2];
+                                    let myDep = seg.t[i * 2 + 1];
+                                    let x_arr = timeToX(myArr);
+                                    let x_dep = timeToX(myDep);
 
-                                let isCoupledBefore = null; 
+                                    let currentIdx = myStations.indexOf(stId);
+                                    let isCoupledRegion = false;
 
-                                // 🌟 3. 終極方向判斷：讓共同路徑自己說話！
-                                if (commonIndices.length > 1) {
-                                    // 狀況 A：有多個共同站 (全資料完整版)
-                                    if (splitIndex > 0 && commonIndices.includes(splitIndex - 1)) {
-                                        isCoupledBefore = true;  // 前一站也是共同站 -> 在這站之前併結
-                                    } else if (splitIndex < seg.s.length - 1 && commonIndices.includes(splitIndex + 1)) {
-                                        isCoupledBefore = false; // 後一站也是共同站 -> 在這站之後併結
+                                    // 判斷當前車站是否在推論出的「共線區間」內
+                                    if (coupledDirection === 'before') {
+                                        isCoupledRegion = (currentIdx <= splitIdx);
+                                    } else if (coupledDirection === 'after') {
+                                        isCoupledRegion = (currentIdx >= splitIdx);
                                     } else {
-                                        isCoupledBefore = true;  // 防呆保底
+                                        isCoupledRegion = pStations.includes(stId); // 防呆機制
                                     }
-                                } else {
-                                    // 狀況 B：只有 1 個共同站 (截斷資料版，例如伴侶車只有福島-新庄)
-                                    let pFirstSt = String(partner.segments[0].s[0]);
-                                    let pLastSeg = partner.segments[partner.segments.length - 1];
-                                    let pLastSt = String(pLastSeg.s[pLastSeg.s.length - 1]);
 
-                                    if (splitSt === pFirstSt) {
-                                        isCoupledBefore = true;  // 伴侶車從這站發車單飛 -> 之前是共線的
-                                    } else if (splitSt === pLastSt) {
-                                        isCoupledBefore = false; // 伴侶車到這站結束單飛 -> 之後是共線的
-                                    }
-                                }
-
-                                // 🌟 4. 終極物理防呆機制：防止超出自己的陣列邊界
-                                if (isCoupledBefore === true && splitIndex === 0) {
-                                    isCoupledBefore = false; // 自己就是從這站發車的，不可能在「之前」併結
-                                }
-                                if (isCoupledBefore === false && splitIndex === seg.s.length - 1) {
-                                    isCoupledBefore = true;  // 自己在這站就終點了，不可能在「之後」併結
-                                }
-                                // 邊界單飛段防呆：split 站在本段末位且只有一個共同站
-                                // → 本段是「單飛段」（如 kansai_airport_line 末站=日根野），共線段在下一路段，本段不畫虛線
-                                if (isCoupledBefore === true && splitIndex === seg.s.length - 1 && commonIndices.length === 1) {
-                                    isCoupledBefore = null;
-                                }
-
-                                // 🌟 5. 執行繪圖
-                                if (isCoupledBefore !== null) {
-                                    let startIndex = isCoupledBefore ? 0 : splitIndex;
-                                    let endIndex = isCoupledBefore ? splitIndex : seg.s.length - 1;
-
-                                    if (startIndex !== endIndex) {
-                                        ctx.save();
-                                        ctx.beginPath();
-                                        
-                                        let isFirstPoint = true;
-
-                                        for (let i = startIndex; i <= endIndex; i++) {
-                                            let y_raw = unwrappedCoords[i];
-                                            if (y_raw === null) {
-                                                isFirstPoint = true; 
-                                                continue;
-                                            }
-                                            
-                                            let y = y_raw + offsetY;
-                                            let x_arr = timeToX(seg.t[i*2]);
-                                            let x_dep = timeToX(seg.t[i*2+1]);
-
-                                            if (isFirstPoint) {
-                                                let startX = (i === 0 && segIdx > 0) ? x_dep : x_arr;
-                                                // 若為後半段併結，起點強制使用出站時間
-                                                if (i === splitIndex && !isCoupledBefore) {
-                                                    startX = (seg.v[i] !== 2) ? x_dep : x_arr;
-                                                }
-                                                ctx.moveTo(startX, y);
-                                                isFirstPoint = false;
+                                    if (isCoupledRegion) {
+                                        // 處理進站畫線 (Arr)
+                                        if (myArr !== null) {
+                                            // 特例：往南(after)時，到了併結站(盛岡)進站時他們還沒接起來，進站不畫虛線！
+                                            if (coupledDirection === 'after' && stId === splitStation) {
+                                                isDrawingDash = false; 
                                             } else {
-                                                ctx.lineTo(x_arr, y);
+                                                if (!isDrawingDash) {
+                                                    ctx.moveTo(x_arr, y);
+                                                    isDrawingDash = true;
+                                                } else {
+                                                    ctx.lineTo(x_arr, y);
+                                                }
                                             }
-
-                                            if (seg.v[i] !== 2) {
-                                                if (i === endIndex && isCoupledBefore) {
-                                                    // 到站解連，不畫出站虛線
+                                        }
+                                        
+                                        // 處理出站畫線 (Dep)
+                                        if (seg.v[i] !== 2 && myDep !== null) {
+                                            // 特例：往北(before)時，到了分離站(盛岡)出站時已經拆開了，出站不畫虛線！
+                                            if (coupledDirection === 'before' && stId === splitStation) {
+                                                isDrawingDash = false;
+                                            } else {
+                                                if (!isDrawingDash) {
+                                                    ctx.moveTo(x_dep, y);
+                                                    isDrawingDash = true;
                                                 } else {
                                                     ctx.lineTo(x_dep, y);
                                                 }
                                             }
                                         }
+                                    } else {
+                                        isDrawingDash = false;
+                                    }
+                                }
 
-                                        ctx.strokeStyle = pColor;
-                                        ctx.lineWidth = lineWidth + 0.8; 
-                                        ctx.setLineDash([12, 12]);
-                                        ctx.stroke();
-                                        ctx.restore();
-                                    }
-                                }
-                            } else {
-                                // splitIndex === -1：split 站不在本段
-                                // 若 split 站出現在前面的路段，代表本段是「共線段」，應畫虛線
-                                let splitInPrevSeg = false;
-                                for (let si = 0; si < segIdx; si++) {
-                                    if (train.segments[si].s.some(id => String(id) === splitSt)) {
-                                        splitInPrevSeg = true; break;
-                                    }
-                                }
-                                if (splitInPrevSeg) {
-                                    // partner 資料可能只到 split 站為止（如 4584H 只到日根野），
-                                    // 但兩車物理上仍聯結繼續行走。此時整段都畫虛線，
-                                    // 不要求 partner 在本段有共同站。
-                                    let si2 = 0, ei2 = seg.s.length - 1;
-                                    if (si2 !== ei2) {
-                                        ctx.save();
-                                        ctx.beginPath();
-                                        let ifp2 = true;
-                                        for (let i = si2; i <= ei2; i++) {
-                                            let y_raw = unwrappedCoords[i];
-                                            if (y_raw === null) { ifp2 = true; continue; }
-                                            let y = y_raw + offsetY;
-                                            let xa = timeToX(seg.t[i*2]), xd = timeToX(seg.t[i*2+1]);
-                                            if (ifp2) { ctx.moveTo(xa, y); ifp2 = false; }
-                                            else { ctx.lineTo(xa, y); }
-                                            if (seg.v[i] !== 2) ctx.lineTo(xd, y);
-                                        }
-                                        ctx.strokeStyle = pColor;
-                                        ctx.lineWidth = lineWidth + 0.8;
-                                        ctx.setLineDash([12, 12]);
-                                        ctx.stroke();
-                                        ctx.restore();
-                                    }
-                                }
+                                ctx.strokeStyle = pColor;
+                                ctx.lineWidth = lineWidth + 0.8; 
+                                ctx.setLineDash([12, 12]);
+                                ctx.stroke();
+                                ctx.restore();
                             }
                         }
                     }
@@ -3222,13 +3182,9 @@ function setupCanvasInteractions() {
             if (typeof updateBottomPanelStation === 'function') updateBottomPanelStation(selectedStation);
 
         } else if (closestTrain) {
-            selectedTrain = closestTrain; 
-            selectedStation = null;
-            // 🌟 透過產生器獲取文字與介面
-            let historyData = window.buildTrainHistoryData(closestTrain);
-            window.updateSearchInputText(historyData.keyword); 
-            SearchHistoryManager.add({ type: 'train', id: historyData.id, keyword: historyData.keyword, displayHtml: historyData.displayHtml });
-            if (typeof updateBottomPanel === 'function') updateBottomPanel(selectedTrain);
+            // 🌟 核心修復：不再走捷徑！統一交給正規引擎，並開啟防跳動(true)
+            let tNo = closestTrain.no || closestTrain.train_no || closestTrain.id;
+            window.triggerSelectTrain(tNo, true, true);
 
         } else if (closestStationLineId) {
             selectedStation = closestStationLineId; 
@@ -3629,16 +3585,10 @@ function getStationName(st_id) {
 
 // ==========================================
 // 🌟 專為底部面板按鈕設計的「無縫切換函式」
-// (只更新面板，並觸發全局重繪消除殘影，絕對不移動鏡頭！)
 // ==========================================
 window.switchTrainKeepView = (trainNo) => {
-    let t = timetable.find(x => String(x.no || x.train_no || x.id) === String(trainNo));
-    if (t) {
-        selectedTrain = t; // 直接替換主角
-        if (typeof updateBottomPanel === 'function') updateBottomPanel(t); // 更新底部面板
-        
-        if (typeof redrawAll === 'function') redrawAll();
-    }
+    // 🌟 核心修復：交給正規引擎處理 BFS，且防止鏡頭跳動！
+    window.triggerSelectTrain(trainNo, false, true);
 };
 
 // ==========================================
@@ -4807,6 +4757,51 @@ function interpolatePassingStations(timetable, topology) {
 }
 
 // ==========================================
+// 🌟 資料水合引擎：自動建立雙向併結/直通指標 (修復跨夜車覆蓋 Bug)
+// ==========================================
+function buildBidirectionalCoupling(timetableData) {
+    if (!timetableData) return;
+
+    timetableData.forEach(train => {
+        if (!train.coupled_with) return;
+
+        let myId = String(train.no || train.train_no || train.id);
+        let currentCouples = [...train.coupled_with];
+
+        currentCouples.forEach(c => {
+            if (c.action === "direct_from" || c._is_backward) return;
+
+            let partnerId = String(c.train_id);
+
+            // 今天的車只配對今天的車，昨天的殘影只配對昨天的殘影
+            let partners = timetableData.filter(t =>
+                String(t.no || t.train_no || t.id) === partnerId &&
+                !!t._isYesterday === !!train._isYesterday
+            );
+
+            let reverseAction = c.action === "direct" ? "direct_from" : c.action;
+
+            partners.forEach(partner => {
+                if (!partner.coupled_with) partner.coupled_with = [];
+
+                let exists = partner.coupled_with.some(pc =>
+                    String(pc.train_id) === myId && pc.action === reverseAction
+                );
+
+                if (!exists) {
+                    partner.coupled_with.push({
+                        train_id: myId,
+                        action: reverseAction,
+                        station_id: c.station_id,
+                        _is_backward: true
+                    });
+                }
+            });
+        });
+    });
+}
+
+// ==========================================
 // 🌟 完美縫合器 (修復跨夜時光倒流 Bug)
 // ==========================================
 function stitchTrainSegments(trainsData, topology) {
@@ -5000,7 +4995,7 @@ function optimizeTrainTimesForDisplay(trainsData) {
     });
 }
 
-window.triggerSelectTrain = function(trainNo, saveHistory = true) {
+window.triggerSelectTrain = function(trainNo, saveHistory = true, preventCameraJump = false) {
     let targetTrain = timetable.find(t => (t.no === trainNo || t.train_no === trainNo));
 
     if (targetTrain) {
@@ -5028,6 +5023,9 @@ window.triggerSelectTrain = function(trainNo, saveHistory = true) {
             return String(t.segments[0].s[0]) === String(t.segments[t.segments.length - 1].s[t.segments[t.segments.length - 1].s.length - 1]);
         };
 
+        // ==========================================
+        // 🌟 更新：光速 O(1) 家族擴散 (完美支援雙向指標)
+        // ==========================================
         while (pQueue.length > 0) {
             let curr = pQueue.shift();
             let currNo = String(curr.no || curr.train_no || curr.id);
@@ -5035,40 +5033,33 @@ window.triggerSelectTrain = function(trainNo, saveHistory = true) {
 
             if (curr.coupled_with) {
                 curr.coupled_with.forEach(c => {
-                    if (cachedPartnerIds.has(String(c.train_id))) return;
-                    let pTrain = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
+                    let pId = String(c.train_id);
+                    if (cachedPartnerIds.has(pId)) return;
+                    
+                    // 🌟 嚴格配對：今天找今天，昨天找昨天，絕對不會找錯車！
+                    let pTrain = timetable.find(t => 
+                        String(t.no || t.train_no || t.id) === pId && 
+                        (t._isYesterday === curr._isYesterday) 
+                    );
+
                     if (!pTrain || pTrain === selectedTrain) return;
 
                     if (c.action === "split") {
-                        cachedPartnerIds.add(String(c.train_id));
+                        cachedPartnerIds.add(pId);
                         pQueue.push(pTrain);
                     } else if (c.action === "direct") {
                         if (_isCircularTrain(curr) || _isCircularTrain(pTrain)) return;
-                        if (isChainMember) chainNos.add(String(c.train_id));
-                        cachedPartnerIds.add(String(c.train_id));
+                        if (isChainMember) chainNos.add(pId);
+                        cachedPartnerIds.add(pId);
                         pQueue.push(pTrain);
-                    }
-                });
-            }
-
-            if (isChainMember && curr.segments && curr.segments.length > 0 && !_isCircularTrain(curr)) {
-                let currFirstSt = String(curr.segments[0].s[0]);
-                timetable.forEach(pt => {
-                    if (!pt.coupled_with || !pt.segments || pt.segments.length === 0) return;
-                    if (pt === selectedTrain || cachedPartnerIds.has(String(pt.no || pt.train_no || pt.id))) return;
-                    if (_isCircularTrain(pt)) return;
-                    let ptLast = pt.segments[pt.segments.length - 1];
-                    if (String(ptLast.s[ptLast.s.length - 1]) !== currFirstSt) return;
-                    if (pt.coupled_with.some(c => c.action === "direct" && String(c.train_id) === currNo)) {
-                        let ptNo = String(pt.no || pt.train_no || pt.id);
-                        chainNos.add(ptNo);
-                        cachedPartnerIds.add(ptNo);
-                        pQueue.push(pt);
+                    } else if (c.action === "direct_from") { // 🌟 新增：立刻讀取剛剛建好的反向直通指標
+                        if (_isCircularTrain(curr) || _isCircularTrain(pTrain)) return;
+                        cachedPartnerIds.add(pId);
+                        pQueue.push(pTrain);
                     }
                 });
             }
         }
-        // ==========================================
 
         updateBottomPanel(selectedTrain);
 
@@ -5097,7 +5088,10 @@ window.triggerSelectTrain = function(trainNo, saveHistory = true) {
         }
 
         // 🌟 4. 呼叫超級大腦進行精準雙軸降落！
-        if (originStationId && targetMinutes !== null) {
+        if (preventCameraJump) {
+            // 如果是點擊畫布或面板切換，不要移動鏡頭，原地重繪就好！
+            if (typeof redrawAll === 'function') redrawAll();
+        } else if (originStationId && targetMinutes !== null) {
             // 如果我們知道你是從哪個車站點的，就精準降落在那個「交會點」
             let stName = getStationName(originStationId);
             focusStationOnCanvas(originStationId, stName, targetMinutes);
@@ -5330,14 +5324,15 @@ async function loadTimetableData(dateOrType) {
                 });
             }
         } catch (e) {
-            console.log("無法載入昨天的資料，略過跨夜車呈現。");
-        }
+            }
 
         // ------------------------------------------
         // 3. 雙劍合璧：將今天與昨天的跨夜殘影合併
         // ------------------------------------------
         timetable = todayData.concat(yesterdayData);
         currentDate = dateOrType; 
+
+        buildBidirectionalCoupling(timetable);
 
         // 🌟 啟動權重計算機！根據這份剛合併好的班表，統計出今天的大站
         calculateStationWeights();
@@ -5820,7 +5815,6 @@ async function init(systemPath) {
         }
         // ==========================================
 
-        console.log("資料載入完成！建構 UI 與渲染畫布...");
         
         buildUI();         // 建立側邊欄按鈕
 
