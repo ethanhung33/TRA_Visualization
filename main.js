@@ -429,8 +429,9 @@ function drawGrid(viewKey, layer = 'all') {
                 ctx.textAlign = "left";
                 ctx.fillText(st.name, labelXLeft, y);
 
-                // --- 右側站名 ---
-                let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + wrapperW - 10);
+                // --- 右側站名（永遠在 viewport 右緣，與左側對稱）---
+                let maxGridRight = CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50; 
+                let labelXRight = Math.min(camera.x + wrapperW - 10, maxGridRight);
                 ctx.fillStyle = maskBg;
                 ctx.fillRect(labelXRight - textWidth - 5, y - 12, textWidth + 10, 24);
                 ctx.fillStyle = textColor;
@@ -580,9 +581,9 @@ function getJunction(st1_id, st2_id, line1_id, line2_id) {
 function drawTrains() {
     const wrapper = document.getElementById('canvas-wrapper');
     const viewTop = camera.y - 200;
-    const viewBottom = camera.y + canvas.height + 200;
+    const viewBottom = camera.y + canvas.clientHeight + 200;
     const viewLeft = camera.x - 200;
-    const viewRight = camera.x + canvas.width + 200;
+    const viewRight = camera.x + canvas.clientWidth + 200;
 
     let presetKey = currentRouteView; 
     let isCircular = settings?.view_presets?.[presetKey]?.view_type === "CIRCULAR";
@@ -598,10 +599,14 @@ function drawTrains() {
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
 
-    // ==========================================
-    // 🌟 新增：把「畫一台車」的邏輯打包起來
-    // ==========================================
-    // 🌟 在小括號裡面多加一個 isHovered 參數
+    ctx.beginPath();
+    let startX = CONFIG.paddingLeft;
+    let endX = timeToX(1560); // 26小時邊界
+    ctx.rect(startX, -50000, endX - startX, 100000); 
+    ctx.clip(); // 喀嚓！限制火車只在 0:00~26:00 內畫圖，上下無限延伸
+
+    // 🌟 注意：這裡不要有任何 ctx.save() 或 ctx.translate()！
+    // 直接緊接著宣告 drawSingleTrain
     const drawSingleTrain = (train, isVIP, isHovered, isPartner = false) => {
         // ==========================================
         // 🌟 1. 先決定這台車「原本的」顏色和粗細
@@ -699,16 +704,11 @@ function drawTrains() {
 
                 if (maxX < viewLeft || minX > viewRight || maxY < viewTop || minY > viewBottom) continue; 
                 
-                // 🌟 1. 拿起剪刀前，先存檔！
                 ctx.save(); 
-                
-                // 🌟 2. 設定專屬這條線的裁切邊界
-                ctx.beginPath();
-                ctx.rect(CONFIG.paddingLeft, viewTop, 1560 * CONFIG.scaleX, viewBottom - viewTop);
-                ctx.clip(); // 喀嚓！從現在開始畫的東西超出邊界都會被切掉
+                // (我們已經在最外層設定了完美的左右裁切，這裡不需要再拿剪刀了，直接畫！)
 
                 ctx.beginPath();
-                let isDrawing = false; 
+                let isDrawing = false;
 
                 // ==========================================
                 // 🌟🌟🌟 新增這行：只要畫布起了一個新的頭，麵包屑就強制斷開！避免產生隱形連線！
@@ -2774,15 +2774,18 @@ if (canvasWrapperElement) {
         // 加上 150 毫秒的防抖，確保手機網址列縮放或排版完全穩定後才重繪
         resizeTimeout = setTimeout(() => {
             const rect = entries[0].contentRect;
-            
+
             // 防呆：如果寬度或高度是 0 (例如切換頁面被隱藏)，不浪費效能
             if (rect.width === 0 || rect.height === 0) return;
 
             // 🌟 核心：在這裡抓取高畫質！這時候的物理像素絕對是 100% 完美的！
             initCanvas('diaCanvas', 'canvas-wrapper');
 
+            // 視窗大小改變時重新計算 fit scale，避免縮放後殘留在舊的 scale
+            if (typeof autoFitScale === 'function' && loopKm > 0) autoFitScale();
+
             // 強制校正鏡頭邊界並重繪
-            if (typeof clampCamera === 'function') clampCamera(); 
+            if (typeof clampCamera === 'function') clampCamera();
             if (typeof redrawAll === 'function') redrawAll();
         }, 150); 
     });
@@ -2800,23 +2803,27 @@ window.addEventListener('resize', () => {
 function redrawAll() {
     clampCamera();
     
-    // 強制攝影機對齊「實體像素」，防模糊
     camera.x = Math.round(camera.x);
     camera.y = Math.round(camera.y);
 
-    // 🌟 在最一開始統一清空畫布
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // ==========================================
+    // 🌟 終極防禦：不管前面狀態多混亂，強制把矩陣歸零、徹底洗淨實體畫布！
+    // ==========================================
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);               // 1. 矩陣歸零 (回到最原始物理座標)
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // 2. 怒清整個物理畫布，保證零殘影
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);           // 3. 重新開啟高畫質縮放
     
     // 1. 先畫最底層：網格線
     drawGrid(currentRouteView, 'lines'); 
     
-    // 2. 中間層：畫火車線 (會蓋在網格線上)
+    // 2. 中間層：畫火車線
     drawTrains();
     
-    // 3. 最上層：畫站名與時間標籤 (會壓在火車線上方！)
+    // 3. 最上層：畫站名與時間標籤
     drawGrid(currentRouteView, 'labels');
     
-    // 4. 現在時間的紅線 (永遠在最高層)
+    // 4. 現在時間的紅線
     drawCurrentTimeLine();      
 }
 
@@ -2939,9 +2946,9 @@ function autoFitScale() {
 
     // 🌟 核心修正 1：環狀線特判
     if (isCircular) {
-        // 對於環狀線，強制讓「一圈」的高度佔滿螢幕高度的 70%
-        // 這樣像大阪環狀線 (21km) 這種短路線，scaleY 就會自動放大到 20 甚至 30！
-        targetScaleY = (wrapper.clientHeight * 0.7) / loopKm;
+        // 對於環狀線，讓 loopHeight > viewBottom - paddingTop（viewBottom = wrapperH + 100）
+        // 確保第二份 copy 起始 Y = paddingTop + loopHeight > viewBottom，完全在 buffer 外
+        targetScaleY = (wrapper.clientHeight + 110) / loopKm;
     } else {
         // 🌟 直線路線：原本的邏輯
         const minScaleY = (wrapper.clientHeight - 150) / loopKm;
@@ -2972,6 +2979,29 @@ function autoFitScale() {
     // 正式套用比例
     CONFIG.scaleY = targetScaleY;
     CONFIG.scaleX = targetScaleY * timeStretchRatio;
+
+    // 確保初始視角的時間軸不超出 viewport（camera.x 最小值 = paddingLeft - SIDE_MARGIN）
+    // 同時確保時間軸至少填滿 viewport 的 75%（避免大片空白）
+    const _safeMargin = (typeof SIDE_MARGIN !== 'undefined') ? SIDE_MARGIN : 150;
+    const _viewportEffectiveWidth = wrapper.clientWidth - _safeMargin;  // camera 最左時可用寬度
+    const _maxScaleX = _viewportEffectiveWidth / 1560;  // 時間軸恰好填滿有效寬度
+    const _minScaleX = (wrapper.clientWidth * 0.75 - CONFIG.paddingLeft) / 1560;
+
+    if (_maxScaleX > 0 && CONFIG.scaleX > _maxScaleX) {
+        if (isCircular) {
+            // 環狀線：只縮 scaleX，保留 scaleY（scaleY 由 loopHeight 控制，不能動）
+            CONFIG.scaleX = _maxScaleX;
+        } else {
+            // 直線路線：等比縮小，維持 time_stretch_ratio 關係
+            const factor = _maxScaleX / CONFIG.scaleX;
+            CONFIG.scaleX = _maxScaleX;
+            CONFIG.scaleY *= factor;
+        }
+    } else if (_minScaleX > 0 && CONFIG.scaleX < _minScaleX) {
+        // 時間軸過窄：放大到至少 75% viewport（不改 scaleY）
+        CONFIG.scaleX = _minScaleX;
+    }
+
     // 儲存 fit scale，作為縮放的下限（讓使用者永遠能縮回初始視角）
     CONFIG.scaleY_fit = CONFIG.scaleY;
     CONFIG.scaleX_fit = CONFIG.scaleX;
@@ -3148,7 +3178,11 @@ function setupCanvasInteractions() {
         let safeLoopKm = (typeof loopKm !== 'undefined' && loopKm > 0) ? loopKm : 1;
         let safeMargin = (typeof SIDE_MARGIN !== 'undefined') ? SIDE_MARGIN : 0;
 
-        const minScaleX = (wrapperW - safeMargin * 2) / 1560;
+        // ==========================================
+        // 🌟 修復三：防呆極限，防止縮太小導致寬度變負數，畫面崩潰
+        // ==========================================
+        let availableWidth = Math.max(wrapperW - safeMargin * 2, 400); 
+        const minScaleX = availableWidth / 1560;
 
         // 🌟 1. 判斷現在是不是環狀線
         let presetKey = currentRouteView;
@@ -3277,13 +3311,9 @@ function setupCanvasInteractions() {
                             let leftBound = labelXLeft - 5;
                             let rightBound = labelXLeft + textWidth + 15;
 
-                            // 右側文字座標範圍
-                            let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + wrapperW - 10);
-                            let rLeftBound = labelXRight - textWidth - 15;
-                            let rRightBound = labelXRight + 5;
-
-                            if ((worldX >= leftBound && worldX <= rightBound) || 
-                                (worldX >= rLeftBound && worldX <= rRightBound)) {
+                            const rX = camera.x + wrapperW - 10;
+                            const hitRight = worldX >= rX - textWidth - 15 && worldX <= rX + 5;
+                            if ((worldX >= leftBound && worldX <= rightBound) || hitRight) {
                                 closestStationTextId = st_id;
                             }
                         }
@@ -3423,12 +3453,9 @@ function setupCanvasInteractions() {
                                 let leftBound = labelXLeft - 5;
                                 let rightBound = labelXLeft + textWidth + 15;
 
-                                let labelXRight = Math.min(CONFIG.paddingLeft + (1560 * CONFIG.scaleX) + 50, camera.x + wrapperW - 10);
-                                let rLeftBound = labelXRight - textWidth - 15;
-                                let rRightBound = labelXRight + 5;
-
-                                if ((worldX >= leftBound && worldX <= rightBound) || 
-                                    (worldX >= rLeftBound && worldX <= rRightBound)) {
+                                const rX2 = camera.x + wrapperW - 10;
+                                const hitRight2 = worldX >= rX2 - textWidth - 15 && worldX <= rX2 + 5;
+                                if ((worldX >= leftBound && worldX <= rightBound) || hitRight2) {
                                     hitStationText = st_id;
                                 }
                             }
