@@ -551,11 +551,18 @@ def main():
                     # 單向直通：只在「前段→後段」方向寫入 coupled_with（t 是前段，partner 是後段）
                     if not any(c["train_id"] == partner["no"] for c in t["coupled_with"]): t["coupled_with"].append({"train_id": partner["no"], "station_id": j_id, "action": "direct"})
 
-    # 併結配對（split）
-    # 格式：'日根野－天王寺は4584Hを併結' → junction = 兩班都停的中間站（日根野）
-    def _has_station(train_obj, sta_id):
-        sta_id_str = str(sta_id)
-        return any(sta_id_str in [str(s) for s in seg["s"]] for seg in train_obj.get("segments", []))
+    # ==========================================
+    # 🌟 併結配對（split / merge 智慧拓樸版 - 終極修正版）
+    # ==========================================
+    def get_clean_stations(train_obj):
+        # 取得乾淨、無相鄰重複的車站名單
+        st_list = []
+        for seg in train_obj.get("segments", []):
+            for s in seg["s"]:
+                sid = str(s)
+                if not st_list or st_list[-1] != sid:
+                    st_list.append(sid)
+        return st_list
 
     for t in processed_trains:
         for couple_text in t.get("_couple_texts", []):
@@ -566,21 +573,63 @@ def main():
 
             partners = [p for p in processed_trains if p["no"].split('|')[0] == partner_no]
             for partner in partners:
-                # 找到兩班車都經過的站（sta1 或 sta2），作為 split station_id
+                t_stations = get_clean_stations(t)
+                p_stations = get_clean_stations(partner)
+                
+                # 🌟 1. 優先使用 JSON 文本中解析出的真實交會站 (例如：日根野)
                 junction_id = None
                 for sta_name in [clean_station_name(sta1), clean_station_name(sta2)]:
-                    sid = STA_MAP.get(sta_name, sta_name)
-                    if _has_station(t, sid) and _has_station(partner, sid):
+                    sid = str(STA_MAP.get(sta_name, sta_name))
+                    if sid in t_stations and sid in p_stations:
                         junction_id = sid
                         break
 
-                if not junction_id:
-                    continue
+                couple_action = "split" # 預設保底
 
+                if junction_id:
+                    # 🌟 2. 找到交會站在各自路線中的位置
+                    idx_t = t_stations.index(junction_id)
+                    idx_p = p_stations.index(junction_id)
+                    
+                    # ==========================================
+                    # 🌟 3. 起終點生死定理 (精準破解 JR 資料截斷)
+                    # ==========================================
+                    # 狀況 A：如果是某台車的「起點」，代表它從這裡分離誕生 ➔ Split
+                    if idx_t == 0 or idx_p == 0:
+                        couple_action = "split"
+                        
+                    # 狀況 B：如果是某台車的「終點」，代表它到這裡併入主線 ➔ Merge
+                    elif idx_t == len(t_stations) - 1 or idx_p == len(p_stations) - 1:
+                        couple_action = "merge"
+                        
+                    # 狀況 C：如果兩台車都有前後站 (沒有被截斷)，才比對鄰站
+                    else:
+                        shares_before = (t_stations[idx_t - 1] == p_stations[idx_p - 1])
+                        shares_after = (t_stations[idx_t + 1] == p_stations[idx_p + 1])
+
+                        if shares_after and not shares_before:
+                            couple_action = "merge"    # 半路殺出，匯合後一起走
+                        elif shares_before and not shares_after:
+                            couple_action = "split"    # 黏在一起走，到這裡分岔
+                        else:
+                            couple_action = "split"    # 保底預設
+                else:
+                    # 4. 防呆：如果文本解析不出站名，用全域起終點來盲猜
+                    shared = [s for s in t_stations if s in p_stations]
+                    if not shared:
+                        continue
+                    if t_stations[-1] == p_stations[-1] and t_stations[0] != p_stations[0]:
+                        couple_action = "merge"
+                        junction_id = shared[0] 
+                    else:
+                        couple_action = "split"
+                        junction_id = shared[-1]
+
+                # 5. 寫入雙向關係
                 if not any(c["train_id"] == partner["no"] for c in t["coupled_with"]):
-                    t["coupled_with"].append({"train_id": partner["no"], "station_id": junction_id, "action": "split"})
+                    t["coupled_with"].append({"train_id": partner["no"], "station_id": junction_id, "action": couple_action})
                 if not any(c["train_id"] == t["no"] for c in partner["coupled_with"]):
-                    partner["coupled_with"].append({"train_id": t["no"], "station_id": junction_id, "action": "split"})
+                    partner["coupled_with"].append({"train_id": t["no"], "station_id": junction_id, "action": couple_action})
 
     # 6a. バス代行 suffix 除去（_B / _T / _T2 を no と coupled_with.train_id から削除）
     _suffix_re = re.compile(r'_(?:B|T2?)\|')

@@ -14,8 +14,8 @@ from collections import OrderedDict
 # ==========================================
 # 🌟 全域路徑與設定
 # ==========================================
-START_DATE = date(2026, 4, 20)
-END_DATE = date(2026, 7, 31)
+START_DATE = date(2026, 5, 25)
+END_DATE = date(2026, 9, 30)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 system_dir = os.path.dirname(script_dir)
 json_dir = os.path.join(system_dir, "json")
@@ -58,6 +58,31 @@ def clean_text(text):
     if is_split: return "分割" + cleaned.replace("分割", "")
     if is_through: return "直通" + cleaned.replace("直通", "")
     return cleaned
+
+def parse_japanese_dates(text, default_year=2026):
+    """將日文的行駛日期字串，轉換為 YYYY-MM-DD 的標準陣列"""
+    if not text: return []
+    text = unicodedata.normalize('NFKC', text)
+    text = text.replace('運転', '').strip()
+    
+    dates = []
+    parts = re.split(r'(\d+)月', text)
+    
+    for i in range(1, len(parts), 2):
+        month = int(parts[i])
+        days_str = parts[i+1].replace('日', '').strip('・')
+        
+        for part in days_str.split('・'):
+            if not part: continue
+            if '～' in part or '~' in part or '-' in part:
+                bounds = re.split(r'[～~-]', part)
+                if len(bounds) == 2 and bounds[0].isdigit() and bounds[1].isdigit():
+                    for d in range(int(bounds[0]), int(bounds[1]) + 1):
+                        dates.append(f"{default_year}-{month:02d}-{d:02d}")
+            elif part.isdigit():
+                dates.append(f"{default_year}-{month:02d}-{int(part):02d}")
+                
+    return dates
 
 # ==========================================
 # 🌟 修正版：解析 JR 東日本月曆 (破解 JavaScript 隱藏連結)
@@ -139,13 +164,24 @@ def fetch_single_train_detail(url):
         page_dates, variants = parse_calendar_logic(soup, url)
         final_dates_by_train = {}
         for i in valid_indices:
-            if page_dates:
+            op_text = op_dates_text.get(i, "")
+            parsed_dates = parse_japanese_dates(op_text, 2026)
+            
+            # 🌟 1. 優先使用文字：如果有明確寫出日期，絕對以此為準 (破解臨時車)
+            if parsed_dates:
+                final_dates_by_train[i] = set(parsed_dates)
+            elif "土曜・休日" in op_text:
+                final_dates_by_train[i] = set(REF_WEEKEND)
+            elif "平日" in op_text:
+                final_dates_by_train[i] = set(REF_WEEKDAY)
+                
+            # 🌟 2. 關鍵修復：如果文字空白，但網頁有日曆，代表這個空白的意思是「請遵從本頁日曆」！
+            elif page_dates:
                 final_dates_by_train[i] = set(page_dates)
+                
+            # 🌟 3. 完全沒有日曆也沒寫字，才是真正的無條件 Daily
             else:
-                op_text = op_dates_text.get(i, "")
-                if "土曜・休日" in op_text: final_dates_by_train[i] = set(REF_WEEKEND)
-                elif "平日" in op_text: final_dates_by_train[i] = set(REF_WEEKDAY)
-                else: final_dates_by_train[i] = REF_WEEKDAY.union(REF_WEEKEND)
+                final_dates_by_train[i] = REF_WEEKDAY.union(REF_WEEKEND)
 
         stops_by_train = {i: [] for i in valid_indices}
         for row in table.find_all('tr'):
@@ -393,19 +429,23 @@ def fetch_odekake_hokuriku(target_date_str):
 def apply_coupling_logic(trains):
     for t in trains:
         t.setdefault("coupled_with", [])
+        # 建立時間表字典，確保站名順序
         t["_sched"] = {s["s"][i]: (s["t"][i*2], s["t"][i*2+1]) for s in t["segments"] for i in range(len(s["s"]))}
             
     for i in range(len(trains)):
         for c in trains[i].get("coupled_with", []):
-            if c["action"] != "split": continue 
+            # 🌟 1. 放行 merge，讓已經標記或將要標記的車輛能被處理
+            if c["action"] not in ["split", "merge"]: continue 
             if "station_id" in c: continue 
             
             partner = next((pt for pt in trains if pt["no"] == c["train_id"]), None)
             if not partner: continue
             
+            # 確保雙向都有指標
             if not any(pc["train_id"] == trains[i]["no"] for pc in partner["coupled_with"]):
-                partner["coupled_with"].append({"train_id": trains[i]["no"], "action": "split"})
+                partner["coupled_with"].append({"train_id": trains[i]["no"], "action": c["action"]})
             
+            # 找出兩台車時間相近的「共線重疊站」
             overlap = []
             for st, (arr1, dep1) in trains[i]["_sched"].items():
                 if st in partner["_sched"]:
@@ -414,18 +454,59 @@ def apply_coupling_logic(trains):
                         overlap.append(st)
                         
             if len(overlap) >= 1:
-                overlap.sort(key=lambda x: trains[i]["_sched"][x][1])
+                # 🌟 確保時間排序正確，防止字串比較異常
+                def get_sort_time(sched_tuple):
+                    val = sched_tuple[1] if sched_tuple[1] != "" else sched_tuple[0]
+                    return int(val) if val != "" else 9999
+
+                # 依據時間排序重疊站點
+                overlap.sort(key=lambda x: get_sort_time(trains[i]["_sched"][x]))
                 first_over = overlap[0]
                 last_over = overlap[-1]
                 
-                digits = re.findall(r'\d+', trains[i]["no"])
-                is_downbound = int(digits[-1]) % 2 != 0 if digits else True
+                # ==========================================
+                # 🌟 2. 導入與 JR 西日本相同的「終極起終點生死定理」
+                # ==========================================
+                t_stations = sorted(trains[i]["_sched"].keys(), key=lambda x: get_sort_time(trains[i]["_sched"][x]))
+                p_stations = sorted(partner["_sched"].keys(), key=lambda x: get_sort_time(partner["_sched"][x]))
                 
-                junction = last_over if is_downbound else first_over
+                idx_t_first = t_stations.index(first_over)
+                idx_p_first = p_stations.index(first_over)
+                idx_t_last  = t_stations.index(last_over)
+                idx_p_last  = p_stations.index(last_over)
+                
+                # 狀況 A：如果是某台車的「起點」，代表它從這裡分離誕生 ➔ Split (分岔點在最後共線站)
+                if idx_t_first == 0 or idx_p_first == 0:
+                    true_action = "split"
+                    junction = last_over
                     
+                # 狀況 B：如果是某台車的「終點」，代表它到這裡併入主線 ➔ Merge (匯合點在第一共線站)
+                elif idx_t_last == len(t_stations) - 1 or idx_p_last == len(p_stations) - 1:
+                    true_action = "merge"
+                    junction = first_over
+                    
+                # 狀況 C：如果資料完全沒被截斷 (兩台車都有前後站)，才比對鄰站
+                else:
+                    shares_before = (t_stations[idx_t_first - 1] == p_stations[idx_p_first - 1])
+                    shares_after = (t_stations[idx_t_last + 1] == p_stations[idx_p_last + 1])
+                    
+                    if shares_after and not shares_before:
+                        true_action = "merge"
+                        junction = first_over
+                    elif shares_before and not shares_after:
+                        true_action = "split"
+                        junction = last_over
+                    else:
+                        # 兜底：預設為 split
+                        true_action = "split"
+                        junction = last_over
+                        
+                # 將推論出的絕對正確關係與交會站寫回
+                c["action"] = true_action
                 c["station_id"] = junction
                 for pc in partner["coupled_with"]:
                     if pc["train_id"] == trains[i]["no"]:
+                        pc["action"] = true_action
                         pc["station_id"] = junction
                 
     for t in trains:
