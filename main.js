@@ -1692,14 +1692,12 @@ function buildUI() {
     // ---- 路線切換區塊結束 ----
 
     // ---- B. 動態生成車種篩選按鈕 (通用萬用版，免寫 train_order) ----
-    
-    // 1. 抓出時刻表內實際有出現的車種集合，且在當前路線 view 有班次（依 lookupY 過濾）
-    const viewTypes = new Set(
-        timetable
-            .filter(t => t.segments && t.segments.some(seg => seg.s.some(s => lookupY[s] !== undefined)))
-            .map(t => t.type)
-    );
-    const dataTypes = viewTypes.size > 0 ? viewTypes : new Set(timetable.map(t => t.type));
+
+    // 1. 抓出時刻表內實際有出現的車種集合
+    // 注意：這裡刻意用全時刻表（不依 lookupY 過濾），確保切換路線視角時
+    // 各視角專屬車種（如山陰只跑的まつかぜ）的 chip 一定存在於 DOM 中。
+    // 顯示/隱藏邏輯由 updateTrainTypeVisibility() 負責。
+    const dataTypes = new Set(timetable.map(t => t.type));
     
     let sortedTypes = [];
     

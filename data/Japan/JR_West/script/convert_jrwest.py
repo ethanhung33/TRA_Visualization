@@ -388,6 +388,16 @@ def main():
             is_hanwa_to_kansai = "hanwa_line" in s1_lines and "kansai_airport_line" in s2_lines
             is_kansai_to_hanwa = "kansai_airport_line" in s1_lines and "hanwa_line" in s2_lines
 
+            # 大和路線⇔おおさか東線：中轉站為久宝寺（9023M 等）
+            is_yamatoji_to_higashi = (
+                "yamatoji_line" in s1_lines and "osaka_higashi_line" not in s1_lines and
+                "osaka_higashi_line" in s2_lines and "yamatoji_line" not in s2_lines
+            )
+            is_higashi_to_yamatoji = (
+                "osaka_higashi_line" in s1_lines and "yamatoji_line" not in s1_lines and
+                "yamatoji_line" in s2_lines and "osaka_higashi_line" not in s2_lines
+            )
+
             if (is_loop_to_yamatoji or is_yamatoji_to_loop) and (not common_lines or is_haruka_style):
                 intersection = "今宮"
                 # 反向（yamatoji→loop）：s1（天王寺）→今宮 這段 edge 已被 append 進 fixed_preferred
@@ -441,6 +451,37 @@ def main():
 
                     l1 = next((l for l in s1_lines if intersection in LINE_MAP[l]), s1_lines[0])
                     l2 = next((l for l in s2_lines if intersection in LINE_MAP[l]), s2_lines[0])
+
+                    d1 = abs(KM_MAP.get((l1, intersection), 0.0) - KM_MAP.get((l1, s1), 0.0))
+                    d2 = abs(KM_MAP.get((l2, s2), 0.0) - KM_MAP.get((l2, intersection), 0.0))
+                    total_d = d1 + d2
+
+                    if total_d > 0:
+                        ratio = d1 / total_d
+                        mid_time = dep1 + (arr2 - dep1) * ratio
+                    else:
+                        mid_time = (dep1 + arr2) / 2
+
+                    fixed_times.append((mid_time, mid_time))
+                except:
+                    dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
+                    arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
+                    mid_time = (dep1 + arr2) / 2
+                    fixed_times.append((mid_time, mid_time))
+
+            elif not common_lines and (is_yamatoji_to_higashi or is_higashi_to_yamatoji):
+                # 9023M 等大和路線⇔おおさか東線直通列車：強制經由久宝寺換線，並內插通過時間
+                intersection = "久宝寺"
+                l1 = "yamatoji_line"      if is_yamatoji_to_higashi else "osaka_higashi_line"
+                l2 = "osaka_higashi_line" if is_yamatoji_to_higashi else "yamatoji_line"
+                fixed_preferred[-1] = l1   # 強制前段邊（s1→久宝寺）使用正確路線
+                fixed_stops.append(intersection)
+                fixed_v.append(2)
+                fixed_preferred.append(l2)  # 久宝寺→s2 使用後段路線
+
+                try:
+                    dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
+                    arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
 
                     d1 = abs(KM_MAP.get((l1, intersection), 0.0) - KM_MAP.get((l1, s1), 0.0))
                     d2 = abs(KM_MAP.get((l2, s2), 0.0) - KM_MAP.get((l2, intersection), 0.0))
