@@ -634,7 +634,7 @@ function drawTrains() {
         // 🌟 2. 再根據狀態換衣服 (這時候 baseColor 已經準備好了)
         // ==========================================
         if (isVIP || isPartner) {
-            trainColor = '#FFD700'; // 點擊：亮黃色粗線
+            trainColor = '#FFD700'; // 🌟 點擊的主角：亮黃色
             lineWidth = 4.0;
         } else if (isHovered) {
             let adjustAmount = isDarkMode ? 70 : -50; 
@@ -760,11 +760,9 @@ function drawTrains() {
                 ctx.stroke(); // 👈 這是你原本畫完主線條的這行！
 
                 // ==========================================
-                // 🌟🌟🌟 新增 A：精準疊加雙色虛線 (主從路線邏輯推理法)
-                // 完美支援 split 與 merge，徹底解決資料截斷帶來的方向誤判！
+                // 🌟🌟🌟 新增 A：精準疊加雙色虛線 (回歸物理真理版)
                 // ==========================================
                 if (train.coupled_with && !isVIP && !isPartner) {
-                    // 🌟 1. 同時捕捉 split 和 merge 伴侶
                     let coupledInfos = train.coupled_with.filter(c => c.action === "split" || c.action === "merge");
                     
                     coupledInfos.forEach(cInfo => {
@@ -775,114 +773,84 @@ function drawTrains() {
                             let _ptc = getTrainColorValue(partner.type);
                             if (_ptc) pColor = _ptc[colorIndex];
 
-                            let pStations = [];
-                            partner.segments.forEach(pSeg => {
-                                pSeg.s.forEach(id => pStations.push(String(id)));
+                            let myStations = [];
+                            train.segments.forEach(tSeg => {
+                                tSeg.s.forEach(id => myStations.push(String(id)));
                             });
 
-                            if (pStations.length > 0) {
-                                let myStations = [];
-                                train.segments.forEach(tSeg => {
-                                    tSeg.s.forEach(id => myStations.push(String(id)));
-                                });
+                            let splitStation = String(cInfo.station_id);
+                            let splitIdx = myStations.indexOf(splitStation);
+                            
+                            if (splitIdx !== -1) {
+                                // 🌟 終極物理真理：
+                                // split(分離)：到達此站前是綁在一起的 -> before
+                                // merge(匯合)：從此站出發後是綁在一起的 -> after
+                                let coupledDirection = (cInfo.action === 'split') ? 'before' : 'after';
 
-                                // 🌟 2. 終極方向推論引擎
-                                let splitStation = String(cInfo.station_id);
-                                let coupledDirection = null; // 'before' 或 'after'
-                                
-                                let pFirst = pStations[0];
-                                let pLast = pStations[pStations.length - 1];
-                                let myIdx = myStations.indexOf(splitStation);
-                                let pIdx = pStations.indexOf(splitStation);
+                                ctx.save();
+                                ctx.beginPath();
+                                let isDrawingDash = false;
 
-                                // 判斷法 A：資料截斷特徵 (精準捕捉關空/紀州路)
-                                if (pFirst === splitStation) {
-                                    coupledDirection = 'before'; 
-                                } else if (pLast === splitStation) {
-                                    coupledDirection = 'after';  
-                                } 
-                                // 判斷法 B：實體鄰站重疊 (針對新幹線等未截斷的完整資料)
-                                else if (myIdx !== -1 && pIdx !== -1) {
-                                    if (myIdx > 0 && pIdx > 0 && myStations[myIdx - 1] === pStations[pIdx - 1]) {
-                                        coupledDirection = 'before';
-                                    } else if (myIdx < myStations.length - 1 && pIdx < pStations.length - 1 && myStations[myIdx + 1] === pStations[pIdx + 1]) {
-                                        coupledDirection = 'after';
+                                for (let i = 0; i < seg.s.length; i++) {
+                                    let stId = String(seg.s[i]);
+                                    let y_raw = unwrappedCoords[i];
+                                    
+                                    if (y_raw === null) { 
+                                        isDrawingDash = false; 
+                                        continue; 
+                                    }
+                                    
+                                    let y = y_raw + offsetY;
+                                    let myArr = seg.t[i * 2];
+                                    let myDep = seg.t[i * 2 + 1];
+                                    let x_arr = timeToX(myArr);
+                                    let x_dep = timeToX(myDep);
+
+                                    let currentIdx = myStations.indexOf(stId);
+                                    let isCoupledRegion = false;
+
+                                    if (coupledDirection === 'before') {
+                                        isCoupledRegion = (currentIdx <= splitIdx);
+                                    } else if (coupledDirection === 'after') {
+                                        isCoupledRegion = (currentIdx >= splitIdx);
+                                    }
+
+                                    if (isCoupledRegion) {
+                                        if (myArr !== null) {
+                                            if (coupledDirection === 'after' && stId === splitStation) {
+                                                isDrawingDash = false; 
+                                            } else {
+                                                if (!isDrawingDash) {
+                                                    ctx.moveTo(x_arr, y);
+                                                    isDrawingDash = true;
+                                                } else {
+                                                    ctx.lineTo(x_arr, y);
+                                                }
+                                            }
+                                        }
+                                        
+                                        if (seg.v[i] !== 2 && myDep !== null) {
+                                            if (coupledDirection === 'before' && stId === splitStation) {
+                                                isDrawingDash = false;
+                                            } else {
+                                                if (!isDrawingDash) {
+                                                    ctx.moveTo(x_dep, y);
+                                                    isDrawingDash = true;
+                                                } else {
+                                                    ctx.lineTo(x_dep, y);
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        isDrawingDash = false;
                                     }
                                 }
 
-                                // 判斷法 C：保底機制
-                                if (!coupledDirection) {
-                                    if (myStations.includes(pFirst)) coupledDirection = 'before';
-                                    else if (myStations.includes(pLast)) coupledDirection = 'after';
-                                }
-
-                                if (coupledDirection) {
-                                    ctx.save();
-                                    ctx.beginPath();
-                                    let isDrawingDash = false;
-                                    let splitIdx = myStations.indexOf(splitStation);
-
-                                    for (let i = 0; i < seg.s.length; i++) {
-                                        let stId = String(seg.s[i]);
-                                        let y_raw = unwrappedCoords[i];
-                                        
-                                        if (y_raw === null) { 
-                                            isDrawingDash = false; 
-                                            continue; 
-                                        }
-                                        
-                                        let y = y_raw + offsetY;
-                                        let myArr = seg.t[i * 2];
-                                        let myDep = seg.t[i * 2 + 1];
-                                        let x_arr = timeToX(myArr);
-                                        let x_dep = timeToX(myDep);
-
-                                        let currentIdx = myStations.indexOf(stId);
-                                        let isCoupledRegion = false;
-
-                                        if (coupledDirection === 'before') {
-                                            isCoupledRegion = (currentIdx <= splitIdx);
-                                        } else if (coupledDirection === 'after') {
-                                            isCoupledRegion = (currentIdx >= splitIdx);
-                                        }
-
-                                        if (isCoupledRegion) {
-                                            if (myArr !== null) {
-                                                if (coupledDirection === 'after' && stId === splitStation) {
-                                                    isDrawingDash = false; 
-                                                } else {
-                                                    if (!isDrawingDash) {
-                                                        ctx.moveTo(x_arr, y);
-                                                        isDrawingDash = true;
-                                                    } else {
-                                                        ctx.lineTo(x_arr, y);
-                                                    }
-                                                }
-                                            }
-                                            
-                                            if (seg.v[i] !== 2 && myDep !== null) {
-                                                if (coupledDirection === 'before' && stId === splitStation) {
-                                                    isDrawingDash = false;
-                                                } else {
-                                                    if (!isDrawingDash) {
-                                                        ctx.moveTo(x_dep, y);
-                                                        isDrawingDash = true;
-                                                    } else {
-                                                        ctx.lineTo(x_dep, y);
-                                                    }
-                                                }
-                                            }
-                                        } else {
-                                            isDrawingDash = false;
-                                        }
-                                    }
-
-                                    ctx.strokeStyle = pColor;
-                                    ctx.lineWidth = lineWidth + 0.8; 
-                                    ctx.setLineDash([12, 12]);
-                                    ctx.stroke();
-                                    ctx.restore();
-                                }
+                                ctx.strokeStyle = pColor;
+                                ctx.lineWidth = lineWidth + 0.8; 
+                                ctx.setLineDash([12, 12]);
+                                ctx.stroke();
+                                ctx.restore();
                             }
                         }
                     });
@@ -1269,8 +1237,10 @@ function drawTrains() {
                         if (displayText !== "") {
                             // copy 編號納入 key：環狀圖每個複製版各自獨立，不互相抑制
                             let uniqueKey = `${copy}_${seg.s[i]}_${displayText}`;
+                            console.log("嘗試繪製:", uniqueKey, "DisplayText:", displayText);
                             if (printedStationTexts.has(uniqueKey)) {
-                                displayText = "";
+                                console.warn("偵測到重複，已攔截:", uniqueKey);
+                                displayText = ""; 
                             } else {
                                 printedStationTexts.add(uniqueKey);
                             }
@@ -3788,35 +3758,7 @@ function updateBottomPanel(train) {
         }
     }
 
-    // 1b. 追加：split 夥伴的 direct 後段（如 紀州路快速 → 関空快速 → 普通）
-    //      不加 split 夥伴本身（路線不同），只加它的直通後段作為本班的延伸
-    {
-        let extras = [];
-        displayTrains.forEach(dt => {
-            if (!dt.coupled_with) return;
-            dt.coupled_with.forEach(c => {
-                if (c.action !== "split") return;
-                let sp = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
-                if (!sp) return;
-                // 從 split 夥伴往後追 direct 鏈
-                let curr = sp;
-                let spVisited = new Set([String(sp.no || sp.train_no || sp.id)]);
-                while (curr && curr.coupled_with) {
-                    let di = curr.coupled_with.find(c2 => c2.action === "direct");
-                    if (!di) break;
-                    let nxt = timetable.find(t => String(t.no || t.train_no || t.id) === String(di.train_id));
-                    if (!nxt || spVisited.has(String(nxt.no || nxt.train_no || nxt.id))) break;
-                    spVisited.add(String(nxt.no || nxt.train_no || nxt.id));
-                    if (!visitedNos.has(String(nxt.no || nxt.train_no || nxt.id))) {
-                        visitedNos.add(String(nxt.no || nxt.train_no || nxt.id));
-                        extras.push(nxt);
-                    }
-                    curr = nxt;
-                }
-            });
-        });
-        displayTrains.push(...extras);
-    }
+    
 
     // 2. 依據每台車第一站的「發車時間」由小到大排序 (確保物理順序正確)
     displayTrains.sort((a, b) => {
@@ -4065,7 +4007,6 @@ function updateBottomPanel(train) {
             if (fam.has(no)) continue;
             fam.set(no, t);
             (t.coupled_with || []).forEach(c => {
-                // 🌟 新增放行 merge
                 if (c.action !== 'split' && c.action !== 'direct' && c.action !== 'merge') return;
                 const nx = findT(c.train_id);
                 if (nx && !fam.has(getNo(nx))) bfsQ.push(nx);
@@ -4073,45 +4014,53 @@ function updateBottomPanel(train) {
             const p = _findDirectPredecessor(t);
             if (p && !fam.has(getNo(p))) bfsQ.push(p);
         }
+        
         if (fam.size <= 1) return '';
 
         // ==========================================
-        // 🌟 2. 升級版拓樸源頭定位法
+        // 🌟 2. 物理時間尋根法 (徹底取代舊的 allTargets，無視指標混亂)
         // ==========================================
-        const allTargets = new Set();
-        for (const [, t] of fam) {
-            (t.coupled_with || []).forEach(c => {
-                // 只要是被 direct 或 split 指向的，就絕對不是源頭
-                // 但是被 merge 指向的車，依然保有源頭資格！
-                if (c.action === 'direct' || c.action === 'split') {
-                    allTargets.add(String(c.train_id));
-                }
-            });
-        }
-        
-        let rootCandidates = [...fam.values()].filter(t => !allTargets.has(getNo(t)));
-        
-        // 確保選到「最早發車」的祖先
+        let rootCandidates = [...fam.values()];
+
         rootCandidates.sort((a, b) => {
             const getStart = t => {
                 if (!t.segments || !t.segments[0]) return 9999;
                 let time = t.segments[0].t[0] !== null ? t.segments[0].t[0] : t.segments[0].t[1];
                 return time < 240 ? time + 1440 : time;
             };
-            return getStart(a) - getStart(b);
+            
+            let timeA = getStart(a);
+            let timeB = getStart(b);
+
+            // 💡 關鍵：如果發車時間一樣 (例如 20:44 東京發車的 159B 與 6159B)
+            if (timeA === timeB) {
+                // 誰身上帶有「正向指標 (爬蟲留下的)」，誰就優先當族譜源頭！
+                let aHasForward = (a.coupled_with || []).some(c => !c._is_backward);
+                let bHasForward = (b.coupled_with || []).some(c => !c._is_backward);
+                
+                if (aHasForward && !bHasForward) return -1;
+                if (!aHasForward && bHasForward) return 1;
+
+                return getNo(a).localeCompare(getNo(b)); 
+            }
+            
+            return timeA - timeB; 
         });
+
+        // 永遠選時間最前面的那台車當源頭
         const root = rootCandidates[0] || train;
 
         // ── 3. 遞迴建構拓樸樹 ──
         const buildNode = (t, vis) => {
             const no = getNo(t);
-            if (vis.has(no)) return null;
+            if (vis.has(no)) return null; // 防無窮迴圈
             vis.add(no);
             
-            // 🌟 節點新增 merges 收納袋
             const node = { train: t, next: null, splits: [], merges: [] };
             
             (t.coupled_with || []).forEach(c => {
+                if (c._is_backward) return; // 🌟 嚴格遵守時間單向流動，不往回畫
+                
                 const partner = findT(c.train_id);
                 if (!partner || vis.has(getNo(partner))) return;
                 
@@ -4122,19 +4071,18 @@ function updateBottomPanel(train) {
                     if (child) node.splits.push(child);
                 } else if (c.action === 'merge') {
                     const child = buildNode(partner, new Set(vis));
-                    if (child) node.merges.push(child); // 收納半路匯合的伴侶
+                    if (child) node.merges.push(child); 
                 }
             });
-            
-            // 視覺優化：如果下一班車有分岔，把它提早拉過來畫 Y 字型
-            if (node.next && node.next.splits.length > 0 && node.splits.length === 0) {
-                node.splits = node.next.splits;
-                node.next.splits = [];
-            }
             return node;
         };
+        
         const tree = buildNode(root, new Set());
         if (!tree) return '';
+
+        // ==========================================
+        // 🌟 4. UI 膠囊產生器 (後面的程式碼維持不變...)
+        // ==========================================
 
         // ==========================================
         // 🌟 4. UI 膠囊產生器
@@ -4150,183 +4098,182 @@ function updateBottomPanel(train) {
             if (isSelected) {
                 return `<div style="display:inline-block; white-space:nowrap; font-size:clamp(20px, 5vw, 26px); font-weight:900; color:${tColor}; letter-spacing:1px; cursor:default; margin: 0 4px;">${label}</div>`;
             } else {
-                return `<div style="display:inline-block; white-space:nowrap; font-size:clamp(11px, 2.5vw, 13px); font-weight:600; color:${tColor}; cursor:pointer; opacity:0.7; transition:opacity 0.2s;" onclick="event.stopPropagation();window.switchTrainKeepView('${tNo}')" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">${label}</div>`;
+                return `<div style="display:inline-block; white-space:nowrap; font-size:18px; font-weight:700; color:${tColor}; cursor:pointer; opacity:0.85; transition:opacity 0.2s;" onclick="event.stopPropagation();window.switchTrainKeepView('${tNo}')" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.85'">${label}</div>`;
             }
         };
 
         let lineColor = isDarkMode ? '#666' : '#CCC';
 
         // ── 5. CSS Flexbox 幾何對齊渲染引擎 (終極雙向 Grid 無縫對齊版) ──
+        // ==========================================
+        // 🌟 終極大一統：智慧型拓樸渲染引擎 (上行匯合支援 + 族譜診斷版)
+        // ==========================================
         const renderNodeToHtml = (node) => {
             if (!node) return '';
 
             let chipHtml = mkChip(node.train);
-            
-            // ==========================================
-            // 🌟 狀況 Merge：匯合排版 (─┤)
-            // ==========================================
-            if (node.merges && node.merges.length > 0) {
-                let mergeItems = [node, ...node.merges];
-                
-                let gridRows = mergeItems.map((mNode, idx) => {
-                    let isFirst = idx === 0;
-                    let isLast = idx === mergeItems.length - 1;
+            let lineColor = '#888'; 
+
+            const getStartSta = (t) => {
+                if (t?.data && t.data.length > 0) return t.data[0].sta || t.data[0].name;
+                if (t?.stops && t.stops.length > 0) return t.stops[0].sta || t.stops[0].name;
+                if (t?.segments && t.segments.length > 0) {
+                    let firstSeg = t.segments[0];
+                    if (firstSeg.s && firstSeg.s.length > 0) return firstSeg.s[0];
+                    return firstSeg.source?.id || firstSeg.source?.sta || firstSeg.source?.name;
+                }
+                return "unknown_start_" + (t?.no || Math.random());
+            };
+
+            const getEndSta = (t) => {
+                if (t?.data && t.data.length > 0) return t.data[t.data.length - 1].sta || t.data[t.data.length - 1].name;
+                if (t?.stops && t.stops.length > 0) return t.stops[t.stops.length - 1].sta || t.stops[t.stops.length - 1].name;
+                if (t?.segments && t.segments.length > 0) {
+                    let lastSeg = t.segments[t.segments.length - 1];
+                    if (lastSeg.s && lastSeg.s.length > 0) return lastSeg.s[lastSeg.s.length - 1];
+                    return lastSeg.target?.id || lastSeg.target?.sta || lastSeg.target?.name;
+                }
+                return "unknown_end_" + (t?.no || Math.random());
+            };
+
+            // 定理 2-5：split / merge 對象一律視為平行，畫在左側
+            // 優先使用 buildNode 已建好的樹節點（保留 .next 直通鏈），找不到才建最小節點
+            const parallelPartners = (node.train.coupled_with || [])
+                .filter(c => c.action === 'split' || c.action === 'merge')
+                .map(c => {
+                    const partner = findT(c.train_id);
+                    if (!partner) return null;
+                    const pNo = getNo(partner);
+                    let nodeObj = node.merges.find(m => getNo(m.train) === pNo)
+                                || node.splits.find(s => getNo(s.train) === pNo)
+                                || { train: partner, next: null, splits: [], merges: [] };
                     
-                    let mChipHtml = mkChip(mNode.train);
-                    
-                    let lineHtml = `
-                        <div style="position: relative; width: 100%; display: flex; align-items: center; align-self: stretch;">
+                    nodeObj.action = c.action; // 🌟 把 split 或 merge 的標記帶上
+                    return nodeObj;
+                })
+                .filter(Boolean);
+
+            let parallelGroup = [node, ...parallelPartners];
+
+            // 🌟 核心修正 1：定義是否為合併群組 (此行保留原有的)
+            const isMergeGroup = parallelGroup.some(p => p.action === 'merge');
+
+            // merge 情境：找出所有平行成員共同匯入的後繼車 (此段保留原有的)
+            const mergeNext = (() => {
+                const hasMerge = (node.train.coupled_with || []).some(c => c.action === 'merge');
+                if (!hasMerge) return null;
+                if (node.next) return node.next;
+                for (const pp of parallelPartners) { if (pp.next) return pp.next; }
+                return null;
+            })();
+
+            // 🌟 核心修正 2：用 isMergeGroup 決定括弧位置，絕對不依賴 mergeNext 是否存在
+            const hasLeftBracket = parallelGroup.length > 1 && !isMergeGroup;
+            const hasRightBracket = parallelGroup.length > 1 && isMergeGroup;
+
+            let gridRows = parallelGroup.map((pNode, idx) => {
+                let isFirst = idx === 0;
+                let isLast = idx === parallelGroup.length - 1;
+                let pChipHtml = (pNode === node) ? chipHtml : mkChip(pNode.train);
+
+                // 🌟 核心修正 3：分離左、右括弧的渲染邏輯，移除不必要的 transform
+                let leftLineHtml = '';
+                if (hasLeftBracket) {
+                    leftLineHtml = `
+                        <div style="position: relative; width: 10px; display: flex; align-items: center; align-self: stretch;">
                             <div style="width: 100%; height: 2px; background: ${lineColor};"></div>
-                            <div style="position: absolute; right: 0; width: 2px; background: ${lineColor}; 
-                                        top: ${isFirst ? 'calc(50% - 1px)' : '0'}; 
+                            <div style="position: absolute; left: 0; width: 2px; background: ${lineColor};
+                                        top: ${isFirst ? 'calc(50% - 1px)' : '0'};
                                         bottom: ${isLast ? 'calc(50% - 1px)' : '0'};"></div>
                         </div>
                     `;
-                    
-                    let extHtml = '';
-                    if (mNode.next && (!mNode.splits || mNode.splits.length === 0)) {
-                        extHtml = `<div style="display:flex; align-items:center;"><div style="width: 16px; height: 2px; background: ${lineColor}; flex-shrink: 0;"></div>${renderNodeToHtml(mNode.next)}</div>`;
-                    } else if (mNode.next && mNode.splits && mNode.splits.length > 0) {
-                        // 巢狀分岔也升級為 Grid！
-                        let children = [mNode.next, ...mNode.splits];
-                        let gridRows2 = children.map((cNode, cIdx) => {
-                            let cFirst = cIdx === 0;
-                            let cLast = cIdx === children.length - 1;
-                            let lHtml = cFirst ? `<div style="flex-grow: 1; height: 2px; background: ${lineColor}; min-width: 16px;"></div>` : '';
-                            let cLine = `
-                                <div style="position: relative; width: 100%; display: flex; align-items: center; align-self: stretch;">
-                                    <div style="width: 100%; height: 2px; background: ${lineColor};"></div>
-                                    <div style="position: absolute; left: 0; width: 2px; background: ${lineColor}; 
-                                                top: ${cFirst ? 'calc(50% - 1px)' : '0'}; 
-                                                bottom: ${cLast ? 'calc(50% - 1px)' : '0'};"></div>
-                                </div>
-                            `;
-                            return `
-                                <div style="display:contents;">
-                                    <div style="grid-column: 1; align-self: stretch; display: flex; align-items: center;">${lHtml}</div>
-                                    <div style="grid-column: 2; align-self: stretch; display: flex;">${cLine}</div>
-                                    <div style="grid-column: 3; display:flex; align-items:center;"><div style="padding: 4px 0;">${renderNodeToHtml(cNode)}</div></div>
-                                </div>
-                            `;
-                        }).join('');
-                        extHtml = `<div style="display: grid; grid-template-columns: 16px 16px max-content; align-items: stretch; gap: 0;">${gridRows2}</div>`;
-                    } else if (!mNode.next && mNode.splits && mNode.splits.length > 0) {
-                        let stackHtml = mNode.splits.map(n => `<div style="padding: 4px 0;">${renderNodeToHtml(n)}</div>`).join('');
-                        extHtml = `<div style="display:flex; flex-direction:column; margin-left: 16px;">${stackHtml}</div>`; 
-                    }
-                    
-                    return `
-                        <div style="display:contents;">
-                            <div style="grid-column: 1; padding: 4px 0; display:flex; align-items:center; justify-content:flex-start;">
-                                ${mChipHtml}
-                                <div style="flex-grow: 1; height: 2px; background: ${lineColor}; min-width: 16px; margin-left: 6px;"></div>
-                            </div>
-                            <div style="grid-column: 2; align-self: stretch; display: flex;">${lineHtml}</div>
-                            <div style="grid-column: 3; display:flex; align-items:center; padding-left: 0;">${extHtml}</div>
+                }
+
+                let rightLineHtml = '';
+                if (hasRightBracket) {
+                    rightLineHtml = `
+                        <div style="position: relative; width: 10px; display: flex; align-items: center; align-self: stretch;">
+                            <div style="width: 100%; height: 2px; background: ${lineColor};"></div>
+                            <div style="position: absolute; right: 0; width: 2px; background: ${lineColor};
+                                        top: ${isFirst ? 'calc(50% - 1px)' : '0'};
+                                        bottom: ${isLast ? 'calc(50% - 1px)' : '0'};"></div>
                         </div>
                     `;
-                }).join('');
+                }
+
+                let futureBranches = [];
+                // merge 後繼由外層統一渲染，不在各行個別顯示
+                if (pNode.next && pNode.next !== mergeNext) futureBranches.push(pNode.next);
                 
-                return `<div style="display: grid; grid-template-columns: max-content 16px max-content; align-items: stretch; gap: 0;">${gridRows}</div>`;
-            }
+                if (pNode !== node && pNode.splits && pNode.splits.length > 0) {
+                    let pNodeEnd = getEndSta(pNode.train);
+                    pNode.splits.forEach(sNode => {
+                        if (getStartSta(sNode.train) === pNodeEnd) futureBranches.push(sNode);
+                    });
+                }
 
-            // 狀況 A：如果只有直通 (next)，沒有分岔 (splits) ➔ 畫一條橫線 ──
-            if (node.next && (!node.splits || node.splits.length === 0)) {
-                let nextHtml = renderNodeToHtml(node.next);
-                return `
-                    <div style="display:flex; align-items:center;">
-                        ${chipHtml}
-                        <div style="width: 20px; height: 2px; background: ${lineColor}; margin: 0 4px; flex-shrink: 0;"></div>
-                        ${nextHtml}
-                    </div>
-                `;
-            }
-
-            // 狀況 B：如果沒有直通，也沒有分岔 ➔ 樹葉末端，直接回傳膠囊
-            if (!node.next && (!node.splits || node.splits.length === 0)) {
-                return chipHtml;
-            }
-
-            // ==========================================
-            // 🌟 狀況 C：分岔排版 (─┬─) (全新 Grid 升級版)
-            // ==========================================
-            if (node.next && node.splits && node.splits.length > 0) {
-                let children = [node.next, ...node.splits];
-
-                let gridRows = children.map((cNode, idx) => {
-                    let isFirst = idx === 0;
-                    let isLast = idx === children.length - 1;
-
-                    // 第一行 (主直通路線) 才有母節點的膠囊，其餘行留白
-                    let leftHtml = '';
-                    if (isFirst) {
-                        leftHtml = `
-                            <div style="padding: 4px 0; display:flex; align-items:center; justify-content:flex-end; width: 100%;">
-                                ${chipHtml}
-                                <div style="flex-grow: 1; height: 2px; background: ${lineColor}; min-width: 16px; margin-left: 6px;"></div>
+                let extHtml = '';
+                if (futureBranches.length === 1) {
+                    extHtml = `
+                        <div style="display:flex; align-items:center; height: 100%;">
+                            <div style="width: 8px; height: 2px; background: ${lineColor}; flex-shrink: 0; margin: 0 4px;"></div>
+                            ${renderNodeToHtml(futureBranches[0])}
+                        </div>
+                    `;
+                } else if (futureBranches.length > 1) {
+                    let branchesHtml = futureBranches.map((branch, bIdx) => {
+                        let bFirst = bIdx === 0;
+                        let bLast = bIdx === futureBranches.length - 1;
+                        return `
+                            <div style="display: flex; align-items: center; position: relative; padding: 2px 0;">
+                                <div style="position: absolute; left: 0; width: 2px; background: ${lineColor};
+                                            top: ${bFirst ? 'calc(50% - 1px)' : '0'};
+                                            bottom: ${bLast ? 'calc(50% - 1px)' : '0'};"></div>
+                                <div style="width: 8px; height: 2px; background: ${lineColor}; flex-shrink: 0;"></div>
+                                <div style="margin-left: 4px;">
+                                    ${renderNodeToHtml(branch)}
+                                </div>
                             </div>
                         `;
-                    }
+                    }).join('');
 
-                    // 強制用 align-self: stretch 取代 height: 100%，徹底防止塌陷
-                    let lineHtml = `
-                        <div style="position: relative; width: 100%; display: flex; align-items: center; align-self: stretch;">
-                            <div style="width: 100%; height: 2px; background: ${lineColor};"></div>
-                            <div style="position: absolute; left: 0; width: 2px; background: ${lineColor}; 
-                                        top: ${isFirst ? 'calc(50% - 1px)' : '0'}; 
-                                        bottom: ${isLast ? 'calc(50% - 1px)' : '0'};"></div>
-                        </div>
-                    `;
-
-                    let rightHtml = `<div style="padding: 4px 0; display:flex; align-items:center;">${renderNodeToHtml(cNode)}</div>`;
-
-                    return `
-                        <div style="display:contents;">
-                            <div style="grid-column: 1; align-self: stretch; display: flex;">${leftHtml}</div>
-                            <div style="grid-column: 2; align-self: stretch; display: flex;">${lineHtml}</div>
-                            <div style="grid-column: 3; display:flex; align-items:center;">${rightHtml}</div>
-                        </div>
-                    `;
-                }).join('');
-
-                return `<div style="display: grid; grid-template-columns: max-content 16px max-content; align-items: stretch; gap: 0;">${gridRows}</div>`;
-            }
-
-            // ==========================================
-            // 🌟 狀況 D：沒有直通，只有分岔 (純粹併結並行)
-            // 全新升級：加上完美的左側 ├─ 括弧，讓並行車隊視覺統一！
-            // ==========================================
-            if (!node.next && node.splits && node.splits.length > 0) {
-                let splitItems = [node, ...node.splits];
-                
-                let gridRows = splitItems.map((sNode, idx) => {
-                    let isFirst = idx === 0;
-                    let isLast = idx === splitItems.length - 1;
-                    
-                    let sChipHtml = (sNode === node) ? chipHtml : renderNodeToHtml(sNode);
-                    
-                    // 🌟 核心魔法：畫出左側發散的 ├─ 結構
-                    let lineHtml = `
-                        <div style="position: relative; width: 100%; display: flex; align-items: center; align-self: stretch;">
-                            <div style="width: 100%; height: 2px; background: ${lineColor};"></div>
-                            <div style="position: absolute; left: 0; width: 2px; background: ${lineColor}; 
-                                        top: ${isFirst ? 'calc(50% - 1px)' : '0'}; 
-                                        bottom: ${isLast ? 'calc(50% - 1px)' : '0'};"></div>
-                        </div>
-                    `;
-                    
-                    return `
-                        <div style="display:contents;">
-                            <div style="grid-column: 1; align-self: stretch; display: flex;">${lineHtml}</div>
-                            <div style="grid-column: 2; padding: 4px 0; display:flex; align-items:center; padding-left: 6px;">
-                                ${sChipHtml}
+                    extHtml = `
+                        <div style="display:flex; align-items:center; height: 100%;">
+                            <div style="width: 8px; height: 2px; background: ${lineColor}; flex-shrink: 0; margin-left: 4px;"></div>
+                            <div style="display: flex; flex-direction: column;">
+                                ${branchesHtml}
                             </div>
                         </div>
                     `;
-                }).join('');
+                }
 
-                return `<div style="display: grid; grid-template-columns: 16px max-content; align-items: stretch; gap: 0;">${gridRows}</div>`;
+                const chipCol = hasLeftBracket ? '2' : '1';
+                const rightBracketCol = hasLeftBracket ? '3' : '2';
+                
+                return `
+                    <div style="display:contents;">
+                        ${hasLeftBracket ? `<div style="grid-column: 1; align-self: stretch; display: flex;">${leftLineHtml}</div>` : ''}
+                        <div style="grid-column: ${chipCol}; display:flex; align-items:center; padding: 2px 4px;">
+                            ${pChipHtml}
+                            ${extHtml}
+                        </div>
+                        ${hasRightBracket ? `<div style="grid-column: ${rightBracketCol}; align-self: stretch; display: flex;">${rightLineHtml}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            // 🌟 核心修正 4：Grid 欄位定義也要嚴格依據 isMergeGroup
+            let cols = parallelGroup.length > 1
+                ? (isMergeGroup ? "max-content 10px" : "10px max-content")
+                : "max-content";
+                
+            const gridHtml = `<div style="display: grid; grid-template-columns: ${cols}; align-items: center; gap: 0;">${gridRows}</div>`;
+            
+            if (mergeNext) {
+                const sharedExtHtml = `<div style="display:flex; align-items:center;"><div style="width:8px; height:2px; background:${lineColor}; flex-shrink:0; margin:0 4px;"></div>${renderNodeToHtml(mergeNext)}</div>`;
+                return `<div style="display:flex; align-items:center;">${gridHtml}${sharedExtHtml}</div>`;
             }
+            return gridHtml;
         };
 
         return `<div style="display:flex; flex-direction:column; margin-bottom:12px; overflow-x:auto; padding-bottom:8px; align-items:flex-start;">${renderNodeToHtml(tree)}</div>`;
@@ -5248,7 +5195,7 @@ window.triggerSelectTrain = function(trainNo, saveHistory = true, preventCameraJ
 
                     if (!pTrain || pTrain === selectedTrain) return;
 
-                    if (c.action === "split") {
+                    if (c.action === "split" || c.action === "merge") {
                         cachedPartnerIds.add(pId);
                         pQueue.push(pTrain);
                     } else if (c.action === "direct") {

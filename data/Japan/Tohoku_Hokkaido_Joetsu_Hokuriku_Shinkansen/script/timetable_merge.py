@@ -433,17 +433,15 @@ def apply_coupling_logic(trains):
         t["_sched"] = {s["s"][i]: (s["t"][i*2], s["t"][i*2+1]) for s in t["segments"] for i in range(len(s["s"]))}
             
     for i in range(len(trains)):
-        for c in trains[i].get("coupled_with", []):
-            # 🌟 1. 放行 merge，讓已經標記或將要標記的車輛能被處理
+        # 💡 使用 list() 建立副本來迭代，因為我們等一下可能會刪除錯誤的反向指標
+        for c in list(trains[i].get("coupled_with", [])):
             if c["action"] not in ["split", "merge"]: continue 
             if "station_id" in c: continue 
             
             partner = next((pt for pt in trains if pt["no"] == c["train_id"]), None)
             if not partner: continue
             
-            # 確保雙向都有指標
-            if not any(pc["train_id"] == trains[i]["no"] for pc in partner["coupled_with"]):
-                partner["coupled_with"].append({"train_id": trains[i]["no"], "action": c["action"]})
+            # 🚫 刪除原本的「確保雙向都有指標」！我們現在嚴格實施「單向真理」
             
             # 找出兩台車時間相近的「共線重疊站」
             overlap = []
@@ -454,19 +452,14 @@ def apply_coupling_logic(trains):
                         overlap.append(st)
                         
             if len(overlap) >= 1:
-                # 🌟 確保時間排序正確，防止字串比較異常
                 def get_sort_time(sched_tuple):
                     val = sched_tuple[1] if sched_tuple[1] != "" else sched_tuple[0]
                     return int(val) if val != "" else 9999
 
-                # 依據時間排序重疊站點
                 overlap.sort(key=lambda x: get_sort_time(trains[i]["_sched"][x]))
                 first_over = overlap[0]
                 last_over = overlap[-1]
                 
-                # ==========================================
-                # 🌟 2. 導入與 JR 西日本相同的「終極起終點生死定理」
-                # ==========================================
                 t_stations = sorted(trains[i]["_sched"].keys(), key=lambda x: get_sort_time(trains[i]["_sched"][x]))
                 p_stations = sorted(partner["_sched"].keys(), key=lambda x: get_sort_time(partner["_sched"][x]))
                 
@@ -475,17 +468,41 @@ def apply_coupling_logic(trains):
                 idx_t_last  = t_stations.index(last_over)
                 idx_p_last  = p_stations.index(last_over)
                 
-                # 狀況 A：如果是某台車的「起點」，代表它從這裡分離誕生 ➔ Split (分岔點在最後共線站)
-                if idx_t_first == 0 or idx_p_first == 0:
+                # ==========================================
+                # 🌟 2. 物理真理裁決：決定誰是 Owner (擁有指標)，誰是 Target (被指)
+                # ==========================================
+                true_action = None
+                junction = None
+                owner = None
+                target = None
+
+                # 狀況 A1：自己是分岔出來的支線 (起點在交會站)
+                if idx_t_first == 0:
                     true_action = "split"
                     junction = last_over
-                    
-                # 狀況 B：如果是某台車的「終點」，代表它到這裡併入主線 ➔ Merge (匯合點在第一共線站)
-                elif idx_t_last == len(t_stations) - 1 or idx_p_last == len(p_stations) - 1:
+                    owner = partner       # 媽媽是對方
+                    target = trains[i]    # 小孩是自己
+                # 狀況 A2：對方是分岔出來的支線
+                elif idx_p_first == 0:
+                    true_action = "split"
+                    junction = last_over
+                    owner = trains[i]     # 媽媽是自己
+                    target = partner      # 小孩是對方
+                
+                # 狀況 B1：自己是匯合進去的支線 (終點在交會站)
+                elif idx_t_last == len(t_stations) - 1:
                     true_action = "merge"
                     junction = first_over
-                    
-                # 狀況 C：如果資料完全沒被截斷 (兩台車都有前後站)，才比對鄰站
+                    owner = trains[i]     # 消失併入主線的是自己 (指標往未來指)
+                    target = partner      # 存活下來的是對方
+                # 狀況 B2：對方是匯合進去的支線
+                elif idx_p_last == len(p_stations) - 1:
+                    true_action = "merge"
+                    junction = first_over
+                    owner = partner       # 消失併入主線的是對方
+                    target = trains[i]    # 存活下來的是自己
+                
+                # 狀況 C：資料未截斷之中途共線 (Fallback)
                 else:
                     shares_before = (t_stations[idx_t_first - 1] == p_stations[idx_p_first - 1])
                     shares_after = (t_stations[idx_t_last + 1] == p_stations[idx_p_last + 1])
@@ -493,29 +510,38 @@ def apply_coupling_logic(trains):
                     if shares_after and not shares_before:
                         true_action = "merge"
                         junction = first_over
+                        owner = trains[i] if len(t_stations) <= len(p_stations) else partner
+                        target = partner if owner == trains[i] else trains[i]
                     elif shares_before and not shares_after:
                         true_action = "split"
                         junction = last_over
+                        owner = partner if len(t_stations) <= len(p_stations) else trains[i]
+                        target = trains[i] if owner == partner else partner
                     else:
-                        # 兜底：預設為 split
                         true_action = "split"
                         junction = last_over
-                        
-                # 將推論出的絕對正確關係與交會站寫回
-                c["action"] = true_action
-                c["station_id"] = junction
-                for pc in partner["coupled_with"]:
-                    if pc["train_id"] == trains[i]["no"]:
-                        pc["action"] = true_action
-                        pc["station_id"] = junction
-                
+                        owner, target = trains[i], partner
+
+                # ==========================================
+                # 🌟 3. 單向賦值：將指標賦予 Owner，並無情刪除 Target 身上的反向錯誤指標
+                # ==========================================
+                # 1. 幫 Owner 加上/更新單向指標
+                owner_coupling = next((oc for oc in owner["coupled_with"] if oc["train_id"] == target["no"]), None)
+                if owner_coupling:
+                    owner_coupling["action"] = true_action
+                    owner_coupling["station_id"] = junction
+                else:
+                    owner["coupled_with"].append({"train_id": target["no"], "action": true_action, "station_id": junction})
+
+                # 2. 🔪 斬斷無限迴圈！將 Target 身上的反向指標徹底刪除
+                target["coupled_with"] = [tc for tc in target.get("coupled_with", []) if tc["train_id"] != owner["no"]]
+
     for t in trains:
         if "_sched" in t: del t["_sched"]
-        t["coupled_with"] = [c for c in t["coupled_with"] if "station_id" in c or c["action"] == "direct"]
+        t["coupled_with"] = [c for c in t.get("coupled_with", []) if "station_id" in c or c["action"] == "direct"]
         if not t["coupled_with"]: del t["coupled_with"]
             
     return trains
-
 def save_json_per_line(path, data_list):
     with open(path, "w", encoding="utf-8") as f:
         f.write("[\n")
