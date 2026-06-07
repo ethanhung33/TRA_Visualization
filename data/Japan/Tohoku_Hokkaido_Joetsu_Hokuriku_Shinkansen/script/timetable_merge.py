@@ -476,18 +476,34 @@ def apply_coupling_logic(trains):
                 owner = None
                 target = None
 
-                # 狀況 A1：自己是分岔出來的支線 (起點在交會站)
+                # 狀況 A1：自己起點在交會站
                 if idx_t_first == 0:
-                    true_action = "split"
-                    junction = last_over
-                    owner = partner       # 媽媽是對方
-                    target = trains[i]    # 小孩是自己
-                # 狀況 A2：對方是分岔出來的支線
+                    if idx_p_last == len(p_stations) - 1:
+                        # P 終點在交會站 → P 是匯入的支線（如上行 こまち 匯入 はやぶさ）
+                        true_action = "merge"
+                        junction = first_over
+                        owner = partner    # P 持有 merge 指標
+                        target = trains[i]
+                    else:
+                        # P 在交會站後仍有獨走段 → T 是從 P 分離出去的支線（如下行 こまち 從 はやぶさ 分出）
+                        true_action = "split"
+                        junction = last_over
+                        owner = partner
+                        target = trains[i]
+                # 狀況 A2：對方起點在交會站
                 elif idx_p_first == 0:
-                    true_action = "split"
-                    junction = last_over
-                    owner = trains[i]     # 媽媽是自己
-                    target = partner      # 小孩是對方
+                    if idx_t_last == len(t_stations) - 1:
+                        # T 終點在交會站 → T 是匯入的支線
+                        true_action = "merge"
+                        junction = first_over
+                        owner = trains[i]  # T 持有 merge 指標
+                        target = partner
+                    else:
+                        # T 在交會站後仍有獨走段 → P 是從 T 分離出去的支線
+                        true_action = "split"
+                        junction = last_over
+                        owner = trains[i]
+                        target = partner
                 
                 # 狀況 B1：自己是匯合進去的支線 (終點在交會站)
                 elif idx_t_last == len(t_stations) - 1:

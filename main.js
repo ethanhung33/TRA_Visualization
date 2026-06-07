@@ -717,11 +717,13 @@ function drawTrains() {
                 // ==========================================
                 train._hitPoints.push(null);
 
+                // ==========================================
+                // 【第一階段：畫主實線】(絕對忠於自己的時間，絕不互相等待)
+                // ==========================================
                 for (let i = 0; i < seg.s.length; i++) {
                     let y_raw = unwrappedCoords[i];
                     if (y_raw === null) { 
                         isDrawing = false; 
-                        // 🌟 【新增 2】：如果線條中斷，塞入 null 斷開麵包屑
                         train._hitPoints.push(null); 
                         continue; 
                     }
@@ -730,18 +732,15 @@ function drawTrains() {
                     let x_arr = timeToX(seg.t[i * 2]);
                     let x_dep = timeToX(seg.t[i * 2 + 1]);
 
-                    // 🌟 【新增 3】：把算好的真實座標存起來 (這就是麵包屑！)
-                   
+                    // 把算好的真實座標存起來 (麵包屑)
                     train._hitPoints.push({ x: x_arr, y: y });
-                    // 如果這站有停 (v !== 2)，代表進出站會是一條水平線，也要記錄出站點
                     if (seg.v[i] !== 2) {
                         train._hitPoints.push({ x: x_dep, y: y });
                     }
-                    
 
                     if (!isDrawing) { 
                         if (i === 0 && segIdx > 0) {
-                            ctx.moveTo(x_dep, y); 
+                            ctx.moveTo(x_dep, y); // 新路段從自己的離站點出發！
                         } else {
                             ctx.moveTo(x_arr, y); 
                         }
@@ -750,14 +749,12 @@ function drawTrains() {
                         ctx.lineTo(x_arr, y); 
                     }
 
-                    // 🌟 改成下面這樣 (直接把 else 刪掉！)：
+                    // 畫自己的停靠水平線
                     if (seg.v[i] !== 2) {
-                        ctx.lineTo(x_dep, y);
+                        ctx.lineTo(x_dep, y); 
                     }
-                    // 解說：如果是通過站 (v === 2)，我們什麼都不做！
-                    // 讓畫筆繼續貼在紙上，下一個 lineTo 就會畫出完美的連續直線，不再斷裂！
                 }
-                ctx.stroke(); // 👈 這是你原本畫完主線條的這行！
+                ctx.stroke(); // 實線畫完，提筆！
 
                 // ==========================================
                 // 🌟🌟🌟 新增 A：精準疊加雙色虛線 (回歸物理真理版)
@@ -782,9 +779,6 @@ function drawTrains() {
                             let splitIdx = myStations.indexOf(splitStation);
                             
                             if (splitIdx !== -1) {
-                                // 🌟 終極物理真理：
-                                // split(分離)：到達此站前是綁在一起的 -> before
-                                // merge(匯合)：從此站出發後是綁在一起的 -> after
                                 let coupledDirection = (cInfo.action === 'split') ? 'before' : 'after';
 
                                 ctx.save();
@@ -816,6 +810,7 @@ function drawTrains() {
                                     }
 
                                     if (isCoupledRegion) {
+                                        // --- 畫虛線的「到站」段 ---
                                         if (myArr !== null) {
                                             if (coupledDirection === 'after' && stId === splitStation) {
                                                 isDrawingDash = false; 
@@ -829,9 +824,29 @@ function drawTrains() {
                                             }
                                         }
                                         
+                                        // --- 畫虛線的「停靠」段 ---
                                         if (seg.v[i] !== 2 && myDep !== null) {
                                             if (coupledDirection === 'before' && stId === splitStation) {
-                                                isDrawingDash = false;
+                                                // 🌟 分岔站特判：虛線只能畫到「第一台車離開」的瞬間！
+                                                let pDep = myDep; 
+                                                if (partner.segments) {
+                                                    let pSeg = partner.segments.find(s => s.s.map(String).includes(stId));
+                                                    if (pSeg) {
+                                                        let pIdx = pSeg.s.findIndex(sid => String(sid) === stId);
+                                                        pDep = pSeg.t[pIdx * 2 + 1];
+                                                    }
+                                                }
+                                                // 誰先發車就取誰的時間 (Math.min)
+                                                let splitTime = Math.min(myDep, pDep !== undefined && pDep !== null ? pDep : myDep);
+                                                let x_split = timeToX(splitTime);
+
+                                                if (!isDrawingDash) {
+                                                    ctx.moveTo(x_split, y);
+                                                    isDrawingDash = true;
+                                                } else {
+                                                    ctx.lineTo(x_split, y);
+                                                }
+                                                isDrawingDash = false; // 畫完共用等待時間後，正式切斷虛線！
                                             } else {
                                                 if (!isDrawingDash) {
                                                     ctx.moveTo(x_dep, y);
@@ -1005,7 +1020,13 @@ function drawTrains() {
                             let vipPresentHere = selectedTrain.segments.some(s => s.s.map(String).includes(String(seg.s[i])));
 
                             if (!vipPresentHere) {
-                                isDesignatedSpeaker = true;
+                                // 若這是伴侶車的直通終站，讓後繼直通車統一印標籤，避免重複
+                                let isPartnerDirectOutHere = (
+                                    segIdx === train.segments.length - 1 && i === seg.s.length - 1 &&
+                                    train.coupled_with &&
+                                    train.coupled_with.some(c => c.action === "direct" && String(c.station_id) === String(seg.s[i]))
+                                );
+                                if (!isPartnerDirectOutHere) isDesignatedSpeaker = true;
                             } else {
                                 // VIP 也停同一站，但若時間差距 > 10 分鐘，代表是不同時刻的過站
                                 // （如 4237 在 22:00 出發天王寺，4237M 在 22:41 過天王寺），應各自顯示標籤
@@ -1018,7 +1039,13 @@ function drawTrains() {
                                 }
                                 if (typeof myTime === 'number' && typeof vipTimeAtStation === 'number'
                                     && Math.abs(myTime - vipTimeAtStation) > 10) {
-                                    isDesignatedSpeaker = true; // 時間差太大，不互相抑制
+                                    // 若這是伴侶車的直通終站，VIP 會以 isDirectIn 模式畫合併標籤，此處讓出發言權
+                                    let isPartnerDirectOutHere = (
+                                        segIdx === train.segments.length - 1 && i === seg.s.length - 1 &&
+                                        train.coupled_with &&
+                                        train.coupled_with.some(c => c.action === "direct" && String(c.station_id) === String(seg.s[i]))
+                                    );
+                                    if (!isPartnerDirectOutHere) isDesignatedSpeaker = true;
                                 } else {
                                     let vipLastSeg = selectedTrain.segments[selectedTrain.segments.length - 1];
                                     let vipLastSt = vipLastSeg.s[vipLastSeg.s.length - 1];
@@ -1030,6 +1057,11 @@ function drawTrains() {
                                     }
                                 }
                             }
+                        }
+
+                        else if (!selectedTrain) {
+                            // 🌟 核心修復 3：如果畫布上什麼都沒點，大家都有發言權！
+                            isDesignatedSpeaker = true;
                         }
 
                         // ==========================================
@@ -1045,7 +1077,7 @@ function drawTrains() {
 
                             for (let ft of myFamily) {
                                 if (ft.coupled_with) {
-                                    let sInfo = ft.coupled_with.find(c => c.action === "split" && String(c.station_id) === String(seg.s[i]));
+                                    let sInfo = ft.coupled_with.find(c => (c.action === "split" || c.action === "merge") && String(c.station_id) === String(seg.s[i]));
                                     if (sInfo) {
                                         splitTrainA = ft;
                                         splitTrainB = timetable.find(t => String(t.no || t.train_no || t.id) === String(sInfo.train_id));
@@ -1107,8 +1139,11 @@ function drawTrains() {
                                         if(arr === null && dep !== null) arr = dep; 
                                         if(dep === null && arr !== null) dep = arr; 
 
-                                        // 🌟 加入 objLastSt 驗證
-                                        let isDOut = (idx === s.s.length - 1 && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct" && String(c.station_id) === objLastSt));
+                                        // ==========================================
+                                        // 🌟 加入 objLastSt 驗證 (修復提前觸發 Bug)
+                                        // 將 idx === s.s.length - 1 改為嚴格比對絕對站名！
+                                        // ==========================================
+                                        let isDOut = (String(seg.s[i]) === objLastSt && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct" && String(c.station_id) === objLastSt));
                                         if (isDOut) {
                                             let dInfo = tObj.coupled_with.find(c => c.action === "direct" && String(c.station_id) === objLastSt);
                                             let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
@@ -1118,9 +1153,12 @@ function drawTrains() {
                                                 if (nDep !== null) dep = nDep;
                                             }
                                         }
-                                        
-                                        // 🌟 加入 objFirstSt 驗證
-                                        let isDIn = (idx === 0 && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct" && String(c.station_id) === objFirstSt));
+
+                                        // ==========================================
+                                        // 🌟 加入 objFirstSt 驗證 (修復提前觸發 Bug)
+                                        // 將 idx === 0 改為嚴格比對絕對站名！
+                                        // ==========================================
+                                        let isDIn = (String(seg.s[i]) === objFirstSt && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct" && String(c.station_id) === objFirstSt));
                                         if (isDIn) {
                                             let dInfo = tObj.coupled_with.find(c => c.action === "direct" && String(c.station_id) === objFirstSt);
                                             let prv = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
@@ -1140,8 +1178,12 @@ function drawTrains() {
                                 let iA = extInfo(splitTrainA);
                                 let iB = extInfo(splitTrainB);
 
-                                let minArr = Math.min(iA.arr || Infinity, iB.arr || Infinity);
-                                let maxDep = Math.max(iA.dep || -Infinity, iB.dep || -Infinity);
+
+                                // ==========================================
+                                // 🌟 修復 1：避開 JavaScript「0 是 falsy」的陷阱
+                                // ==========================================
+                                let minArr = Math.min(iA.arr ?? Infinity, iB.arr ?? Infinity);
+                                let maxDep = Math.max(iA.dep ?? -Infinity, iB.dep ?? -Infinity);
 
                                 // ==========================================
                                 // 🌟 終極判斷：實體端點與時間差雙重驗證引擎
@@ -1178,6 +1220,13 @@ function drawTrains() {
                                     
                                     let sharedDep = maxDep !== -Infinity ? maxDep : (iA.dep || iB.dep);
                                     displayText = `${joins[0].str}/${joins[1].str}-${formatTimeDisplay(sharedDep)} ${stationName}`;
+
+                                    // 🌟 修復 2：解決「跑到很右邊」的問題！
+                                    // 最佳視覺解法：改回 right-align，但「錨點設在 maxDep (離開時間)」！
+                                    // 這樣文字會從離開時間「往回寫」，剛好蓋在兩台車匯合的 V 型空間上方。
+                                    familyAlign = 'right'; 
+                                    if (maxDep !== -Infinity) familyDrawX = timeToX(maxDep);
+                                    if (minArr !== Infinity) familyFallbackX = timeToX(minArr);
                                     
                                     // 🌟 更新外圍已經宣告好的變數 (直接覆寫值，不要加 let！)
                                     // JOIN：left-align 從出發時間往右延伸，與 SPLIT 對稱
@@ -1207,16 +1256,26 @@ function drawTrains() {
                                 let clusterArr = arrT;
                                 let clusterDep = depT;
                                 const refTime = (typeof arrT === 'number' ? arrT : depT) ?? 0;
+                                const _stId = String(seg.s[i]);
+                                const _trainId = String(train.no || train.train_no || train.id);
                                 for (let ft of myFamily) {
                                     if (ft === train || !ft.segments) continue;
+                                    const _ftId = String(ft.no || ft.train_no || ft.id);
+                                    // 直通串聯的成員不受 10 分鐘門檻限制（如 4631H→395M 在和歌山銜接）
+                                    let isDirectChainHere = (
+                                        (train.coupled_with && train.coupled_with.some(c =>
+                                            c.action === "direct" && String(c.station_id) === _stId && String(c.train_id) === _ftId)) ||
+                                        (ft.coupled_with && ft.coupled_with.some(c =>
+                                            c.action === "direct" && String(c.station_id) === _stId && String(c.train_id) === _trainId))
+                                    );
                                     for (let fSeg of ft.segments) {
-                                        let fi = fSeg.s.findIndex(s => String(s) === String(seg.s[i]));
+                                        let fi = fSeg.s.findIndex(s => String(s) === _stId);
                                         if (fi < 0) continue;
                                         let fArr = fSeg.t[fi * 2];
                                         let fDep = fSeg.t[fi * 2 + 1];
-                                        // 時間接近才納入聚合（拒絕同站不同批次）
+                                        // 時間接近才納入聚合（拒絕同站不同批次），但直通串聯不受此限
                                         let fRef = typeof fArr === 'number' ? fArr : (typeof fDep === 'number' ? fDep : null);
-                                        if (fRef === null || Math.abs(fRef - refTime) > 10) break;
+                                        if (fRef === null || (!isDirectChainHere && Math.abs(fRef - refTime) > 10)) break;
                                         if (typeof fArr === 'number' && (clusterArr === null || fArr < clusterArr)) clusterArr = fArr;
                                         if (typeof fDep === 'number' && (clusterDep === null || fDep > clusterDep)) clusterDep = fDep;
                                         break;
@@ -1237,15 +1296,12 @@ function drawTrains() {
                         if (displayText !== "") {
                             // copy 編號納入 key：環狀圖每個複製版各自獨立，不互相抑制
                             let uniqueKey = `${copy}_${seg.s[i]}_${displayText}`;
-                            console.log("嘗試繪製:", uniqueKey, "DisplayText:", displayText);
                             if (printedStationTexts.has(uniqueKey)) {
-                                console.warn("偵測到重複，已攔截:", uniqueKey);
                                 displayText = ""; 
                             } else {
                                 printedStationTexts.add(uniqueKey);
                             }
                         }
-
                         // --- 5. 畫出文字 (雙向智慧防撞牆版) ---
                         if (displayText !== "") {
                             ctx.font = '14px "GlowSans", "Segoe UI", sans-serif'; 
@@ -3675,7 +3731,7 @@ function updateBottomPanel(train) {
             if (pTrain) {
                 let pColor = _pColor(pTrain);
                 let cleanPno = String(pTrain.no).split('|')[0];
-                if (c.action === "split") {
+                if (c.action === "split" || c.action === "merge") {
                     partnerHtml += `
                         <span style="..." onclick="event.stopPropagation(); window.switchTrainKeepView('${pTrain.no}')">
                             🔗 併結 ${pTrain.type} ${cleanPno}
@@ -3829,7 +3885,7 @@ function updateBottomPanel(train) {
 
     // 只看使用者點擊的第一台車 (train) 有沒有併結
     if (train.coupled_with) {
-        let splitInfo = train.coupled_with.find(c => c.action === "split");
+        let splitInfo = train.coupled_with.find(c => c.action === "split" || c.action === "merge");
         if (splitInfo) {
             // 找到它的伴侶車 (例如: はやぶさ 3007B)
             let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(splitInfo.train_id));
@@ -4593,10 +4649,12 @@ function updateBottomPanelStation(st_id) {
                 // 🛡️ 核心防護：檢查兩台車是否真的有「實體併結 (split)」關係
                 let isPhysicallyCoupled = false;
                 if (current.train.coupled_with) {
-                    isPhysicallyCoupled = current.train.coupled_with.some(c => c.action === "split" && String(c.train_id) === String(other.trainNo));
+                    // 🌟 補上 merge
+                    isPhysicallyCoupled = current.train.coupled_with.some(c => (c.action === "split" || c.action === "merge") && String(c.train_id) === String(other.trainNo));
                 }
                 if (!isPhysicallyCoupled && other.train.coupled_with) {
-                    isPhysicallyCoupled = other.train.coupled_with.some(c => c.action === "split" && String(c.train_id) === String(current.trainNo));
+                    // 🌟 補上 merge
+                    isPhysicallyCoupled = other.train.coupled_with.some(c => (c.action === "split" || c.action === "merge") && String(c.train_id) === String(current.trainNo));
                 }
                 
                 // 條件嚴格：時間一致、終點一致，且「必須是物理上的併結車」才合併
@@ -5134,7 +5192,7 @@ function optimizeTrainTimesForDisplay(trainsData) {
                     let isCouplingStation = false;
                     if (train.coupled_with) {
                         let stId = seg.s[i / 2];
-                        isCouplingStation = train.coupled_with.some(c => c.action === "split" && String(c.station_id) === String(stId));
+                        isCouplingStation = train.coupled_with.some(c => (c.action === "split" || c.action === "merge") && String(c.station_id) === String(stId));
                     }
                     
                     if (!isCouplingStation) {
