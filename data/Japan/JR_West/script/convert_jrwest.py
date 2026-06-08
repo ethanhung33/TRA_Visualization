@@ -328,16 +328,23 @@ def main():
     # 5. 邊遍歷演算法 (Stop-by-Stop Edge Mapping)
     processed_trains = []
     for unique_id, t_info in train_buffer.items():
-        t_info["segments_data"].sort(key=lambda x: x["start_time"])
-        
+        # 時間相同時，站數多的（完整版）優先處理，避免截短版先被展開後完整版又重複
+        t_info["segments_data"].sort(key=lambda x: (x["start_time"], -len(x["ordered_stops"])))
+
         full_ordered_stops = []
         full_ordered_times = []
-        seen_chunks = set() 
-        
+        seen_chunks = set()
+
         for seg in t_info["segments_data"]:
             chunk_hash = str(seg["ordered_stops"]) + str(seg["stops"])
             if chunk_hash in seen_chunks: continue
             seen_chunks.add(chunk_hash)
+
+            # 若此 chunk 與已建路線有相同起始站＋起始時間，代表是同班車的截短版，跳過
+            if (full_ordered_stops and seg["ordered_stops"] and
+                    seg["ordered_stops"][0] == full_ordered_stops[0] and
+                    seg["stops"][0] == full_ordered_times[0]):
+                continue
             
             for idx, st in enumerate(seg["ordered_stops"]):
                 st_time = seg["stops"][idx]
