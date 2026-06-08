@@ -91,6 +91,7 @@ const KANJI_MAP = {
     '戸': '戶',   // 神戸
     '満': '滿',   // 天満
     '応': '應',   // 天応
+    '莱': '萊',   // 蓬萊
 };
 
 /**
@@ -888,17 +889,18 @@ function drawTrains() {
                             
                             // 🌟 修正：不比對中文站名，直接比對拓樸的車站 ID (例如 THK18 === THK18)
                             if (currentLastStationId === nextFirstStationId) {
-                                let endY = unwrappedCoords[lastI] + offsetY;
-                                
+                                let endY_raw = unwrappedCoords[lastI];
+                                let endY = endY_raw !== null ? endY_raw + offsetY : null;
+
                                 let endT = seg.t[lastI * 2 + 1];
                                 if (endT === "" || endT === undefined) endT = seg.t[lastI * 2];
                                 let endX = timeToX(endT);
-                                
+
                                 let nextSeg = nextTrain.segments[0];
                                 let startT = nextSeg.t[0];
                                 if (startT === "" || startT === undefined) startT = nextSeg.t[1];
                                 let startX = timeToX(startT);
-                                
+
                                 // 確保座標有效，且時間是向後走的，才畫出接駁虛線
                                 if (!isNaN(endX) && !isNaN(startX) && startX >= endX && endY !== null) {
                                     ctx.save();

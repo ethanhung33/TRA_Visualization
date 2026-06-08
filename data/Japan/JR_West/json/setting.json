@@ -155,7 +155,7 @@
         "button_color": ["#2196F3", "#1565C0"]
     },
     "onoda": {
-        "name": "小野田線 (厚狭-小野田)",
+        "name": "小野田線 (居能-小野田)",
         "lines": [
             "onoda_line"
         ],
@@ -257,9 +257,10 @@
         "button_color": ["#607D8B", "#37474F"]
     },
     "kosei": {
-        "name": "湖西線 (京都-近江舞子-近江塩津)",
+        "name": "湖西線 (近江塩津-山科-京都)",
         "lines": [
-            "kosei_line"
+            "kosei_line",
+            {"id": "biwako_line", "start": "山科", "end": "京都"}
         ],
         "view_type": "LINEAR",
         "button_color": ["#2196F3", "#1565C0"]
@@ -438,6 +439,15 @@
         ],
         "view_type": "LINEAR",
         "button_color": ["#4CAF50", "#2E7D32"],
+        "time_stretch_ratio": 0.1
+    },
+    "motoyama": {
+        "name": "本山支線 (雀田-長門本山)",
+        "lines": [
+            "motoyama_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#607D8B", "#37474F"],
         "time_stretch_ratio": 0.1
     }
   },

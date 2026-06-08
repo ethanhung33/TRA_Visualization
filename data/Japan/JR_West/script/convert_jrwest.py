@@ -135,16 +135,24 @@ def main():
         op_type = "daily"
         dates = []
         _bus_info = None
+        _extra_exclude = []
 
         # 先決定基本運行類型（weekday / holiday / irregular / daily）
-        if "土曜・休日運休" in op_text or "平日運転" in op_text:
+        if "土曜・休日運休" in op_text or "土曜・休日は運休" in op_text or "平日運転" in op_text:
             op_type = "weekday"
-        elif "土曜・休日運転" in op_text or "休日運転" in op_text:
+        elif "土曜・休日運転" in op_text or "土曜・休日は運転" in op_text or "休日運転" in op_text:
             op_type = "holiday"
         elif "月" in op_text and ("日" in op_text or "・" in op_text) \
                 and "バス代行" not in op_text and "代行輸送" not in op_text:
-            op_type = "irregular"
-            dates = parse_japanese_dates(op_text, 2026)
+            _norm_op = unicodedata.normalize('NFKC', op_text)
+            _excl_m = re.search(r'((?:\d+月[\d・]+日[\s・]*)+)は運休', _norm_op)
+            if _excl_m and "土曜" not in _norm_op and "休日" not in _norm_op:
+                # "X月Y日は運休" = 毎日運転だが特定日のみ除外
+                op_type = "daily"
+                _extra_exclude = parse_japanese_dates(_excl_m.group(1), 2026)
+            else:
+                op_type = "irregular"
+                dates = parse_japanese_dates(op_text, 2026)
 
         # バス代行の解析は op_type と独立して実行（土曜・休日運休との共存も対応）
         if "バス代行" in op_text or "代行輸送" in op_text:
@@ -184,7 +192,7 @@ def main():
         unique_no = f"{original_no}|{start_st_id}"
         
         # 代行がある日は元の列車を exclude（Pattern 1・2 共通）
-        _chunk_exclude = _bus_info[0] if _bus_info else []
+        _chunk_exclude = (_bus_info[0] if _bus_info else []) + _extra_exclude
 
         all_chunks.append({
             "no": unique_no,
@@ -580,10 +588,14 @@ def main():
             train_obj["display_no"] = t_info["display_no"]
         processed_trains.append(train_obj)
 
+    def _op_compat(a, b):
+        """兩班車有至少一個共同運行日（平日或假日）才算相容"""
+        return (a["_is_wd"] and b["_is_wd"]) or (a["_is_we"] and b["_is_we"])
+
     # 直通運轉配對
     for t in processed_trains:
         for target_no in t["_thru_links"]:
-            partners = [p for p in processed_trains if p["no"].split('|')[0] == target_no]
+            partners = [p for p in processed_trains if p["no"].split('|')[0] == target_no and _op_compat(t, p)]
             
             for partner in partners:
                 j_name = t["_last_sta"] if t["_last_sta"] == partner["_first_sta"] else (t["_first_sta"] if t["_first_sta"] == partner["_last_sta"] else None)
@@ -612,7 +624,7 @@ def main():
                 continue
             partner_no, sta1, sta2 = parsed
 
-            partners = [p for p in processed_trains if p["no"].split('|')[0] == partner_no]
+            partners = [p for p in processed_trains if p["no"].split('|')[0] == partner_no and _op_compat(t, p)]
             for partner in partners:
                 t_stations = get_clean_stations(t)
                 p_stations = get_clean_stations(partner)

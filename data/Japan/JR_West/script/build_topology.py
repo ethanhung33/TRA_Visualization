@@ -82,6 +82,7 @@ LINE_NAME_EN = {
     "和田岬線": "wadamisaki_line",
     "仙崎支線": "senzaki_line",
     "羽衣線": "hagoromo_line",
+    "本山支線": "motoyama_line"
 }
 
 line_id_map = {
@@ -94,9 +95,10 @@ line_id_map = {
 
     # === 獨立短路線與三大支線 ===
     "博多南線": "JRW_HakataMinami_",
-    "和田岬線": "JRW_KWadamisaki_",
+    "和田岬線": "JRW_Wadamisaki_",
     "仙崎支線": "JRW_Senzaki_",
     "羽衣線": "JRW_Hagoromo_",
+    "本山支線": "JRW_Motoyama_",
 
     # === 其他主要與地方路線 ===
     "関西本線": "JRW_Kansai_V",
@@ -166,7 +168,8 @@ SKIP_STATIONS = {
     "芸備線": ["新見", "布原"],
     "越美北線": ["福井"],
     "七尾線": ["金沢", "東金沢", "森本"],
-    "大阪環状線": ["新今宮"]
+    "大阪環状線": ["新今宮"],
+    "小野田線": ["宇部新川"]
 }
 
 # ==========================================
@@ -184,9 +187,12 @@ def clean_station_name(text):
     
     # 💡 修正：取消 len <= 1 的限制，改為過濾空字串與無效排版符號
     # 這樣「鳳」、「吳」、「灘」等單字車站就能順利通過了！
-    if not text or text in ['-', '—', '＝', '∥', '・']: 
+    if not text or text in ['-', '—', '＝', '∥', '・']:
         return None
-        
+
+    # 繁體字→日文字形對應（確保 topology 與時刻表資料用字一致）
+    text = text.replace('萊', '莱')
+
     return text
 
 def clean_station_code(text):
@@ -229,6 +235,8 @@ def parse_route(name, url):
         if name == "仙崎支線" and "仙崎" not in table_html_str:
             continue
         if name == "羽衣線" and "東羽衣" not in table_html_str:
+            continue
+        if name == "本山支線" and "長門本山" not in table_html_str:
             continue
                 
         try:
@@ -322,7 +330,7 @@ def parse_route(name, url):
                 if name == "本四備讃線" and st_name == "児島":
                     return stations 
             
-            if name not in ["紀勢本線", "赤穂線", "山陽本線", "山陰本線", "和田岬線", "仙崎支線", "羽衣線", "高山本線", "大糸線"]:
+            if name not in ["紀勢本線", "赤穂線", "山陽本線", "山陰本線", "和田岬線", "仙崎支線", "羽衣線", "高山本線", "大糸線", "本山支線"]:
                 break
 
     if name == "高山本線":
@@ -412,6 +420,14 @@ def parse_route(name, url):
         ]
         print("    🎯 成功攔截並修正「仙崎支線」的車站與里程資料！")
 
+    if name == "本山支線":
+        stations = [
+            {"id": "JRW_Onoda_03", "name": "雀田", "km": 0.0},
+            {"id": "JRW_Motoyama_01", "name": "浜河内", "km": 1.3},
+            {"id": "JRW_Motoyama_02", "name": "長門本山", "km": 2.3}
+        ]
+        print("    🎯 成功攔截並修正「本山支線」的車站與里程資料！")
+
     return stations
 
 # ==========================================
@@ -438,6 +454,7 @@ def main():
     lines["和田岬線"] = "https://ja.wikipedia.org/wiki/%E5%92%8C%E7%94%B0%E5%B2%AC%E7%B7%9A"
     lines["仙崎支線"] = "https://ja.wikipedia.org/wiki/%E5%B1%B1%E9%99%B0%E6%9C%AC%E7%B7%9A"
     lines["羽衣線"] = "https://ja.wikipedia.org/wiki/%E9%98%AA%E5%92%8C%E7%B7%9A"
+    lines["本山支線"] = "https://ja.wikipedia.org/wiki/%E5%B0%8F%E9%87%8E%E7%94%B0%E7%B7%9A"
 
     print(f"🎯 鎖定 {len(lines)} 條路線。\n")
     topology_data = {"segments": []}

@@ -3506,11 +3506,6 @@
       "name": "小野田線",
       "stations": [
         {
-          "id": "JRW_Ube_14",
-          "name": "宇部新川",
-          "km": 1.8
-        },
-        {
           "id": "JRW_Ube_15",
           "name": "居能",
           "km": 0.0
@@ -4789,7 +4784,7 @@
         },
         {
           "id": "JRW_Kansai_B12",
-          "name": "蓬萊",
+          "name": "蓬莱",
           "km": 49.2
         },
         {
@@ -6448,7 +6443,7 @@
           "km": 0.0
         },
         {
-          "id": "JRW_KWadamisaki_01",
+          "id": "JRW_Wadamisaki_01",
           "name": "和田岬",
           "km": 2.7
         }
@@ -6483,6 +6478,27 @@
           "id": "JRW_Hagoromo_01",
           "name": "東羽衣",
           "km": 1.7
+        }
+      ]
+    },
+    {
+      "id": "motoyama_line",
+      "name": "本山支線",
+      "stations": [
+        {
+          "id": "JRW_Onoda_03",
+          "name": "雀田",
+          "km": 0.0
+        },
+        {
+          "id": "JRW_Motoyama_01",
+          "name": "浜河内",
+          "km": 1.3
+        },
+        {
+          "id": "JRW_Motoyama_02",
+          "name": "長門本山",
+          "km": 2.3
         }
       ]
     }
