@@ -54,26 +54,23 @@ def parse_couple_text(text):
 def parse_japanese_dates(text, default_year=2026):
     """將日文的行駛日期字串，轉換為 YYYY-MM-DD 的標準陣列"""
     if not text: return []
-    text = unicodedata.normalize('NFKC', text) # 轉為半形
-    text = text.replace('運転', '').strip()
-    
+    text = unicodedata.normalize('NFKC', text).replace('運転', '').strip()
+
     dates = []
-    parts = re.split(r'(\d+)月', text)
-    
-    for i in range(1, len(parts), 2):
-        month = int(parts[i])
-        days_str = parts[i+1].replace('日', '').strip('・')
-        
-        for part in days_str.split('・'):
-            if not part: continue
-            if '～' in part or '~' in part or '-' in part:
-                bounds = re.split(r'[～~-]', part)
+    # 用 finditer 直接抓「X月Y日」或「X月Y～Z日」等完整模式，避免後綴文字汙染 bounds
+    for m in re.finditer(r'(\d+)月([\d・～~\-]+)日', text):
+        month = int(m.group(1))
+        for segment in m.group(2).split('・'):
+            if not segment:
+                continue
+            if re.search(r'[～~\-]', segment):
+                bounds = re.split(r'[～~\-]', segment)
                 if len(bounds) == 2 and bounds[0].isdigit() and bounds[1].isdigit():
                     for d in range(int(bounds[0]), int(bounds[1]) + 1):
                         dates.append(f"{default_year}-{month:02d}-{d:02d}")
-            elif part.isdigit():
-                dates.append(f"{default_year}-{month:02d}-{int(part):02d}")
-                
+            elif segment.isdigit():
+                dates.append(f"{default_year}-{month:02d}-{int(segment):02d}")
+
     return sorted(list(set(dates)))
 
 # ==========================================
@@ -136,16 +133,43 @@ def main():
         dates = []
         _bus_info = None
         _extra_exclude = []
+        _valid_from = None
+        _valid_until = None
+
+        # ==========================================
+        # 有効期間（X月Y日まで／から運転）解析 — 與 op_type 獨立
+        # 注意：排除「X月Y日までは…運休」的バス代行子句（まで後接「は」），那不是有効期間
+        # ==========================================
+        _norm_vp = unicodedata.normalize('NFKC', op_text)
+        # 上界候補：所有「…日まで（非は）」＋（純運転字串時）範圍結尾「～X月Y日」
+        # 取最大值，避免複合型如「5月2日まで…と5月4日～6月28日…運転」被首個まで(5/2)過早截斷
+        _until_cands = re.findall(r'(\d+)月(\d+)日まで(?!は)', _norm_vp)
+        if "運転" in _norm_vp and "バス代行" not in _norm_vp and "代行輸送" not in _norm_vp:
+            _until_cands += re.findall(r'[～~](\d+)月(\d+)日', _norm_vp)
+        if _until_cands:
+            _valid_until = max(f"2026-{int(m):02d}-{int(d):02d}" for m, d in _until_cands)
+        _vf = re.search(r'(\d+)月(\d+)日から(?!は)', _norm_vp)
+        if _vf:
+            _valid_from = f"2026-{int(_vf.group(1)):02d}-{int(_vf.group(2)):02d}"
 
         # 先決定基本運行類型（weekday / holiday / irregular / daily）
         if "土曜・休日運休" in op_text or "土曜・休日は運休" in op_text or "平日運転" in op_text:
             op_type = "weekday"
         elif "土曜・休日運転" in op_text or "土曜・休日は運転" in op_text or "休日運転" in op_text:
             op_type = "holiday"
+        elif _valid_until and "バス代行" not in op_text and "代行輸送" not in op_text:
+            # 「X月Y日まで（…）運転」有効期間付き：以週期關鍵字決定型別，
+            # 期間另以 valid_until 表達，避免被誤判為「只跑某幾天」的 irregular
+            if "土曜・休日を除く" in op_text or "平日" in op_text:
+                op_type = "weekday"
+            elif "土曜" in op_text or "休日" in op_text or "日曜" in op_text:
+                op_type = "holiday"
+            else:
+                op_type = "daily"
         elif "月" in op_text and ("日" in op_text or "・" in op_text) \
                 and "バス代行" not in op_text and "代行輸送" not in op_text:
             _norm_op = unicodedata.normalize('NFKC', op_text)
-            _excl_m = re.search(r'((?:\d+月[\d・]+日[\s・]*)+)は運休', _norm_op)
+            _excl_m = re.search(r'((?:\d+月[\d・～~\-]+日[\s・]*)+)は(?:.+?間)?運休', _norm_op)
             if _excl_m and "土曜" not in _norm_op and "休日" not in _norm_op:
                 # "X月Y日は運休" = 毎日運転だが特定日のみ除外
                 op_type = "daily"
@@ -200,6 +224,8 @@ def main():
             "operation": op_type,
             "dates": dates,
             "exclude_dates": _chunk_exclude,
+            "valid_from": _valid_from,
+            "valid_until": _valid_until,
             "type": clean_train_type(train.get("列車種別", ""), train.get("列車名", "")),
             "thru_link": train.get("直通運転"),
             "couple_text": train.get("併結運転"),
@@ -319,6 +345,8 @@ def main():
                 "operation": instance[0]["operation"],
                 "dates": instance[0]["dates"],
                 "exclude_dates": instance[0].get("exclude_dates", []),
+                "valid_from": instance[0].get("valid_from"),
+                "valid_until": instance[0].get("valid_until"),
                 "display_no": instance[0].get("display_no"),
                 "segments_data": instance,
                 "thru_links": set(c["thru_link"] for c in instance if c["thru_link"] and c["thru_link"] != instance[0]["no"]),
@@ -411,6 +439,16 @@ def main():
             is_higashi_to_yamatoji = (
                 "osaka_higashi_line" in s1_lines and "yamatoji_line" not in s1_lines and
                 "yamatoji_line" in s2_lines and "osaka_higashi_line" not in s2_lines
+            )
+
+            # 山陰本線⇔山陽本線：實際經由幡生換線（下関在山陰本線拓樸被 SKIP）
+            is_sanin_to_sanyo = (
+                "sanin_main_line" in s1_lines and "sanyo_main_line" not in s1_lines and
+                "sanyo_main_line" in s2_lines and "sanin_main_line" not in s2_lines
+            )
+            is_sanyo_to_sanin = (
+                "sanyo_main_line" in s1_lines and "sanin_main_line" not in s1_lines and
+                "sanin_main_line" in s2_lines and "sanyo_main_line" not in s2_lines
             )
 
             if (is_loop_to_yamatoji or is_yamatoji_to_loop) and (not common_lines or is_haruka_style):
@@ -515,6 +553,38 @@ def main():
                     mid_time = (dep1 + arr2) / 2
                     fixed_times.append((mid_time, mid_time))
 
+            elif not common_lines and (is_sanin_to_sanyo or is_sanyo_to_sanin):
+                # 山陰本線⇔山陽本線直通列車（如 快速○○のはなし 8829D→8542D）：
+                # 實際經由幡生換線。下関在山陰本線拓樸被 SKIP，故 川棚温泉→下関 無共同路線，需補插幡生
+                intersection = "幡生"
+                l1 = "sanin_main_line" if is_sanin_to_sanyo else "sanyo_main_line"
+                l2 = "sanyo_main_line" if is_sanin_to_sanyo else "sanin_main_line"
+                fixed_preferred[-1] = l1   # 強制前段邊（s1→幡生）使用正確路線
+                fixed_stops.append(intersection)
+                fixed_v.append(2)
+                fixed_preferred.append(l2)  # 幡生→s2 使用後段路線
+
+                try:
+                    dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
+                    arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
+
+                    d1 = abs(KM_MAP.get((l1, intersection), 0.0) - KM_MAP.get((l1, s1), 0.0))
+                    d2 = abs(KM_MAP.get((l2, s2), 0.0) - KM_MAP.get((l2, intersection), 0.0))
+                    total_d = d1 + d2
+
+                    if total_d > 0:
+                        ratio = d1 / total_d
+                        mid_time = dep1 + (arr2 - dep1) * ratio
+                    else:
+                        mid_time = (dep1 + arr2) / 2
+
+                    fixed_times.append((mid_time, mid_time))
+                except:
+                    dep1 = int(t1[1]) if t1[1] != "" else int(t1[0])
+                    arr2 = int(t2[0]) if t2[0] != "" else int(t2[1])
+                    mid_time = (dep1 + arr2) / 2
+                    fixed_times.append((mid_time, mid_time))
+
         fixed_stops.append(full_ordered_stops[-1])
         fixed_times.append(full_ordered_times[-1])
         fixed_v.append(full_ordered_v[-1])
@@ -591,6 +661,10 @@ def main():
         }
         if t_info.get("exclude_dates"):
             train_obj["exclude_dates"] = t_info["exclude_dates"]
+        if t_info.get("valid_from"):
+            train_obj["valid_from"] = t_info["valid_from"]
+        if t_info.get("valid_until"):
+            train_obj["valid_until"] = t_info["valid_until"]
         if t_info.get("display_no"):
             train_obj["display_no"] = t_info["display_no"]
         processed_trains.append(train_obj)

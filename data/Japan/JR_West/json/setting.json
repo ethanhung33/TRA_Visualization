@@ -398,9 +398,10 @@
         "button_color": ["#795548", "#4E342E"]
     },
     "ako": {
-        "name": "赤穂線 (播州赤穂-相生-姫路)",
+        "name": "赤穂線 (相生-東岡山-岡山)",
         "lines": [
-            "ako_line"
+            "ako_line",
+            {"id": "sanyo_main_line", "start": "東岡山", "end": "岡山"}
         ],
         "view_type": "LINEAR",
         "button_color": ["#FF9800", "#EF6C00"]

@@ -919,6 +919,56 @@ function drawTrains() {
                     }
                 }
 
+                // ==========================================
+                // 🌟🌟🌟 新增 C：併結匯合的水平等待線
+                // 本車抵達匯合站(如紀州路快速→日根野 08:28)後，與後段(関空快速 08:33 出發)之間
+                // 因兩車時間不同會留下空隙，補上一段水平線銜接，避免列車看起來斷開。
+                // ==========================================
+                if (train.coupled_with && segIdx === train.segments.length - 1) {
+                    let mergeInfo = train.coupled_with.find(c => c.action === "merge");
+                    if (mergeInfo) {
+                        let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(mergeInfo.train_id));
+                        let lastI = seg.s.length - 1;
+                        let junctionId = String(seg.s[lastI]);
+
+                        // 交會站必須是本車終點站，且與 coupled_with 記錄的匯合站一致
+                        if (partner && partner.segments && partner.segments.length > 0 &&
+                            String(mergeInfo.station_id) === junctionId) {
+
+                            // partner 在交會站的離站時間（取最後一次出現，即繼續向後行駛的那段）
+                            let partnerDep = null;
+                            partner.segments.forEach(ps => {
+                                let pIdx = ps.s.findIndex(sid => String(sid) === junctionId);
+                                if (pIdx !== -1) {
+                                    let d = ps.t[pIdx * 2 + 1];
+                                    let a = ps.t[pIdx * 2];
+                                    partnerDep = (d !== undefined && d !== null && d !== "") ? d : a;
+                                }
+                            });
+
+                            let myArr = seg.t[lastI * 2];
+                            if (myArr === null || myArr === undefined || myArr === "") myArr = seg.t[lastI * 2 + 1];
+                            let endY = unwrappedCoords[lastI] !== null ? unwrappedCoords[lastI] + offsetY : null;
+
+                            if (endY !== null && partnerDep !== null && myArr !== null && myArr !== undefined && myArr !== "") {
+                                let startX = timeToX(myArr);
+                                let endX = timeToX(partnerDep);
+                                if (!isNaN(startX) && !isNaN(endX) && endX >= startX) {
+                                    ctx.save();
+                                    ctx.beginPath();
+                                    ctx.moveTo(startX, endY);
+                                    ctx.lineTo(endX, endY);
+                                    ctx.strokeStyle = trainColor; // 延續自己原本的顏色
+                                    ctx.setLineDash([]);
+                                    ctx.lineWidth = lineWidth;
+                                    ctx.stroke();
+                                    ctx.restore();
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // 🌟 3. 放下剪刀！讀取剛剛的存檔 (畫布恢復成無限大)
                 ctx.restore();
 
@@ -959,11 +1009,13 @@ function drawTrains() {
                         let trLastSt = String(trLastSeg.s[trLastSeg.s.length - 1]);
                         let trFirstSt = String(train.segments[0].s[0]);
 
-                        let isDirectOut = (segIdx === train.segments.length - 1 && i === seg.s.length - 1 && 
-                            train.coupled_with && train.coupled_with.some(c => c.action === "direct" && String(c.station_id) === trLastSt));
-                            
-                        let isDirectIn = (segIdx === 0 && i === 0 && 
-                            train.coupled_with && train.coupled_with.some(c => c.action === "direct" && String(c.station_id) === trFirstSt));
+                        let isDirectOut = (segIdx === train.segments.length - 1 && i === seg.s.length - 1 &&
+                            train.coupled_with && train.coupled_with.some(c => c.action === "direct" && String(c.station_id) === trLastSt &&
+                                timetable.some(t => String(t.no || t.train_no || t.id) === String(c.train_id))));
+
+                        let isDirectIn = (segIdx === 0 && i === 0 &&
+                            train.coupled_with && train.coupled_with.some(c => c.action === "direct" && String(c.station_id) === trFirstSt &&
+                                timetable.some(t => String(t.no || t.train_no || t.id) === String(c.train_id))));
 
                         // 環狀列車（trFirstSt === trLastSt）的起點/終點不套用直通時間覆寫
                         const isCircularTrain = (trFirstSt === trLastSt);
@@ -3966,8 +4018,9 @@ function updateBottomPanel(train) {
                     let lastSeg = tr.segments[tr.segments.length - 1];
                     let myLastSt = String(lastSeg.s[lastSeg.s.length - 1]);
 
-                    let isDirectOut = (segIdx === tr.segments.length - 1 && i === seg.s.length - 1 && 
-                        tr.coupled_with && tr.coupled_with.some(c => c.action === "direct" && String(c.station_id) === myLastSt));
+                    let isDirectOut = (segIdx === tr.segments.length - 1 && i === seg.s.length - 1 &&
+                        tr.coupled_with && tr.coupled_with.some(c => c.action === "direct" && String(c.station_id) === myLastSt &&
+                            timetable.some(t => String(t.no || t.train_no || t.id) === String(c.train_id))));
 
                     if (isDirectOut) {
                         let dInfo = tr.coupled_with.find(c => c.action === "direct" && String(c.station_id) === myLastSt);
@@ -5472,6 +5525,9 @@ async function loadTimetableData(dateOrType) {
                 if (train.exclude_dates && Array.isArray(train.exclude_dates) && train.exclude_dates.includes(targetDateStr)) {
                     return false;
                 }
+                // 有効期間（X月Y日まで／から運転）：選取日超出範圍則不顯示
+                if (train.valid_from && targetDateStr < train.valid_from) return false;
+                if (train.valid_until && targetDateStr > train.valid_until) return false;
                 return true;
             });
         }
@@ -5500,6 +5556,8 @@ async function loadTimetableData(dateOrType) {
                         if (train.exclude_dates && Array.isArray(train.exclude_dates) && train.exclude_dates.includes(targetYestStr)) {
                             return false;
                         }
+                        if (train.valid_from && targetYestStr < train.valid_from) return false;
+                        if (train.valid_until && targetYestStr > train.valid_until) return false;
                         return true;
                     });
                 }

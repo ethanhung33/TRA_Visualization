@@ -3334,11 +3334,6 @@
       "name": "越美北線",
       "stations": [
         {
-          "id": "JRW_Etsumi_01",
-          "name": "南福井",
-          "km": 0.8
-        },
-        {
           "id": "JRW_Etsumi_02",
           "name": "越前花堂",
           "km": 0.0
