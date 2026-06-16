@@ -1,6 +1,7 @@
 鐵道運行圖平台 (Railway Stringline Diagram)
 ============================================================
 
+運行圖網址：https://ethanhung33.github.io/TRA_Visualization/
 這是一個基於 Python (資料處理) 與 Web (Canvas/JS 渲染) 的通用鐵道運行圖視覺化系統。
 本專案採用「資料驅動 (Data-driven)」架構，旨在支援不同國家、不同拓樸結構（如環狀線、分岔線）的鐵路系統。
 
