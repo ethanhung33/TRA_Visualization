@@ -1,575 +1,1064 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap');
-
-@font-face {
-    font-family: 'GlowSansSCCom-Compressed';
-    src: url('fonts/GlowSansSC-Compressed-Regular.otf') format('opentype');
-    font-weight: normal; font-style: normal;
-}
-@font-face {
-    font-family: 'GlowSansTCCom-Extended';
-    src: url('fonts/GlowSansTC-Extended-Regular.otf') format('opentype');
-    font-weight: normal; font-style: normal;
-}
-
+/* ==========================================
+   🎨 系統全域變數 (調色盤)
+   ========================================== */
+/* 預設：深色模式的顏色 */
 :root {
-    --bg-color: #000; --sidebar-bg: #444; --text-color: #ddd;
-    --border-color: #555; --panel-bg: #222; --subtext-color: #bbb;
-    --cursor-color: white; --monitor-color: #0f0; --icon-invert: 100%;
+    --btn-bg: rgba(51, 51, 51, 0.5);
+    --btn-color: rgba(255, 255, 255, 0.8);
+    --btn-border: rgba(255, 255, 255, 0.2);
+    --btn-hover: rgba(68, 68, 68, 0.95);
+    --btn-shadow: rgba(0, 0, 0, 0.2);
+
+    /* 🌟 新增：底部面板的文字顏色變數 (深色模式) */
+    --panel-text-main: #FFFFFF; /* 主要文字：站名、標題 */
+    --panel-text-sub: #BBBBBB;  /* 次要文字：時間、提示 */
+    --panel-arrow: #666666;     /* 箭頭顏色 */
+    --panel-bg: #2d2d2d;
+
+    --up-text: #66B2FF;     /* 💻 電腦版深色字：粉藍色 */
+    --down-text: #FF9999;   /* 💻 電腦版深色字：粉紅色 */
+    --up-badge-bg: #2980B9;   /* 深海藍底 */
+    --down-badge-bg: #D9534F; /* 磚紅底 */
+    --badge-text: #FFFFFF;    /* 純白字 */
 }
-body.light-theme {
-    --bg-color: #fff; --sidebar-bg: #bbb; --text-color: #222;
-    --border-color: #aaa; --panel-bg: #ddd; --subtext-color: #444;
-    --cursor-color: black; --monitor-color: #080; --icon-invert: 0%;
-}
-body { 
-    margin: 0; padding: 0; display: flex; background-color: var(--bg-color);
-    font-family: "GlowSansSCCom-Compressed", sans-serif; height: 100dvh; width: 100vw; 
-    overflow: hidden; transition: all 0.3s ease-in-out; cursor: auto;
-}
 
-/* --- 啟動畫面樣式 --- */
-#startup-screen {
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background-color: var(--bg-color); z-index: 9999;
-    display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 40px;
-    color: var(--text-color); font-family: "Orbitron", "GlowSansTCCom-Compressed", sans-serif;
-}
-.region-btn {
-    background: var(--panel-bg); color: var(--text-color); border: 2px solid var(--border-color);
-    padding: 20px 50px; font-size: 28px; border-radius: 12px; cursor: pointer; transition: all 0.3s;
-    font-family: inherit; font-weight: bold; width: 350px; text-align: center;
-}
-.region-btn:hover { background: var(--text-color); color: var(--bg-color); transform: translateY(-5px); }
+/* 當 body 被貼上 light-mode 標籤時，這組顏色會「自動覆蓋」上面的顏色！ */
+body.light-mode {
+    --btn-bg: rgba(226, 226, 226, 0.85);
+    --btn-color: #333333;
+    --btn-border: rgba(0, 0, 0, 0.15);
+    --btn-hover: rgba(200, 200, 200, 0.95);
+    --btn-shadow: rgba(0, 0, 0, 0.05);
 
-/* 隱藏主畫面直到使用者選擇地區 */
-#main-wrapper { display: none; }
-#sidebar { display: none; }
-.toggle-btn { display: none; }
+    /* 🌟 新增：底部面板的文字顏色變數 (淺色模式自動切換) */
+    --panel-text-main: #222222; /* 變成深灰色 */
+    --panel-text-sub: #666666;  /* 變成中灰色 */
+    --panel-arrow: #999999;     /* 變成淺灰色 */
+    --panel-bg: #D2D2D2;
 
-#main-wrapper { display: flex; flex-direction: column; width: 100vw; height: 100dvh; position: relative; overflow: hidden; }
-#container { width: 100%; height: 85dvh; position: relative; }
-
-#bottompanel {
-    width: 100%; height: 15dvh; background-color: var(--panel-bg); color: var(--text-color);
-    padding: 0 15px; box-sizing: border-box; border-top: 1px solid var(--border-color);
-    display: flex; flex-direction: row; align-items: center; transition: all 0.3s ease-in-out;
-    justify-content: flex-start; gap: 20px; overflow: auto hidden; white-space: nowrap;
-    scroll-behavior: smooth; font-size: 1.3em; -webkit-overflow-scrolling: touch;
-}
-#bottompanel > * { flex: 0 0 auto; }
-
-/* Consolidated Scrollbars */
-#bottompanel::-webkit-scrollbar, .modal-body::-webkit-scrollbar { height: 6px; width: 6px; }
-#bottompanel::-webkit-scrollbar-thumb, .modal-body::-webkit-scrollbar-thumb { background: #555; border-radius: 10px; }
-#bottompanel::-webkit-scrollbar-track, .modal-body::-webkit-scrollbar-track { background: transparent; }
-
-.panel-train-info { display: inline-block; width: 195px; white-space: nowrap; }
-
-/* Cleaned up tab views */
-.tab-view { display: flex; align-items: center; width: 100%; gap: 20px; }
-.tab-view h2 { margin: 0; white-space: nowrap; }
-
-#sidebar { 
-    width: 25vw; 
-    height: 100dvh; 
-    background-color: var(--sidebar-bg); 
-    color: var(--text-color);
-    padding: 20px; 
-    box-sizing: border-box; 
-    border-left: 1px solid var(--border-color);
-    z-index: 2000; 
-    position: fixed; 
-    right: 0; 
-    top: 0; 
-    transition: all 0.3s ease-in-out;
-    box-shadow: -5px 0 15px rgba(0,0,0,0.3);
+    /* 🌟 新增：淺色模式下，電腦版的字體要變深才看得清楚！ */
+    --up-text: #0066CC;     /* 💻 電腦版淺色字：深藍色 */
+    --down-text: #CC0000;   /* 💻 電腦版淺色字：深紅色 */
     
-    display: none; 
-    flex-direction: column; 
-    overflow-y: auto;
+    /* 📱 手機版徽章底色共用！深藍/深紅配白字，在淺色底也非常有質感 */
+    --up-badge-bg: #99CCFF;   /* 淺粉藍底 */
+    --down-badge-bg: #FFB3B3; /* 淺粉紅底 */
+    --badge-text: #111111;    /* 深黑字 */
 }
-.placeholder { color: #888; font-style: italic; }
-#sidebar h2 { border-bottom: 1px solid var(--panel-bg); padding-bottom: 8px; }
 
-.toggle-btn {
-    position: fixed; right: 25vw; top: 20px; z-index: 2100; background: var(--sidebar-bg);
-    color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px 0 0 4px; 
-    padding: 10px 8px; cursor: pointer; transition: all 0.3s ease-in-out;
+/* ==========================================
+   1. 字體註冊與全域重置 (Reset)
+   ========================================== */
+@font-face {
+    font-family: 'GlowSans';
+    /* 確保檔名與你 fonts 資料夾內的檔名完全一致 */
+    src: url('./fonts/GlowSansSC-Compressed-Regular.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
 }
-#sidebar.collapsed { transform: translateX(100%); }
-#sidebar.collapsed + .toggle-btn, .collapsed ~ #sidebar-toggle { right: 0; }
 
-#pill-container, #line-pill-container, .pill-container { 
+/* 🌟 補上 html，徹底鎖死整個視窗，防止 Mac 或觸控板的邊緣回彈特效 */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden; /* 絕對禁止瀏覽器原生卷軸 */
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    /* 全局套用未來熒黑 */
+    font-family: 'GlowSans', 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: row; /* 左邊畫布，右邊側邊欄 */
+    background-color: #000000;
+    color: #ffffff;
+}
+
+/* ==========================================
+   1.5 主佈局與底部資訊列 (全面變數化)
+   ========================================== */
+#app { 
     display: flex; 
-    flex-wrap: wrap; 
-    gap: 8px; 
-    margin-bottom: 20px; 
-}
-.pill, .rev-pill { 
-    border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 20px; 
-    cursor: pointer; font-size: 13px; transition: all 0.3s ease-in-out; font-family: inherit;
-}
-.pill { background-color: var(--panel-bg); color: var(--subtext-color); }
-.rev-pill { background-color: var(--subtext-color); color: var(--panel-bg); }
-@media (hover: hover) {
-    .pill:hover, .rev-pill:hover { transform: translateY(-1px); filter: brightness(1.2); }
-    .pill.utility:hover { background-color: var(--panel-bg); color: var(--text-color); }
-}
-.pill.active { color: var(--panel-bg); border-color: transparent; }
-.mount-text.active { background-color: #4CAF50; color: var(--text-color); }
-.sea-text.active { background-color: #2196F3; color: var(--text-color); }
-
-.date-input {
-    width: 60%; padding: 10px; background-color: var(--panel-bg); border: 1px solid var(--border-color);
-    color: var(--text-color); border-radius: 8px; font-size: 16px; margin-bottom: 20px;
-    outline: none; cursor: pointer; font-family: "Orbitron", inherit;
-}
-@media (hover: hover) {
-    .date-input:hover { filter: brightness(1.2); }
-}
-.date-input::-webkit-calendar-picker-indicator { cursor: pointer; filter: invert(var(--icon-invert)); }
-
-.date-input::-webkit-datetime-edit,
-.date-input::-webkit-datetime-edit-fields-wrapper,
-.date-input::-webkit-datetime-edit-text,
-.date-input::-webkit-datetime-edit-month-field,
-.date-input::-webkit-datetime-edit-day-field,
-.date-input::-webkit-datetime-edit-year-field {
-    font-family: "Orbitron", inherit;
+    height: 100vh; 
+    width: 100vw; 
+    overflow: hidden; 
 }
 
-#info-content { display: flex; flex-direction: row; align-items: center; gap: 10px; flex-grow: 1; }
-#info-content div, #info-content p { margin: 0; display: flex; flex-direction: row; align-items: center; white-space: nowrap; padding: 0 15px; }
-
-#info-content .info-segment {
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0; 
-    padding: 0 10px; height: 1.2em; white-space: nowrap; transition: all 0.3s ease-in-out;
-}
-.train-id { width: 70px; }
-.via-label { width: 30px; font-weight: bold; }
-.route-display { width: 200px; }
-
-#info-content .day-container {
-    display: inline-flex !important; height: 24px !important; align-items: center;
-    gap: 4px; padding: 0 10px; border-right: none !important; 
+#left-panel { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; 
 }
 
-#info-content .day-box { 
-    width: 18px !important; min-width: 18px !important; height: 18px !important;
-    min-height: 18px !important; display: flex !important; align-items: center;
-    justify-content: center; padding: 0 !important; border-right: none !important;
-    flex: 0 0 18px !important; font-size: 9px; border-radius: 4px;
-    font-weight: bold; background-color: var(--sidebar-bg); color: var(--text-color); line-height: 1;
-    transition: all 0.3s ease-in-out;
-}
-#info-content .day-box.special-rule { position: relative; color: var(--text-color); }
-#info-content .day-box.special-rule::before,
-#info-content .day-box.special-rule::after {
-    content: ""; position: absolute; top: 50%; left: 50%; width: 80%;
-    height: 1px; background-color: #ff0000; z-index: 1;
-}
-#info-content .day-box.special-rule::before { transform: translate(-50%, -50%) rotate(45deg); }
-#info-content .day-box.special-rule::after { transform: translate(-50%, -50%) rotate(-45deg); }
-.day-box.active { background-color: var(--subtext-color) !important; color: var(--border-color) !important; }
+/* 底部資訊列 (電腦版預設) */
+#bottom-bar {
+    height: 150px !important;
+    min-height: 150px !important;
+    max-height: 150px !important;
+    flex-shrink: 0; 
 
-.service-container {
-    display: inline-flex !important; height: 24px !important;
-    align-items: center; gap: 4px; margin-left: 10px; vertical-align: middle;
-}
-.service-box {
-    width: 20px !important; min-width: 20px !important; height: 20px !important;
-    min-height: 20px !important; display: flex !important; align-items: center;
-    justify-content: center; padding: 0 !important; flex: 0 0 18px !important;
-    font-size: 9px; border-radius: 4px; background-color: transparent; overflow: hidden;
-}
-.service-box img { width: 18px; height: 18px; object-fit: contain; }
-.service-box[title]:hover { background-color: transparent; }
-.hidden { display: none !important; }
-
-#btn-clear-selection { 
-    display: none; background: none; border: none; color: var(--panel-bg); 
-    cursor: pointer; font-size: 24px; line-height: 1; padding: 0;
-}
-
-#view-monitor { 
-    display: none; position: absolute; bottom: 20px; left: 20px; 
-    background: var(--panel-bg); color: #00ff00; padding: 8px 12px; 
-    border-radius: 4px; font-family: monospace; font-size: 12px; 
-    pointer-events: none; z-index: 10; border: 1px solid var(--border-color); 
-}
-#view-monitor span { color: var(--text-color); }
-
-.modal {
-    display: none; position: fixed; z-index: 3000; 
-    left: 0; top: 0; width: 100%; height: 100%;
-    background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px);
-    justify-content: center; align-items: center;
-}
-.modal-content {
-    background-color: var(--sidebar-bg); color: var(--text-color);
-    padding: 0; width: 90%; max-width: 85vw; border-radius: 8px; 
-    border: 1px solid var(--border-color); box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    animation: modalFadeIn 0.3s ease-in-out; display: flex; flex-direction: column; max-height: 85dvh;
-}
-.modal-header {
-    padding: 15px 20px; border-bottom: 1px solid var(--border-color); letter-spacing: 2px; 
-    display: flex; justify-content: space-between; align-items: center;
-}
-.modal-body { padding: 20px; line-height: 1.6; max-height: 60dvh; overflow-y: auto; letter-spacing: 1px; }
-
-.close-infomodal, .close-questionmodal { font-size: 28px; cursor: pointer; color: var(--text-color); opacity: 0.6; }
-.close-infomodal:hover, .close-questionmodal:hover { opacity: 1; }
-
-@keyframes modalFadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-.last-update { font-style: italic; color: #888; }
-
-.orbitron { font-family: "Orbitron", sans-serif; font-optical-sizing: auto; font-weight: 500; font-style: normal; }
-
-.feedback-form { display: flex; flex-direction: column; }
-.input-group { display: flex; flex-direction: column; gap: 8px; }
-.input-group label { font-size: 1em; color: var(--text-color); letter-spacing: 1px; text-transform: uppercase; }
-
-.feedback-form textarea {
-    width: 100%; height: 60px; padding: 5px; outline: none; resize: none;
-    border: 1px solid var(--border-color); border-radius: 15px; transition: border-color 0.3s ease;
-    color: var(--text-color); font-family: inherit; font-size: 0.8em; background-color: var(--panel-bg);
-}
-.feedback-form textarea:focus { border-color: var(--text-color); background-color: var(--bg-color); box-shadow: 0 0 15px var(--text-color); }
-
-.form-footer { display: flex; align-items: center; justify-content: space-between; }
-
-.submit-btn {
-    align-self: flex-end; padding: 10px 30px; background-color: var(--panel-bg);
-    color: var(--text-color); border: 1px solid var(--border-color);
-    cursor: pointer; transition: all 0.3s ease; letter-spacing: 2px; font-family: inherit;
-}
-@media (hover: hover) {
-    .submit-btn:hover { background-color: var(--subtext-color); color: var(--panel-bg); box-shadow: 0 0 15px var(--border-color); }
-}
-
-.deck-tooltip {
-    font-family: "GlowSansSCCom-Compressed", sans-serif !important;
-    background: var(--panel-bg) !important; letter-spacing: 1px;
-    border: 1px solid var(--border-color) !important;
-    color: var(--text-color) !important;
-}
-
-/* =========================================
-   車站點擊後的資訊面板專屬樣式 (Flexbox 重構版) 
-   ========================================= */
-
-.station-info-container {
-    display: flex;
-    align-items: stretch;
-    gap: 15px;
-    overflow: hidden;
-}
-
-.station-name-header {
-    position: sticky;
-    left: -15px;
+    /* 🌟 全面改吃變數！深色會自動變 #2d2d2d，淺色自動變 #D2D2D2 */
+    background-color: var(--panel-bg) !important;
+    border-top: 1px solid var(--btn-border) !important;
+    
     display: flex;
     align-items: center;
-    z-index: 20;
-    font-size: 1.3em;
-    white-space: nowrap;
-    background: var(--panel-bg); 
-    border-right: 1px solid var(--border-color);
     padding: 0 20px;
-    height: 15vh;
 }
 
-.train-list-container {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 10px;
-    font-size: 0.95em;
-    padding-right: 30vw;
-    overflow-x: auto;
+/* 預設的提示文字，也全面改用變數 */
+#bottom-bar h2 { 
+    margin: 0; 
+    font-size: 20px; 
+    color: var(--panel-text-main) !important; 
 }
 
-.train-direction-row {
-    display: flex;
-    align-items: center;
-    white-space: nowrap;
+/* (原本寫在這邊的 body.light-mode 相關設定已經全部刪除，因為變數已經接管一切了！) */
+
+/* ========================================== */
+/* 🌞 淺色模式：底部資訊列覆蓋規則 */
+/* ========================================== */
+
+/* 1. 底部外盒改成淺灰底、淺色邊線 */
+body.light-mode #bottom-bar { 
+    background-color: #F5F5F5; 
+    border-top: 1px solid #DDDDDD; 
 }
 
-.direction-label {
-    min-width: 40px;
-    color: var(--subtext-color);
-    flex-shrink: 0; /* 💡 終極修復：確保標籤不被壓縮 */
+/* 2. 預設的 H2 標題 (例如: "尚未選擇車站") 改為深色字 */
+body.light-mode #bottom-bar h2 { 
+    color: #222222; 
 }
 
-.train-item-badge {
-    cursor: pointer;
-    transition: opacity 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    width: auto !important; 
-    white-space: nowrap;
-    flex-shrink: 0; /* 💡 終極修復：確保車次膠囊絕對不被壓縮 */
+/* 3. 預設的 span 說明文字 (例如: "點擊上方節點...") 改為深灰色 */
+body.light-mode #bottom-bar span { 
+    color: #666666; 
 }
 
-@media (hover: hover) {
-    .train-item-badge:hover {
-        opacity: 0.7;
-    }
-}
-
-.separator-arrow {
-    opacity: 0.5;
-    margin: 0 10px;
-    flex-shrink: 0; /* 💡 終極修復：確保箭頭不被壓縮 */
-}
-
-/* =========================================
-   單一列車時刻表資訊面板專屬樣式 (DOM.infoBox) 
-   ========================================= */
-
-.train-detail-layout {
-    display: flex;
-    align-items: stretch;
-    gap: 15px;
+/* ==========================================
+   2. 核心版面配置 (Layout)
+   ========================================== */
+#canvas-wrapper {
+    flex: 1; /* 🌟 讓畫布具備自動吸收剩餘空間的能力 */
+    position: relative;
     width: 100%;
+    height: 100%;
+    overflow: hidden; /* 確保畫布不會撐破容器 */
+    cursor: grab;
+    background-color: #000000; /* JS 日夜切換會覆寫此屬性 */
+    transition: background-color 0.3s ease; /* 切換日夜時平滑過渡 */
 }
 
-.sticky-train-header {
-    position: sticky;
-    left: -15px;
-    display: flex;
-    align-items: center;
-    z-index: 25;
-    background: var(--panel-bg);
-    border-right: 1px solid var(--border-color);
-    padding: 0 20px;
-    height: 15vh;
-    white-space: nowrap;
-    font-size: 1.1em;
+#canvas-wrapper:active {
+    cursor: grabbing; /* 拖曳時改變游標 */
 }
 
-.metadata-group {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
+canvas {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    touch-action: none; /* 封印瀏覽器原生手勢 */
 }
 
-.stations-track {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    padding-left: 20px;
-    padding-right: 50vw; 
-}
-
-/* 💡 全新排版網格：包覆站名與箭頭的容器 */
-.timeline-block {
-    display: flex;
-    flex-shrink: 0;
-    align-items: stretch;
-}
-
-/* 車站與時間的直列容器 */
-.station-col {
+/* ==========================================
+   3. 側邊欄設計 (Sidebar)
+   ========================================== */
+/* 🌟 外層容器：只負責寬度動畫，絕對不加 overflow 和 padding */
+#sidebar {
+    position: relative; /* 讓按鈕可以黏在邊緣 */
+    width: 400px; 
     display: flex;
     flex-direction: column;
-    align-items: center;
-    padding: 0 12px;
-    cursor: pointer;
+    background-color: #333333;
+    border-left: 1px solid rgba(128, 128, 128, 0.2);
+    z-index: 10;
+    transition: width 0.3s ease, min-width 0.3s ease;
+}
+
+#sidebar.collapsed {
+    width: 0 !important;
+    min-width: 0 !important;
+    border-left: none !important;
+}
+
+/* 🌟 內層容器：負責 Padding 與上下捲動 */
+.sidebar-inner {
+    width: 400px; /* 鎖死寬度，收合時內容才不會被擠壓 */
+    height: 100%;
+    padding: 20px; /* 從外層搬過來的 */
+    overflow-y: auto; /* 捲動條放在這裡，就不會切到外面的按鈕了！ */
+    overflow-x: hidden;
     transition: opacity 0.2s ease;
 }
 
-@media (hover: hover) {
-    .station-col:hover { opacity: 0.6; }
+#sidebar.collapsed .sidebar-inner {
+    opacity: 0;
+    pointer-events: none;
+    position: absolute; /* 縮合時拔除排版空間 */
 }
 
-/* 點擊選中時的底線與文字變色 (解決字體縮水問題) */
-.station-col.focused {
-    border-bottom: 2px solid var(--monitor-color);
+/* 隱藏側邊欄卷軸 (記得改綁定到 inner 身上) */
+.sidebar-inner::-webkit-scrollbar {
+    width: 6px;
 }
-.station-col.focused .stop-name {
-    color: var(--monitor-color);
-    font-weight: normal; /* 強制不使用粗體，防止字體跑位 */
-}
-
-/* 站名：鎖定高度，確保跟旁邊的箭頭墊片平齊 */
-.stop-name {
-    font-size: 0.95em;
-    height: 22px; 
-    line-height: 22px;
-    margin-bottom: 6px;
-    white-space: nowrap;
+.sidebar-inner::-webkit-scrollbar-thumb {
+    background-color: rgba(128, 128, 128, 0.5);
+    border-radius: 10px;
 }
 
-/* 時間數字：使用 Orbitron 等寬字體，讓數字上下絕對對齊 */
-.stop-time {
-    font-family: "Orbitron", monospace;
-    font-size: 0.85em;
-    height: 20px;
-    line-height: 20px;
-    opacity: 0.9;
-}
-
-/* 發車時間稍微變暗，創造資訊的層次感 */
-.stop-time.sub-time {
-    opacity: 0.5; 
-}
-
-/* 箭頭的直列容器 */
-.arrow-col {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-/* 隱形的墊片：它的高度跟站名一模一樣，用來把箭頭精準往下擠 */
-.arrow-spacer {
-    height: 22px; 
-    margin-bottom: 6px; 
-}
-
-/* 完美對齊第一排時間的箭頭 */
-.track-arrow {
-    height: 20px; 
-    line-height: 20px;
-    opacity: 0.4;
-    font-size: 0.8em;
-    margin: 0 2px;
-}
-
-/* =========================================
-   下方看板專屬樣式 (高權重防護版 - 解決跑位問題)
-   ========================================= */
-
-/* --- 1. 單一列車的時刻表排版 --- */
-#bottompanel .train-detail-layout { display: flex; align-items: stretch; gap: 15px; width: 100%; }
-#bottompanel .sticky-train-header { position: sticky; left: -15px; display: flex; align-items: center; z-index: 25; background: var(--panel-bg); border-right: 1px solid var(--border-color); padding: 0 20px; height: 15vh; font-size: 1.1em; }
-#bottompanel .metadata-group { display: flex; align-items: center; flex-shrink: 0; padding: 0; }
-#bottompanel .stations-track { display: flex; flex-direction: row; align-items: center; padding-left: 20px; padding-right: 50vw; }
-
-/* 完美對齊網格 */
-#bottompanel .timeline-block { display: flex; flex-direction: row; flex-shrink: 0; align-items: stretch; padding: 0; }
-
-/* 直列容器 (成功覆蓋全域的 row 排列) */
-#bottompanel .station-col { display: flex; flex-direction: column; align-items: center; padding: 0 8px; cursor: pointer; transition: opacity 0.2s ease; }
-@media (hover: hover) { #bottompanel .station-col:hover { opacity: 0.6; } }
-#bottompanel .station-col.focused { border-bottom: 2px solid var(--monitor-color); }
-#bottompanel .station-col.focused .stop-name { color: var(--monitor-color); font-weight: normal; }
-
-/* 站名與時間文字 (拔除全域 flex 的干擾) */
-#bottompanel .stop-name { display: block; font-size: 0.95em; height: 22px; line-height: 22px; margin-bottom: 4px; padding: 0; white-space: nowrap; }
-#bottompanel .stop-time { 
-    display: block; 
-    /* 💡 拔掉 Orbitron，換回你原本乾淨的 GlowSans 字體 */
-    font-family: "GlowSansSCCom-Compressed", Arial, sans-serif !important; 
-    /* 💡 魔法屬性：讓普通的字體，數字也能像表格一樣上下完美切齊！ */
-    font-variant-numeric: tabular-nums; 
-    font-size: 0.85em; 
-    height: 18px; 
-    line-height: 18px; 
-    opacity: 0.9; 
-    padding: 0; 
-}
-#bottompanel .stop-time.sub-time { opacity: 0.9; }
-
-/* 箭頭與墊片 */
-#bottompanel .arrow-col { display: flex; flex-direction: column; align-items: center; padding: 0; }
-#bottompanel .arrow-spacer { display: block; height: 22px; margin-bottom: 4px; padding: 0; }
-#bottompanel .track-arrow { display: block; height: 18px; line-height: 18px; opacity: 0.4; font-size: 0.8em; margin: 0 2px; padding: 0; }
-
-
-/* --- 2. 點擊車站後的「車次清單」排版 --- */
-#bottompanel .station-info-container { display: flex; align-items: stretch; gap: 15px; overflow: hidden; padding: 0; }
-#bottompanel .station-name-header { position: sticky; left: -15px; display: flex; align-items: center; z-index: 20; font-size: 1.3em; background: var(--panel-bg); border-right: 1px solid var(--border-color); padding: 0 20px; height: 15vh; }
-#bottompanel .train-list-container { display: flex; flex-direction: column; justify-content: center; gap: 10px; font-size: 0.95em; padding-right: 30vw; padding-left: 10px; overflow-x: auto; }
-#bottompanel .train-direction-row { display: flex; align-items: center; white-space: nowrap; padding: 0; }
-#bottompanel .direction-label { min-width: 40px; color: var(--subtext-color); flex-shrink: 0; padding: 0; }
-#bottompanel .train-item-badge { cursor: pointer; transition: opacity 0.2s ease; display: inline-flex; align-items: center; width: auto !important; flex-shrink: 0; padding: 0; margin-right: 5px;}
-@media (hover: hover) { #bottompanel .train-item-badge:hover { opacity: 0.7; } }
-#bottompanel .separator-arrow { opacity: 0.5; margin: 0 10px; flex-shrink: 0; padding: 0;}
-
-@media screen and (max-width: 768px) {
-    #sidebar {
-        width: 85vw;
-        background-color: color-mix(in srgb, var(--sidebar-bg), transparent 30%);
-        backdrop-filter: blur(5px); 
-        -webkit-backdrop-filter: blur(5px);
-    }
-    .toggle-btn { right: 85vw !important; }
-    #main-wrapper.sidebar-collapsed .toggle-btn { right: 0 !important; }
-    #bottompanel { font-size: 1.1em; }
-}
-
-/* 專門負責動態車種按鈕的微調 (瘦身版) */
-.train-type-pill {
-    display: inline-flex !important; 
-    align-items: center !important;      
-    justify-content: center !important;  
+/* ==========================================
+   🌟 獨立漂浮的收合按鈕 (變數共用版)
+   ========================================== */
+.sidebar-toggle-btn {
+    /* 1. 排版與形狀 (永遠不變，只需寫一次) */
+    position: absolute !important;
+    left: -25px !important; 
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 25px !important; 
+    height: 60px !important;
+    border-right: none !important;
+    border-radius: 8px 0 0 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 18px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    z-index: 1000 !important;
+    cursor: pointer !important;
     
-    width: max-content !important;       
-    flex: 0 0 auto !important;           
+    /* 2. 毛玻璃魔法 (永遠不變) */
+    backdrop-filter: blur(1px) !important; 
+    -webkit-backdrop-filter: blur(1px) !important;
     
-    /* 💡 瘦身關鍵 1：取消最小寬度限制，不要強迫短字變寬 */
-    min-width: 0 !important;          
+    /* 🌟 3. 顏色：去讀取調色盤裡的 var() 變數！ */
+    background-color: var(--btn-bg) !important; 
+    color: var(--btn-color) !important; 
+    border: 2px solid var(--btn-border) !important; 
+    box-shadow: -3px 0 5px var(--btn-shadow) !important;
     
-    /* 💡 瘦身關鍵 2：縮小左右的留白 (原本可能是 16px 或 20px，現在改成 10px) */
-    padding: 6px 10px !important;        
-    
-    margin: 4px !important;
-    border-radius: 20px !important;
-    white-space: nowrap !important;      
-    
-    /* 確保字體大小跟全選按鈕一致 */
-    font-size: 13px !important;
+    /* 4. 動畫過渡 */
+    transition: background-color 0.3s, border-color 0.3s, color 0.3s !important; 
 }
 
-/* 膠囊按鈕的容器 */
-#dynamic-type-pills {
-    min-height: 80px; /* 💡 預留兩排高度，完美防止載入時畫面跳動 */
+/* Hover 狀態也只要寫一次，讀取變數即可 */
+.sidebar-toggle-btn:hover {
+    background-color: var(--btn-hover) !important; 
+}
+
+.control-section {
+    margin-bottom: 25px;
+}
+
+.control-section h3 {
+    font-size: 18px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.3);
+    letter-spacing: 1.5px; /* 窄體字稍微拉開間距更好看 */
+    transition: color 0.3s ease;
+}
+
+/* ==========================================
+   4. UI 互動元件 (Inputs & Buttons)
+   ========================================== */
+/* 日期選擇器 */
+input[type="date"] {
+    width: 100%;
+    padding: 8px 12px;
+    background-color: #222222;
+    color: #ffffff;
+    border: 1px solid #555555;
+    border-radius: 6px;
+    font-family: 'GlowSans', 'Segoe UI', sans-serif;
+    font-size: 16px;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+input[type="date"]:focus {
+    border-color: #888888;
+}
+
+/* 讓預設的日曆小圖示在黑底時變成白色 */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+    cursor: pointer;
+}
+
+/* 按鈕群組容器 */
+.btn-group {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 10px;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+/* 🌟 膠囊按鈕 (路線、車種) */
+.pill-btn {
+    /* 這裡的底色是「未選取」的基礎狀態，會被 JS 覆寫 */
+    background-color: #444444; 
+    color: #cccccc;
+    border: 1px solid #555555;
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-family: 'GlowSans', 'Segoe UI', sans-serif;
+    font-size: 15px;
+    letter-spacing: 1px;
+    /* 加入多重過渡動畫：顏色、邊框、縮放 */
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.1s ease, filter 0.2s ease;
+    user-select: none; /* 防止連點時選取到文字 */
+}
+
+.pill-btn:hover {
+    filter: brightness(1.2); /* 懸浮時微微發亮 */
+    transform: translateY(-1px); /* 懸浮時微微上浮 */
+}
+
+.pill-btn:active {
+    transform: translateY(1px) scale(0.95); /* 點擊時的下壓物理回饋 */
+}
+
+/* ==========================================
+   5. 頂部工具列 (太陽月亮、問號等)
+   ========================================== */
+.utility-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.utility-bar .pill-btn {
+    padding: 4px 10px;
+    font-size: 14px;
+}
+
+/* ==========================================
+   🌟 浮動提示框 (Tooltip)
+   ========================================== */
+#train-tooltip {
+    position: absolute; /* 絕對定位，飄在 Canvas 上面 */
+    background-color: rgba(30, 30, 30, 0.95); /* 深灰微透明底色 */
+    color: #FFFFFF;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'GlowSans', 'Segoe UI', sans-serif;
+    line-height: 1.6;
+    z-index: 100;
     
-    /* 💡 確保按鈕永遠從左上角開始乖乖排列，不會為了填滿空間而亂跑 */
-    justify-content: flex-start !important; /* 💡 從左邊開始排 */
-    align-content: flex-start;   
+    /* 🌟 超級關鍵：讓滑鼠「穿透」這個浮動層！
+       如果不加這個，當滑鼠移到框框上時，Canvas 就收不到拖曳和滾輪事件了！ */
+    pointer-events: none; 
+    
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    
+    /* 預設隱藏 */
+    opacity: 0;
+    visibility: hidden;
+    transform: translate(15px, 15px); /* 預設往右下角稍微偏移 */
+    transition: opacity 0.2s ease, visibility 0.2s ease; /* 淡入淡出動畫 */
+    white-space: nowrap; /* 讓站名和時間不要亂換行 */
 }
 
-/* 讓 Loading 字樣有點動態感，看起來更像在讀取 */
-@keyframes pulse {
-    0% { opacity: 0.5; }
-    50% { opacity: 1; }
-    100% { opacity: 0.5; }
+/* 當 JS 幫它加上 show 標籤時，就會浮現出來 */
+#train-tooltip.show {
+    opacity: 1;
+    visibility: visible;
 }
 
-#global-loading {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100vw; height: 100vh;
-    background-color: rgba(0, 0, 0, 0.7); /* 半透明黑 */
-    backdrop-filter: blur(5px); /* 💡 磨砂玻璃效果 */
-    z-index: 9999; /* 確保在最上層 */
+/* ========================================== */
+/* 🌟 載入中轉圈圈 (Loading Spinner) 樣式 */
+/* ========================================== */
+#loading-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #1a1a1a; /* 深色背景遮罩 */
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
-    color: white;
-    font-family: "Orbitron", sans-serif;
+    justify-content: center;
+    z-index: 9999; /* 確保它蓋在畫布最上面 */
+    pointer-events: auto; /* 顯示時攔截點擊 */
+    transition: opacity 0.5s ease, visibility 0.5s ease; /* 消失時會有柔和的淡出動畫 */
 }
 
-/* 簡單的旋轉動畫 */
+/* 轉圈圈本體 */
 .spinner {
-    width: 50px;
-    height: 50px;
-    border: 5px solid rgba(255, 255, 255, 0.3);
-    border-top: 5px solid #00ff00; /* 這裡可以用你的 monitor-color */
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-top: 4px solid #66B2FF; /* 藍色轉動條 */
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* 🌟 當 JS 加上這個 class 時，遮罩就會優雅地消失 */
+#loading-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* ==========================================
+   🌟 覆寫 Flatpickr 暗黑主題：改善無法點擊日期的辨識度
+========================================== */
+
+/* 針對不能點擊的日期 */
+span.flatpickr-day.flatpickr-disabled,
+span.flatpickr-day.flatpickr-disabled:hover {
+    color: #888888 !important; /* 提亮成中灰色，讓數字清晰可見 */
+    background-color: transparent !important;
+    opacity: 0.8 !important;
+    text-decoration: line-through; /* ✨ 加上刪除線，這是最強的防呆視覺提示！ */
+    cursor: not-allowed !important; /* 滑鼠移過去會變成禁止符號 🚫 */
+}
+
+/* (可選) 讓「今天」的標示更明顯一點，避免被吃掉 */
+span.flatpickr-day.today {
+    border-color: #FFA500 !important; /* 給今天加上橘色邊框 */
+}
+
+/* ==========================================
+   🌟 終極覆寫：綁定 ID 確保樣式絕對生效 (深色預設)
+========================================== */
+input#datePicker.flatpickr-input {
+    background-color: #2b2b2b !important; /* 深灰色背景 */
+    color: #ffffff !important;
+    border: 1px solid #444444 !important;
+    border-radius: 20px !important; /* 👈 大圓角關鍵在這裡！ */
+    padding: 8px 15px !important;
+    font-size: 14px !important;
+    width: 100% !important;
+    box-sizing: border-box;
+    cursor: pointer !important;
+    outline: none !important;
+    transition: all 0.3s ease;
+}
+
+input#datePicker.flatpickr-input:hover,
+input#datePicker.flatpickr-input:focus {
+    border-color: #FFA500 !important;
+    background-color: #333333 !important;
+    box-shadow: 0 0 8px rgba(255, 165, 0, 0.3) !important;
+}
+
+/* ==========================================
+   🌞 淺色模式下的日曆輸入框樣式
+========================================== */
+/* 🌟 這裡加上 #datePicker，確保權重能壓過預設的深色模式 */
+body.light-mode input#datePicker.flatpickr-input {
+    background-color: #ffffff !important; /* 白色背景 */
+    color: #333333 !important; /* 深灰色文字 */
+    border: 1px solid #cccccc !important; /* 淺灰色邊框 */
+}
+
+/* 淺色模式下，滑鼠移過去的發光效果 */
+body.light-mode input#datePicker.flatpickr-input:hover,
+body.light-mode input#datePicker.flatpickr-input:focus {
+    background-color: #f9f9f9 !important;
+    border-color: #FFA500 !important; /* 一樣保持漂亮的橘色邊框 */
+    box-shadow: 0 0 8px rgba(255, 165, 0, 0.2) !important;
+}
+
+/* ==========================================
+   🌟 覆寫 Flatpickr 日曆本體：深藍色 -> 側邊欄深灰色
+========================================== */
+/* 1. 日曆主體與邊框 (維持不變) */
+body:not(.light-mode) .flatpickr-calendar {
+    background: #333333 !important; 
+    border: 1px solid #555555 !important; 
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important; 
+}
+
+/* 🌟 2 & 3. 終極修正：把所有上方區塊（月份、年份、星期幾）的背景全部強制塗成深灰色！ */
+body:not(.light-mode) .flatpickr-months,
+body:not(.light-mode) .flatpickr-months .flatpickr-month,
+body:not(.light-mode) .flatpickr-weekdays,
+body:not(.light-mode) .flatpickr-weekdays .flatpickr-weekdaycontainer,
+body:not(.light-mode) span.flatpickr-weekday {
+    background: #333333 !important;
+    background-color: #333333 !important;
+}
+
+/* 4. 連接輸入框的那個「小三角形 (箭頭)」 (維持不變) */
+body:not(.light-mode) .flatpickr-calendar.arrowTop:before {
+    border-bottom-color: #555555 !important; 
+}
+body:not(.light-mode) .flatpickr-calendar.arrowTop:after {
+    border-bottom-color: #333333 !important; 
+}
+body:not(.light-mode) .flatpickr-calendar.arrowBottom:before {
+    border-top-color: #555555 !important; 
+}
+body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
+    border-top-color: #333333 !important; 
+}
+
+/* ==========================================
+   🌟 首頁歡迎選單 (Landing Page) 佈局排版
+   ========================================== */
+#landing-page {
+    /* 🌟 加上這四行關鍵指令，讓首頁強制滿版蓋住畫面 */
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 99999 !important; 
+    
+    width: 100vw !important; /* 確保寬度吃滿螢幕 */
+    height: 100dvh !important; /* 確保高度吃滿螢幕 */
+    padding: 80px 10%; 
+    box-sizing: border-box;
+    overflow-y: auto; 
+    background-color: #0a0a0a; 
+    
+    /* 確保裡面的內容能正常排版 */
+    display: flex;
+    flex-direction: column;
+}
+
+/* 讓系統按鈕比國家標題再往右邊縮排一點點，視覺上會有「從屬」的階層感 */
+#system-menu-container button {
+    margin-left: 15px; 
+    margin-bottom: 30px;
+}
+
+
+
+/* =======================================================
+   ✨ 日曆 UI 強化：極簡版 (只標示不可選，可選保持乾淨)
+   ======================================================= */
+
+/* 1. 沒資料的天數 (不可選)：極度透明 + 加上刪除線 */
+.flatpickr-day.flatpickr-disabled {
+    opacity: 0.2 !important; 
+    text-decoration: line-through !important; 
+    cursor: not-allowed !important;
+}
+
+/* 2. 有資料的天數 (可選)：拿掉框框，只保持加粗，維持版面乾淨 */
+.flatpickr-day:not(.flatpickr-disabled):not(.today):not(.selected) {
+    background-color: transparent !important; /* 取消底色 */
+    border: none !important; /* 取消邊框 */
+    font-weight: bold !important; /* 稍微加粗讓它比灰底字明顯 */
+}
+
+/* 3. 滑鼠懸停特效：游標滑過去時，才亮起微光 */
+.flatpickr-day:not(.flatpickr-disabled):not(.today):not(.selected):hover {
+    background-color: rgba(100, 180, 255, 0.2) !important;
+    border-radius: 8px !important;
+}
+
+/* =======================================================
+   ✨ 平假日切換按鈕樣式 (WEEKEND_SELECT)
+   ======================================================= */
+.weekend-btn-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.weekend-btn {
+    background-color: transparent;
+    color: #aaaaaa;
+    border: 1px solid #555555;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.weekend-btn:hover {
+    border-color: #888888;
+    color: #ffffff;
+}
+
+/* 被選中的狀態 */
+.weekend-btn.active {
+    background-color: rgba(100, 180, 255, 0.2);
+    border-color: #64b4ff;
+    color: #64b4ff;
+    font-weight: bold;
+}
+
+/* 淺色模式適配 */
+body.light-mode .weekend-btn {
+    color: #555555;
+    border-color: #cccccc;
+}
+body.light-mode .weekend-btn:hover {
+    border-color: #888888;
+    color: #000000;
+}
+body.light-mode .weekend-btn.active {
+    background-color: rgba(0, 100, 200, 0.1);
+    border-color: #0064c8;
+    color: #0064c8;
+}
+
+/* ==========================================
+   🌟 下拉式選單樣式 (路線超過 10 條時自動觸發)
+   ========================================== */
+.select-group {
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+.route-select {
+    width: 100%;
+    padding: 10px 14px;
+    background-color: #2b2b2b;
+    color: #ffffff;
+    border: 1px solid #555555;
+    border-radius: 8px;
+    font-family: 'GlowSans', 'Segoe UI', sans-serif;
+    font-size: 15px;
+    letter-spacing: 1px;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    /* 隱藏原生箭頭，換成自訂的 SVG 箭頭 */
+    appearance: none; 
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px;
+}
+
+.route-select:focus {
+    border-color: #FFA500;
+    box-shadow: 0 0 8px rgba(255, 165, 0, 0.3);
+}
+
+/* 🌞 淺色模式下的下拉選單 */
+body.light-mode .route-select {
+    background-color: #ffffff;
+    color: #333333;
+    border-color: #cccccc;
+    /* 箭頭換成深灰色 */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+body.light-mode .route-select:focus {
+    border-color: #FFA500; 
+    box-shadow: 0 0 8px rgba(255, 165, 0, 0.2);
+}
+
+/* ==========================================
+   🌟 搜尋列與下拉選單樣式
+   ========================================== */
+.search-wrapper input {
+    width: 100%;
+    padding: 10px 14px;
+    background-color: #2b2b2b;
+    color: #ffffff;
+    border: 1px solid #555555;
+    border-radius: 8px;
+    font-family: 'GlowSans', 'Segoe UI', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.search-wrapper input:focus {
+    border-color: #FFA500;
+    box-shadow: 0 0 8px rgba(255, 165, 0, 0.3);
+}
+
+.search-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: #333333;
+    border: 1px solid #555555;
+    border-radius: 8px;
+    z-index: 9999;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+}
+
+.search-item {
+    padding: 12px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid #444444;
+    color: #eeeeee;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s;
+}
+
+.search-item:last-child {
+    border-bottom: none;
+}
+
+.search-item:hover {
+    background-color: #555555;
+}
+
+.search-item-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 10px;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.badge-station { background-color: rgba(100, 180, 255, 0.2); color: #66C2FF; border: 1px solid #66C2FF; }
+.badge-train { background-color: rgba(255, 165, 0, 0.2); color: #FFA500; border: 1px solid #FFA500; }
+
+/* 🌞 淺色模式適配 */
+body.light-mode .search-wrapper input {
+    background-color: #ffffff;
+    color: #333333;
+    border-color: #cccccc;
+}
+body.light-mode .search-dropdown {
+    background-color: #ffffff;
+    border-color: #cccccc;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+body.light-mode .search-item {
+    border-bottom: 1px solid #eeeeee;
+    color: #333333;
+}
+body.light-mode .search-item:hover {
+    background-color: #f5f5f5;
+}
+body.light-mode .badge-station { color: #0082CC; border-color: #0082CC; background-color: rgba(0, 130, 204, 0.1); }
+body.light-mode .badge-train { color: #D16700; border-color: #D16700; background-color: rgba(209, 103, 0, 0.1); }
+
+/* 🌟 鍵盤上下鍵選中時的高亮狀態 */
+.search-item.search-item-active {
+    background-color: #555555;
+    /* 給它一點特別的視覺提示，例如左側加一條發光的線 */
+    border-left: 4px solid #FFA500; 
+    padding-left: 10px; /* 因為加了 4px 的邊框，把 padding 退一點保持平衡 */
+}
+
+/* 🌞 淺色模式的鍵盤焦點狀態 */
+body.light-mode .search-item.search-item-active {
+    background-color: #f5f5f5;
+    border-left: 4px solid #FFA500;
+    padding-left: 10px;
+}
+
+/* ==========================================
+   💻 電腦版：底部面板共用預設樣式
+   ========================================== */
+.bottom-panel-wrapper { display: flex; width: 100%; height: 100%; align-items: center; }
+.train-info-header { min-width: 160px; max-width: 35%; display: flex; flex-direction: column; justify-content: center; padding-left: 20px; padding-right: 15px; border-right: 2px solid #444; flex-shrink: 0; cursor: pointer; }
+.mobile-drag-handle, .mobile-table-header { display: none; }
+
+#bottom-scroll-container { flex: 1; display: flex; align-items: center; overflow-x: auto; padding: 0 15px; white-space: nowrap; scrollbar-width: none; }
+
+/* --- 💻 電腦版：火車面板 (沿途停靠) --- */
+.train-stop-item { display: flex; flex-direction: column; align-items: center; min-width: 70px; cursor: pointer; padding: 8px; border-radius: 8px; transition: background 0.2s; flex-shrink: 0; }
+.train-stop-item:hover { background: rgba(128,128,128,0.2); }
+.ts-col-name { font-size: 20px; margin-bottom: 6px; font-weight: bold; letter-spacing: 1px; color: var(--panel-text-main); }
+.ts-col-arr, .ts-col-dep { font-size: 15px; line-height: 1.4; color: var(--panel-text-sub); }
+.station-arrow { display: flex; align-items: center; justify-content: center; margin: 0 12px; font-size: 20px; color: var(--panel-arrow); flex-shrink: 0; }
+
+/* --- 💻 電腦版：車站面板 (發車動態) --- */
+#bottom-scroll-container.is-station { flex-direction: column; align-items: flex-start; justify-content: center; padding: 0 10px; }
+.desktop-dir-col { display: flex; flex-direction: column; justify-content: center; height: 100%; padding: 0 10px 0 15px; border-right: 1px solid var(--btn-border); flex-shrink: 0; gap: 15px; }
+.board-group { display: flex; flex-direction: row; width: max-content; margin-bottom: 5px; }
+.station-board-item { display: flex; flex-direction: column; justify-content: center; min-width: 160px; margin: 0 4px; padding: 4px 8px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; flex-shrink: 0; transition: border-color 0.2s; }
+.sb-mobile-layout { display: none; } /* 電腦版隱藏手機專用排版 */
+.sb-desktop-layout { display: flex; flex-direction: column; width: 100%; }
+.sb-top, .sb-bottom { display: flex; justify-content: space-between; align-items: baseline; width: 100%; }
+.sb-top { margin-bottom: 2px; }
+.sb-time { font-size: 15px; color: var(--panel-text-main); font-weight: bold; }
+.sb-title { font-size: 11px; font-weight: bold; }
+.sb-dest { font-size: 12px; color: var(--panel-text-sub); }
+.sb-diff { font-size: 11px; color: var(--panel-text-sub); font-weight: bold; }
+
+/* ==========================================
+   🌟 電腦版專屬：滑鼠懸浮車次外框發光特效
+   (手機點擊絕對不會觸發，從此告別粗體殘留！)
+   ========================================== */
+@media (hover: hover) and (pointer: fine) {
+    .station-board-item:hover {
+        /* 吃我們剛剛在 JS 裡面埋下的 --hover-color 變數 */
+        border-color: var(--hover-color) !important; 
+    }
+}
+
+/* ==========================================
+   📱 手機版：終極防彈裝甲版 (整合側欄、畫布修復與直立表格)
+   ========================================== */
+@media (max-width: 768px) {
+    /* --- 1. 基礎排版與防滾動 (確保啟動 Flexbox) --- */
+    html, body { height: 100dvh !important; width: 100vw !important; overflow: hidden !important; margin: 0; padding: 0; }
+    #app { 
+        display: flex !important; 
+        flex-direction: column-reverse !important; 
+        height: 100dvh !important; 
+        width: 100vw !important; 
+        overflow: hidden !important; 
+    }
+
+    /* --- 2. 頂部側邊欄 (鎖死 45dvh) --- */
+    #sidebar {
+        flex: 0 0 45dvh !important; 
+        width: 100% !important;
+        height: 45dvh !important; 
+        max-height: 45dvh !important;
+        border-left: none !important;
+        border-bottom: 2px solid var(--btn-border) !important;
+        position: relative !important;
+        transition: flex 0.3s ease, height 0.3s ease !important; 
+        
+        /* 🌟 補上這兩行：允許按鈕突破邊界露出來！ */
+        overflow: visible !important; 
+        z-index: 100 !important;
+    }
+    #sidebar.collapsed { flex: 0 0 0 !important; height: 0 !important; border-bottom: none !important; width: 100% !important; }
+    /* --- 🌟 補回遺失的側欄收合按鈕 (手機版掛在底部) --- */
+    .sidebar-toggle-btn {
+        position: absolute !important; 
+        z-index: 101 !important;
+        display: flex !important; 
+        justify-content: center !important;
+        align-items: center !important;
+        
+        /* 讓按鈕移動到「底部正中間」 */
+        left: 50% !important; 
+        top: 100% !important; 
+        transform: translateX(-50%) rotate(180deg) !important; 
+        
+        width: 80px !important; 
+        height: 25px !important;
+        
+        border-radius: 12px 12px 0 0 !important; 
+        border: 1px solid var(--btn-border) !important; 
+        border-bottom: none !important; 
+        font-size: 20px !important; 
+        writing-mode: vertical-rl; 
+        padding-bottom: 5px !important; 
+        
+        /* 補上底色與文字顏色，避免變成透明的 */
+        background-color: var(--btn-bg) !important; 
+        color: var(--btn-color) !important;
+        cursor: pointer !important;
+    }
+    .sidebar-inner { width: 100% !important; height: 100% !important; padding: 15px !important; overflow-y: auto !important; }
+
+    /* --- 3. 畫布與底部面板的總容器 (鎖死剩餘的 55dvh) --- */
+    #left-panel { 
+        flex: 1 1 auto !important; 
+        width: 100% !important; 
+        height: 55dvh !important; 
+        display: flex !important; 
+        flex-direction: column !important; 
+        overflow: hidden !important; 
+    }
+
+    #canvas-wrapper { 
+        flex: 1 1 auto !important; 
+        width: 100% !important; 
+        height: 0 !important; /* 🌟 Flexbox 核心：高度從0開始被動計算，畫布才出得來 */
+        min-height: 0 !important; 
+        position: relative !important;
+        overflow: hidden !important;
+    }
+
+    canvas {
+        width: 100% !important;
+        height: 100% !important;
+        display: block !important;
+    }
+
+    /* --- 4. 底部面板 (Google Maps 風格抽屜) --- */
+    #bottom-bar {
+        flex: 0 0 110px !important; 
+        height: 110px !important; 
+        min-height: 110px !important;
+        max-height: 75dvh !important; 
+        width: 100% !important;
+        padding: 0 !important;
+        position: relative !important;
+        border-radius: 16px 16px 0 0 !important;
+        border-top: 1px solid var(--btn-border) !important;
+        transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), flex 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+        z-index: 10 !important;
+        
+        /* 🌟 修復 1：改用變數，讓它隨深淺色自動變換 */
+        background-color: var(--panel-bg) !important; 
+    }
+    
+    #bottom-bar.expanded { 
+        flex: 0 0 75dvh !important; 
+        height: 75dvh !important; 
+    }
+    .bottom-panel-wrapper { flex-direction: column !important; align-items: stretch !important; }
+    
+    .train-info-header { width: 100% !important; max-width: 100% !important; border-right: none !important; border-bottom: 1px solid var(--btn-border) !important; padding: 12px 20px !important; position: relative; }
+    .mobile-drag-handle { display: block !important; position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 40px; height: 5px; background: #888; border-radius: 3px; opacity: 0.5; }
+    
+    /* 🌟 修復 2：加上 justify-content: flex-start 解除置中魔咒 */
+    #bottom-scroll-container, #bottom-scroll-container.is-station { 
+        flex-direction: column !important; 
+        justify-content: flex-start !important; /* 👈 絕對禁止車次往上溢出蓋住藍色標題 */
+        overflow-y: auto !important; 
+        overflow-x: hidden !important; 
+        padding: 0 !important; 
+        align-items: stretch !important; 
+        width: 100% !important; 
+    }
+
+    /* --- 🌟 修復 2：穩固藍色標題 --- */
+    .mobile-table-header { 
+        display: flex !important; 
+        background-color: #2980b9 !important; 
+        color: white !important; 
+        padding: 8px 10px !important; 
+        font-size: 14px !important; 
+        
+        /* 把會造成手機 Bug 的 position: sticky 徹底拔除 */
+        position: relative !important; 
+        z-index: 10 !important; 
+        flex-shrink: 0 !important; /* 鐵腕：絕對不准被底下的車次擠壓！ */
+    }
+    /* 隱藏電腦版元素 */
+    .station-arrow, .desktop-dir-col, .sb-desktop-layout { display: none !important; }
+    .board-group { flex-direction: column !important; margin-bottom: 0 !important; width: 100% !important; }
+
+    /* --- 5. 統一卡片變成 Table Row (台鐵直立表格) --- */
+    .train-stop-item, .station-board-item { 
+        flex-direction: row !important; justify-content: space-between !important; align-items: center !important; 
+        padding: 14px 10px !important; border-bottom: 1px solid var(--btn-border) !important; border-radius: 0 !important; margin: 0 !important; min-width: 0 !important; background: transparent !important;
+    }
+
+    /* 火車面板 Table Row */
+    .ts-col-name { font-size: 18px !important; margin-bottom: 0 !important; flex: 1.5 !important; text-align: left; padding-left: 10px; }
+    .ts-col-arr { font-size: 16px !important; flex: 1 !important; text-align: center; font-family: monospace; }
+    .ts-col-dep { font-size: 16px !important; flex: 1 !important; text-align: right; padding-right: 10px; font-family: monospace; }
+
+    /* 車站面板 Table Row (顯示手機專用排版) */
+    .sb-mobile-layout { display: flex !important; width: 100%; flex-direction: row; justify-content: space-between; align-items: center; }
+    .sb-col-title { flex: 1.5; text-align: left; padding-left: 10px; font-size: 16px; font-weight: bold; }
+    
+    /* 🌟 手機版標籤樣式：利用底色變數做出「鏤空質感」！ */
+    .board-dir-label { 
+        display: inline-block !important; 
+        font-size: 10px !important; 
+        padding: 2px 4px !important; 
+        border-radius: 4px !important; 
+        margin-left: 6px !important; 
+        vertical-align: middle !important; 
+        
+        /* 👈 直接拿抽屜底色來用！ */
+        color: var(--badge-text) !important;
+        font-weight: bold !important; 
+    }
+
+    .sb-col-time { flex: 1; text-align: center; font-size: 16px; font-family: monospace; }
+    .sb-col-dest { flex: 1; text-align: right; padding-right: 10px; font-size: 16px; }
+
+    /* 🌞 淺色模式：手機版標題列換成高質感的「莫蘭迪藍灰」 */
+    body.light-mode .mobile-table-header {
+        background-color: #5C758F !important; /* 質感的莫蘭迪藍灰色 */
+        color: #FFFFFF !important;
+        border-bottom: 1px solid #4A5F75 !important;
+    }
+    /* ==========================================
+       🌟 手機版專屬：車站發車面板 (左右滑動分頁) 終極加強版
+       ========================================== */
+    .station-tab-bar {
+        display: flex !important; /* 強制覆蓋 inline 的隱藏設定 */
+        width: 100%;
+        border-bottom: 1px solid var(--btn-border);
+        flex-shrink: 0;
+    }
+    
+    .station-tab {
+        flex: 1;
+        text-align: center;
+        padding: 10px 0;
+        font-size: 15px;
+        font-weight: bold;
+        color: var(--panel-text-sub);
+        cursor: pointer;
+        position: relative;
+        transition: color 0.3s;
+    }
+    
+    .station-tab.active {
+        color: var(--panel-text-main);
+    }
+    
+    .station-tab.active::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40%;
+        height: 3px;
+        background-color: var(--panel-text-main);
+        border-radius: 3px 3px 0 0;
+    }
+
+    /* 🌟 核心防呆：強制水平、絕對不准換行！ */
+    #bottom-scroll-container.is-station {
+        display: flex !important;
+        flex-direction: row !important;  /* 覆寫掉之前的 column，強制橫向 */
+        flex-wrap: nowrap !important;    /* 👈 關鍵：絕對不准把下行擠到下面！ */
+        overflow-x: auto !important;     
+        overflow-y: hidden !important;  
+        scroll-snap-type: x mandatory !important;  
+        scroll-behavior: smooth !important;
+        width: 100% !important;
+        padding: 0 !important;
+    }
+
+    /* 🌟 確保每個面板死死佔據 100% 畫布，不被壓縮 */
+    .swipe-panel {
+        flex: 0 0 100% !important; 
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        overflow-y: auto !important;     /* 面板內部允許上下看車次 */
+        overflow-x: hidden !important;
+        scroll-snap-align: start !important; 
+    }
+
+    /* ==========================================
+       🌟 調整手機版「預設初始狀態」的文字位置 (純 CSS 智慧判斷)
+       ========================================== */
+    /* 如果 #bottom-bar 裡面「沒有」被塞入詳細資料的容器，就加上左邊距！ */
+    #bottom-bar:not(:has(.bottom-panel-wrapper)) {
+        padding-left: 25px !important; 
+    }
+    
+    /* 順便微調旁邊說明小字的間距，讓它不會黏太緊 */
+    #bottom-bar:not(:has(.bottom-panel-wrapper)) span {
+        margin-left: 15px !important;
+    }
 }

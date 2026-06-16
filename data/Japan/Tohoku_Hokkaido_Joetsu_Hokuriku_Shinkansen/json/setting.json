@@ -1,0 +1,75 @@
+{
+  "system_id": "Tohoku_Hokkaido_Joetsu_Hokuriku_Shinkansen",
+  "system_name": "東北・北海道・上越・北陸新幹線",
+
+  "data_fetch_strategy": "WEEKEND_FILE",
+  
+  "calendar_type": "WEEKDAY_BITMAP",
+
+  "time_stretch_ratio": 3.0,
+
+  "show_train_id": true,
+
+  "timezone_offset": 9,
+
+  "view_presets": {
+    "tohoku_hokkaido_line": {
+        "name": "東北・北海道新幹線 (東京-新函館北斗)",
+        "lines": ["THK_line", "HKD_line"],
+        "view_type": "LINEAR",
+        "button_color": ["#2196F3", "#1565C0"]
+    },
+    "joetsu_line": {
+        "name": "上越新幹線 (東京-新潟)",
+        "lines": [
+          {"id": "THK_line", "start": "東京", "end": "大宮"},
+          "JTS_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#9C27B0", "#6A1B9A"]
+    },
+    "hokuriku_line": {
+        "name": "北陸新幹線 (東京-金沢)",
+        "lines": [
+          {"id": "THK_line", "start": "東京", "end": "大宮"},
+          {"id": "JTS_line", "start": "大宮", "end": "高崎"},
+          "HRK_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#FF5722", "#E64A19"]
+    },
+    "yamagata_line": {
+        "name": "山形新幹線 (東京-新庄)",
+        "lines": [
+          {"id": "THK_line", "start": "東京", "end": "福島"},
+          "YMG_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#4CAF50", "#388E3C"]
+    },
+    "akita_line": {
+        "name": "秋田新幹線 (東京-秋田)",
+        "lines": [
+          {"id": "THK_line", "start": "東京", "end": "盛岡"},
+          "AKT_line"
+        ],
+        "view_type": "LINEAR",
+        "button_color": ["#00BCD4", "#0097A7"]
+      }
+  },
+
+  "train_color": {
+    "はやぶさ": ["#1DE9B6", "#004D40"], 
+    "はやて": ["#A4A1D4", "#512DA8"],   
+    "やまびこ": ["#D4E157", "#9E9D24"], 
+    "なすの": ["#FF4081", "#C2185B"],   
+    "こまち": ["#FF5252", "#C62828"],   
+    "つばさ": ["#E040FB", "#7B1FA2"],   
+    "とき": ["#FF8A65", "#D84315"],     
+    "たにがわ": ["#40C4FF", "#0277BD"], 
+    "かがやき": ["#FFCA28", "#FF8F00"], 
+    "はくたか": ["#536DFE", "#283593"], 
+    "あさま": ["#B0BEC5", "#455A64"],   
+    "つるぎ": ["#18FFFF", "#006064"] 
+  }
+}

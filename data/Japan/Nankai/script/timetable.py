@@ -1,0 +1,371 @@
+import os, requests, time, json
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse, parse_qs
+from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+SESSION = requests.Session()
+SESSION.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"})
+
+def norm_st(name):
+    return name.replace("ヶ", "ケ").replace("・", "･").replace(" ", "").strip()
+
+def time_to_minutes(time_str, prev_mins=0):
+    if not time_str or time_str in ("∥", "−", "-"): return None
+    try:
+        time_str = time_str.replace("：", ":")
+        h, m = map(int, time_str.split(":"))
+        mins = h * 60 + m
+        while mins < prev_mins - 300: mins += 24 * 60
+        return mins
+    except:
+        return None
+
+def time_to_minutes_for_sort(time_str):
+    if not time_str or time_str in ("∥", "−", "-", "", "↓"): return 9999
+    try:
+        h, m = map(int, time_str.replace("：", ":").split(":"))
+        if h < 4: h += 24
+        return h * 60 + m
+    except:
+        return 9999
+
+def get_tx_from_url(url):
+    qs = parse_qs(urlparse(url).query)
+    return qs.get('tx', [None])[0]
+
+PREFIX_LIST = [
+    ("ラα", "特急ラピートα"), ("ラβ", "特急ラピートβ"), ("ラピ", "特急ラピート"), ("特サ", "特急サザン"), 
+    ("サザン", "特急サザン"), ("特泉", "特急泉北ライナー"), ("泉北ライナー", "特急泉北ライナー"), ("泉北", "特急泉北ライナー"), 
+    ("天空", "観光列車「天空」"), ("特高", "特急こうや"), ("こうや", "特急こうや"), ("こう", "特急こうや"), ("こP", "特急こうや (冬季部分運休)"),      
+    ("特林", "特急りんかん"), ("りんかん", "特急りんかん"), ("りん", "特急りんかん"), ("りP", "特急りんかん (冬季部分運休)"), ("りQ", "特急りんかん (冬季部分行駛)"), ("空急", "空港急行"), 
+    ("区急", "区間急行"), ("快急", "快速急行"), ("準急", "準急"), ("急行", "急行"), ("各停", "各駅停車"), 
+    ("特急", "特急"), ("普通", "普通"), ("各C", "各停 (冬季部分運休)"), ("Ｇ天", "GRAN天空"), ("G天", "GRAN天空")
+]
+
+@lru_cache(maxsize=2048)
+def get_soup(url, retries=3):
+    for i in range(retries):
+        try:
+            time.sleep(0.05) 
+            resp = SESSION.get(url, timeout=20)
+            resp.raise_for_status()
+            return BeautifulSoup(resp.text, "html.parser")
+        except: time.sleep((i + 1) * 2)
+    return BeautifulSoup("", "html.parser")
+
+def extract_t7_from_t5(t5_url):
+    soup = get_soup(t5_url)
+    t7_list = []
+    for a in soup.select('a[href*="T7?"]'):
+        link = urljoin(t5_url, a["href"])
+        tx = get_tx_from_url(link)
+        if not tx: continue
+        
+        qs = parse_qs(urlparse(link).query)
+        dw = qs.get("dw", ["0"])[0]
+        day = "平日" if dw == "0" else "土休日"
+        
+        btn_text = a.get_text(" ", strip=True).replace("(平日)", "").replace("(土休日)", "").strip()
+        t_type = "區間" # 預設為區間車
+        
+        # 🌟 設立一個標記，預設為「未配對」
+        matched = False 
+        
+        for abbr, full_name in PREFIX_LIST:
+            if btn_text.startswith(abbr):
+                t_type = full_name
+                matched = True # 成功配對到了！
+                break
+                
+        # 🌟 只有在沒配對到的時候，才印出來抓漏
+        if not matched:
+            print(f"\n⚠️ 抓到漏網之魚！未知的車種代碼：【{btn_text}】", f"對應的 URL: {link}\n")
+            
+        t7_list.append({"tx": tx, "url": link, "day": day, "type": t_type})
+    return t7_list
+
+def fetch_train_details(t7_dict):
+    soup = get_soup(t7_dict["url"])
+    table = soup.select_one("#ekt")
+    stops = {}
+    if not table: return t7_dict["tx"], stops
+    
+    for tr in table.select("tr"):
+        tds = tr.select("td")
+        if len(tds) == 3 and (st := tds[0].text.strip()) != "停車駅":
+            st = norm_st(st)
+            stops[st] = {
+                "arrival": tds[1].text.strip() or "−",
+                "departure": tds[2].text.strip() or "−"
+            }
+    return t7_dict["tx"], stops
+
+def main():
+    # 🌟 自動精準定位輸出與讀取資料夾
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    json_dir = os.path.join(os.path.dirname(script_dir), "json")
+    output_dir = os.path.join(json_dir, "timetable")
+    topology_path = os.path.join(json_dir, "topology.json")
+    
+    os.makedirs(output_dir, exist_ok=True)
+    
+    json_path_weekday = os.path.join(output_dir, "timetable_weekday.json")
+    json_path_holiday = os.path.join(output_dir, "timetable_holiday.json")
+
+    # ==========================================
+    # 🌟 新增：動態讀取 topology.json，不再手寫站名！
+    # ==========================================
+    print("0. 正在讀取並解析 topology.json...")
+    if not os.path.exists(topology_path):
+        print(f"❌ 嚴重錯誤：找不到 topology.json！請先執行爬取里程的程式。路徑: {topology_path}")
+        return
+
+    with open(topology_path, 'r', encoding='utf-8') as f:
+        topology_data = json.load(f)
+
+    # 動態建立 MASTER_LINES, LINE_ID_MAPPING 和 STATION_ID_MAP
+    MASTER_LINES = {}
+    LINE_ID_MAPPING = {}
+    STATION_ID_MAP = {} # 🌟 新增：站名轉 ID 的字典
+    
+    for segment in topology_data.get("segments", []):
+        line_id = segment.get("id")
+        line_name = segment.get("name")
+        
+        station_names = []
+        for st in segment.get("stations", []):
+            st_name = norm_st(st.get("name"))
+            st_id = st.get("id")
+            station_names.append(st_name)
+            STATION_ID_MAP[st_name] = st_id # 🌟 建立對應：例如 "難波" -> "NK01"
+            
+        MASTER_LINES[line_name] = station_names
+        LINE_ID_MAPPING[line_name] = line_id
+    
+    for segment in topology_data.get("segments", []):
+        line_id = segment.get("id")
+        line_name = segment.get("name")
+        # 依序抓出該路線的所有站名，並進行正規化 (確保和時刻表抓到的名字格式一致)
+        station_names = [norm_st(st.get("name")) for st in segment.get("stations", [])]
+        
+        MASTER_LINES[line_name] = station_names
+        LINE_ID_MAPPING[line_name] = line_id
+        
+    print(f"  ✅ 成功載入 {len(MASTER_LINES)} 條路線設定！\n")
+    # ==========================================
+
+    print("1. 正在從核心發車站收集所有時刻表目錄...")
+    CORE_STATION_URLS = [
+        "namba", "shinimamiya", "tengachaya", "suminoe", "sakai", "haruki", "kishiwada", "izumisano", "hagurazaki", "tarui", "ozaki", "misakikoen", "wakayamashi", "kansaiairport",
+        "hagoromo", "takashinohama", "tanagawa", "kinokawa", "kada", "wakayamako",
+        "sakaihigashi", "nakamozu", "chiyoda", "kawachinagano", "mikkaichicho", "rinkandenentoshi", "hashimoto", "koyashita", "gokurakubashi", "koyasan",
+        "izumichuo", "komyoike", "shiomibashi", "kishinosatotamade"
+    ]
+    st_urls = [f"https://www.nankai.co.jp/traffic/station/{sid}.html" for sid in CORE_STATION_URLS]
+
+    t5_urls = set()
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futs = {executor.submit(get_soup, url): url for url in st_urls}
+        for i, f in enumerate(as_completed(futs), 1):
+            print(f"\r  掃描車站 T5 目錄: {i}/{len(st_urls)}", end="", flush=True)
+            soup = f.result()
+            st_url = futs[f]
+            for a in soup.select('a[href*="/pc/T5?"]'):
+                t5_urls.add(urljoin(st_url, a["href"]))
+    print()
+
+    print(f"2. 正在提取 {len(t5_urls)} 個目錄中的所有車次...")
+    t7_pool = {}
+    with ThreadPoolExecutor(max_workers=15) as executor:
+        futs = {executor.submit(extract_t7_from_t5, t5): t5 for t5 in t5_urls}
+        for f in as_completed(futs):
+            for t_dict in f.result():
+                if t_dict["tx"] not in t7_pool:
+                    t7_pool[t_dict["tx"]] = t_dict
+
+    print(f"3. 準備下載 {len(t7_pool)} 班獨立列車資料...")
+    with ThreadPoolExecutor(max_workers=15) as executor:
+        futs = {executor.submit(fetch_train_details, t_dict): t_dict["tx"] for t_dict in t7_pool.values()}
+        for i, f in enumerate(as_completed(futs), 1):
+            print(f"\r  下載進度: {i}/{len(t7_pool)}", end="", flush=True)
+            tx, stops = f.result()
+            t7_pool[tx]["stops"] = stops
+    print("\n✅ 所有列車資料下載完成！\n")
+
+    print("4. 🌟 正在完美建構相容 TRA 的 Segments JSON 格式 (搭載物理指紋去重)...")
+    unique_trains = {} # 🌟 改用這個來存唯一車次
+    global_train_counter = 1001
+
+    for tx, t_info in t7_pool.items():
+        stops = t_info.get("stops", {})
+        if not stops: continue
+        
+        t_stops_order = list(stops.keys())
+
+        # ==========================================
+        # 🌟 核心修復：跨夜時間「預處理 (Pre-calculation)」
+        # 順著火車實際開的順序，把所有時間一次算成絕對分鐘數 (包含 +1440)
+        # ==========================================
+        global_p_mins = 0
+        for st in t_stops_order:
+            arr_str = stops[st].get("arrival", "−")
+            dep_str = stops[st].get("departure", "−")
+            
+            am = time_to_minutes(arr_str, global_p_mins)
+            if am is not None:
+                stops[st]["abs_arr"] = am
+                global_p_mins = am
+                
+            dm = time_to_minutes(dep_str, global_p_mins)
+            if dm is not None:
+                stops[st]["abs_dep"] = dm
+                global_p_mins = dm
+        # ==========================================
+
+        raw_segments = []
+        
+        for line_name, line_stations in MASTER_LINES.items():
+            intersect = [st for st in t_stops_order if st in line_stations]
+            if len(intersect) < 2: continue
+            
+            idx_first = line_stations.index(intersect[0])
+            idx_last = line_stations.index(intersect[-1])
+            
+            ordered_stations = line_stations if idx_first < idx_last else line_stations[::-1]
+            
+            s_list = []
+            t_list = []
+            v_list = []
+            
+            intersect_in_order = [s for s in ordered_stations if s in stops]
+            
+            for i, st in enumerate(intersect_in_order):
+                d = stops[st]
+                
+                # 🌟 直接讀取預處理算好的跨夜絕對時間！
+                am = d.get("abs_arr")
+                dm = d.get("abs_dep")
+                
+                final_am = am if am is not None else dm
+                final_dm = dm if dm is not None else am
+                
+                if final_am is None or final_dm is None: continue
+                
+                v_val = 1
+                if i == 0: v_val = 0
+                elif i == len(intersect_in_order) - 1: v_val = 3
+                
+                s_list.append(STATION_ID_MAP.get(st, st))
+                t_list.extend([final_am, final_dm])
+                v_list.append(v_val)
+
+            if s_list:
+                raw_segments.append({
+                    "id": LINE_ID_MAPPING.get(line_name, "unknown"),
+                    "s": s_list,
+                    "t": t_list,
+                    "v": v_list,
+                    "_s_set": set(s_list) # 🌟 偷塞一個 Set，方便等一下做子集合比對
+                })
+
+        # ==========================================
+        # 🌟 核心過濾邏輯：剃除重疊的幽靈路線 (搭載智慧車名辨識)
+        # ==========================================
+        filtered_segments = []
+        for i, seg_i in enumerate(raw_segments):
+            is_subset = False
+            for j, seg_j in enumerate(raw_segments):
+                # 如果 seg_i 的車站完全被包含在 seg_j 裡面
+                if i != j and seg_i["_s_set"].issubset(seg_j["_s_set"]):
+                    
+                    # 1. 站數較少，絕對是附屬的，刪除！
+                    if len(seg_i["_s_set"]) < len(seg_j["_s_set"]):
+                        is_subset = True
+                        break
+                        
+                    # 2. 站數一模一樣 (例如: 難波~天下茶屋 同時有本線與高野線)
+                    elif len(seg_i["_s_set"]) == len(seg_j["_s_set"]):
+                        # 💡 啟動 Tie-breaker：用「車名」判斷誰才是正牌路線！
+                        score_i, score_j = 0, 0
+                        t_type = t_info.get("type", "")
+                        
+                        # 給 i 打分數
+                        if "koya" in seg_i["id"].lower() and any(x in t_type for x in ["泉北", "高野", "りんかん", "こうや"]):
+                            score_i += 10
+                        if "main" in seg_i["id"].lower() and any(x in t_type for x in ["空港", "サザン", "ラピート"]):
+                            score_i += 10
+                            
+                        # 給 j 打分數
+                        if "koya" in seg_j["id"].lower() and any(x in t_type for x in ["泉北", "高野", "りんかん", "こうや"]):
+                            score_j += 10
+                        if "main" in seg_j["id"].lower() and any(x in t_type for x in ["空港", "サザン", "ラピート"]):
+                            score_j += 10
+
+                        # 分數低的被淘汰；如果分數一樣，就照舊淘汰排在後面的
+                        if score_i < score_j or (score_i == score_j and i > j):
+                            is_subset = True
+                            break
+            
+            if not is_subset:
+                filtered_segments.append(seg_i)
+
+        # 🌟 等所有路線都互相檢查完，再來大掃除！
+        for seg in filtered_segments:
+            if "_s_set" in seg:
+                del seg["_s_set"]
+
+        if filtered_segments:
+            # 依照該線段的第一個發車時間進行排序
+            filtered_segments.sort(key=lambda seg: seg["t"][0] if seg["t"] else 9999)
+            
+            # 🌟 終極去重武器：建立列車「物理指紋」
+            first_st = t_stops_order[0]
+            last_st = t_stops_order[-1]
+            first_dep = stops[first_st].get("departure", "−")
+            last_arr = stops[last_st].get("arrival", "−")
+            
+            signature = f"{t_info['day']}_{t_info['type']}_{first_st}_{first_dep}_{last_st}_{last_arr}"
+            
+            # 🛑 只有沒看過的指紋，才准許放行寫入 JSON
+            if signature not in unique_trains:
+                unique_trains[signature] = {
+                    "no": str(global_train_counter),
+                    "type": t_info["type"],
+                    "drive": t_info["day"],
+                    "segments": filtered_segments
+                }
+                global_train_counter += 1
+
+    flat_json_output = list(unique_trains.values())
+
+    weekday_data = [t for t in flat_json_output if t.get("drive") == "平日"]
+    holiday_data = [t for t in flat_json_output if t.get("drive") == "土休日"]
+
+    for t in weekday_data: t.pop("drive", None)
+    for t in holiday_data: t.pop("drive", None)
+
+    print(f"正在輸出平日時刻表 (共 {len(weekday_data)} 班)...")
+    with open(json_path_weekday, "w", encoding="utf-8") as f:
+        f.write("[\n")
+        for i, train in enumerate(weekday_data):
+            line = json.dumps(train, ensure_ascii=False, separators=(',', ':'))
+            comma = "," if i < len(weekday_data) - 1 else ""
+            f.write(f"  {line}{comma}\n")
+        f.write("]\n")
+
+    print(f"正在輸出土休日時刻表 (共 {len(holiday_data)} 班)...")
+    with open(json_path_holiday, "w", encoding="utf-8") as f:
+        f.write("[\n")
+        for i, train in enumerate(holiday_data):
+            line = json.dumps(train, ensure_ascii=False, separators=(',', ':'))
+            comma = "," if i < len(holiday_data) - 1 else ""
+            f.write(f"  {line}{comma}\n")
+        f.write("]\n")
+
+    print(f"\n🎉 完美大功告成！已將時刻表存入正確的 JSON 資料夾。")
+    print(f"平日檔案: {json_path_weekday}")
+    print(f"假日檔案: {json_path_holiday}")
+
+if __name__ == "__main__":
+    main()

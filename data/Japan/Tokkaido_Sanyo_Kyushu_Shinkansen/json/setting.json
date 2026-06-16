@@ -1,0 +1,38 @@
+{
+  "system_id": "Tokkaido_Sanyo_Kyushu_Shinkansen",
+  "system_name": "東海道・山陽・九州・西九州新幹線",
+
+  "data_fetch_strategy": "DAILY_FILE",
+  
+  "calendar_type": "WEEKDAY_BITMAP",
+
+  "time_stretch_ratio": 3.0,
+
+  "show_train_id": true,
+
+  "timezone_offset": 9,
+
+  "view_presets": {
+    "main_line": {
+        "name": "東海道・山陽・九州新幹線 (東京-鹿兒島中央)",
+        "lines": ["tokaido_line", "sanyo_line", "kyushu_line"],
+        "view_type": "LINEAR",
+        "button_color": ["#2196F3", "#1565C0"]
+    },
+    "nishi_kyushu_line": {
+        "name": "西九州新幹線 (武雄溫泉-長崎)",
+        "lines": ["nishi_kyushu_line"],
+        "view_type": "LINEAR",
+        "button_color": ["#9C27B0", "#6A1B9A"]
+    }
+  },
+
+  "train_color": {
+    "のぞみ": ["#FFFF88", "#D4A017", 1.0],
+    "ひかり": ["#FF8989", "#CC0000"],
+    "こだま": ["#8A8AFF", "#0055CC"],
+    "みずほ": ["#FFAB0E", "#D96600"],
+    "さくら": ["#FF7ABD", "#C71585"],
+    "つばめ": ["#56E2D3", "#008080"]
+    }
+}
