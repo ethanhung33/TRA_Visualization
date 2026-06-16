@@ -1349,7 +1349,9 @@ function drawTrains() {
                         // ==========================================
                         if (displayText !== "") {
                             // copy 編號納入 key：環狀圖每個複製版各自獨立，不互相抑制
-                            let uniqueKey = `${copy}_${seg.s[i]}_${displayText}`;
+                            // 原始時間納入 key：跨夜殘影與今日車在同站同名但時間相差 1440（不同 x 位置不重疊），需各自印出
+                            let _tKey = (seg.t[i * 2] !== "" && seg.t[i * 2] != null) ? seg.t[i * 2] : seg.t[i * 2 + 1];
+                            let uniqueKey = `${copy}_${seg.s[i]}_${_tKey}_${displayText}`;
                             if (printedStationTexts.has(uniqueKey)) {
                                 displayText = ""; 
                             } else {
@@ -1416,6 +1418,7 @@ function drawTrains() {
 
     // 每次畫圖前，只要讀取剛剛存好的快取結果就好
     let partnerIds = selectedTrain ? cachedPartnerIds : new Set();
+    let selectedNoStr = selectedTrain ? String(selectedTrain.no || selectedTrain.train_no || selectedTrain.id) : null;
     let stationChainSet = null;
     if (selectedStation && timetable) {
         if (!cachedStationChainSet || cachedStationChainSet._forStation !== selectedStation) {
@@ -1463,6 +1466,9 @@ function drawTrains() {
         // 🌟 3. 狀態判斷與分發 (加入伴侶車攔截)
         if (train === selectedTrain) {
             vipTrain = train;
+        } else if (selectedNoStr && trainNoStr === selectedNoStr) {
+            // 跨夜殘影：與選取車同車號的另一份拷貝，一樣高亮（與選取家族其他成員時的行為一致）
+            partnerTrains.push(train);
         } else if (partnerIds.has(trainNoStr)) {
             partnerTrains.push(train); // 攔截伴侶車！
         } else if (train === hoveredTrain) {
@@ -3935,46 +3941,76 @@ function updateBottomPanel(train) {
     let prefixStops = [];
     let suffixStops = [];
 
-    // 只看使用者點擊的第一台車 (train) 有沒有併結
-    if (train.coupled_with) {
-        let splitInfo = train.coupled_with.find(c => c.action === "split" || c.action === "merge");
+    // 直通鏈的「鏈頭車」與「鏈尾車」(可能不是使用者點擊的那台，例如點 395M 但鏈頭是 4631H)
+    let _chainHead = displayTrains.length > 0 ? displayTrains[0] : train;
+    let _chainTail = displayTrains.length > 0 ? displayTrains[displayTrains.length - 1] : train;
+
+    // 👉 狀況 A (前段共用路段)：鏈頭車若在其「起站」從伴侶車 split/merge 出來，
+    //    補上伴侶車交會點之前的共用停靠 (如紀州路快速 4631H 在日根野前與関空快速 4231M 併結 → 補京橋-日根野)
+    if (_chainHead.coupled_with && mainChainFirstSt && mainChainLastSt) {
+        let splitInfo = _chainHead.coupled_with.find(c => (c.action === "split" || c.action === "merge") && String(c.station_id) === mainChainFirstSt);
         if (splitInfo) {
-            // 找到它的伴侶車 (例如: はやぶさ 3007B)
             let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(splitInfo.train_id));
             let splitStId = String(splitInfo.station_id);
-
-            if (partner && mainChainFirstSt && mainChainLastSt) {
-                // 👉 狀況 A (下行)：如果這台車(支線)的起點就是解連站 (如盛岡)，代表前面有一段跟主線共用的路 (如東京-盛岡)
-                if (mainChainFirstSt === splitStId) {
-                    let capturing = true;
-                    for (let seg of partner.segments) {
+            if (partner) {
+                // 併結母車本身可能還有直通前段（如 関空快速 4231M ← 普通 4231 天王寺-京橋），
+                // 沿 direct 往回收集整條前段鏈，依發車時間排序後一路輸出到 split 點為止
+                let prefChain = [];
+                let seenPref = new Set();
+                let qPref = [partner];
+                while (qPref.length > 0) {
+                    let cur = qPref.shift();
+                    let curId = String(cur.no || cur.train_no || cur.id);
+                    if (seenPref.has(curId)) continue;
+                    seenPref.add(curId);
+                    prefChain.push(cur);
+                    let p = _findDirectPredecessor(cur);
+                    if (p && !seenPref.has(String(p.no || p.train_no || p.id))) qPref.push(p);
+                }
+                prefChain.sort((a, b) => {
+                    let st = tr => (tr.segments && tr.segments.length) ? (tr.segments[0].t[0] !== null ? tr.segments[0].t[0] : tr.segments[0].t[1]) : 9999;
+                    let sa = st(a), sb = st(b);
+                    return ((sa < 240 ? sa + 1440 : sa) - (sb < 240 ? sb + 1440 : sb));
+                });
+                let capturing = true;
+                for (let tr of prefChain) {
+                    for (let seg of tr.segments) {
                         for (let i = 0; i < seg.s.length; i++) {
                             let currId = String(seg.s[i]);
                             if (currId === splitStId) { capturing = false; break; }
                             if (capturing && seg.v[i] !== 2) {
                                 prefixStops.push({
                                     id: seg.s[i], arr: seg.t[i*2], dep: seg.t[i*2+1],
-                                    partnerNo: partner.no, partnerType: partner.type
+                                    partnerNo: tr.no, partnerType: tr.type
                                 });
                             }
                         }
                         if (!capturing) break;
                     }
-                } 
-                // 👉 狀況 B (上行)：如果這台車(支線)的終點是解連站，代表後面有一段跟主線共用的路
-                else if (mainChainLastSt === splitStId) {
-                    let capturing = false;
-                    for (let seg of partner.segments) {
-                        for (let i = 0; i < seg.s.length; i++) {
-                            let currId = String(seg.s[i]);
-                            // 跳過交會站本身，從下一站開始抓取
-                            if (!capturing && currId === splitStId) { capturing = true; continue; } 
-                            if (capturing && seg.v[i] !== 2) {
-                                suffixStops.push({
-                                    id: seg.s[i], arr: seg.t[i*2], dep: seg.t[i*2+1],
-                                    partnerNo: partner.no, partnerType: partner.type
-                                });
-                            }
+                    if (!capturing) break;
+                }
+            }
+        }
+    }
+
+    // 👉 狀況 B (後段共用路段)：鏈尾車若在其「終站」merge/split 進伴侶車，補上伴侶車交會點之後的共用停靠
+    if (_chainTail.coupled_with && mainChainFirstSt && mainChainLastSt) {
+        let splitInfo = _chainTail.coupled_with.find(c => (c.action === "split" || c.action === "merge") && String(c.station_id) === mainChainLastSt);
+        if (splitInfo) {
+            let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(splitInfo.train_id));
+            let splitStId = String(splitInfo.station_id);
+            if (partner) {
+                let capturing = false;
+                for (let seg of partner.segments) {
+                    for (let i = 0; i < seg.s.length; i++) {
+                        let currId = String(seg.s[i]);
+                        // 跳過交會站本身，從下一站開始抓取
+                        if (!capturing && currId === splitStId) { capturing = true; continue; }
+                        if (capturing && seg.v[i] !== 2) {
+                            suffixStops.push({
+                                id: seg.s[i], arr: seg.t[i*2], dep: seg.t[i*2+1],
+                                partnerNo: partner.no, partnerType: partner.type
+                            });
                         }
                     }
                 }
