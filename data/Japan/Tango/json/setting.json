@@ -1,0 +1,35 @@
+{
+  "system_id": "Tango",
+  "system_name": "京都丹後鉄道",
+
+  "data_fetch_strategy": "WEEKEND_FILE",
+
+  "calendar_type": "WEEKEND_SELECT",
+
+  "time_stretch_ratio": 0.3,
+
+  "show_train_id": false,
+
+  "timezone_offset": 9,
+
+  "view_presets": {
+    "miyamai_miyatoyo": {
+      "name": "宮舞線・宮豊線 (西舞鶴-豊岡)",
+      "lines": ["miyamai_line", "miyatoyo_line"],
+      "view_type": "LINEAR",
+      "button_color": ["#2196F3", "#1565C0"]
+    },
+    "miyafuku_miyatoyo": {
+      "name": "宮福線・宮豊線 (福知山-豊岡)",
+      "lines": ["miyafuku_line", "miyatoyo_line"],
+      "view_type": "LINEAR",
+      "button_color": ["#E91E63", "#C2185B"]
+    }
+  },
+
+  "train_color": {
+    "特急": ["#FF7B7B", "#C62828"],
+    "快速": ["#5BD1C4", "#00796B"],
+    "普通": ["#B0B0B0", "#969696"]
+  }
+}
