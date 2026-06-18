@@ -655,8 +655,22 @@ function drawTrains() {
         }
         train._hitPoints.length = 0; // 這樣可以清空陣列，但不會產生垃圾！ 
 
+        // 🚀 視口剔除：整車時間範圍完全在畫面左右之外時，直接跳過昂貴的座標運算與繪製。
+        // （大型路線如 JR西日本 數千班車，縮放時可避免每幀為離畫面的車重算座標 → 大幅減卡頓）
+        if (!isVIP && !isHovered && !isPartner && train.segments && train.segments.length) {
+            let _segs = train.segments;
+            let _lastSeg = _segs[_segs.length - 1];
+            let _t0 = _segs[0].t[0];
+            let _t1 = _lastSeg.t[_lastSeg.t.length - 1];
+            if (_t0 != null && _t1 != null) {
+                let _xa = timeToX(Math.min(_t0, _t1));
+                let _xb = timeToX(Math.max(_t0, _t1));
+                if (_xb < viewLeft || _xa > viewRight) return;
+            }
+        }
+
         let trainLastBaseY = null;
-        let wrapOffset = 0; 
+        let wrapOffset = 0;
         
         // ... (下面接續你原本的座標計算跟撒麵包屑邏輯) ...
 
@@ -4031,16 +4045,6 @@ function updateBottomPanel(train) {
         if (tr.segments) {
             tr.segments.forEach((seg, segIdx) => {
 
-                if (seg.is_other) {
-                    if (allStops.length === 0 || allStops[allStops.length - 1].type !== 'other_link') {
-                        allStops.push({ 
-                            type: 'other_link',
-                            systemPath: seg.system_path,              // ⬅️ 動態路徑
-                            systemName: seg.system_name || "其他系統"  // ⬅️ 動態名稱
-                        });
-                    }
-                }
-
                 for (let i = 0; i < seg.s.length; i++) {
                     if (seg.v[i] === 2) continue; // 跳過通過站
                     
@@ -4070,6 +4074,8 @@ function updateBottomPanel(train) {
                         id: seg.s[i],
                         arr: arrRaw,
                         dep: depRaw,
+                        otherName: seg.is_other ? (seg.system_name || "其他系統") : null,  // 外運營商段（如 JR西日本）
+                        otherPath: seg.is_other ? seg.system_path : null,
                         directStartNo: (trIdx > 0 && i === 0) ? tr.no : null // 標記直通起點
                     });
                 }
@@ -4085,9 +4091,11 @@ function updateBottomPanel(train) {
     // ==========================================
     let startStationName = "未知";
     let endStationName = "未知";
-    if (allStops.length > 0) {
-        startStationName = getStationName(allStops[0].id);
-        endStationName = getStationName(allStops[allStops.length - 1].id);
+    // 🌟 略過 other_link 標記（它沒有 id），取真正的首/末停靠站，避免標題顯示 undefined
+    let realStops = allStops.filter(s => s.type !== 'other_link');
+    if (realStops.length > 0) {
+        startStationName = getStationName(realStops[0].id);
+        endStationName = getStationName(realStops[realStops.length - 1].id);
     }
 
     // ==========================================
@@ -4097,41 +4105,63 @@ function updateBottomPanel(train) {
     let stopCount = 0; 
     let lastStationId = null;
 
-    allStops.forEach(stop => {
+    const _arrow = (color) => `<div class="station-arrow"${color ? ` style="color:${color};opacity:.6;"` : ''}>➔</div>`;
+    const _stationCard = (stop) => `
+            <div class="train-stop-item" onclick="window.triggerSelectStation('${stop.id}')">
+                <div class="ts-col-name">${getStationName(stop.id)}</div>
+                <div class="ts-col-arr">${formatTimeDisplay(stop.arr)}</div>
+                <div class="ts-col-dep">${formatTimeDisplay(stop.dep)}</div>
+            </div>`;
+    const OTHER_COLOR = "#3E8EDB"; // 外運營商（JR西日本）主色
 
-        if (stop.type === 'other_link') {
-            if (stopCount > 0) stationsHtml += `<div class="station-arrow" style="color: #FFA500;">➔</div>`;
-            
+    let si = 0;
+    while (si < allStops.length) {
+        let stop = allStops[si];
+
+        // 防呆：交會站只印一次
+        if (stop.id === lastStationId) { si++; continue; }
+
+        // 外運營商段（如 JR西日本）：把連續同公司的站收進一個標註框
+        if (stop.otherName) {
+            let gName = stop.otherName, gPath = stop.otherPath, group = [];
+            while (si < allStops.length && allStops[si].otherName === gName) {
+                if (allStops[si].id !== lastStationId) {
+                    group.push(allStops[si]);
+                    lastStationId = allStops[si].id;
+                }
+                si++;
+            }
+            if (group.length === 0) continue;
+            if (stopCount > 0) stationsHtml += _arrow(OTHER_COLOR);
+            let inner = group.map((s, i) => (i > 0 ? _arrow(OTHER_COLOR) : '') + _stationCard(s)).join('');
+            let clickAttr = gPath ? `onclick="event.stopPropagation();window.switchToSystem('${gPath}')"` : '';
+            let labelCursor = gPath ? 'cursor:pointer;' : '';
+            let hint = gPath ? ` <span style="opacity:.9;font-size:11px;font-weight:600;">↗&nbsp;運行圖</span>` : '';
             stationsHtml += `
-                <div class="train-stop-item" style="background: ${isDarkMode ? 'rgba(255, 165, 0, 0.15)' : 'rgba(255, 165, 0, 0.1)'}; cursor: pointer; border-left: 4px solid #FFA500;" onclick="window.switchToSystem('${stop.systemPath}')">
-                    <div class="ts-col-name" style="color: #FFA500; font-weight: bold;">🔗 ${stop.systemName}</div>
-                    <div class="ts-col-arr" style="opacity: 0.8; font-size: 12px; grid-column: span 2; text-align: left; color: #FFA500;">
-                        (點擊載入該系統運行圖)
+                <div style="position:relative; display:inline-flex; align-items:center; gap:0;
+                            border:1.5px solid ${OTHER_COLOR}; border-radius:12px;
+                            padding:16px 10px; margin:10px 4px 2px;
+                            background:${isDarkMode ? 'rgba(62,142,219,0.10)' : 'rgba(62,142,219,0.07)'};">
+                    <div ${clickAttr} title="點擊載入 ${gName} 運行圖"
+                         style="position:absolute; top:-12px; left:14px; display:flex; align-items:center; gap:6px;
+                                padding:2px 12px; border-radius:13px; background:${OTHER_COLOR}; color:#fff;
+                                font-size:12px; font-weight:800; white-space:nowrap; ${labelCursor}
+                                box-shadow:0 2px 6px rgba(0,0,0,.35);">
+                        🚆 ${gName}${hint}
                     </div>
-                </div>
-            `;
-            return;
+                    ${inner}
+                </div>`;
+            stopCount += group.length;
+            continue;
         }
 
-        // 防呆：交會站只印一次 (例如直通交界)
-        if (stop.id === lastStationId) return;
+        // 一般（本系統）停靠站
         lastStationId = stop.id;
-
-        let stName = getStationName(stop.id);
-        let arrT = formatTimeDisplay(stop.arr);     
-        let depT = formatTimeDisplay(stop.dep);
-        
-        if (stopCount > 0) stationsHtml += `<div class="station-arrow">➔</div>`;
-
-        stationsHtml += `
-            <div class="train-stop-item" onclick="window.triggerSelectStation('${stop.id}')">
-                <div class="ts-col-name">${stName}</div>
-                <div class="ts-col-arr">${arrT}</div>
-                <div class="ts-col-dep">${depT}</div>
-            </div>
-        `;
+        if (stopCount > 0) stationsHtml += _arrow();
+        stationsHtml += _stationCard(stop);
         stopCount++;
-    });
+        si++;
+    }
 
     // 3. 塞進 bottom-bar（火車面板）
     // ── 家族全成員 chip row ──────────────────────────────────────────
@@ -4238,7 +4268,10 @@ function updateBottomPanel(train) {
             let isSelected = tNo === selectedNo;
             let tColor = _pColor(t);
             let cleanNo = tNo.split('|')[0];
-            let label = (showType && t.type ? t.type + ' ' : '') + (showId ? cleanNo : t.type || '');
+            let label = (showType && showId) ? `${t.type} ${cleanNo}`
+                      : showType ? (t.type || '')
+                      : showId ? cleanNo
+                      : '列車';
             
             if (isSelected) {
                 return `<div style="display:inline-block; white-space:nowrap; font-size:clamp(20px, 5vw, 26px); font-weight:900; color:${tColor}; letter-spacing:1px; cursor:default; margin: 0 4px;">${label}</div>`;
