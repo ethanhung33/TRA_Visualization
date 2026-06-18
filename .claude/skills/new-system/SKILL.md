@@ -84,7 +84,8 @@ py tools/validate_system.py data/<國家>/<系統>
 
 ### 步驟 5 — 自動設定顏色 / view / 參數
 寫 `json/setting.json`：
-- `train_color`：依該系統車種列出，用既有系統的色票風格（亮色+深色配對）。
+- `train_color`：依該系統車種列出，用既有系統的色票風格（`[深色模式色, 淺色模式色]`；深色模式取 [0]，故 [0] 要夠亮/粉）。
+  **日本線通用種別正規色（跨系統統一，請沿用）**：普通/各駅停車 `["#B0B0B0","#969696"]`（灰）、準急系 `["#86D98A","#2E7D32"]`（綠）、急行 `["#FF9472","#D84315"]`（橙）、快速急行/通勤快急 `["#FFCA5F","#EF6C00"]`（金）、区間急行 `["#8FC9FF","#1565C0"]`（淺藍）、特急 `["#FF7B7B","#C62828"]`（紅）、快速特急 `["#FF6E9C","#AD1457"]`（桃紅）、ライナー `["#B98EFF","#6A1B9A"]`（紫）、快速 `["#5BD1C4","#00796B"]`（青綠）。**具名特急/観光/Shinkansen 列車（サザン、こうや、ひのとり、しまかぜ、のぞみ…）維持各自獨立色，不套通用色。**
 - `view_presets`：每條可選路線一個 preset。幹線環狀用 `CIRCULAR`，支線用 `LINEAR`。`button_color` 從既有調色盤挑。
 - `calendar_type` / `data_fetch_strategy` / `timezone_offset` 依該系統營運日與時區設定。
 - 在 `data/global.json` 對應國家下新增 `{id, chinese_name, is_active:true}`。

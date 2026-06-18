@@ -49,6 +49,11 @@
                     "id": "Keihan",
                     "chinese_name": "京阪電氣鐵道",
                     "is_active": true
+                },
+                {
+                    "id": "Eizan",
+                    "chinese_name": "叡山電鐵",
+                    "is_active": true
                 }
             ]
         }

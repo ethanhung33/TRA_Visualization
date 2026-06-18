@@ -1,0 +1,39 @@
+{
+  "system_id": "Eizan",
+  "system_name": "叡山電鉄",
+
+  "data_fetch_strategy": "WEEKEND_FILE",
+
+  "calendar_type": "WEEKEND_SELECT",
+
+  "time_stretch_ratio": 0.4,
+
+  "show_train_id": false,
+
+  "timezone_offset": 9,
+
+  "view_presets": {
+    "main": {
+      "name": "叡山本線 (出町柳-八瀬比叡山口)",
+      "lines": ["eizan_main"],
+      "view_type": "LINEAR",
+      "button_color": ["#4CAF50", "#2E7D32"]
+    },
+    "kurama": {
+      "name": "鞍馬線 (出町柳-鞍馬)",
+      "lines": [
+        {"id": "eizan_main", "start": "出町柳", "end": "宝ヶ池"},
+        "kurama_line"
+      ],
+      "view_type": "LINEAR",
+      "button_color": ["#E91E63", "#C2185B"]
+    }
+  },
+
+  "train_color": {
+    "快速": ["#5BD1C4", "#00796B"],
+    "観光列車きらら": ["#FFB74D", "#EF6C00"],
+    "きらら": ["#FFB74D", "#EF6C00"],
+    "普通": ["#B0B0B0", "#969696"]
+  }
+}
