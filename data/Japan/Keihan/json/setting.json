@@ -32,7 +32,6 @@
     "katano": {
       "name": "交野線 (枚方市-私市)",
       "lines": [
-        {"id": "keihan_main", "start": "淀屋橋", "end": "枚方市"},
         "katano_line"
       ],
       "view_type": "LINEAR",
@@ -41,7 +40,6 @@
     "uji": {
       "name": "宇治線 (中書島-宇治)",
       "lines": [
-        {"id": "keihan_main", "start": "三条", "end": "中書島"},
         "uji_line"
       ],
       "view_type": "LINEAR",
