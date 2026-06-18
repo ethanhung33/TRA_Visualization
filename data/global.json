@@ -44,6 +44,11 @@
                     "id": "JR_West",
                     "chinese_name": "西日本旅客鉄道",
                     "is_active": true
+                },
+                {
+                    "id": "Keihan",
+                    "chinese_name": "京阪電氣鐵道",
+                    "is_active": true
                 }
             ]
         }

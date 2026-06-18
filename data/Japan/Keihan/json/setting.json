@@ -1,0 +1,84 @@
+{
+  "system_id": "Keihan",
+  "system_name": "京阪電気鉄道",
+
+  "data_fetch_strategy": "WEEKEND_FILE",
+
+  "calendar_type": "WEEKEND_SELECT",
+
+  "time_stretch_ratio": 0.2,
+
+  "show_train_id": false,
+
+  "timezone_offset": 9,
+
+  "view_presets": {
+    "main_line": {
+      "name": "京阪本線・鴨東線 (淀屋橋-出町柳)",
+      "lines": ["keihan_main", "oto_line"],
+      "view_type": "LINEAR",
+      "button_color": ["#4CAF50", "#2E7D32"]
+    },
+    "nakanoshima": {
+      "name": "中之島線 (中之島-天満橋-出町柳)",
+      "lines": [
+        "nakanoshima_line",
+        {"id": "keihan_main", "start": "天満橋", "end": "三条"},
+        "oto_line"
+      ],
+      "view_type": "LINEAR",
+      "button_color": ["#2196F3", "#1565C0"]
+    },
+    "katano": {
+      "name": "交野線 (枚方市-私市)",
+      "lines": [
+        {"id": "keihan_main", "start": "淀屋橋", "end": "枚方市"},
+        "katano_line"
+      ],
+      "view_type": "LINEAR",
+      "button_color": ["#E91E63", "#C2185B"]
+    },
+    "uji": {
+      "name": "宇治線 (中書島-宇治)",
+      "lines": [
+        {"id": "keihan_main", "start": "三条", "end": "中書島"},
+        "uji_line"
+      ],
+      "view_type": "LINEAR",
+      "button_color": ["#FF9800", "#F57C00"]
+    },
+    "keishin": {
+      "name": "京津線 (御陵-びわ湖浜大津)",
+      "lines": ["keishin_line"],
+      "view_type": "LINEAR",
+      "button_color": ["#9C27B0", "#7B1FA2"]
+    },
+    "ishiyama": {
+      "name": "石山坂本線 (石山寺-坂本比叡山口)",
+      "lines": ["ishiyama_line"],
+      "view_type": "LINEAR",
+      "button_color": ["#009688", "#00796B"]
+    },
+    "cable": {
+      "name": "鋼索線 (男山ケーブル)",
+      "lines": ["cable_line"],
+      "view_type": "LINEAR",
+      "button_color": ["#795548", "#4E342E"]
+    }
+  },
+
+  "train_color": {
+    "快速特急": ["#FF6E9C", "#AD1457"],
+    "特急": ["#FF7B7B", "#C62828"],
+    "ライナー": ["#B98EFF", "#6A1B9A"],
+    "快速急行": ["#FFCA5F", "#EF6C00"],
+    "通勤快急": ["#FFB066", "#E65100"],
+    "急行": ["#FF9472", "#D84315"],
+    "深夜急行": ["#FF9472", "#D84315"],
+    "区間急行": ["#B5DE82", "#558B2F"],
+    "準急": ["#86D98A", "#2E7D32"],
+    "通勤準急": ["#C3E8A0", "#689F38"],
+    "普通": ["#8FC9FF", "#1565C0"],
+    "ケーブルカー": ["#C7B3A8", "#5D4037"]
+  }
+}

@@ -1,0 +1,9 @@
+# Claude 自動化暫存截圖（debug 用，不需版控）
+shots/
+
+# 爬蟲執行日誌（暫存，不需版控）
+**/scrape*.log
+
+# Python
+__pycache__/
+*.pyc
