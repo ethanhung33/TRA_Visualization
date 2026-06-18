@@ -306,10 +306,10 @@
         "button_color": ["#9E9E9E", "#616161"]
     },
     "setoohashi": {
-        "name": "瀬戸大橋線 (児島-坂出)",
+        "name": "瀬戸大橋線 (岡山-茶屋町-児島)",
         "lines": [
             {"id": "uno_line", "start": "岡山", "end": "茶屋町"},
-            "setoohashi_line"
+            "honshi_bisan_line"
         ],
         "view_type": "LINEAR",
         "button_color": ["#607D8B", "#37474F"]
