@@ -108,8 +108,10 @@ def compile_train(raw, STATION_INFO):
     return compiled
 
 
-def _make_other_seg(stops):
-    """連続する外運営者停車リストから is_other segment を生成する。"""
+def _make_other_seg(stops, STATION_INFO=None):
+    """連続する外運営者停車リストから is_other segment を生成する。
+    境界站（阪急拓樸内の站）は名字ではなく阪急 ID で保存し、
+    前端的 dedup が正常に動くようにする。"""
     n = len(stops)
     if n < 2:
         return None
@@ -120,7 +122,13 @@ def _make_other_seg(stops):
         seg_id, system_name = "kobe_kosoku", "神戸高速鉄道"
     else:
         seg_id, system_name = "other_through", "直通区間"
-    s = [st["name"] for st in stops]
+
+    def _sid(st):
+        if STATION_INFO and st["name"] in STATION_INFO:
+            return STATION_INFO[st["name"]]["id"]
+        return st["name"]
+
+    s = [_sid(st) for st in stops]
     t = [v for st in stops for v in (st["arr"], st["dep"])]
     v = [0] + [1] * (n - 2) + [3]
     return {"id": seg_id, "s": s, "t": t, "v": v,
@@ -137,10 +145,10 @@ def process_train(raw, STATION_INFO):
         return []
     last = next((i for i in range(len(stops) - 1, -1, -1) if stops[i]["name"] in STATION_INFO), first)
 
-    # 地鐵前綴：stops[0..first]（含天六作為交接站）
-    prefix_seg = _make_other_seg(stops[:first + 1]) if first > 0 else None
-    # 地鐵後綴：stops[last..]（含天六作為交接站）
-    suffix_seg = _make_other_seg(stops[last:]) if last < len(stops) - 1 else None
+    # 地鐵前綴：stops[0..first]（含交接站，用阪急 ID 保存）
+    prefix_seg = _make_other_seg(stops[:first + 1], STATION_INFO) if first > 0 else None
+    # 地鐵後綴：stops[last..]（含交接站，用阪急 ID 保存）
+    suffix_seg = _make_other_seg(stops[last:], STATION_INFO) if last < len(stops) - 1 else None
 
     hankyu_raw = {"code": raw["code"], "type": raw["type"],
                   "stops": stops[first:last + 1]}
