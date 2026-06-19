@@ -23,6 +23,13 @@ except Exception:
 
 JSON_DIR = Path(__file__).parent.parent / "json"
 
+# 外運営者の駅セット（阪急ネットワーク外）
+_METRO_SAKAISUJI = {
+    "扇町", "南森町", "北浜", "堺筋本町", "長堀橋",
+    "日本橋", "恵美須町", "動物園前", "天下茶屋",
+}
+_KOBE_KOSOKU = {"花隈", "高速神戸", "新開地"}
+
 
 def load_station_info():
     """從 topology.json 建 name → {id, segments:[...], km_map:{seg:km}}。"""
@@ -101,6 +108,49 @@ def compile_train(raw, STATION_INFO):
     return compiled
 
 
+def _make_other_seg(stops):
+    """連続する外運営者停車リストから is_other segment を生成する。"""
+    n = len(stops)
+    if n < 2:
+        return None
+    names = {st["name"] for st in stops}
+    if names & _METRO_SAKAISUJI:
+        seg_id, system_name = "osaka_metro_sakaisuji", "大阪メトロ堺筋線"
+    elif names & _KOBE_KOSOKU:
+        seg_id, system_name = "kobe_kosoku", "神戸高速鉄道"
+    else:
+        seg_id, system_name = "other_through", "直通区間"
+    s = [st["name"] for st in stops]
+    t = [v for st in stops for v in (st["arr"], st["dep"])]
+    v = [0] + [1] * (n - 2) + [3]
+    return {"id": seg_id, "s": s, "t": t, "v": v,
+            "is_other": True, "system_name": system_name}
+
+
+def process_train(raw, STATION_INFO):
+    """大阪メトロ区間を is_other として分離し、阪急区間を compile_train に渡す。"""
+    stops = raw["stops"]
+
+    # 阪急内の最初・最後の駅インデックス
+    first = next((i for i, s in enumerate(stops) if s["name"] in STATION_INFO), None)
+    if first is None:
+        return []
+    last = next((i for i in range(len(stops) - 1, -1, -1) if stops[i]["name"] in STATION_INFO), first)
+
+    # 地鐵前綴：stops[0..first]（含天六作為交接站）
+    prefix_seg = _make_other_seg(stops[:first + 1]) if first > 0 else None
+    # 地鐵後綴：stops[last..]（含天六作為交接站）
+    suffix_seg = _make_other_seg(stops[last:]) if last < len(stops) - 1 else None
+
+    hankyu_raw = {"code": raw["code"], "type": raw["type"],
+                  "stops": stops[first:last + 1]}
+    compiled = compile_train(hankyu_raw, STATION_INFO)
+    if not compiled:
+        return []
+
+    return ([prefix_seg] if prefix_seg else []) + compiled + ([suffix_seg] if suffix_seg else [])
+
+
 def convert_file(raw_name, out_name, STATION_INFO):
     raw_path = JSON_DIR / raw_name
     if not raw_path.exists():
@@ -111,7 +161,7 @@ def convert_file(raw_name, out_name, STATION_INFO):
 
     trains, skipped = [], 0
     for raw in raw_list:
-        segs = compile_train(raw, STATION_INFO)
+        segs = process_train(raw, STATION_INFO)
         if segs:
             trains.append({"no": raw["code"], "type": raw["type"], "segments": segs})
         else:
