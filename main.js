@@ -2785,10 +2785,13 @@ if (canvasWrapperElement) {
             // 🌟 核心：在這裡抓取高畫質！這時候的物理像素絕對是 100% 完美的！
             initCanvas('diaCanvas', 'canvas-wrapper');
 
-            // 視窗大小改變時重新計算 fit scale，避免縮放後殘留在舊的 scale
-            if (typeof autoFitScale === 'function' && loopKm > 0) autoFitScale();
-
-            // 強制校正鏡頭邊界並重繪
+            // 🌟 resize 一律不重新 autoFitScale。
+            // 開關底部面板/側欄、甚至手機網址列伸縮，都只是改變容器大小，不該重新適配比例：
+            //   舊行為會把 scaleX 縮小 → 大型路線(JR西日本)整條時間軸縮到比螢幕窄
+            //   → clampCamera 判定內容比螢幕窄 → 強制 camera.x 貼最左 → 運行圖跳到 0:00、且縮小。
+            // （手機網址列會改變 window.innerHeight，所以「視窗有沒有變」無法可靠分辨面板開關，
+            //   故乾脆完全不在 resize 重新 fit。初次載入 init 與切換路線 handleRouteSwitch 會各自做 fit。）
+            // 保留使用者目前的 scaleX/scaleY 與鏡頭位置，只重新校正邊界並重繪。
             if (typeof clampCamera === 'function') clampCamera();
             if (typeof redrawAll === 'function') redrawAll();
         }, 150); 
