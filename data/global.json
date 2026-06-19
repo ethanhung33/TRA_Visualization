@@ -59,6 +59,11 @@
                     "id": "Tango",
                     "chinese_name": "京都丹後鐵道",
                     "is_active": true
+                },
+                {
+                    "id": "Hankyu",
+                    "chinese_name": "阪急電氣鐵道",
+                    "is_active": true
                 }
             ]
         }
