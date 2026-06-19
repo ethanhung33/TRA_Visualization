@@ -3711,7 +3711,17 @@ function getStationName(st_id) {
     }
 
     // 如果整本字典都翻遍了還是找不到，就退回原本的數字代碼
-    return st_id; 
+    return st_id;
+}
+
+// 判斷某個站 ID 是否存在於本系統拓樸中（僅 ID 查詢，不做名字比對）
+function stationExistsInTopology(stId) {
+    if (!topology || !topology.segments) return false;
+    for (let seg of topology.segments) {
+        if (!seg.stations) continue;
+        if (seg.stations.some(st => st.id === stId)) return true;
+    }
+    return false;
 }
 
 // ==========================================
@@ -4115,6 +4125,15 @@ function updateBottomPanel(train) {
                 <div class="ts-col-arr">${formatTimeDisplay(stop.arr)}</div>
                 <div class="ts-col-dep">${formatTimeDisplay(stop.dep)}</div>
             </div>`;
+    const _otherStopCard = (stop) => {
+        const stName = getStationName(stop.id);
+        const inTopo = stationExistsInTopology(stop.id);
+        return `<div class="train-stop-item${inTopo ? '' : ' other-op-stop'}"${inTopo ? ` onclick="window.triggerSelectStation('${stop.id}')"` : ''}>
+                <div class="ts-col-name">${stName}</div>
+                <div class="ts-col-arr">${formatTimeDisplay(stop.arr)}</div>
+                <div class="ts-col-dep">${formatTimeDisplay(stop.dep)}</div>
+            </div>`;
+    };
     const OTHER_COLOR = "#3E8EDB"; // 外運營商（JR西日本）主色
 
     let si = 0;
@@ -4128,15 +4147,22 @@ function updateBottomPanel(train) {
         if (stop.otherName) {
             let gName = stop.otherName, gPath = stop.otherPath, group = [];
             while (si < allStops.length && allStops[si].otherName === gName) {
-                if (allStops[si].id !== lastStationId) {
-                    group.push(allStops[si]);
-                    lastStationId = allStops[si].id;
+                const s = allStops[si];
+                if (s.id !== lastStationId) {
+                    if (stationExistsInTopology(s.id)) {
+                        // 本系統拓樸內的境界站（如 JR 上郡、阪急 天神橋筋六丁目）：
+                        // 不加入藍框，也不更新 lastStationId，
+                        // 讓後方的一般段正常渲染它。
+                    } else {
+                        group.push(s);
+                        lastStationId = s.id;
+                    }
                 }
                 si++;
             }
             if (group.length === 0) continue;
             if (stopCount > 0) stationsHtml += _arrow(OTHER_COLOR);
-            let inner = group.map((s, i) => (i > 0 ? _arrow(OTHER_COLOR) : '') + _stationCard(s)).join('');
+            let inner = group.map((s, i) => (i > 0 ? _arrow(OTHER_COLOR) : '') + _otherStopCard(s)).join('');
             let clickAttr = gPath ? `data-clickable="1" onclick="event.stopPropagation();window.switchToSystem('${gPath}')"` : '';
             let hint = gPath ? ` <span class="other-op-hint">↗&nbsp;運行圖</span>` : '';
             stationsHtml += `
