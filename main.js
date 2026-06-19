@@ -2768,6 +2768,7 @@ function setupBottomBarScrolling() {
 // 🌟 視窗與容器大小改變處理 (ResizeObserver 終極版)
 // ==========================================
 let resizeTimeout;
+let _lastWinW = 0, _lastWinH = 0;  // 記住視窗尺寸，用來分辨「面板/側欄開關」與「真的旋轉/網址列」
 const canvasWrapperElement = document.getElementById('canvas-wrapper');
 
 if (canvasWrapperElement) {
@@ -2785,8 +2786,16 @@ if (canvasWrapperElement) {
             // 🌟 核心：在這裡抓取高畫質！這時候的物理像素絕對是 100% 完美的！
             initCanvas('diaCanvas', 'canvas-wrapper');
 
-            // 視窗大小改變時重新計算 fit scale，避免縮放後殘留在舊的 scale
-            if (typeof autoFitScale === 'function' && loopKm > 0) autoFitScale();
+            // 🌟 只有「視窗尺寸真的改變」(裝置旋轉、瀏覽器視窗縮放、手機網址列伸縮) 才重新 fit。
+            // 開關底部面板/側欄只改變 canvas 容器、視窗沒變 → 一律保留使用者目前縮放，
+            // 運行圖完全不被縮放（面板只是覆蓋/讓出可視範圍，內容大小不變）。
+            // 另外即使視窗變了，只要使用者已手動縮放(scaleY≠fit)也保留，不打斷他的縮放。
+            const _winW = window.innerWidth, _winH = window.innerHeight;
+            const _windowChanged = (_winW !== _lastWinW || _winH !== _lastWinH);
+            _lastWinW = _winW; _lastWinH = _winH;
+            const _atFit = !CONFIG.scaleY_fit ||
+                Math.abs(CONFIG.scaleY - CONFIG.scaleY_fit) < CONFIG.scaleY_fit * 0.02;
+            if (_windowChanged && _atFit && typeof autoFitScale === 'function' && loopKm > 0) autoFitScale();
 
             // 強制校正鏡頭邊界並重繪
             if (typeof clampCamera === 'function') clampCamera();
