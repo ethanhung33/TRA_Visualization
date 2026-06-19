@@ -784,6 +784,12 @@ body.light-mode .search-item.search-item-active {
 .ts-col-arr, .ts-col-dep { font-size: 15px; line-height: 1.4; color: var(--panel-text-sub); }
 .station-arrow { display: flex; align-items: center; justify-content: center; margin: 0 12px; font-size: 20px; color: var(--panel-arrow); flex-shrink: 0; }
 
+/* --- 外運營商直通段標註框 (如 JR西日本) --- */
+.other-op-group { position: relative; display: inline-flex; align-items: center; gap: 0; border: 1.5px solid #3E8EDB; border-radius: 12px; padding: 16px 10px; margin: 10px 4px 2px; background: rgba(62,142,219,0.12); flex-shrink: 0; }
+.other-op-label { position: absolute; top: -12px; left: 14px; display: flex; align-items: center; gap: 6px; padding: 2px 12px; border-radius: 13px; background: #3E8EDB; color: #fff; font-size: 12px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+.other-op-label[data-clickable] { cursor: pointer; }
+.other-op-hint { opacity: .9; font-size: 11px; font-weight: 600; }
+
 /* --- 💻 電腦版：車站面板 (發車動態) --- */
 #bottom-scroll-container.is-station { flex-direction: column; align-items: flex-start; justify-content: center; padding: 0 10px; }
 .desktop-dir-col { display: flex; flex-direction: column; justify-content: center; height: 100%; padding: 0 10px 0 15px; border-right: 1px solid var(--btn-border); flex-shrink: 0; gap: 15px; }
@@ -947,6 +953,18 @@ body.light-mode .search-item.search-item-active {
     }
     /* 隱藏電腦版元素 */
     .station-arrow, .desktop-dir-col, .sb-desktop-layout { display: none !important; }
+
+    /* 外運營商直通段：手機改為整段直式子區塊（左側藍色標示 + 站列照常為表格列） */
+    .other-op-group {
+        display: flex !important; flex-direction: column !important; align-items: stretch !important;
+        width: 100% !important; border: none !important; border-left: 4px solid #3E8EDB !important;
+        border-radius: 0 !important; padding: 0 !important; margin: 0 !important;
+        background: rgba(62,142,219,0.10) !important;
+    }
+    .other-op-label {
+        position: static !important; align-self: flex-start !important;
+        margin: 10px 0 8px 10px !important;
+    }
     .board-group { flex-direction: column !important; margin-bottom: 0 !important; width: 100% !important; }
 
     /* --- 5. 統一卡片變成 Table Row (台鐵直立表格) --- */
