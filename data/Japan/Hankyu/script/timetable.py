@@ -5,12 +5,16 @@ timetable.py — 阪急電鐵 navitime 爬蟲（全 9 線）
 
 兩階段（比照 Keihan timetable.py）：
   階段一 掃描：對全線車站抓 timetable 頁，解析 <li.time-frame> 的 data-* 屬性，
-             依 data-date 篩出目標營運日，蒐集去重的 stopCode 與其種別。
-  階段二 下載：對每個 stopCode 抓 stops 頁，解析 <li.stops-list> 取各站 着/発 時刻。
+             一次蒐集「4 天池子」全部 stopCode（連同 data-date、data-name 種別）。
+  分桶   ：依各班 data-date 的星期幾分平日/土休，各取「班次最多的代表日」。
+  階段二 下載：對代表日的每個 stopCode 抓 stops 頁，解析 <li.stops-list> 取各站 着/発。
 原始結果存成 json/raw_weekday.json / raw_holiday.json（再由 convert_timetable.py 轉成本專案格式）。
 
-navitime 注意事項：
-  - 非 JS 的 HTML 不依 URL 的 date/updown 過濾，而是回傳一週的池子，每班車自帶 data-date。
+navitime 注意事項（實測確認）：
+  - timetable listing 永遠回傳「サーバ当日から約 4 日」のプール，URL 的 date 參數被無視。
+    → 不可用 URL/href 的日期字串篩；要讀每班 <li.time-frame> 的 data-date（真正運行日）分桶。
+  - 4 天窗口僅在「週三〜週日」執行時才同時含平日與土休 → 建議該區間執行（週一/二會缺週末）。
+  - 種別直接取 data-name 屬性（比解析連結文字可靠；平日含通勤特急/快速等尖峰專屬種別）。
   - stops 詳情頁無列車番号/種別 → no 用 stopCode、type 從 timetable listing 帶下來。
   - 商業服務：嚴格限速（每請求 sleep ≥1s）、低併發、僅個人用途、尊重 robots.txt。
 
@@ -142,34 +146,35 @@ def build_scan_targets():
     return targets
 
 
-def scan_station(node, scan_line, date_tuple):
-    """一駅の時刻表を上下両方向取得し {stopCode: (種別, code_lineId, ref_node)} を返す。
+def scan_station(node, scan_line):
+    """一駅の時刻表を上下両方向取得し {stopCode: (種別, code_lineId, ref_node, data_date)} を返す。
 
-    阪急 navitime の時刻表ページは Keihan 同様に約1週間分のプールを返す。
-    ただし data-date 属性ではなく、stops URL に日付が埋め込まれている：
-      /diagram/stops/{lineId}/{code}/?node=...&year=Y&month=M&day=D
-    → stops href に目標日付文字列が含まれるものだけを採用してフィルタリング。
+    阪急 navitime の時刻表ページは「サーバ当日から約4日分」のプールを固定で返し、
+    URL の date パラメータは無視される（実測確認済み）。各班車は <li.time-frame> の
+    data-date 属性に「その列車の運行日」を持つ → ここでは日付フィルタを掛けず全件収集し、
+    呼び出し側で data-date の曜日により平日/土休に振り分ける。
+    種別は data-name 属性から直接取得（リンクテキスト解析より確実）。
     上り下りは別ページのため updown=0/1 両方取得する。
     """
-    y, mth, d = date_tuple
-    target_date = f"year={y}&month={mth:02d}&day={d:02d}"
     found = {}
     for updown in [0, 1]:
         url = f"{BASE}/diagram/timetable?node={node}&lineId={scan_line}&updown={updown}"
         soup = get_soup(url)
         if not soup:
             continue
-        for a in soup.select("a[href*='/diagram/stops/']"):
-            href = a.get("href", "")
-            if target_date not in href:
-                continue  # 目標日以外の班次はスキップ
-            m = re.search(r"/diagram/stops/([^/]+)/([^/]+)/", href)
+        for li in soup.select("li.time-frame"):
+            a = li.select_one("a[href*='/diagram/stops/']")
+            if not a:
+                continue
+            m = re.search(r"/diagram/stops/([^/]+)/([^/]+)/", a.get("href", ""))
             if not m:
                 continue
             code_line, stop_code = m.group(1), m.group(2)
-            if stop_code not in found:
-                ttype = _parse_type(a.get_text(strip=True))
-                found[stop_code] = (ttype, code_line, node)
+            if stop_code in found:
+                continue
+            data_date = li.get("data-date", "")
+            ttype = li.get("data-name") or _parse_type(a.get_text(strip=True))
+            found[stop_code] = (ttype, code_line, node, data_date)
     return found
 
 
@@ -219,29 +224,20 @@ def fetch_stops(stop_code, ttype, code_line, ref_node, date_tuple):
     return {"code": stop_code, "type": ttype, "stops": stops}
 
 
-def run(target_date_str, date_tuple, out_name, max_workers=3):
-    print(f"\n🗓️  目標営業日 {target_date_str}（{date_tuple}）→ {out_name}", flush=True)
-    print("🗺️  掃描目標を構築中…", flush=True)
-    targets = build_scan_targets()
-    print(f"   {len(targets)} 駅を取得", flush=True)
+def _date_tuple(date_str):
+    y, m, d = date_str.split("-")
+    return (int(y), int(m), int(d))
 
-    print("🔍 [第一段階] 全駅の時刻表を掃描、当日列車を収集…", flush=True)
-    all_codes = {}
-    code_stations = defaultdict(set)
-    for i, (name, node, scan_line) in enumerate(targets):
-        codes = scan_station(node, scan_line, date_tuple)
-        for c, info in codes.items():
-            all_codes.setdefault(c, info)
-            code_stations[c].add(name)
-        print(f"   [{i+1}/{len(targets)}] {name}: +{len(codes)}（累計 {len(all_codes)}）", flush=True)
-    print(f"✅ {len(all_codes)} 個の stopCode を収集", flush=True)
 
-    print("⚡ [第二段階] 各列車の停車順序をダウンロード…", flush=True)
-    fetched = []
-    none_count = 0
+def _fetch_bucket(codes, out_name, max_workers):
+    """指定 stopCode 群（各自の運行日付き）の stops をダウンロードし out_name に書き出す。
+    codes: {stop_code: (type, code_line, node, data_date)}"""
+    print(f"⚡ [第二段階] {out_name}：{len(codes)} 班の停車順序をダウンロード…", flush=True)
+    fetched, none_count = [], 0
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
-        futs = {ex.submit(fetch_stops, c, info[0], info[1], info[2], date_tuple): c
-                for c, info in all_codes.items()}
+        futs = {ex.submit(fetch_stops, c, info[0], info[1], info[2],
+                          _date_tuple(info[3])): c
+                for c, info in codes.items()}
         done = 0
         for f in as_completed(futs):
             done += 1
@@ -271,25 +267,76 @@ def run(target_date_str, date_tuple, out_name, max_workers=3):
     print(f"🎉 {len(fetched)} 班取得（失敗 {none_count}）、去重後 {len(results)} 班 → {out}", flush=True)
 
 
+def _pick_representative(all_codes, want_weekend):
+    """data-date の曜日で振り分け、目標カテゴリ（平日 or 土休）の中で
+    最も班次の多い日付を代表日として選び、その日付の codes のみ返す。"""
+    import datetime
+    by_date = defaultdict(dict)
+    for c, info in all_codes.items():
+        dd = info[3]
+        if not dd:
+            continue
+        by_date[dd][c] = info
+    cand = {}
+    for dd, codes in by_date.items():
+        try:
+            y, m, d = map(int, dd.split("-"))
+            is_weekend = datetime.date(y, m, d).weekday() >= 5
+        except Exception:
+            continue
+        if is_weekend == want_weekend:
+            cand[dd] = codes
+    if not cand:
+        return None, {}
+    best = max(cand.items(), key=lambda kv: len(kv[1]))
+    return best  # (date_str, codes)
+
+
+def run(max_workers=3, only=None):
+    print("🗺️  掃描目標を構築中…", flush=True)
+    targets = build_scan_targets()
+    print(f"   {len(targets)} 駅を取得", flush=True)
+
+    print("🔍 [第一段階] 全駅の時刻表を掃描（4日プール全件、data-date 付き）…", flush=True)
+    all_codes = {}
+    for i, (name, node, scan_line) in enumerate(targets):
+        codes = scan_station(node, scan_line)
+        for c, info in codes.items():
+            all_codes.setdefault(c, info)
+        print(f"   [{i+1}/{len(targets)}] {name}: +{len(codes)}（累計 {len(all_codes)}）", flush=True)
+
+    # プール内の日付分布を表示
+    from collections import Counter
+    dist = Counter(info[3] for info in all_codes.values())
+    print(f"✅ {len(all_codes)} 個の stopCode を収集。日付分布:", flush=True)
+    for dd in sorted(dist):
+        print(f"     {dd}: {dist[dd]}", flush=True)
+
+    if only != "holiday":
+        wd_date, wd_codes = _pick_representative(all_codes, want_weekend=False)
+        if wd_codes:
+            print(f"🗓️  平日代表日 = {wd_date}（{len(wd_codes)} 班）", flush=True)
+            _fetch_bucket(wd_codes, "raw_weekday.json", max_workers)
+        else:
+            print("⚠️  プール内に平日が見つかりません（水〜日に実行してください）", flush=True)
+    if only != "weekday":
+        hd_date, hd_codes = _pick_representative(all_codes, want_weekend=True)
+        if hd_codes:
+            print(f"🗓️  土休代表日 = {hd_date}（{len(hd_codes)} 班）", flush=True)
+            _fetch_bucket(hd_codes, "raw_holiday.json", max_workers)
+        else:
+            print("⚠️  プール内に土休日が見つかりません（水〜日に実行してください）", flush=True)
+
+
 def main():
     global SLEEP
     ap = argparse.ArgumentParser()
-    ap.add_argument("--weekday", default="2026-06-17", help="平日代表日 YYYY-MM-DD（預設週三）")
-    ap.add_argument("--holiday", default="2026-06-21", help="土休代表日 YYYY-MM-DD（預設週六）")
     ap.add_argument("--only", choices=["weekday", "holiday"], help="只跑其中一種")
     ap.add_argument("--workers", type=int, default=3)
     ap.add_argument("--sleep", type=float, default=SLEEP)
     args = ap.parse_args()
     SLEEP = args.sleep
-
-    def to_tuple(s):
-        y, m, d = s.split("-")
-        return (int(y), int(m), int(d))
-
-    if args.only != "holiday":
-        run(args.weekday, to_tuple(args.weekday), "raw_weekday.json", max_workers=args.workers)
-    if args.only != "weekday":
-        run(args.holiday, to_tuple(args.holiday), "raw_holiday.json", max_workers=args.workers)
+    run(max_workers=args.workers, only=args.only)
 
 
 if __name__ == "__main__":

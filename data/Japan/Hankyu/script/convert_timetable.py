@@ -23,12 +23,25 @@ except Exception:
 
 JSON_DIR = Path(__file__).parent.parent / "json"
 
-# 外運営者の駅セット（阪急ネットワーク外）
+# 外運営者の駅セット（阪急ネットワーク外）と、その is_other segment 定義
+# 各外運営者は system_path を持ち、前端で該当システム未建置なら通知を出す。
 _METRO_SAKAISUJI = {
     "扇町", "南森町", "北浜", "堺筋本町", "長堀橋",
     "日本橋", "恵美須町", "動物園前", "天下茶屋",
 }
 _KOBE_KOSOKU = {"花隈", "高速神戸", "新開地"}
+# 能勢電鉄（宝塚本線 川西能勢口から直通する日生エクスプレス等、平日のみ）
+_NOSE = {
+    "絹延橋", "滝山", "鶯の森", "鼓滝", "多田", "平野", "一の鳥居",
+    "畦野", "山下", "笹部", "光風台", "ときわ台", "妙見口", "日生中央",
+}
+
+# (駅セット, seg_id, system_name, system_path) — 上から順に判定
+_OTHER_OPERATORS = [
+    (_METRO_SAKAISUJI, "osaka_metro_sakaisuji", "大阪メトロ堺筋線", "data/Japan/Osaka_Metro/"),
+    (_KOBE_KOSOKU,     "kobe_kosoku",           "神戸高速鉄道",     "data/Japan/Kobe_Kosoku/"),
+    (_NOSE,            "nose_line",             "能勢電鉄",         "data/Japan/Nose/"),
+]
 
 
 def load_station_info():
@@ -116,11 +129,15 @@ def _make_other_seg(stops, STATION_INFO=None):
     if n < 2:
         return None
     names = {st["name"] for st in stops}
-    if names & _METRO_SAKAISUJI:
-        seg_id, system_name = "osaka_metro_sakaisuji", "大阪メトロ堺筋線"
-    elif names & _KOBE_KOSOKU:
-        seg_id, system_name = "kobe_kosoku", "神戸高速鉄道"
-    else:
+    seg_id = system_name = system_path = None
+    for sta_set, sid, sname, spath in _OTHER_OPERATORS:
+        if names & sta_set:
+            seg_id, system_name, system_path = sid, sname, spath
+            break
+    if seg_id is None:
+        # 未知の外運営者：分類できなければ stderr に警告（静黙に丸めない）
+        unknown = names - (STATION_INFO.keys() if STATION_INFO else set())
+        print(f"⚠️  未分類の直通区間: {sorted(unknown)}", file=sys.stderr)
         seg_id, system_name = "other_through", "直通区間"
 
     def _sid(st):
@@ -131,8 +148,11 @@ def _make_other_seg(stops, STATION_INFO=None):
     s = [_sid(st) for st in stops]
     t = [v for st in stops for v in (st["arr"], st["dep"])]
     v = [0] + [1] * (n - 2) + [3]
-    return {"id": seg_id, "s": s, "t": t, "v": v,
-            "is_other": True, "system_name": system_name}
+    seg = {"id": seg_id, "s": s, "t": t, "v": v,
+           "is_other": True, "system_name": system_name}
+    if system_path:
+        seg["system_path"] = system_path
+    return seg
 
 
 def process_train(raw, STATION_INFO):

@@ -50,23 +50,32 @@
 | 箕面線 | `00000657` |
 | 嵐山線 | `00000658` |
 
-**執行**:
+**執行**（爬蟲須在「週三〜週日」執行，詳見下方平日/土休分離）:
 ```
 py data/Japan/Hankyu/script/build_topology.py
-py data/Japan/Hankyu/script/timetable.py --workers 8
+py data/Japan/Hankyu/script/timetable.py --workers 6
 py data/Japan/Hankyu/script/convert_timetable.py
 py tools/validate_system.py data/Japan/Hankyu --timetable-sample 0
 ```
 
 ## navitime 特記事項
 
+- **平日/土休の分離（重要・踩過坑）**：navitime の timetable listing は「サーバ当日から約 4 日」の
+  プールを固定で返し、URL の date パラメータは無視される。よって URL/href の日付文字列で
+  営業日を絞るのは不可。各班 `<li.time-frame>` の **`data-date`（実運行日）の曜日**で平日/土休に
+  振り分ける（`timetable.py` が一度の掃描で全プールを収集 → 曜日で分桶 → 各カテゴリの
+  「最多班次の代表日」を採用）。4 日窗口は **水〜日に実行した時のみ**平日と土休を同時に含む
+  （月・火は週末を欠く）。種別は `data-name` 属性から直接取得（平日のみの通勤特急・通勤急行・
+  快速を確実に捕捉。以前は holiday データを両方に書いてしまうバグがあった）。
 - **神戸・宝塚・京都 共用区間**（梅田〜十三）：同一 node が三線の stationList に出現するが、
   `seen_nodes` 去重により神戸本線側で一度だけ掃描。十三以降の専用駅で各線の全列車を捕捉できるため問題なし。
   拓樸上は `umeda_juso` という独立 segment として切り出し、三線 view_preset が `"lines":["umeda_juso","..."]` で共有。
-- **千里線/京都線 大阪メトロ直通**：天神橋筋六丁目を越えて堺筋線（天下茶屋方面）に直通する列車あり。
-  convert_timetable.py で `_METRO_SAKAISUJI` セットを使って prefix/suffix を `is_other` segment（osaka_metro_sakaisuji）に分離。
-- **神戸線 神戸高速鉄道直通（直通特急）**：神戸三宮を越えて花隈・高速神戸・新開地へ直通する列車あり。
-  `_KOBE_KOSOKU` セットで後綴を `is_other` segment（kobe_kosoku）に分離。
+- **外運営者直通（is_other）**：`convert_timetable.py` の `_OTHER_OPERATORS` テーブルで判定。
+  各々 `system_path` を持ち、前端で該当システム未建置なら「🚧 尚未建置」通知が出る。境界站
+  （阪急拓樸内の交接駅、例：天神橋筋六丁目・川西能勢口）は **站名ではなく阪急 id** で保存する。
+  - **千里線/京都線 → 大阪メトロ堺筋線**（天神橋筋六丁目→天下茶屋方面）: `osaka_metro_sakaisuji`
+  - **神戸線 → 神戸高速鉄道**（神戸三宮→新開地、直通特急）: `kobe_kosoku`
+  - **宝塚線 → 能勢電鉄**（川西能勢口→日生中央、日生エクスプレス、**平日のみ**）: `nose_line`
 - **今津線（北南分断）**：西宮北口で南北に分かれ、1984 年以降直通なし。
   今津線専用駅（宝塚南口・阪神国道 等）を掃描することで南北双方の列車を捕捉。
 
