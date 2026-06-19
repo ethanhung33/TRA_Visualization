@@ -577,6 +577,16 @@ body:not(.light-mode) .flatpickr-calendar.arrowBottom:after {
     align-items: center;
 }
 
+/* 營運日附註（觀光線公休等），顯示於月曆下方 */
+.calendar-note {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #9aa0a6;
+    opacity: 0.9;
+}
+body.light-mode .calendar-note { color: #5f6368; }
+
 .weekend-btn {
     background-color: transparent;
     color: #aaaaaa;

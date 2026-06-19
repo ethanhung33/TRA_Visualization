@@ -1,0 +1,31 @@
+{
+  "operator_id": "Sagano",
+  "segments": [
+    {
+      "id": "sagano_line",
+      "name": "嵯峨野観光線",
+      "stations": [
+        {
+          "id": "SG01",
+          "name": "トロッコ嵯峨",
+          "km": 0.0
+        },
+        {
+          "id": "SG02",
+          "name": "トロッコ嵐山",
+          "km": 1.0
+        },
+        {
+          "id": "SG03",
+          "name": "トロッコ保津峡",
+          "km": 3.4
+        },
+        {
+          "id": "SG04",
+          "name": "トロッコ亀岡",
+          "km": 7.3
+        }
+      ]
+    }
+  ]
+}

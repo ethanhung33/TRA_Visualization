@@ -1,0 +1,27 @@
+{
+  "system_id": "Sagano",
+  "system_name": "嵯峨野観光鉄道",
+
+  "data_fetch_strategy": "SINGLE_FILE",
+  "calendar_type": "WEEKDAY_BITMAP",
+  "calendar_note": "每週三公休、冬季（12/30〜2月底）全線停駛。假日與旅遊旺季的週三仍行駛（本圖簡化未反映）。",
+
+  "time_stretch_ratio": 0.2,
+
+  "show_train_id": false,
+
+  "timezone_offset": 9,
+
+  "view_presets": {
+    "sagano": {
+      "name": "嵯峨野観光線 (トロッコ嵯峨-トロッコ亀岡)",
+      "lines": ["sagano_line"],
+      "view_type": "LINEAR",
+      "button_color": ["#FF8A65", "#BF360C"]
+    }
+  },
+
+  "train_color": {
+    "トロッコ": ["#FF8A65", "#BF360C"]
+  }
+}
