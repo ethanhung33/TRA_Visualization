@@ -5556,10 +5556,16 @@ async function loadTimetableData(dateOrType) {
         // ------------------------------------------
         // 0. 根據策略，決定「今天」與「昨天」的檔案路徑
         // ------------------------------------------
-        if (settings.data_fetch_strategy === "DAILY_FILE") {
+        if (settings.data_fetch_strategy === "SINGLE_FILE") {
+            // 🚃 情境 4 (觀光單一班表，如嵐山小火車)：全年共用一份 timetable_all.json
+            // 由 available_dates.json 限定可選營運日（公休日於月曆中反灰）。
+            targetDateStr = dateOrType;
+            todayFileUrl = `${dirc_path}timetable/timetable_all.json`;
+            yestFileUrl = todayFileUrl; // 同一份；無跨夜車故殘影自然為空
+        } else if (settings.data_fetch_strategy === "DAILY_FILE") {
             // 🚄 情境 2 (台鐵/高鐵)：每日獨立檔案
             targetDateStr = dateOrType;
-            let formattedDate = dateOrType.replace(/-/g, ''); 
+            let formattedDate = dateOrType.replace(/-/g, '');
             todayFileUrl = `${dirc_path}timetable/timetable_${formattedDate}.json`;
 
             let yestObj = new Date(dateOrType);
@@ -6087,8 +6093,9 @@ async function init(systemPath) {
                     }
                 };
 
-                // 🌟 3. 只有「每日獨立檔案 (台鐵/高鐵)」才需要去抓可選日期名單！
-                if (settings.data_fetch_strategy === "DAILY_FILE") {
+                // 🌟 3. 「每日獨立檔案 (台鐵/高鐵)」與「單一班表 (觀光線)」都需要可選日期名單！
+                if (settings.data_fetch_strategy === "DAILY_FILE" ||
+                    settings.data_fetch_strategy === "SINGLE_FILE") {
                     try {
                         const dateRes = await fetch(dirc_path + 'available_dates.json?t=' + Date.now());
                         if (dateRes.ok) {
@@ -6115,17 +6122,34 @@ async function init(systemPath) {
                 flatpickr(dateInput, flatpickrConfig);
             }
 
+            // 🌟 通用營運日附註（如觀光線公休）：有 settings.calendar_note 才顯示
+            let noteEl = document.getElementById('calendarNote');
+            if (settings.calendar_note) {
+                if (!noteEl) {
+                    noteEl = document.createElement('div');
+                    noteEl.id = 'calendarNote';
+                    noteEl.className = 'calendar-note';
+                    dateInput.parentNode.insertBefore(noteEl, dateInput.nextSibling);
+                }
+                noteEl.textContent = `ℹ️ ${settings.calendar_note}`;
+                noteEl.style.display = '';
+            } else if (noteEl) {
+                noteEl.style.display = 'none';
+            }
+
             // 啟動時載入選定的日期
             await loadTimetableData(currentDate);
 
         } else if (settings.calendar_type === "WEEKEND_SELECT") {
             // 🔘 情境 1 (南海、近鐵等私鐵)：使用平假日切換按鈕
-            
-            // 隱藏月曆
+
+            // 隱藏月曆與營運日附註
             if (dateInput) {
                 dateInput.style.display = 'none';
                 if (dateInput._flatpickr) dateInput._flatpickr.destroy();
             }
+            let noteEl = document.getElementById('calendarNote');
+            if (noteEl) noteEl.style.display = 'none';
 
             // 建立平假日切換按鈕 UI
             if (!btnContainer) {
@@ -6214,10 +6238,32 @@ async function init(systemPath) {
         camera.y = -50;   // 把畫面推到最頂端
 
         let currentMinutes = getCurrentSystemMinutes();
-        
+
         // 鐵道標準跨夜處理：如果是凌晨 00:00 ~ 01:59，視為圖表上的 24:00 ~ 25:59
         if (currentMinutes < 120) {
             currentMinutes += 1440;
+        }
+
+        // 🌟 通用：若「現在時刻」落在今日班表的時間範圍外（如觀光線只在白天行駛、
+        //    深夜開啟時 now 落在無車時段），改以班表時間中央為視窗中心，避免開圖一片空白。
+        {
+            let spanMin = Infinity, spanMax = -Infinity;
+            for (const tr of timetable) {
+                if (tr && tr._isYesterday) continue;
+                for (const seg of (tr.segments || [])) {
+                    for (const tv of seg.t) {
+                        if (typeof tv === 'number' && !isNaN(tv)) {
+                            if (tv < spanMin) spanMin = tv;
+                            if (tv > spanMax) spanMax = tv;
+                        }
+                    }
+                }
+            }
+            const SPAN_MARGIN = 30;
+            if (spanMax > spanMin &&
+                (currentMinutes < spanMin - SPAN_MARGIN || currentMinutes > spanMax + SPAN_MARGIN)) {
+                currentMinutes = Math.round((spanMin + spanMax) / 2);
+            }
         }
 
         // 算出現在時間在畫布上的真實 X 座標

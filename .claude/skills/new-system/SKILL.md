@@ -95,6 +95,8 @@ py tools/validate_system.py data/<國家>/<系統>
   **日本線通用種別正規色（跨系統統一，請沿用）**：普通/各駅停車 `["#B0B0B0","#969696"]`（灰）、準急系 `["#86D98A","#2E7D32"]`（綠）、急行 `["#FF9472","#D84315"]`（橙）、快速急行/通勤快急 `["#FFCA5F","#EF6C00"]`（金）、区間急行 `["#8FC9FF","#1565C0"]`（淺藍）、特急 `["#FF7B7B","#C62828"]`（紅）、快速特急 `["#FF6E9C","#AD1457"]`（桃紅）、ライナー `["#B98EFF","#6A1B9A"]`（紫）、快速 `["#5BD1C4","#00796B"]`（青綠）。**具名特急/観光/Shinkansen 列車（サザン、こうや、ひのとり、しまかぜ、のぞみ…）維持各自獨立色，不套通用色。**
 - `view_presets`：每條可選路線一個 preset。幹線環狀用 `CIRCULAR`，支線用 `LINEAR`。`button_color` 從既有調色盤挑。
 - `calendar_type` / `data_fetch_strategy` / `timezone_offset` 依該系統營運日與時區設定。
+  - **`data_fetch_strategy` 選項**：`DAILY_FILE`（逐日檔 `timetable_YYYYMMDD.json`，配 `available_dates.json` 月曆）、`WEEKEND_FILE`（平假日兩檔 `timetable_weekday/holiday.json`，配 `WEEKDAY_BITMAP` 自動推算或 `WEEKEND_SELECT` 手動切換）、`SINGLE_FILE`（**全年共用一份 `timetable_all.json`**，配 `WEEKDAY_BITMAP` 月曆 + `available_dates.json` 限定營運日）。
+  - **觀光線/季節性公休**（如嵐山小火車：每日同班表，但週三+冬季公休）→ 用 `SINGLE_FILE`：只產一份 `timetable_all.json`（不必造 365 份重複逐日檔），`available_date.py` 只列營運日 → 月曆自動把公休日反灰不可選。可加通用欄位 `calendar_note`（字串）在月曆下顯示公休說明。範本見 `data/Japan/Sagano/`。
 - 在 `data/global.json` 對應國家下新增 `{id, chinese_name, is_active:true}`。
 
 改完**再次驗證**（步驟 4 的指令），確保 view_presets 的 segment 引用、區間 start/end 站名都對得上。
@@ -110,6 +112,8 @@ py tools/screenshot.py --init data/<國家>/<系統>/ --out shots/<系統>.png -
 
 要看特定 view preset：`--click "<按鈕文字>"`。要跑互動：`--eval "<JS>"`。
 發現問題 → 回對應步驟修 → 重新驗證 + 截圖，直到畫面正確。
+
+> 開圖時鏡頭預設對準「現在時刻」；但若現在落在班表時間範圍外（如觀光線只跑白天、深夜截圖會一片空白），引擎會自動改以**班表時間中央**為視窗中心（通用，非特判）。故限定時段營運的線在任何時刻截圖都看得到車。
 
 ## 收尾
 - 寫 `data/<國家>/<系統>/CLAUDE.md`：記錄資料源、爬蟲流程、特殊邏輯（比照 TRA 那份）。
