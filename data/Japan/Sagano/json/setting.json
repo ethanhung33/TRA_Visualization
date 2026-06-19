@@ -4,7 +4,7 @@
 
   "data_fetch_strategy": "SINGLE_FILE",
   "calendar_type": "WEEKDAY_BITMAP",
-  "calendar_note": "毎週水曜運休・冬季（12/30〜2月末）全休。祝日・行楽期の水曜は運行（簡易表示のため未反映）。",
+  "calendar_note": "每週三公休、冬季（12/30〜2月底）全線停駛。假日與旅遊旺季的週三仍行駛（本圖簡化未反映）。",
 
   "time_stretch_ratio": 0.2,
 
