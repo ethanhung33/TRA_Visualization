@@ -2768,7 +2768,6 @@ function setupBottomBarScrolling() {
 // 🌟 視窗與容器大小改變處理 (ResizeObserver 終極版)
 // ==========================================
 let resizeTimeout;
-let _lastWinW = 0, _lastWinH = 0;  // 記住視窗尺寸，用來分辨「面板/側欄開關」與「真的旋轉/網址列」
 const canvasWrapperElement = document.getElementById('canvas-wrapper');
 
 if (canvasWrapperElement) {
@@ -2786,18 +2785,13 @@ if (canvasWrapperElement) {
             // 🌟 核心：在這裡抓取高畫質！這時候的物理像素絕對是 100% 完美的！
             initCanvas('diaCanvas', 'canvas-wrapper');
 
-            // 🌟 只有「視窗尺寸真的改變」(裝置旋轉、瀏覽器視窗縮放、手機網址列伸縮) 才重新 fit。
-            // 開關底部面板/側欄只改變 canvas 容器、視窗沒變 → 一律保留使用者目前縮放，
-            // 運行圖完全不被縮放（面板只是覆蓋/讓出可視範圍，內容大小不變）。
-            // 另外即使視窗變了，只要使用者已手動縮放(scaleY≠fit)也保留，不打斷他的縮放。
-            const _winW = window.innerWidth, _winH = window.innerHeight;
-            const _windowChanged = (_winW !== _lastWinW || _winH !== _lastWinH);
-            _lastWinW = _winW; _lastWinH = _winH;
-            const _atFit = !CONFIG.scaleY_fit ||
-                Math.abs(CONFIG.scaleY - CONFIG.scaleY_fit) < CONFIG.scaleY_fit * 0.02;
-            if (_windowChanged && _atFit && typeof autoFitScale === 'function' && loopKm > 0) autoFitScale();
-
-            // 強制校正鏡頭邊界並重繪
+            // 🌟 resize 一律不重新 autoFitScale。
+            // 開關底部面板/側欄、甚至手機網址列伸縮，都只是改變容器大小，不該重新適配比例：
+            //   舊行為會把 scaleX 縮小 → 大型路線(JR西日本)整條時間軸縮到比螢幕窄
+            //   → clampCamera 判定內容比螢幕窄 → 強制 camera.x 貼最左 → 運行圖跳到 0:00、且縮小。
+            // （手機網址列會改變 window.innerHeight，所以「視窗有沒有變」無法可靠分辨面板開關，
+            //   故乾脆完全不在 resize 重新 fit。初次載入 init 與切換路線 handleRouteSwitch 會各自做 fit。）
+            // 保留使用者目前的 scaleX/scaleY 與鏡頭位置，只重新校正邊界並重繪。
             if (typeof clampCamera === 'function') clampCamera();
             if (typeof redrawAll === 'function') redrawAll();
         }, 150); 
