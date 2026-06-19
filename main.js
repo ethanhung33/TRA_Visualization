@@ -4137,21 +4137,11 @@ function updateBottomPanel(train) {
             if (group.length === 0) continue;
             if (stopCount > 0) stationsHtml += _arrow(OTHER_COLOR);
             let inner = group.map((s, i) => (i > 0 ? _arrow(OTHER_COLOR) : '') + _stationCard(s)).join('');
-            let clickAttr = gPath ? `onclick="event.stopPropagation();window.switchToSystem('${gPath}')"` : '';
-            let labelCursor = gPath ? 'cursor:pointer;' : '';
-            let hint = gPath ? ` <span style="opacity:.9;font-size:11px;font-weight:600;">↗&nbsp;運行圖</span>` : '';
+            let clickAttr = gPath ? `data-clickable="1" onclick="event.stopPropagation();window.switchToSystem('${gPath}')"` : '';
+            let hint = gPath ? ` <span class="other-op-hint">↗&nbsp;運行圖</span>` : '';
             stationsHtml += `
-                <div style="position:relative; display:inline-flex; align-items:center; gap:0;
-                            border:1.5px solid ${OTHER_COLOR}; border-radius:12px;
-                            padding:16px 10px; margin:10px 4px 2px;
-                            background:${isDarkMode ? 'rgba(62,142,219,0.10)' : 'rgba(62,142,219,0.07)'};">
-                    <div ${clickAttr} title="點擊載入 ${gName} 運行圖"
-                         style="position:absolute; top:-12px; left:14px; display:flex; align-items:center; gap:6px;
-                                padding:2px 12px; border-radius:13px; background:${OTHER_COLOR}; color:#fff;
-                                font-size:12px; font-weight:800; white-space:nowrap; ${labelCursor}
-                                box-shadow:0 2px 6px rgba(0,0,0,.35);">
-                        🚆 ${gName}${hint}
-                    </div>
+                <div class="other-op-group">
+                    <div class="other-op-label" ${clickAttr} title="點擊載入 ${gName} 運行圖">🚆 ${gName}${hint}</div>
                     ${inner}
                 </div>`;
             stopCount += group.length;
