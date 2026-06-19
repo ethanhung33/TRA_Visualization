@@ -69,6 +69,11 @@
                     "id": "Sagano",
                     "chinese_name": "嵯峨野觀光鐵道（嵐山小火車）",
                     "is_active": true
+                },
+                {
+                    "id": "Keifuku",
+                    "chinese_name": "京福電氣鐵道（嵐電）",
+                    "is_active": true
                 }
             ]
         }

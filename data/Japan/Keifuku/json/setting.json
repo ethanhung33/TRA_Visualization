@@ -1,0 +1,32 @@
+{
+  "system_id": "Keifuku",
+  "system_name": "京福電気鉄道（嵐電）",
+
+  "data_fetch_strategy": "WEEKEND_FILE",
+  "calendar_type": "WEEKEND_SELECT",
+
+  "time_stretch_ratio": 0.2,
+
+  "show_train_id": false,
+
+  "timezone_offset": 9,
+
+  "view_presets": {
+    "arashiyama": {
+      "name": "嵐山本線 (四条大宮-嵐山)",
+      "lines": ["arashiyama_main"],
+      "view_type": "LINEAR",
+      "button_color": ["#B98EFF", "#6A1B9A"]
+    },
+    "kitano": {
+      "name": "北野線 (北野白梅町-帷子ノ辻)",
+      "lines": ["kitano_line"],
+      "view_type": "LINEAR",
+      "button_color": ["#9C7BD6", "#512DA8"]
+    }
+  },
+
+  "train_color": {
+    "普通": ["#B98EFF", "#6A1B9A"]
+  }
+}
