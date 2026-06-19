@@ -15,19 +15,19 @@
   "view_presets": {
     "kobe": {
       "name": "神戸本線 (大阪梅田-神戸三宮)",
-      "lines": ["kobe_main"],
+      "lines": ["umeda_juso", "kobe_main"],
       "view_type": "LINEAR",
       "button_color": ["#FF9472", "#D84315"]
     },
     "takarazuka": {
       "name": "宝塚本線 (大阪梅田-宝塚)",
-      "lines": ["takarazuka_main"],
+      "lines": ["umeda_juso", "takarazuka_main"],
       "view_type": "LINEAR",
       "button_color": ["#B98EFF", "#6A1B9A"]
     },
     "kyoto": {
       "name": "京都本線 (大阪梅田-京都河原町)",
-      "lines": ["kyoto_main"],
+      "lines": ["umeda_juso", "kyoto_main"],
       "view_type": "LINEAR",
       "button_color": ["#FF7B7B", "#C62828"]
     },
