@@ -98,7 +98,7 @@ py tools/validate_system.py data/<國家>/<系統>
 - `calendar_type` / `data_fetch_strategy` / `timezone_offset` 依該系統營運日與時區設定。
   - **`data_fetch_strategy` 選項**：`DAILY_FILE`（逐日檔 `timetable_YYYYMMDD.json`，配 `available_dates.json` 月曆）、`WEEKEND_FILE`（平假日兩檔 `timetable_weekday/holiday.json`，配 `WEEKDAY_BITMAP` 自動推算或 `WEEKEND_SELECT` 手動切換）、`SINGLE_FILE`（**全年共用一份 `timetable_all.json`**，配 `WEEKDAY_BITMAP` 月曆 + `available_dates.json` 限定營運日）。
   - **觀光線/季節性公休**（如嵐山小火車：每日同班表，但週三+冬季公休）→ 用 `SINGLE_FILE`：只產一份 `timetable_all.json`（不必造 365 份重複逐日檔），`available_date.py` 只列營運日 → 月曆自動把公休日反灰不可選。可加通用欄位 `calendar_note`（字串）在月曆下顯示公休說明。範本見 `data/Japan/Sagano/`。
-- 在 `data/global.json` 對應國家下新增 `{id, chinese_name, is_active:true}`。
+- 在 `data/global.json` 對應國家下新增 `{id, chinese_name, is_active:true}`。國家可扁平用 `systems:[...]`（如臺灣），或用可選的 `groups:[{id, chinese_name, systems:[...]}]` 分組顯示（如日本：新幹線 / 關西）→ 新系統放進對應 group 的 `systems`。分組純為首頁顯示,**不影響資料路徑**（仍是 `data/<國家>/<系統>/`）。
 
 改完**再次驗證**（步驟 4 的指令），確保 view_presets 的 segment 引用、區間 start/end 站名都對得上。
 
