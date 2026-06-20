@@ -1,0 +1,35 @@
+{
+  "system_id": "Sanyo",
+  "system_name": "山陽電気鉄道",
+
+  "data_fetch_strategy": "WEEKEND_FILE",
+  "calendar_type": "WEEKEND_SELECT",
+
+  "time_stretch_ratio": 0.2,
+
+  "show_train_id": false,
+
+  "timezone_offset": 9,
+
+  "view_presets": {
+    "main": {
+      "name": "本線 (西代-山陽姫路)",
+      "lines": ["main_line"],
+      "view_type": "LINEAR",
+      "button_color": ["#FF7B7B", "#C62828"]
+    },
+    "aboshi": {
+      "name": "網干線 (飾磨-山陽網干)",
+      "lines": ["aboshi_line"],
+      "view_type": "LINEAR",
+      "button_color": ["#5BD1C4", "#00796B"]
+    }
+  },
+
+  "train_color": {
+    "直通特急": ["#FF4D9E", "#AD1457"],
+    "特急":     ["#FF5252", "#C62828"],
+    "Ｓ特急":   ["#C77DFF", "#6A1B9A"],
+    "普通":     ["#B0B0B0", "#969696"]
+  }
+}
