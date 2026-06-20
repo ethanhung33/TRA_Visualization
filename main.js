@@ -5528,8 +5528,8 @@ window.switchToSystem = async function(systemPath) {
         const res = await fetch('data/global.json');
         const globalData = await res.json();
         
-        // 將系統清單攤平為一個陣列，方便查找
-        const allSystems = globalData.countries.flatMap(c => c.systems);
+        // 將系統清單攤平為一個陣列，方便查找（相容扁平 systems 與分組 groups）
+        const allSystems = globalData.countries.flatMap(flattenSystems);
         
         // 檢查目標路徑是否存在，且 is_active 為 true
         const target = allSystems.find(s => systemPath.includes(s.id));
@@ -5769,6 +5769,13 @@ async function loadTimetableData(dateOrType) {
     }
 }
 
+// 攤平一個國家的所有系統（相容扁平 country.systems 與分組 country.groups）
+function flattenSystems(country) {
+    if (Array.isArray(country.systems)) return country.systems;
+    if (Array.isArray(country.groups)) return country.groups.flatMap(g => g.systems || []);
+    return [];
+}
+
 // ==========================================
 // 🌟 產生首頁系統選單
 // ==========================================
@@ -5784,6 +5791,39 @@ async function loadSystemMenu() {
         // 字體等完了，資料也抓完了，這時才隱藏 Loading，顯示完美的字體首頁！
         document.getElementById('loading-overlay').classList.add('hidden');
 
+        // 單一系統按鈕（country.id 決定資料路徑；分組僅為顯示用，不影響路徑）
+        const makeSystemBtn = (countryId, sys) => {
+            const btn = document.createElement('button');
+            btn.className = 'pill-btn';
+            btn.id = `btn-${sys.id}`;   // 身分證 ID，供 document 監聽器抓取
+            if (sys.is_active) {
+                btn.innerText = sys.chinese_name;
+                btn.onclick = () => {
+                    const dynamicPath = `data/${countryId}/${sys.id}/`;
+                    const loader = document.getElementById('loading-overlay');
+                    if (loader) {
+                        loader.style.display = 'flex';
+                        loader.classList.remove('hidden');
+                    }
+                    document.getElementById('landing-page').style.display = 'none';
+                    document.getElementById('app').style.display = 'flex';
+                    init(dynamicPath);
+                };
+            } else {
+                btn.innerText = sys.chinese_name + " (建置中)";
+                btn.style.opacity = "0.4";
+                btn.style.cursor = "not-allowed";
+            }
+            container.appendChild(btn);
+        };
+
+        const groupTitle = (text) => {
+            const el = document.createElement('div');
+            el.style.cssText = "width: 100%; color: #BBBBBB; font-size: 14px; margin-top: 12px; margin-bottom: 6px; padding-left: 6px;";
+            el.innerText = `— ${text} —`;
+            container.appendChild(el);
+        };
+
         globalData.countries.forEach(country => {
             // 建立國家標題
             const countryTitle = document.createElement('div');
@@ -5791,39 +5831,15 @@ async function loadSystemMenu() {
             countryTitle.innerText = `📍 ${country.chinese_name}`;
             container.appendChild(countryTitle);
 
-            // 建立該國家的系統按鈕
-            country.systems.forEach(sys => {
-                const btn = document.createElement('button');
-                btn.className = 'pill-btn';
-                
-                // 🌟 核心修正：給按鈕一個身分證 ID，這樣 document 的監聽器才抓得到它
-                btn.id = `btn-${sys.id}`; 
-                
-                if (sys.is_active) {
-                    btn.innerText = sys.chinese_name;
-                    btn.onclick = () => {
-                        const dynamicPath = `data/${country.id}/${sys.id}/`;
-                        
-                        // 🌟 核心修正：進入前強制重置一次 Loader，確保它不會擋路
-                        const loader = document.getElementById('loading-overlay');
-                        if (loader) {
-                            loader.style.display = 'flex';
-                            loader.classList.remove('hidden');
-                        }
-
-                        document.getElementById('landing-page').style.display = 'none';
-                        document.getElementById('app').style.display = 'flex';
-                        init(dynamicPath);
-                    };
-                } else {
-                    // 未開放的系統：反灰且不能點
-                    btn.innerText = sys.chinese_name + " (建置中)";
-                    btn.style.opacity = "0.4";
-                    btn.style.cursor = "not-allowed";
-                }
-                
-                container.appendChild(btn);
-            });
+            // 分組（如日本：新幹線 / 關西）→ 每組一個小標題；無分組則直接列系統
+            if (Array.isArray(country.groups)) {
+                country.groups.forEach(group => {
+                    groupTitle(group.chinese_name);
+                    (group.systems || []).forEach(sys => makeSystemBtn(country.id, sys));
+                });
+            } else {
+                (country.systems || []).forEach(sys => makeSystemBtn(country.id, sys));
+            }
         });
     } catch (e) {
         console.error("無法載入系統清單", e);

@@ -19,66 +19,78 @@
         {
             "id": "Japan",
             "chinese_name": "日本",
-            "systems": [
+            "groups": [
                 {
-                    "id": "Nankai",
-                    "chinese_name": "南海電鐵",
-                    "is_active": true
+                    "id": "shinkansen",
+                    "chinese_name": "新幹線",
+                    "systems": [
+                        {
+                            "id": "Tokkaido_Sanyo_Kyushu_Shinkansen",
+                            "chinese_name": "東海道・山陽・九州・西九州新幹線",
+                            "is_active": true
+                        },
+                        {
+                            "id": "Tohoku_Hokkaido_Joetsu_Hokuriku_Shinkansen",
+                            "chinese_name": "東北・北海道・上越・北陸新幹線",
+                            "is_active": true
+                        }
+                    ]
                 },
                 {
-                    "id": "Kintetsu",
-                    "chinese_name": "近畿日本鐵道",
-                    "is_active": true
-                },
-                {
-                    "id": "Tokkaido_Sanyo_Kyushu_Shinkansen",
-                    "chinese_name": "東海道・山陽・九州・西九州新幹線",
-                    "is_active": true
-                },
-                {
-                    "id": "Tohoku_Hokkaido_Joetsu_Hokuriku_Shinkansen",
-                    "chinese_name": "東北・北海道・上越・北陸新幹線",
-                    "is_active": true
-                },
-                {
-                    "id": "JR_West",
-                    "chinese_name": "西日本旅客鉄道",
-                    "is_active": true
-                },
-                {
-                    "id": "Keihan",
-                    "chinese_name": "京阪電氣鐵道",
-                    "is_active": true
-                },
-                {
-                    "id": "Eizan",
-                    "chinese_name": "叡山電鐵",
-                    "is_active": true
-                },
-                {
-                    "id": "Tango",
-                    "chinese_name": "京都丹後鐵道",
-                    "is_active": true
-                },
-                {
-                    "id": "Hankyu",
-                    "chinese_name": "阪急電氣鐵道",
-                    "is_active": true
-                },
-                {
-                    "id": "Sagano",
-                    "chinese_name": "嵯峨野觀光鐵道（嵐山小火車）",
-                    "is_active": true
-                },
-                {
-                    "id": "Keifuku",
-                    "chinese_name": "京福電氣鐵道（嵐電）",
-                    "is_active": true
-                },
-                {
-                    "id": "Hanshin",
-                    "chinese_name": "阪神電氣鐵道",
-                    "is_active": true
+                    "id": "kansai",
+                    "chinese_name": "關西",
+                    "systems": [
+                        {
+                            "id": "JR_West",
+                            "chinese_name": "西日本旅客鉄道",
+                            "is_active": true
+                        },
+                        {
+                            "id": "Hankyu",
+                            "chinese_name": "阪急電氣鐵道",
+                            "is_active": true
+                        },
+                        {
+                            "id": "Hanshin",
+                            "chinese_name": "阪神電氣鐵道",
+                            "is_active": true
+                        },
+                        {
+                            "id": "Keihan",
+                            "chinese_name": "京阪電氣鐵道",
+                            "is_active": true
+                        },
+                        {
+                            "id": "Kintetsu",
+                            "chinese_name": "近畿日本鐵道",
+                            "is_active": true
+                        },
+                        {
+                            "id": "Nankai",
+                            "chinese_name": "南海電鐵",
+                            "is_active": true
+                        },
+                        {
+                            "id": "Eizan",
+                            "chinese_name": "叡山電鐵",
+                            "is_active": true
+                        },
+                        {
+                            "id": "Keifuku",
+                            "chinese_name": "京福電氣鐵道（嵐電）",
+                            "is_active": true
+                        },
+                        {
+                            "id": "Sagano",
+                            "chinese_name": "嵯峨野觀光鐵道（嵐山小火車）",
+                            "is_active": true
+                        },
+                        {
+                            "id": "Tango",
+                            "chinese_name": "京都丹後鐵道",
+                            "is_active": true
+                        }
+                    ]
                 }
             ]
         }
