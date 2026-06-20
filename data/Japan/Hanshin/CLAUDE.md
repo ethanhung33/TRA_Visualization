@@ -66,7 +66,7 @@ py tools/validate_system.py data/Japan/Hanshin --timetable-sample 0
 | 直通特急 | #FF6E9C / #AD1457（桃紅） |
 | 特急 | #FF5252 / #C62828（紅） |
 | Ｓ特急 | #C77DFF / #6A1B9A（紫） |
-| 区間特急 | #FF8A65 / #E64A19（珊瑚） |
+| 区間特急 | #FF4D6D / #C2185B（紅粉） |
 | 快速急行 | #FFCA5F / #EF6C00（金） |
 | 急行 | #FF9472 / #D84315（橙） |
 | 区間急行 | #8FC9FF / #1565C0（淺藍） |
