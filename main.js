@@ -4593,11 +4593,19 @@ function updateBottomPanelStation(st_id) {
                         let isUpbound = true; 
                         let foundDirection = false;
 
+                        // 往後找「第一個與本站不同」的站（跨 segment、跳過交會站在段邊界的重複）。
+                        // 否則交會站當換段點時，下一站會抓到本站自己 → km 相同無法判方向 →
+                        // 退回車號奇偶亂猜（hex stopCode 尤其失準）。
                         let nextStId = null;
-                        if (i + 1 < seg.s.length) {
-                            nextStId = seg.s[i + 1]; 
-                        } else if (segIdx + 1 < train.segments.length) {
-                            nextStId = train.segments[segIdx + 1].s[0]; 
+                        for (let sj = segIdx; sj < train.segments.length && !nextStId; sj++) {
+                            let sseg = train.segments[sj];
+                            let startK = (sj === segIdx) ? i + 1 : 0;
+                            for (let k = startK; k < sseg.s.length; k++) {
+                                if (String(sseg.s[k]) !== String(st_id)) {
+                                    nextStId = sseg.s[k];
+                                    break;
+                                }
+                            }
                         }
 
                         if (nextStId && topology && topology.segments) {
