@@ -74,6 +74,11 @@
                     "id": "Keifuku",
                     "chinese_name": "京福電氣鐵道（嵐電）",
                     "is_active": true
+                },
+                {
+                    "id": "Hanshin",
+                    "chinese_name": "阪神電氣鐵道",
+                    "is_active": true
                 }
             ]
         }

@@ -1,0 +1,47 @@
+{
+  "system_id": "Hanshin",
+  "system_name": "阪神電気鉄道",
+
+  "data_fetch_strategy": "WEEKEND_FILE",
+  "calendar_type": "WEEKEND_SELECT",
+
+  "time_stretch_ratio": 0.2,
+
+  "show_train_id": false,
+
+  "timezone_offset": 9,
+
+  "view_presets": {
+    "main": {
+      "name": "本線 (大阪梅田-元町)",
+      "lines": ["main_line"],
+      "view_type": "LINEAR",
+      "button_color": ["#FF9472", "#D84315"]
+    },
+    "namba": {
+      "name": "なんば線 (大阪難波-神戸三宮)",
+      "lines": ["namba_line", {"id": "main_line", "start": "大物", "end": "神戸三宮"}],
+      "view_type": "LINEAR",
+      "button_color": ["#FFCA5F", "#EF6C00"]
+    },
+    "mukogawa": {
+      "name": "武庫川線 (武庫川-武庫川団地前)",
+      "lines": ["mukogawa_line"],
+      "view_type": "LINEAR",
+      "button_color": ["#5BD1C4", "#00796B"]
+    }
+  },
+
+  "train_color": {
+    "直通特急": ["#FF6E9C", "#AD1457"],
+    "特急":     ["#FF5252", "#C62828"],
+    "Ｓ特急":   ["#C77DFF", "#6A1B9A"],
+    "区間特急": ["#FF8A65", "#E64A19"],
+    "快速急行": ["#FFCA5F", "#EF6C00"],
+    "急行":     ["#FF9472", "#D84315"],
+    "区間急行": ["#8FC9FF", "#1565C0"],
+    "準急":     ["#86D98A", "#2E7D32"],
+    "区間準急": ["#5BD1C4", "#00796B"],
+    "普通":     ["#B0B0B0", "#969696"]
+  }
+}
