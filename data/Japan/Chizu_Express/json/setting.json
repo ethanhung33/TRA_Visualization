@@ -1,0 +1,29 @@
+{
+  "system_id": "Chizu_Express",
+  "system_name": "智頭急行",
+
+  "data_fetch_strategy": "WEEKEND_FILE",
+  "calendar_type": "WEEKEND_SELECT",
+
+  "time_stretch_ratio": 0.2,
+
+  "show_train_id": false,
+
+  "timezone_offset": 9,
+
+  "view_presets": {
+    "chizu": {
+      "name": "智頭線 (上郡-智頭)",
+      "lines": ["chizu_line"],
+      "view_type": "LINEAR",
+      "button_color": ["#5BD1C4", "#00796B"]
+    }
+  },
+
+  "train_color": {
+    "特急スーパーはくと": ["#9CCC65", "#558B2F"],
+    "特急スーパーいなば": ["#FF7B7B", "#C62828"],
+    "特急": ["#FFA270", "#E64A19"],
+    "普通": ["#B0B0B0", "#969696"]
+  }
+}
