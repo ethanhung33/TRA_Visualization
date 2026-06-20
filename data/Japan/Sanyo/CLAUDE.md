@@ -57,7 +57,7 @@ py tools/validate_system.py data/Japan/Sanyo --timetable-sample 0
 ## 車種と色
 | 種別 | 色（dark/light） |
 |------|-----------------|
-| 直通特急 | #FF4D9E / #AD1457（洋紅） |
+| 直通特急 | #FF8C42 / #E65100（橙） |
 | 特急 | #FF5252 / #C62828（紅） |
 | Ｓ特急 | #C77DFF / #6A1B9A（紫） |
-| 普通 | #B0B0B0 / #969696（灰） |
+| 普通 | #B0B0B0 / #666666（灰；淺色模式色比照 JR西日本） |
