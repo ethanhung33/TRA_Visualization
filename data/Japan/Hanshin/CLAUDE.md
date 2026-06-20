@@ -21,6 +21,12 @@
 `namba` view は `["namba_line", {"id":"main_line","start":"大物","end":"神戸三宮"}]` で
 大阪難波→神戸三宮の直通ルートを 1 本の LINEAR として表示。
 
+**交會站通過の補完**：快速急行 など一部の列車は交會站 大物 を**通過**するため停靠表に
+大物が無く、出来島(なんば線)→尼崎(本線) が隣接して共通 segment を持たない。
+`compile_train` は隣接 2 站に共通 segment が無い場合、両 segment を繋ぐ交會站
+（大物）を里程比例で時刻内插して **v=2（通過）** として挿入し、2 segment を接続する
+（TRA の `compile_train_data` と同手法）。これが無いと該当列車が運行図に出ない。
+
 ## 直通運転（is_other）
 
 `convert_timetable.py` が prefix/suffix の拓樸外区間を運営者ごとに `is_other` segment へ分離

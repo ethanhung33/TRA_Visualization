@@ -48,18 +48,46 @@ def _operator_of(name):
     return "sanyo"
 
 
+# 交會站挿入用の補助マップ（load_station_info で構築）
+SEG_STATION_IDS = {}   # seg_id -> set(station id)
+ID_INFO = {}           # station id -> {name, segments:[...], km:{seg:km}}
+
+
 def load_station_info():
     with open(JSON_DIR / "topology.json", "r", encoding="utf-8") as f:
         topo = json.load(f)
     info = {}
+    SEG_STATION_IDS.clear(); ID_INFO.clear()
     for seg in topo["segments"]:
         sid = seg["id"]
+        SEG_STATION_IDS[sid] = set()
         for st in seg["stations"]:
-            name = st["name"]
+            name, stid, km = st["name"], st["id"], st["km"]
             if name not in info:
-                info[name] = {"id": st["id"], "segments": []}
+                info[name] = {"id": stid, "segments": [], "km": {}}
             info[name]["segments"].append(sid)
+            info[name]["km"][sid] = km
+            SEG_STATION_IDS[sid].add(stid)
+            if stid not in ID_INFO:
+                ID_INFO[stid] = {"name": name, "segments": [], "km": {}}
+            ID_INFO[stid]["segments"].append(sid)
+            ID_INFO[stid]["km"][sid] = km
     return info
+
+
+def _find_junction(a, b):
+    """隣接する 2 停靠 a,b が共通 segment を持たないとき、両者の segment を繋ぐ
+    交會站（segA と segB の両方に属す駅）を探して (id, segA, segB) を返す。なければ None。"""
+    for segA in a["segs"]:
+        for segB in b["segs"]:
+            if segA == segB:
+                continue
+            common = SEG_STATION_IDS.get(segA, set()) & SEG_STATION_IDS.get(segB, set())
+            common.discard(a["id"]); common.discard(b["id"])
+            if common:
+                jid = next(iter(common))
+                return jid, segA, segB
+    return None
 
 
 def compile_train(raw, STATION_INFO):
@@ -70,9 +98,32 @@ def compile_train(raw, STATION_INFO):
         if name in STATION_INFO:
             si = STATION_INFO[name]
             valid.append({"id": si["id"], "arr": st["arr"], "dep": st["dep"],
-                          "segs": list(si["segments"])})
+                          "segs": list(si["segments"]), "km": dict(si["km"]),
+                          "is_pass": False})
     if len(valid) < 2:
         return []
+
+    # 交會站が停靠表に無いまま段が変わる場合（例：快速急行が大物を通過して
+    # 出来島→尼崎）、隣接 2 站に共通 segment が無い → 交會站を「通過」として挿入。
+    i = 0
+    while i < len(valid) - 1:
+        a, b = valid[i], valid[i + 1]
+        if not (set(a["segs"]) & set(b["segs"])):
+            j = _find_junction(a, b)
+            if j:
+                jid, segA, segB = j
+                jinfo = ID_INFO[jid]
+                kmA = abs(jinfo["km"][segA] - a["km"][segA]) if segA in a.get("km", {}) else None
+                kmB = abs(b["km"][segB] - jinfo["km"][segB]) if segB in b.get("km", {}) else None
+                if kmA is not None and kmB is not None and (kmA + kmB) > 0:
+                    frac = kmA / (kmA + kmB)
+                else:
+                    frac = 0.5
+                jt = int(round(a["dep"] + frac * (b["arr"] - a["dep"])))
+                valid.insert(i + 1, {"id": jid, "arr": jt, "dep": jt,
+                                     "segs": list(jinfo["segments"]),
+                                     "km": dict(jinfo["km"]), "is_pass": True})
+        i += 1
 
     for i in range(len(valid)):
         cur = valid[i]["segs"]
@@ -95,6 +146,8 @@ def compile_train(raw, STATION_INFO):
     n = len(valid)
 
     def vtype(i):
+        if valid[i].get("is_pass"):
+            return 2
         if i == 0:
             return 0
         if i == n - 1:
