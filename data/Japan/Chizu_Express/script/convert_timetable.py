@@ -25,6 +25,26 @@ JSON_DIR = Path(__file__).parent.parent / "json"
 
 _JR_WEST = {"name": "JR西日本", "path": "data/Japan/JR_West/"}
 
+# 特急の愛称判定（navitime は「特急」一括 → 直通 JR 端点で区別）
+# スーパーいなば：岡山↔鳥取／スーパーはくと：京都・大阪↔鳥取・倉吉
+_INABA_ANCHORS = {"岡山"}
+_HAKUTO_ANCHORS = {"大阪", "京都", "新大阪", "三ノ宮", "姫路", "倉吉"}
+
+
+def classify_express(segs):
+    """特急の is_other(JR) 区間の駅名から愛称を推定。判定不能なら None。"""
+    ext = set()
+    for s in segs:
+        if s.get("is_other"):
+            for stid in s["s"]:
+                if not str(stid).startswith("CZ"):
+                    ext.add(stid)
+    if ext & _INABA_ANCHORS:
+        return "特急スーパーいなば"
+    if ext & _HAKUTO_ANCHORS:
+        return "特急スーパーはくと"
+    return None
+
 
 def load_station_info():
     with open(JSON_DIR / "topology.json", "r", encoding="utf-8") as f:
@@ -90,7 +110,10 @@ def convert_file(raw_name, out_name, STATION_INFO):
     for raw in raw_list:
         segs = process_train(raw, STATION_INFO)
         if segs:
-            trains.append({"no": raw["code"], "type": raw["type"], "segments": segs})
+            ttype = raw["type"]
+            if ttype == "特急":
+                ttype = classify_express(segs) or "特急"
+            trains.append({"no": raw["code"], "type": ttype, "segments": segs})
         else:
             skipped += 1
     trains.sort(key=lambda x: x["segments"][0]["t"][0])

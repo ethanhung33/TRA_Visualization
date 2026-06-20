@@ -3,7 +3,8 @@
 ## 基本資訊
 - **system_id**: `Chizu_Express`（JR_West が is_other で `data/Japan/Chizu_Express/` を参照するため、この id 固定）
 - **路線**: 智頭線（上郡→智頭、14 駅、56.1 km）単一線
-- **車種**: 普通 / 特急（スーパーはくと・スーパーいなば。navitime は両者を区別せず「特急」表示）
+- **車種**: 普通 / 特急（navitime は「特急」一括。convert で直通 JR 端点から愛称を推定
+  → 岡山行=スーパーいなば、大阪・京都・倉吉行=スーパーはくと）
 - **view_type**: `LINEAR`
 - **calendar_type**: `WEEKEND_SELECT` / **data_fetch_strategy**: `WEEKEND_FILE`（全営業日ほぼ同ダイヤ）
 - **timezone_offset**: 9（JST）
@@ -44,5 +45,7 @@ py tools/validate_system.py data/Japan/Chizu_Express --timetable-sample 0
 ## 車種と色
 | 種別 | 色（dark/light） |
 |------|-----------------|
-| 特急 | #FF7B7B / #C62828（紅；スーパーはくと/いなば） |
+| 特急スーパーはくと | #9CCC65 / #558B2F（綠；HOT7000 系イメージ） |
+| 特急スーパーいなば | #FF7B7B / #C62828（紅） |
+| 特急（愛称判定不能の保険） | #FFA270 / #E64A19（橙） |
 | 普通 | #B0B0B0 / #969696（灰） |
