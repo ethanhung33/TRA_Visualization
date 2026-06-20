@@ -4590,36 +4590,44 @@ function updateBottomPanelStation(st_id) {
                     let absoluteNow = currentMinutes < 120 ? currentMinutes + 1440 : currentMinutes;
                     let diff = depT - absoluteNow;
                     if (diff >= 0) {
-                        let isUpbound = true; 
+                        let isUpbound = true;
                         let foundDirection = false;
 
-                        // 往後找「第一個與本站不同」的站（跨 segment、跳過交會站在段邊界的重複）。
-                        // 否則交會站當換段點時，下一站會抓到本站自己 → km 相同無法判方向 →
-                        // 退回車號奇偶亂猜（hex stopCode 尤其失準）。
-                        let nextStId = null;
-                        for (let sj = segIdx; sj < train.segments.length && !nextStId; sj++) {
+                        // 以「同段、km 不同」的鄰站判斷上下行。參考站要跳過：
+                        //   ① 交會站在段邊界的重複（與本站同 id）
+                        //   ② is_other 外運營商站（不在拓樸、無 km）
+                        // 優先用「之後」的鄰站；若之後全是外站（如神戸三宮之後的新開地方面），
+                        // 改用「之前」的鄰站反推方向。否則會退回車號奇偶亂猜（hex stopCode 尤其失準）。
+                        const _tryDir = (otherId, otherIsAfter) => {
+                            if (!otherId || !topology || !topology.segments) return false;
+                            for (let topoSeg of topology.segments) {
+                                let a = topoSeg.stations.find(s => String(s.id) === String(st_id));
+                                let b = topoSeg.stations.find(s => String(s.id) === String(otherId));
+                                if (a && b && a.km !== undefined && b.km !== undefined && a.km !== b.km) {
+                                    // 後站 km 較小 → 上行；前站 km 較大 → 上行
+                                    isUpbound = otherIsAfter ? (b.km < a.km) : (a.km < b.km);
+                                    return true;
+                                }
+                            }
+                            return false;
+                        };
+
+                        // 往後走（跨段）找第一個能定向的拓樸內鄰站
+                        for (let sj = segIdx; sj < train.segments.length && !foundDirection; sj++) {
                             let sseg = train.segments[sj];
                             let startK = (sj === segIdx) ? i + 1 : 0;
                             for (let k = startK; k < sseg.s.length; k++) {
-                                if (String(sseg.s[k]) !== String(st_id)) {
-                                    nextStId = sseg.s[k];
-                                    break;
-                                }
+                                if (String(sseg.s[k]) === String(st_id)) continue;
+                                if (_tryDir(sseg.s[k], true)) { foundDirection = true; break; }
                             }
                         }
-
-                        if (nextStId && topology && topology.segments) {
-                            for (let topoSeg of topology.segments) {
-                                let currSt = topoSeg.stations.find(s => String(s.id) === String(st_id));
-                                let nextSt = topoSeg.stations.find(s => String(s.id) === String(nextStId));
-                                
-                                if (currSt && nextSt && currSt.km !== undefined && nextSt.km !== undefined) {
-                                    if (currSt.km !== nextSt.km) {
-                                        isUpbound = (nextSt.km < currSt.km);
-                                        foundDirection = true;
-                                        break;
-                                    }
-                                }
+                        // 往後找不到（之後全為外站）→ 往前走反推
+                        for (let sj = segIdx; sj >= 0 && !foundDirection; sj--) {
+                            let sseg = train.segments[sj];
+                            let endK = (sj === segIdx) ? i - 1 : sseg.s.length - 1;
+                            for (let k = endK; k >= 0; k--) {
+                                if (String(sseg.s[k]) === String(st_id)) continue;
+                                if (_tryDir(sseg.s[k], false)) { foundDirection = true; break; }
                             }
                         }
 
