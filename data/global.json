@@ -94,6 +94,11 @@
                             "id": "Chizu_Express",
                             "chinese_name": "智頭急行",
                             "is_active": true
+                        },
+                        {
+                            "id": "Sanyo",
+                            "chinese_name": "山陽電氣鐵道",
+                            "is_active": true
                         }
                     ]
                 }
