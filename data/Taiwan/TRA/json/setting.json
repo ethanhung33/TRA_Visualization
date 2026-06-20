@@ -1,7 +1,9 @@
 {
   "system_id": "TRA",
   "system_name": "台灣鐵路 (台鐵)",
-  
+
+  "search_example": "台北~花蓮",
+
   "data_fetch_strategy": "DAILY_FILE",
   
   "calendar_type": "WEEKDAY_BITMAP",

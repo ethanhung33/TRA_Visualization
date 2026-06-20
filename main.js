@@ -2150,7 +2150,42 @@ function setupSearch() {
     // 🌟 修正 1：移到綁定檢查之前
     // 確保每次切換系統時，提示文字都能正確更新
     let showId = !(settings && settings.show_train_id === false);
-    searchInput.placeholder = showId ? "車站、車次 或 路線找車 (如: 台北~花蓮)" : "輸入車站 或 路線找車 (如: 難波~奈良)";
+    // 範例路線：優先用 setting.search_example（環狀線等自動推導不出時可明確指定），
+    // 否則從第一個 view preset 的起站~迄站自動取，再否則用拓樸首段首站~末段末站，
+    // 避免寫死台鐵/私鐵站名套錯系統。
+    let exampleRoute = (settings && settings.search_example) ? settings.search_example : "";
+    if (!exampleRoute) {
+        try {
+            const segName = (id, which) => {
+                let seg = topology.segments.find(s => s.id === id);
+                if (!seg || !seg.stations.length) return null;
+                return which === 'start' ? seg.stations[0].name : seg.stations[seg.stations.length - 1].name;
+            };
+            const endName = (lineEl, which) => {
+                if (lineEl && typeof lineEl === 'object') {
+                    if (which === 'start' && lineEl.start) return lineEl.start;
+                    if (which === 'end' && lineEl.end) return lineEl.end;
+                    return segName(lineEl.id, which);
+                }
+                return segName(lineEl, which);
+            };
+            let a = null, b = null;
+            let preset = settings && settings.view_presets ? Object.values(settings.view_presets)[0] : null;
+            let lines = preset && preset.lines ? preset.lines : null;
+            if (lines && lines.length && topology && topology.segments) {
+                a = endName(lines[0], 'start');
+                b = endName(lines[lines.length - 1], 'end');
+            }
+            // preset 推不出（無 preset、或環狀首尾同站）→ 退用拓樸首段~末段
+            if ((!a || !b || a === b) && topology && topology.segments && topology.segments.length) {
+                a = segName(topology.segments[0].id, 'start');
+                b = segName(topology.segments[topology.segments.length - 1].id, 'end');
+            }
+            if (a && b && a !== b) exampleRoute = `${a}~${b}`;
+        } catch (e) {}
+    }
+    let exHint = exampleRoute ? ` (如: ${exampleRoute})` : "";
+    searchInput.placeholder = (showId ? "車站、車次 或 路線找車" : "輸入車站 或 路線找車") + exHint;
 
     if (isSearchBound) return;
     isSearchBound = true;
