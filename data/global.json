@@ -47,7 +47,7 @@
                         },
                         {
                             "id": "Hankyu",
-                            "chinese_name": "阪急電氣鐵道",
+                            "chinese_name": "阪急電鐵",
                             "is_active": true
                         },
                         {
@@ -77,12 +77,12 @@
                         },
                         {
                             "id": "Keifuku",
-                            "chinese_name": "京福電氣鐵道（嵐電）",
+                            "chinese_name": "京福電氣鐵道",
                             "is_active": true
                         },
                         {
                             "id": "Sagano",
-                            "chinese_name": "嵯峨野觀光鐵道（嵐山小火車）",
+                            "chinese_name": "嵯峨野觀光鐵道",
                             "is_active": true
                         },
                         {
