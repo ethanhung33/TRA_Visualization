@@ -89,6 +89,11 @@
                             "id": "Tango",
                             "chinese_name": "京都丹後鐵道",
                             "is_active": true
+                        },
+                        {
+                            "id": "Chizu_Express",
+                            "chinese_name": "智頭急行",
+                            "is_active": true
                         }
                     ]
                 }
