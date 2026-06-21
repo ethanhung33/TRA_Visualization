@@ -3,7 +3,9 @@
 ## 基本資訊
 - **calendar_type**: `WEEKDAY_BITMAP`（月曆 + `available_dates.json`）
 - **data_fetch_strategy**: `DAILY_FILE`（毎日ダイヤが異なる → 日付ごとに 1 ファイル）
-- **show_train_id**: true（列車番号 101A 等を表示）
+- **show_train_id**: true / **show_train_type**: false
+  → `no` に旅客向けの愛称＋号数（例「のぞみ1号」）を格納し、ラベルはそれだけ表示
+  （`type` は「のぞみ」のまま＝色分け・車種フィルタ用）。号数は stops 頁の `<h2>` から取得。
 - **timezone_offset**: 9
 
 ## 路線結構（4 segment、東海道+山陽+九州 は 1 本に連結）

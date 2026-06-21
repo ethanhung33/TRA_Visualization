@@ -120,6 +120,13 @@ def fetch_stops(stop_code, ttype, code_line, ref_node, date_tuple):
     soup = get_soup(url)
     if not soup:
         return None
+    # 列車愛称＋号数（旅客向け表示用）。stops 頁の見出しに「のぞみ1号」等がある。
+    train_name = None
+    h2 = soup.select_one("h2")
+    htext = h2.get_text(strip=True) if h2 else soup.get_text(" ", strip=True)
+    mnum = re.search(r"(\d+)\s*号", htext)
+    if mnum:
+        train_name = f"{ttype}{mnum.group(1)}号"
     stops = []
     for row in soup.select("li.stops-list"):
         name_el = row.select_one("dt.station-name")
@@ -155,7 +162,7 @@ def fetch_stops(stop_code, ttype, code_line, ref_node, date_tuple):
         if st["dep"] < st["arr"]:
             st["dep"] += 1440
         last = st["dep"]
-    return {"code": stop_code, "type": ttype, "stops": stops}
+    return {"code": stop_code, "type": ttype, "name": train_name, "stops": stops}
 
 
 def run(max_workers=3, dates=None):

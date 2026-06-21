@@ -143,7 +143,9 @@ def convert_file(raw_path, STATION_INFO):
     for raw in raw_list:
         segs = compile_train(raw, STATION_INFO)
         if segs:
-            trains.append({"no": raw["code"], "type": raw["type"], "segments": segs})
+            # no は旅客向けの愛称＋号数（のぞみ1号）。無ければ stopCode に退避。
+            trains.append({"no": raw.get("name") or raw["code"],
+                           "type": raw["type"], "segments": segs})
         else:
             skipped += 1
     trains.sort(key=lambda x: x["segments"][0]["t"][0])
