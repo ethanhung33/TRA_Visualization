@@ -249,9 +249,7 @@ def run(max_workers=3, dates=None):
         written_dates.append(dd)
         print(f"🎉 {dd}: {len(trains)} 班 → {fname}", flush=True)
 
-    with open(JSON_DIR / "_scraped_dates.json", "w", encoding="utf-8") as f:
-        json.dump(written_dates, f, ensure_ascii=False)
-    print(f"✅ 完了。{len(written_dates)} 日分。", flush=True)
+    print(f"✅ 完了。{len(written_dates)} 日分。convert_timetable.py を実行してください。", flush=True)
 
 
 def main():
