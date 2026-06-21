@@ -9,6 +9,7 @@
   "time_stretch_ratio": 3.0,
 
   "show_train_id": true,
+  "show_train_type": false,
 
   "timezone_offset": 9,
 
@@ -33,6 +34,7 @@
     "こだま": ["#8A8AFF", "#0055CC"],
     "みずほ": ["#FFAB0E", "#D96600"],
     "さくら": ["#FF7ABD", "#C71585"],
-    "つばめ": ["#56E2D3", "#008080"]
+    "つばめ": ["#56E2D3", "#008080"],
+    "かもめ": ["#66BB6A", "#2E7D32"]
     }
 }
