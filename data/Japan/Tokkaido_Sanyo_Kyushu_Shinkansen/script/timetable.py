@@ -87,11 +87,14 @@ def build_scan_targets():
     return targets
 
 
-def scan_station(node, scan_line):
-    """{stopCode: (種別, code_lineId, ref_node, set(運行日))}"""
+def scan_station(node, scan_line, date_str=None):
+    """{stopCode: (種別, code_lineId, ref_node, set(運行日))}。
+    date_str を指定すると `&time=YYYY-MM-DD` でその日のダイヤを取得（navitime は
+    listing の time= パラメータで任意日付に対応。year/month/day や searchDate は無視される）。"""
     found = {}
+    tparam = f"&time={date_str}" if date_str else ""
     for updown in [0, 1]:
-        url = f"{BASE}/diagram/timetable?node={node}&lineId={scan_line}&updown={updown}"
+        url = f"{BASE}/diagram/timetable?node={node}&lineId={scan_line}&updown={updown}{tparam}"
         soup = get_soup(url)
         if not soup:
             continue
@@ -155,21 +158,26 @@ def fetch_stops(stop_code, ttype, code_line, ref_node, date_tuple):
     return {"code": stop_code, "type": ttype, "stops": stops}
 
 
-def run(max_workers=3, min_ratio=0.5):
+def run(max_workers=3, dates=None):
     print("🗺️  掃描目標を構築中…", flush=True)
     targets = build_scan_targets()
     print(f"   {len(targets)} 駅を取得", flush=True)
 
-    print("🔍 [第一段階] 全駅の時刻表を掃描（プール全件、data-date 集合）…", flush=True)
+    # dates 未指定なら listing の自然プール（time= なし）を 1 回だけ掃描
+    scan_dates = dates if dates else [None]
+
+    print(f"🔍 [第一段階] {len(targets)} 駅 × {len(scan_dates)} 日 を掃描（time= で各日付）…", flush=True)
     all_codes = {}
-    for i, (name, node, scan_line) in enumerate(targets):
-        codes = scan_station(node, scan_line)
-        for c, info in codes.items():
-            if c not in all_codes:
-                all_codes[c] = info
-            else:
-                all_codes[c][3].update(info[3])
-        print(f"   [{i+1}/{len(targets)}] {name}: +{len(codes)}（累計 {len(all_codes)}）", flush=True)
+    for di, dstr in enumerate(scan_dates):
+        label = dstr or "(自然プール)"
+        for i, (name, node, scan_line) in enumerate(targets):
+            codes = scan_station(node, scan_line, dstr)
+            for c, info in codes.items():
+                if c not in all_codes:
+                    all_codes[c] = info
+                else:
+                    all_codes[c][3].update(info[3])
+        print(f"   [{di+1}/{len(scan_dates)}] {label} 掃描完了（累計 code {len(all_codes)}）", flush=True)
 
     date_count = Counter()
     for info in all_codes.values():
@@ -179,9 +187,12 @@ def run(max_workers=3, min_ratio=0.5):
     if not date_count:
         print("⚠️  班次なし", flush=True)
         return
-    # 班数が最多日の min_ratio 未満の端日付は不完全として除外
-    maxc = max(date_count.values())
-    use_dates = sorted(d for d, c in date_count.items() if c >= maxc * min_ratio)
+    # dates 指定時はその全日付を出力、未指定時は最多日の 50% 未満の端日付を除外
+    if dates:
+        use_dates = sorted(d for d in date_count if d in set(dates))
+    else:
+        maxc = max(date_count.values())
+        use_dates = sorted(d for d, c in date_count.items() if c >= maxc * 0.5)
     print(f"📅 出力対象日: {use_dates}", flush=True)
 
     print(f"⚡ [第二段階] {len(all_codes)} 班の停車順序をダウンロード（各 code 1 回）…", flush=True)
@@ -237,15 +248,25 @@ def run(max_workers=3, min_ratio=0.5):
 
 
 def main():
+    import datetime
     global SLEEP
     ap = argparse.ArgumentParser()
     ap.add_argument("--workers", type=int, default=3)
     ap.add_argument("--sleep", type=float, default=SLEEP)
-    ap.add_argument("--min-ratio", type=float, default=0.5,
-                    help="最多日の何割未満の端日付を捨てるか")
+    ap.add_argument("--start", help="開始日 YYYY-MM-DD（省略時は今日）")
+    ap.add_argument("--days", type=int, default=0,
+                    help="開始日から何日分を time= で逐日掃描するか（0=自然プールのみ）")
+    ap.add_argument("--dates", help="カンマ区切りで明示指定 YYYY-MM-DD,YYYY-MM-DD…")
     args = ap.parse_args()
     SLEEP = args.sleep
-    run(max_workers=args.workers, min_ratio=args.min_ratio)
+
+    dates = None
+    if args.dates:
+        dates = [d.strip() for d in args.dates.split(",") if d.strip()]
+    elif args.days > 0:
+        start = datetime.date.fromisoformat(args.start) if args.start else datetime.date.today()
+        dates = [(start + datetime.timedelta(days=i)).isoformat() for i in range(args.days)]
+    run(max_workers=args.workers, dates=dates)
 
 
 if __name__ == "__main__":

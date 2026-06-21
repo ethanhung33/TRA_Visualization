@@ -33,9 +33,12 @@
 里程は既存 `topology.json` を再利用（站名は navitime と完全一致を確認済み）。
 
 navitime 注意事項：
-- 新幹線の listing プールは「今日・明日・次の土曜」など**数日分（連続とは限らない）**。
-  各 stopCode の data-date を集合で蓄積し、**日付ごとに 1 ファイル** raw_YYYYMMDD.json を出力
-  （各 code の stops は 1 回だけ取得し、走る全日付へ振り分け）。端日付（最多日の 50% 未満）は除外。
+- **任意日付の取得**：listing の `&time=YYYY-MM-DD` パラメータで任意日付のダイヤを取得できる
+  （`year/month/day`・`searchDate`・cookie は無視されるが `time=` は効く。UI の日付ピッカー
+  Vue コンポーネントが使う本物のパラメータ）。`timetable.py --start YYYY-MM-DD --days N` で
+  今日から N 日分を逐日掃描。time= 未指定だと「今日・明日・次の土曜」の自然プールのみ。
+- 各 stopCode の data-date を集合で蓄積し、**日付ごとに 1 ファイル** raw_YYYYMMDD.json を出力
+  （各 code の stops は 1 回だけ取得し、走る全日付へ振り分け）。
 - 直通のぞみ等は東海道・山陽の両 lineId に出る → 内容簽章（種別+始発+始発時刻+終着+停車数）で去重。
 - 種別は `data-name`（のぞみ/ひかり/こだま/みずほ/さくら/つばめ/かもめ）。
 
