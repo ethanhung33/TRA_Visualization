@@ -4910,7 +4910,9 @@ function updateBottomPanelStation(st_id) {
                     parts.push(`<span style="color: ${tColor}; font-weight: bold; font-size: 14px;">${trainObj.type}</span>`);
                 }
                 if (showId) {
-                    parts.push(`<span style="color: ${theme.textMain}; font-size: 13px; margin-left: 4px;">${cleanTrainNo}</span>`);
+                    const idColor = showType ? theme.textMain : tColor;
+                    const idMargin = showType ? ' margin-left: 4px;' : '';
+                    parts.push(`<span style="color: ${idColor}; font-size: ${showType ? 13 : 14}px;${idMargin} font-weight: ${showType ? 'normal' : 'bold'};">${cleanTrainNo}</span>`);
                 }
                 
                 if (parts.length === 0) {
