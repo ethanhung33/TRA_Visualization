@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import json
+import os
 import time
 from datetime import datetime, timedelta
 from tqdm import tqdm
@@ -289,8 +290,10 @@ def main():
         '6000-臺東', '7000-花蓮', '7130-蘇澳新', '7190-宜蘭', '7360-瑞芳'
     ]
     
-    start_date = "2026/06/01" 
-    end_date = "2026/08/31" 
+    # 開始日期＝今天，結束日期＝往後 N 天（預設 90 天，可用環境變數 TRA_FORECAST_DAYS 覆寫）
+    forecast_days = int(os.environ.get("TRA_FORECAST_DAYS", "90"))
+    start_date = datetime.now().strftime("%Y/%m/%d")
+    end_date = (datetime.now() + timedelta(days=forecast_days)).strftime("%Y/%m/%d")
     
     date_list = get_date_range(start_date, end_date)
     print(f"🗓️ 準備進行快取優化抓取: {start_date} ~ {end_date} (共 {len(date_list)} 天)")

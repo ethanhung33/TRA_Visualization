@@ -26,7 +26,9 @@ https://tdx.transportdata.tw/api/basic/v2/Rail/THSR/DailyTimetable/TrainDate/{da
 py data/Taiwan/HSR/script/fetch_and_transform_hsr.py
 ```
 
-在腳本底部設定 `start_date` / `end_date`，會自動展開為逐日處理。
+`start_date`/`end_date` 在腳本底部自動計算為「今天～今天+N 天」（預設 N=60，可用環境變數 `HSR_FORECAST_DAYS` 覆寫），會自動展開為逐日處理。最近 3 天（`HSR_REFRESH_DAYS`）一律重抓，更後面已有檔案的日期則跳過，把有限額度用在往後延伸。
+
+**每日額度限制**：TDX 免註冊模式有速率限制，實測一天大約只能抓 ~20 天就會開始回傳 429；腳本偵測到 429 會直接停止該次抓取（不會浪費請求硬撞剩餘天數），額度隔天重置後重跑即可接續往後補。
 
 **流程**:
 1. 下載原始 TDX JSON → 存至 `json/raw_data/timetable_{date}.json`（備份用）

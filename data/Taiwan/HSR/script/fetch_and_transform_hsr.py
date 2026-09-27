@@ -1,4 +1,5 @@
 import json
+import os
 import requests
 from pathlib import Path
 
@@ -71,6 +72,10 @@ def process_date(date_str, json_dir):
     print(f"📡 正在以免註冊模式從 TDX 抓取資料...")
     response = requests.get(url, headers=headers)
 
+    if response.status_code == 429:
+        print(f"🚫 下載失敗，狀態碼: 429（TDX 免註冊模式每日額度用完）")
+        return "rate_limited"
+
     if response.status_code != 200:
         print(f"❌ 下載失敗，狀態碼: {response.status_code}")
         return False
@@ -139,22 +144,40 @@ if __name__ == "__main__":
     SCRIPT_DIR = Path(__file__).parent
     JSON_DIR = SCRIPT_DIR.parent / "json"
     
-    # 🌟 在這裡設定你想要的「開始日期」與「結束日期」
-    start_date = "2026-05-25"
-    end_date   = "2026-05-25"
-    
+    # 開始日期＝今天，結束日期＝往後 N 天。TDX 免註冊模式有每日額度限制，實測一天大約只能
+    # 抓 20 天左右就會開始 429；額度每天重置，所以本腳本會「跳過已經抓過的日期」，把有限的
+    # 額度用來往後延伸覆蓋範圍（每天重跑一次就會自動把邊界往後推）。
+    # 可用環境變數 HSR_FORECAST_DAYS 覆寫（例如已註冊 TDX 帳號、額度較高時可調大）。
+    forecast_days = int(os.environ.get("HSR_FORECAST_DAYS", "60"))
+    # 最近 N 天一律重抓（時刻表可能異動），再往後的日期若已有檔案就跳過。
+    refresh_days = int(os.environ.get("HSR_REFRESH_DAYS", "3"))
+    start_date = datetime.now().strftime("%Y-%m-%d")
+    end_date = (datetime.now() + timedelta(days=forecast_days)).strftime("%Y-%m-%d")
+
     # 程式會自動幫你展開成 ['2026-04-25', '2026-04-26', ..., '2026-05-10']
-    dates_to_fetch = generate_date_range(start_date, end_date)
-    
-    print(f"準備抓取從 {start_date} 到 {end_date} 共 {len(dates_to_fetch)} 天的資料...")
-    
+    all_dates = generate_date_range(start_date, end_date)
+
+    dates_to_fetch, skipped = [], 0
+    for i, d in enumerate(all_dates):
+        exists = (JSON_DIR / "timetable" / f"timetable_{d.replace('-', '')}.json").exists()
+        if exists and i >= refresh_days:
+            skipped += 1
+            continue
+        dates_to_fetch.append(d)
+
+    print(f"準備抓取從 {start_date} 到 {end_date} 共 {len(all_dates)} 天"
+          f"（跳過已有資料 {skipped} 天，實際要抓 {len(dates_to_fetch)} 天）...")
+
     successful_dates = []
-    
+
     for d in dates_to_fetch:
-        success = process_date(d, JSON_DIR)
-        if success:
+        result = process_date(d, JSON_DIR)
+        if result == "rate_limited":
+            print(f"\n⏸️  遇到每日額度上限，停止本次抓取（已抓 {len(successful_dates)} 天）。額度會在隔天重置，重跑本腳本即可繼續往後補。")
+            break
+        if result:
             successful_dates.append(d)
-            
+
     # 自動更新 available_dates.json
     if successful_dates:
         dates_file = JSON_DIR / "available_dates.json"
