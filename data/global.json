@@ -37,6 +37,17 @@
                     ]
                 },
                 {
+                    "id": "kanto_tohoku",
+                    "chinese_name": "關東・東北",
+                    "systems": [
+                        {
+                            "id": "JR_East",
+                            "chinese_name": "東日本旅客鉄道",
+                            "is_active": true
+                        }
+                    ]
+                },
+                {
                     "id": "kansai",
                     "chinese_name": "關西",
                     "systems": [

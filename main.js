@@ -92,6 +92,57 @@ const KANJI_MAP = {
     '満': '滿',   // 天満
     '応': '應',   // 天応
     '莱': '萊',   // 蓬萊
+
+    // 以下為比對全部 topology 的 3,704 個實際站名後補上的（只收真的用到的字）
+    '内': '內',   // 上米内、いわて沼宮内
+    '瀬': '瀨',   // 三瀬、京ケ瀬
+    '郷': '鄉',   // 三郷、上郷
+    '温': '溫',   // ○○温泉（30 個站名）
+    '滝': '瀧',   // 大滝、大滝温泉
+    '横': '橫',   // 新横浜、会津横田
+    '塩': '鹽',   // 塩尻、会津塩沢
+    '蔵': '藏',   // 武蔵小杉、六地蔵
+    '会': '會',   // 会津若松、会津坂下
+    '辺': '邊',   // 京田辺、北野辺地
+    '黒': '黑',   // 目黒、黒磯
+    '総': '總',   // 上総一ノ宮、下総中山
+    '稲': '稻',   // 稲毛、伏見稲荷
+    '亀': '龜',   // 亀戸、上総亀山
+    '学': '學',   // 学園前、和歌山大学前
+    '芸': '藝',   // 安芸津、安芸中野
+    '竜': '龍',   // 竜ケ崎市、九頭竜湖
+    '荘': '莊',   // 丹荘、武庫之荘
+    '軽': '輕',   // 津軽新城、奥津軽いまべつ
+    '与': '與',   // 与野、北与野
+    '巣': '巢',   // 巣鴨、北鴻巣
+    '万': '萬',   // 万座・鹿沢口、万石浦
+    '曽': '曾',   // 曽根、湯檜曽
+    '楽': '樂',   // 有楽町、偕楽園
+    '栄': '榮',   // 中野栄、小田栄
+    '児': '兒',   // 児島、児玉
+    '円': '圓',   // 高円寺、円町
+    '峡': '峽',   // 保津峡、長門峡
+    '帯': '帶',   // 帯解、帯織
+    '黄': '黃',   // 黄檗、黄金
+    '穂': '穗',   // 穂高、播州赤穂
+    '発': '發',   // 新発田、西新発田
+    '寿': '壽',   // 恵比寿、久寿川
+    '恵': '惠',   // 恵比寿、恵我ノ荘
+    '観': '觀',   // 観月橋、中山観音
+    '検': '檢',   // 検見川浜、新検見川
+    '薬': '藥',   // 薬水、越前薬師
+    '渕': '淵',   // 和渕、赤渕
+    '両': '兩',   // 両国
+    '実': '實',   // 豊実
+    '斎': '齋',   // 斎宮
+    '挟': '挾',   // 文挟（JR 東日本官方時刻表寫作舊字體「文挾」）
+    '覚': '覺',   // 明覚
+    '続': '續',   // 末続
+    '緑': '綠',   // 緑井
+    '舎': '舍',   // 吉舎
+    '礼': '禮',   // 礼拝
+    '誉': '譽',   // 誉田
+    '嶽': '岳',   // 御嶽（異體→常用，同 嶋→島）
 };
 
 /**
@@ -5081,6 +5132,24 @@ function splitSwitchbackSegments(trainsData, topology) {
 function interpolatePassingStations(timetable, topology) {
     if (!topology || !topology.segments) return;
 
+    // 每個 segment 的「相鄰站對」集合：資料若已由轉換階段補齊通過站
+    // （tools/interpolate_passes.py），這裡就不該再動它——下方以 findIndex 取起訖站的
+    // 走法在環狀線（起站同時在段頭段尾，如山手線 東京 @0/@34.5）會走反方向。
+    const adjCache = new Map();
+    const adjOf = (topoSeg) => {
+        let adj = adjCache.get(topoSeg);
+        if (!adj) {
+            adj = new Set();
+            const st = topoSeg.stations;
+            for (let i = 0; i + 1 < st.length; i++) {
+                adj.add(st[i].id + '|' + st[i + 1].id);
+                adj.add(st[i + 1].id + '|' + st[i].id);
+            }
+            adjCache.set(topoSeg, adj);
+        }
+        return adj;
+    };
+
     timetable.forEach(train => {
         if (!train.segments) return;
 
@@ -5088,6 +5157,14 @@ function interpolatePassingStations(timetable, topology) {
             // 1. 找出這條線在 topology 裡的實體鐵軌資料
             let topoSeg = topology.segments.find(t => String(t.id) === String(seg.id));
             if (!topoSeg || !topoSeg.stations) return;
+
+            // 已完整（每對相鄰停靠在拓樸上都相鄰）→ 不需補站
+            const adj = adjOf(topoSeg);
+            let complete = true;
+            for (let i = 0; i + 1 < seg.s.length; i++) {
+                if (seg.s[i] !== seg.s[i + 1] && !adj.has(seg.s[i] + '|' + seg.s[i + 1])) { complete = false; break; }
+            }
+            if (complete) return;
 
             let new_s = [];
             let new_t = [];
@@ -5357,13 +5434,23 @@ function optimizeTrainTimesForDisplay(trainsData) {
                 lastT = Math.max(lastT, seg.t[i]); 
             }
 
+            // 通過站 (v=2) 不參與步驟 2/3 的調整，最後依原始時間比例重新對應（步驟 4）。
+            // 否則停靠站被撐開 0.5 分後，緊接其後的通過站會落在它發車之前 → 線條折返
+            // （如 横須賀線 1314S 新川崎 891 停 → 川崎 891.25 通過）。
+            const isPass = (k) => seg.v && seg.v[k] === 2;
+            const origT = seg.t.slice();
+
             // ==========================================
             // 🌟 2. 新增：防止 0 分鐘瞬移 (垂直線掉落)
             // ==========================================
+            let prevStopDepIdx = isPass(0) ? -1 : 1;
             for (let i = 2; i < seg.t.length; i += 2) {
-                let prevDep = seg.t[i - 1]; // 上一站發車時間
+                if (isPass(i / 2)) continue;
+                if (prevStopDepIdx < 0) { prevStopDepIdx = i + 1; continue; }
+                let prevDep = seg.t[prevStopDepIdx]; // 上一個停靠站的發車時間
                 let currArr = seg.t[i];     // 這站到達時間
-                
+                prevStopDepIdx = i + 1;
+
                 // 如果這站的到達時間 <= 上一站的發車時間 (行車時間為 0)
                 if (currArr <= prevDep) {
                     // 強制給予 0.5 分鐘的物理行駛時間，產生合理的斜率
@@ -5390,9 +5477,32 @@ function optimizeTrainTimesForDisplay(trainsData) {
                     }
                     
                     if (!isCouplingStation) {
-                        seg.t[i + 1] += 0.5; 
+                        seg.t[i + 1] += 0.5;
                     }
                 }
+            }
+
+            // 🌟 4. 通過站依原始時間比例，重新對應到前後停靠站調整後的區間
+            const n = seg.s.length;
+            let k = 0;
+            while (k < n) {
+                if (!isPass(k)) { k++; continue; }
+                let startK = k;
+                while (k < n && isPass(k)) k++;
+                let a = startK - 1, b = k;          // 前後停靠站（可能不存在）
+                if (a >= 0 && b < n) {
+                    let o0 = origT[a * 2 + 1], o1 = origT[b * 2];
+                    let n0 = seg.t[a * 2 + 1], n1 = seg.t[b * 2];
+                    for (let j = startK; j < b; j++) {
+                        let r = (o1 > o0) ? (origT[j * 2] - o0) / (o1 - o0) : (j - a) / (b - a);
+                        r = Math.min(Math.max(r, 0), 1);
+                        seg.t[j * 2] = seg.t[j * 2 + 1] = n0 + (n1 - n0) * r;
+                    }
+                }
+            }
+            // 最後保險：時間單調不減（段頭/段尾沒有前後停靠站可對應的通過站）
+            for (let i = 1; i < seg.t.length; i++) {
+                if (seg.t[i] < seg.t[i - 1]) seg.t[i] = seg.t[i - 1];
             }
         });
     });
@@ -5721,6 +5831,15 @@ async function loadTimetableData(dateOrType) {
                     // 為了不污染原始資料，做深拷貝
                     let shiftedTrain = JSON.parse(JSON.stringify(train));
                     shiftedTrain._isYesterday = true; // 做個記號，代表這是殘影車
+
+                    // 殘影車與今天的同號車是不同的實體班次：主鍵加 "|y"（顯示端一律取 '|' 之前，
+                    // 畫面不受影響），配對對象也對應到昨天的版本。否則 find-by-no 會抓到今天那班，
+                    // 例如昨天 0:30 抵達東京、直通的車被接到今天 24:35 發車的同號車 → 畫出橫跨整天的接駁線。
+                    if (shiftedTrain.no !== undefined) shiftedTrain.no = `${shiftedTrain.no}|y`;
+                    if (shiftedTrain.train_no !== undefined) shiftedTrain.train_no = `${shiftedTrain.train_no}|y`;
+                    if (Array.isArray(shiftedTrain.coupled_with)) {
+                        shiftedTrain.coupled_with.forEach(c => { c.train_id = `${c.train_id}|y`; });
+                    }
                     
                     shiftedTrain.segments.forEach(seg => {
                         // 如果這條線有 >= 1440 的時間，代表它有跨到「今天」

@@ -85,6 +85,19 @@ description: 自動化新增一條鐵路系統到視覺化專案——探勘資�
 寫轉換邏輯：把 raw 時刻表 → 以「車次為中心」的 segments 結構。
 分岔/跨線處理參考 TRA `compile_train_data()`（相鄰站找共同 segment，無共同則找交會站依里程插值切段）。產出 `json/timetable/timetable_*.json`。
 
+**寫檔前一律沿拓樸內插通過站**（`tools/interpolate_passes.py`，範本見 `data/Japan/JR_East/script/convert_timetable.py`）：
+```python
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tools"))
+from interpolate_passes import PassInterpolator
+ip = PassInterpolator(topo)          # 新幹線系統：PassInterpolator(topo, max_speed_kmh=400)
+for train in trains:
+    ip.process_train(train)
+```
+時刻表只記停靠站，兩停靠之間走哪條路若留給前端猜，**環狀線**（起站在段頭段尾各一次）與**無共同 segment 的斷點**（特急長距離不停、跨線直通）都會繞錯邊。工具在拓樸圖上找路（兩站同在原派段內就只在該段內找，否則全圖最短路＋換段懲罰），依里程內插 `v=2` 通過站並依路徑重切 segment。
+- 印出的「跨段找路」路徑務必人工核對是否符合實際走法；不符多半是**拓樸有假邊**（維基把兩條支線攤平成一條鏈）或**里程是營業キロ而非實際路線長**（經他站計費的連絡線）→ 修拓樸，不要修工具。
+- 「隱含速度過高而放棄」多半代表實際路線經他社線（不在拓樸內），或**把他社的同名站誤認為本系統站**（近鐵直通京都地下鐵的 九条/十条/京都）→ 在轉換腳本把該站歸入 is_other。
+- 已有系統可先用 `py tools/interpolate_passes.py data/<國家>/<系統> --dry-run` 看報告。
+
 **立刻驗證**：
 ```
 py tools/validate_system.py data/<國家>/<系統>
