@@ -192,8 +192,8 @@ def run(max_workers=3, dates=None):
             date_count[dd] += 1
     print(f"✅ {len(all_codes)} 個の stopCode。日付別班数: {dict(sorted(date_count.items()))}", flush=True)
     if not date_count:
-        print("⚠️  班次なし", flush=True)
-        return
+        print("❌ 班次なし（navitime 暫時封鎖？）、中止", flush=True)
+        sys.exit(1)
     # dates 指定時はその全日付を出力、未指定時は最多日の 50% 未満の端日付を除外
     if dates:
         use_dates = sorted(d for d in date_count if d in set(dates))
@@ -240,6 +240,10 @@ def run(max_workers=3, dates=None):
             deduped.setdefault(sig, r)
         trains = sorted(deduped.values(), key=lambda r: r["stops"][0]["dep"])
         fname = f"raw_{dd.replace('-', '')}.json"
+        if not trains:
+            # 0 班（多半是 navitime 暫時封鎖 / 403）→ 不寫空檔覆蓋既有資料
+            print(f"❌ {dd}: 0 班，略過不寫入 {fname}", flush=True)
+            continue
         with open(JSON_DIR / fname, "w", encoding="utf-8") as f:
             f.write("[\n")
             for i, r in enumerate(trains):
@@ -249,6 +253,9 @@ def run(max_workers=3, dates=None):
         written_dates.append(dd)
         print(f"🎉 {dd}: {len(trains)} 班 → {fname}", flush=True)
 
+    if not written_dates:
+        print("❌ 1 日分も取得できず、中止（既存ファイルは変更なし）", flush=True)
+        sys.exit(1)
     print(f"✅ 完了。{len(written_dates)} 日分。convert_timetable.py を実行してください。", flush=True)
 
 
