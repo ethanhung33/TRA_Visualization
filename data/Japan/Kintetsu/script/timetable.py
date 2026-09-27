@@ -51,9 +51,9 @@ EXTERNAL_NETWORKS = {
     # 京都市營地下鐵
     "国際会館", "松ヶ崎", "北山", "北大路", "鞍馬口", "今出川", "丸太町", "烏丸御池", 
     "四条", "五条", "くいな橋", "十条",
-    # 大阪 Metro 中央線
-    "コスモスクエア", "大阪港", "朝潮橋", "弁天町", "阿波座", "本町", "堺筋本町", 
-    "谷町四丁目", "森ノ宮", "緑橋", "深江橋", "高井田"
+    # 大阪 Metro 中央線（夢洲為 2025 年延伸開業站，けいはんな線直通列車會到此）
+    "コスモスクエア", "大阪港", "朝潮橋", "弁天町", "阿波座", "本町", "堺筋本町",
+    "谷町四丁目", "森ノ宮", "緑橋", "深江橋", "高井田", "夢洲"
 }
 
 MISSING_STATIONS = set()
@@ -65,6 +65,18 @@ route_dict = {
     "M": "yamada_toba_shima", "N": "domyoji", "O": "nagano", "P": "gose",
     "Y": "ikomacable", "Z": "nishishigicable",
 }
+
+def clean_train_type(train_type):
+    """車種名から設備・サービス註記と列車番号を除去し、setting.json の train_color キーに揃える。
+
+    近鐵官網的表頭會把設備註記與車次號混在車種欄位裡，不處理的話顏色會對不上：
+      「特急ひのとり7列車（車いす対応車両）」            → 「特急ひのとり」
+      「観光特急しまかぜ（京都発着）（車いす対応車両・車内販売）」→ 「観光特急しまかぜ」
+    """
+    train_type = re.sub(r'（[^）]*(?:車いす|車内販売|発着)[^）]*）', '', train_type)
+    train_type = re.sub(r'\d+列車', '', train_type)
+    return train_type.strip()
+
 
 def clean_station_name(name):
     name = re.sub(r'\[.*?\]', '', name)
@@ -327,7 +339,7 @@ def fetch_and_format_train_detail(train_info, station_map):
         header_text = header_cell.get_text(strip=True)
         meta_match = re.search(r'(.*?)\s+(.*?行き.*?)\s+(.*)のダイヤ', header_text)
         
-        train_type = meta_match.group(1).strip() if meta_match else "Unknown"
+        train_type = clean_train_type(meta_match.group(1)) if meta_match else "Unknown"
 
         stop_data = []
         for row in soup.find_all('tr'):

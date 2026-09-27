@@ -40,6 +40,7 @@ STATION_NODES = ["00003939", "00005498", "00001088", "00001604", "00002798",
 BASE = "https://www.navitime.co.jp"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 SLEEP = 1.1
+FAIL_REASONS = Counter()
 
 SESSION = requests.Session()
 SESSION.headers.update(HEADERS)
@@ -53,16 +54,24 @@ def norm_name(name):
 
 
 def get_soup(url, retries=3):
+    reason = None
     for attempt in range(retries):
         try:
             time.sleep(SLEEP)
             r = SESSION.get(url, timeout=20)
             r.raise_for_status()
             return BeautifulSoup(r.text, "html.parser")
-        except Exception:
-            if attempt == retries - 1:
-                return None
+        except requests.exceptions.HTTPError as e:
+            reason = f"HTTP {e.response.status_code}"
+        except requests.exceptions.Timeout:
+            reason = "timeout"
+        except requests.exceptions.ConnectionError:
+            reason = "connection_error"
+        except Exception as e:
+            reason = type(e).__name__
+        if attempt < retries - 1:
             time.sleep(3)
+    FAIL_REASONS[reason] += 1
     return None
 
 
@@ -143,6 +152,7 @@ def _date_tuple(s):
 
 def _fetch_bucket(codes, out_name, max_workers):
     print(f"⚡ [第二段階] {out_name}：{len(codes)} 班の停車順序をダウンロード…", flush=True)
+    FAIL_REASONS.clear()
     fetched, none_count = [], 0
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         futs = {ex.submit(fetch_stops, c, info[0], info[1], info[2], _date_tuple(info[3])): c
@@ -163,6 +173,11 @@ def _fetch_bucket(codes, out_name, max_workers):
     results.sort(key=lambda r: r["stops"][0]["dep"])
 
     out = JSON_DIR / out_name
+    if not results:
+        # 抓到 0 班（多半是 navitime 暫時封鎖 / 403），不要寫出空檔覆蓋既有資料
+        reasons = "、".join(f"{k}×{v}" for k, v in FAIL_REASONS.most_common()) or "無（掃描階段即失敗）"
+        print(f"❌ 抓到 0 班，中止且不寫入 {out.name}。失敗原因：{reasons}", flush=True)
+        sys.exit(1)
     with open(out, "w", encoding="utf-8") as f:
         f.write("[\n")
         for i, r in enumerate(results):
@@ -170,6 +185,9 @@ def _fetch_bucket(codes, out_name, max_workers):
                     (",\n" if i < len(results) - 1 else "\n"))
         f.write("]\n")
     print(f"🎉 {len(fetched)} 班取得（失敗 {none_count}）、去重後 {len(results)} 班 → {out}", flush=True)
+    if none_count:
+        reasons = "、".join(f"{k}×{v}" for k, v in FAIL_REASONS.most_common())
+        print(f"   失敗原因：{reasons}", flush=True)
 
 
 def _pick_representative(all_codes, want_weekend):
