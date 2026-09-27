@@ -188,6 +188,11 @@ def run(max_workers=3):
     results.sort(key=lambda r: r["stops"][0]["dep"])
 
     out = JSON_DIR / "raw_all.json"
+    if not results:
+        # 抓到 0 班（多半是 navitime 暫時封鎖 / 403），不要寫出空檔覆蓋既有資料
+        reasons = "、".join(f"{k}×{v}" for k, v in FAIL_REASONS.most_common()) or "無（掃描階段即失敗）"
+        print(f"❌ 抓到 0 班，中止且不寫入 {out.name}。失敗原因：{reasons}", flush=True)
+        sys.exit(1)
     with open(out, "w", encoding="utf-8") as f:
         f.write("[\n")
         for i, r in enumerate(results):
