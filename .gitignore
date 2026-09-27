@@ -3,7 +3,12 @@ shots/
 
 # 爬蟲執行日誌（暫存，不需版控）
 **/scrape*.log
+logs/
 
 # Python
 __pycache__/
 *.pyc
+
+# Others
+docs/
+*.pptx

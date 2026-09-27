@@ -225,10 +225,11 @@ def validate_timetable_file(path, seg_stations, all_station_ids, color_keys, ser
                 err(f"[timetable] {path.name} 車次 {tno} segment '{seg_id}': len(t)={len(t)} 必須等於 2*len(s)={2*len(s)}")
             if len(v) != len(s):
                 err(f"[timetable] {path.name} 車次 {tno} segment '{seg_id}': len(v)={len(v)} 必須等於 len(s)={len(s)}")
-            for st_id in s:
+            for k, st_id in enumerate(s):
                 if str(st_id) not in all_station_ids:
                     unknown_stations[str(st_id)] = unknown_stations.get(str(st_id), 0) + 1
-                elif served is not None:
+                elif served is not None and not (isinstance(v, list) and k < len(v) and v[k] == 2):
+                    # 通過站 (v=2，含 interpolate_passes 內插者) 不算「有列車停靠」
                     served.add(str(st_id))
             for vv in v:
                 if vv not in KNOWN_V_TYPES:

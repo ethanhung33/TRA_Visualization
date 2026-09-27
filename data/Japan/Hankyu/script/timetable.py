@@ -68,7 +68,7 @@ SCAN_LINES = [
 
 BASE = "https://www.navitime.co.jp"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-SLEEP = 1.1
+SLEEP = 2.0  # 起始請求間隔（秒）；之後由 navitime_http 依回應自動加快/放慢
 FAIL_REASONS = Counter()
 
 SESSION = requests.Session()
@@ -112,26 +112,12 @@ def _parse_type(link_text: str) -> str:
     return _TYPE_ABBREV.get(prefix, prefix)
 
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tools"))
+import navitime_http  # noqa: E402  共用自適應節流：被 403/429 擋會全體冷卻後重試，不丟請求
+
+
 def get_soup(url, retries=3):
-    reason = None
-    for attempt in range(retries):
-        try:
-            time.sleep(SLEEP)
-            r = SESSION.get(url, timeout=20)
-            r.raise_for_status()
-            return BeautifulSoup(r.text, "html.parser")
-        except requests.exceptions.HTTPError as e:
-            reason = f"HTTP {e.response.status_code}"
-        except requests.exceptions.Timeout:
-            reason = "timeout"
-        except requests.exceptions.ConnectionError:
-            reason = "connection_error"
-        except Exception as e:
-            reason = type(e).__name__
-        if attempt < retries - 1:
-            time.sleep(3)
-    FAIL_REASONS[reason] += 1
-    return None
+    return navitime_http.get_soup(url, SESSION, FAIL_REASONS, start_interval=SLEEP, retries=retries)
 
 
 def build_scan_targets():
@@ -257,7 +243,7 @@ def _fetch_bucket(codes, out_name, max_workers):
             else:
                 none_count += 1
             if done % 50 == 0:
-                print(f"   {done}/{len(futs)}…（失敗 {none_count}）", flush=True)
+                print(f"   {done}/{len(futs)}…（失敗 {none_count}，{navitime_http.status()}）", flush=True)
 
     # 跨 lineId 去重：同一実体列車（種別+始発駅+始発時刻+終着駅+停車数が同一）は一件のみ
     deduped = {}

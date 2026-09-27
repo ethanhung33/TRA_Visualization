@@ -41,7 +41,8 @@ SCAN_LINES = [LINE_TOKAIDO, LINE_SANYO, LINE_KYUSHU, LINE_NISHIKYUSHU]
 
 BASE = "https://www.navitime.co.jp"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-SLEEP = 1.1
+FAIL_REASONS = Counter()
+SLEEP = 2.0  # 起始請求間隔（秒）；之後由 navitime_http 依回應自動加快/放慢
 
 SESSION = requests.Session()
 SESSION.headers.update(HEADERS)
@@ -54,18 +55,12 @@ def norm_name(name):
     return name
 
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tools"))
+import navitime_http  # noqa: E402  共用自適應節流：被 403/429 擋會全體冷卻後重試，不丟請求
+
+
 def get_soup(url, retries=3):
-    for attempt in range(retries):
-        try:
-            time.sleep(SLEEP)
-            r = SESSION.get(url, timeout=20)
-            r.raise_for_status()
-            return BeautifulSoup(r.text, "html.parser")
-        except Exception:
-            if attempt == retries - 1:
-                return None
-            time.sleep(3)
-    return None
+    return navitime_http.get_soup(url, SESSION, FAIL_REASONS, start_interval=SLEEP, retries=retries)
 
 
 def build_scan_targets():
@@ -222,7 +217,7 @@ def run(max_workers=3, dates=None):
             else:
                 none_count += 1
             if done % 200 == 0:
-                print(f"   {done}/{len(futs)}…（失敗 {none_count}）", flush=True)
+                print(f"   {done}/{len(futs)}…（失敗 {none_count}，{navitime_http.status()}）", flush=True)
     print(f"   取得 {len(fetched)}、失敗 {none_count}", flush=True)
 
     out_dir = JSON_DIR / "timetable"

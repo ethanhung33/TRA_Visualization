@@ -1,0 +1,1544 @@
+{
+ "system_id": "JR_East",
+ "system_name": "東日本旅客鉄道",
+ "data_fetch_strategy": "WEEKEND_FILE",
+ "calendar_type": "WEEKDAY_BITMAP",
+ "time_stretch_ratio": 0.4,
+ "show_train_id": true,
+ "timezone_offset": 9,
+ "view_presets": {
+  "yamanote": {
+   "name": "山手線 (環狀)",
+   "lines": [
+    "yamanote_line"
+   ],
+   "view_type": "CIRCULAR",
+   "button_color": [
+    "#9ACD32",
+    "#6B8E23"
+   ],
+   "loopHeight": 1600,
+   "time_stretch_ratio": 0.35
+  },
+  "keihin_tohoku": {
+   "name": "京浜東北・根岸線 (大宮-大船)",
+   "lines": [
+    {
+     "id": "tohoku_main_line_s",
+     "start": "大宮",
+     "end": "東京"
+    },
+    {
+     "id": "tokaido_main_line",
+     "start": "東京",
+     "end": "横浜"
+    },
+    "negishi_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#00BFFF",
+    "#0080BF"
+   ],
+   "time_stretch_ratio": 0.68
+  },
+  "chuo": {
+   "name": "中央線 (東京-塩尻)",
+   "lines": [
+    "chuo_main_line_e",
+    "chuo_main_line_1"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FF8C00",
+    "#CC6600"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "chuo_sobu_local": {
+   "name": "中央・総武線各駅停車 (三鷹-千葉)",
+   "lines": [
+    {
+     "id": "chuo_main_line_e",
+     "start": "三鷹",
+     "end": "御茶ノ水"
+    },
+    {
+     "id": "sobu_main_line_c",
+     "start": "御茶ノ水",
+     "end": "千葉"
+    }
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FFEA00",
+    "#B8A200"
+   ],
+   "time_stretch_ratio": 0.5
+  },
+  "sobu": {
+   "name": "総武線 (東京-銚子)",
+   "lines": [
+    "sobu_main_line_w",
+    {
+     "id": "sobu_main_line_c",
+     "start": "錦糸町",
+     "end": "千葉"
+    },
+    "sobu_main_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FFD700",
+    "#BFA000"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "ueno_tokyo_utsunomiya": {
+   "name": "上野東京ライン (熱海-宇都宮)",
+   "lines": [
+    {
+     "id": "tokaido_main_line",
+     "start": "熱海",
+     "end": "東京"
+    },
+    {
+     "id": "tohoku_main_line_s",
+     "start": "東京",
+     "end": "宇都宮"
+    }
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FFA726",
+    "#E65100"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "ueno_tokyo_takasaki": {
+   "name": "上野東京ライン (熱海-高崎)",
+   "lines": [
+    {
+     "id": "tokaido_main_line",
+     "start": "熱海",
+     "end": "東京"
+    },
+    "takasaki_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FFB74D",
+    "#EF6C00"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "yokosuka": {
+   "name": "横須賀線 (東京-久里浜)",
+   "lines": [
+    {
+     "id": "tokaido_main_line",
+     "start": "東京",
+     "end": "品川"
+    },
+    {
+     "id": "hinkaku_line",
+     "start": "品川",
+     "end": "横浜"
+    },
+    {
+     "id": "tokaido_main_line",
+     "start": "横浜",
+     "end": "大船"
+    },
+    "yokosuka_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#4169E1",
+    "#27408B"
+   ],
+   "time_stretch_ratio": 0.61
+  },
+  "utsunomiya": {
+   "name": "宇都宮線 (東京-黒磯)",
+   "lines": [
+    "tohoku_main_line_s"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FF69B4",
+    "#C71585"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "takasaki": {
+   "name": "高崎線 (東京-高崎)",
+   "lines": [
+    "takasaki_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#DAA520",
+    "#8B6914"
+   ],
+   "time_stretch_ratio": 0.88
+  },
+  "joban": {
+   "name": "常磐線 (日暮里-仙台)",
+   "lines": [
+    "joban_line_1",
+    "joban_line_2"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#4CD37A",
+    "#1B8A45"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "joban_local": {
+   "name": "常磐線各駅停車 (綾瀬-取手)",
+   "lines": [
+    {
+     "id": "joban_line_1",
+     "start": "綾瀬",
+     "end": "取手"
+    }
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#8FBC8F",
+    "#556B2F"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "saikyo": {
+   "name": "埼京線 (大崎-大宮)",
+   "lines": [
+    {
+     "id": "yamanote_line",
+     "start": "大崎",
+     "end": "池袋"
+    },
+    "akabane_line",
+    "tohoku_branch_saikyo"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#2E8B57",
+    "#1F5F3C"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "keiyo": {
+   "name": "京葉線 (東京-蘇我)",
+   "lines": [
+    "keiyo_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#DC143C",
+    "#A00E2C"
+   ],
+   "time_stretch_ratio": 0.36
+  },
+  "musashino": {
+   "name": "武蔵野線 (府中本町-西船橋)",
+   "lines": [
+    "musashino_line_1"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FF6347",
+    "#C24B36"
+   ],
+   "time_stretch_ratio": 0.6
+  },
+  "nambu": {
+   "name": "南武線 (川崎-立川)",
+   "lines": [
+    "nambu_line_1"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FFD54F",
+    "#C9A227"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "yokohama": {
+   "name": "横浜線 (東神奈川-八王子)",
+   "lines": [
+    "yokohama_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#32CD32",
+    "#228B22"
+   ],
+   "time_stretch_ratio": 0.36
+  },
+  "tsurumi": {
+   "name": "鶴見線 (鶴見-扇町)",
+   "lines": [
+    "tsurumi_line_1"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#87CEEB",
+    "#4682B4"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "ome": {
+   "name": "青梅線 (立川-奥多摩)",
+   "lines": [
+    "ome_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#B0C4DE",
+    "#6A7F9E"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "itsukaichi": {
+   "name": "五日市線 (拝島-武蔵五日市)",
+   "lines": [
+    "itsukaichi_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#9370DB",
+    "#5D3FA8"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "hachiko": {
+   "name": "八高線 (八王子-高崎)",
+   "lines": [
+    "hachiko_line_1",
+    "hachiko_line_2"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#CD853F",
+    "#8B5A2B"
+   ],
+   "time_stretch_ratio": 0.8
+  },
+  "kawagoe": {
+   "name": "川越線 (大宮-高麗川)",
+   "lines": [
+    "kawagoe_line_1",
+    "kawagoe_line_2"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#66CDAA",
+    "#3E8E75"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "sagami": {
+   "name": "相模線 (茅ケ崎-橋本)",
+   "lines": [
+    "sagami_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#40E0D0",
+    "#2A968C"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "ito": {
+   "name": "伊東線 (熱海-伊東)",
+   "lines": [
+    "ito_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FFA07A",
+    "#C2765A"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "sotobo": {
+   "name": "外房線 (千葉-安房鴨川)",
+   "lines": [
+    "sotobo_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FF4500",
+    "#B33000"
+   ],
+   "time_stretch_ratio": 0.78
+  },
+  "uchibo": {
+   "name": "内房線 (蘇我-安房鴨川)",
+   "lines": [
+    "uchibo_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#1E90FF",
+    "#1565C0"
+   ],
+   "time_stretch_ratio": 0.99
+  },
+  "narita": {
+   "name": "成田線 (千葉-銚子)",
+   "lines": [
+    {
+     "id": "narita_line_1",
+     "start": "千葉",
+     "end": "成田"
+    },
+    "narita_line_2"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#8FBC8F",
+    "#5F7F5F"
+   ],
+   "time_stretch_ratio": 0.79
+  },
+  "narita_airport": {
+   "name": "成田線 (千葉-成田空港)",
+   "lines": [
+    "narita_line_1"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FF6E9C",
+    "#AD1457"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "narita_abiko": {
+   "name": "成田線 (成田-我孫子)",
+   "lines": [
+    "narita_line_3"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#A9BA9D",
+    "#6E7D64"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "kashima": {
+   "name": "鹿島線 (香取-鹿島)",
+   "lines": [
+    "kashima_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#DEB887",
+    "#9C7A4F"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "togane": {
+   "name": "東金線 (大網-成東)",
+   "lines": [
+    "togane_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#F4A460",
+    "#B87333"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "kururi": {
+   "name": "久留里線 (木更津-上総亀山)",
+   "lines": [
+    "kururi_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#BDB76B",
+    "#8B864E"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "ryomo": {
+   "name": "両毛線 (小山-高崎)",
+   "lines": [
+    "ryomo_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FFB6C1",
+    "#CD8C95"
+   ],
+   "time_stretch_ratio": 0.76
+  },
+  "mito": {
+   "name": "水戸線 (小山-友部)",
+   "lines": [
+    "mito_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#7FFFD4",
+    "#4FA98D"
+   ],
+   "time_stretch_ratio": 0.42
+  },
+  "suigun": {
+   "name": "水郡線 (水戸-郡山)",
+   "lines": [
+    "suigun_line_1"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#98FB98",
+    "#5FA85F"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "nikko": {
+   "name": "日光線 (宇都宮-日光)",
+   "lines": [
+    "nikko_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#C71585",
+    "#8B0A50"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "karasuyama": {
+   "name": "烏山線 (宝積寺-烏山)",
+   "lines": [
+    "karasuyama_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#DDA0DD",
+    "#9B599B"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "agatsuma": {
+   "name": "吾妻線 (渋川-大前)",
+   "lines": [
+    "agatsuma_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#B22222",
+    "#7D1818"
+   ],
+   "time_stretch_ratio": 0.46
+  },
+  "joetsu": {
+   "name": "上越線 (高崎-長岡)",
+   "lines": [
+    "joetsu_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#6A5ACD",
+    "#483D8B"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "shinonoi": {
+   "name": "篠ノ井線 (塩尻-長野)",
+   "lines": [
+    "shinonoi_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#4682B4",
+    "#2F5C80"
+   ],
+   "time_stretch_ratio": 0.63
+  },
+  "shinetsu": {
+   "name": "信越本線 (直江津-新潟)",
+   "lines": [
+    "shinetsu_main_line_3"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#5F9EA0",
+    "#3D6A6B"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "shinetsu_yokokawa": {
+   "name": "信越本線 (高崎-横川)",
+   "lines": [
+    "shinetsu_main_line_1"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#778899",
+    "#4F5A66"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "koumi": {
+   "name": "小海線 (小淵沢-小諸)",
+   "lines": [
+    "koumi_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#48D1CC",
+    "#2E8B87"
+   ],
+   "time_stretch_ratio": 0.66
+  },
+  "iiyama": {
+   "name": "飯山線 (豊野-越後川口)",
+   "lines": [
+    "iiyama_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#8FBC8F",
+    "#5B7F5B"
+   ],
+   "time_stretch_ratio": 0.81
+  },
+  "oito": {
+   "name": "大糸線 (松本-南小谷)",
+   "lines": [
+    "oito_line_1"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#00CED1",
+    "#008B8B"
+   ],
+   "time_stretch_ratio": 0.58
+  },
+  "echigo": {
+   "name": "越後線 (柏崎-新潟)",
+   "lines": [
+    "echigo_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#F08080",
+    "#B35A5A"
+   ],
+   "time_stretch_ratio": 0.7
+  },
+  "hakushin": {
+   "name": "白新線 (新潟-新発田)",
+   "lines": [
+    "hakushin_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#E9967A",
+    "#A96A55"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "yahiko": {
+   "name": "弥彦線 (弥彦-東三条)",
+   "lines": [
+    "yahiko_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#D8BFD8",
+    "#9A899A"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "tadami": {
+   "name": "只見線 (会津若松-小出)",
+   "lines": [
+    "tadami_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#708090",
+    "#4A5560"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "tohoku_north": {
+   "name": "東北本線 (黒磯-盛岡)",
+   "lines": [
+    "tohoku_main_line_1",
+    "tohoku_main_line_2"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FF1493",
+    "#B0106C"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "ou": {
+   "name": "奥羽本線 (福島-青森)",
+   "lines": [
+    "ou_main_line_s",
+    "ou_main_line_1",
+    "ou_main_line_2"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#9932CC",
+    "#6A22A0"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "uetsu": {
+   "name": "羽越本線 (新津-秋田)",
+   "lines": [
+    "uetsu_main_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#00BFA5",
+    "#00897B"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "banetsu_west": {
+   "name": "磐越西線 (郡山-新津)",
+   "lines": [
+    "banetsu_west_line_2",
+    "banetsu_west_line_1"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FFA500",
+    "#BF7C00"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "banetsu_east": {
+   "name": "磐越東線 (いわき-郡山)",
+   "lines": [
+    "banetsu_east_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FF8C69",
+    "#C2694F"
+   ],
+   "time_stretch_ratio": 0.71
+  },
+  "yonesaka": {
+   "name": "米坂線 (米沢-坂町)",
+   "lines": [
+    "yonesaka_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#BC8F8F",
+    "#8B6969"
+   ],
+   "time_stretch_ratio": 0.76
+  },
+  "senzan": {
+   "name": "仙山線 (仙台-山形)",
+   "lines": [
+    "senzan_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#7B68EE",
+    "#5546A5"
+   ],
+   "time_stretch_ratio": 0.52
+  },
+  "senseki": {
+   "name": "仙石線 (あおば通-石巻)",
+   "lines": [
+    "senseki_line_1",
+    "senseki_line_2"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#00FA9A",
+    "#00A86B"
+   ],
+   "time_stretch_ratio": 0.41
+  },
+  "ishinomaki": {
+   "name": "石巻線 (小牛田-女川)",
+   "lines": [
+    "ishinomaki_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#AFEEEE",
+    "#76A8A8"
+   ],
+   "time_stretch_ratio": 0.37
+  },
+  "kesennuma": {
+   "name": "気仙沼線 (前谷地-気仙沼)",
+   "lines": [
+    "kesennuma_line_1",
+    "kesennuma_line_2"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FFE4B5",
+    "#BFA97F"
+   ],
+   "time_stretch_ratio": 0.61
+  },
+  "ofunato": {
+   "name": "大船渡線 (一ノ関-盛)",
+   "lines": [
+    "ofunato_line_1",
+    "ofunato_line_2"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#D2B48C",
+    "#8B7355"
+   ],
+   "time_stretch_ratio": 0.88
+  },
+  "kamaishi": {
+   "name": "釜石線 (花巻-釜石)",
+   "lines": [
+    "kamaishi_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#DA70D6",
+    "#9B4E97"
+   ],
+   "time_stretch_ratio": 0.75
+  },
+  "yamada": {
+   "name": "山田線 (盛岡-宮古)",
+   "lines": [
+    "yamada_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#6B8E23",
+    "#4A6318"
+   ],
+   "time_stretch_ratio": 0.85
+  },
+  "hanawa": {
+   "name": "花輪線 (好摩-大館)",
+   "lines": [
+    "hanawa_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FF7F24",
+    "#C25E1B"
+   ],
+   "time_stretch_ratio": 0.89
+  },
+  "kitakami": {
+   "name": "北上線 (北上-横手)",
+   "lines": [
+    "kitakami_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#9AC0CD",
+    "#6C8792"
+   ],
+   "time_stretch_ratio": 0.51
+  },
+  "tazawako": {
+   "name": "田沢湖線 (盛岡-大曲)",
+   "lines": [
+    "tazawako_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#EEC900",
+    "#A89000"
+   ],
+   "time_stretch_ratio": 0.63
+  },
+  "oga": {
+   "name": "男鹿線 (追分-男鹿)",
+   "lines": [
+    "oga_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FF6EB4",
+    "#C2537F"
+   ],
+   "time_stretch_ratio": 0.35
+  },
+  "gono": {
+   "name": "五能線 (東能代-弘前)",
+   "lines": [
+    "gono_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#00B2EE",
+    "#007DA8"
+   ],
+   "time_stretch_ratio": 1.0
+  },
+  "tsugaru": {
+   "name": "津軽線 (青森-三厩)",
+   "lines": [
+    "tsugaru_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#7EC0EE",
+    "#5887A8"
+   ],
+   "time_stretch_ratio": 0.46
+  },
+  "ominato": {
+   "name": "大湊線 (野辺地-大湊)",
+   "lines": [
+    "ominato_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#B4CDCD",
+    "#7E9090"
+   ],
+   "time_stretch_ratio": 0.49
+  },
+  "hachinohe": {
+   "name": "八戸線 (八戸-久慈)",
+   "lines": [
+    "hachinohe_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#CDC5BF",
+    "#8B8378"
+   ],
+   "time_stretch_ratio": 0.54
+  },
+  "rikuu_east": {
+   "name": "陸羽東線 (小牛田-新庄)",
+   "lines": [
+    "rikuu_east_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#C1FFC1",
+    "#87A987"
+   ],
+   "time_stretch_ratio": 0.78
+  },
+  "rikuu_west": {
+   "name": "陸羽西線 (新庄-酒田)",
+   "lines": [
+    "rikuu_west_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#FFDAB9",
+    "#BF9F82"
+   ],
+   "time_stretch_ratio": 0.46
+  },
+  "aterazawa": {
+   "name": "左沢線 (北山形-左沢)",
+   "lines": [
+    "aterazawa_line"
+   ],
+   "view_type": "LINEAR",
+   "button_color": [
+    "#EED5B7",
+    "#A89681"
+   ],
+   "time_stretch_ratio": 0.35
+  }
+ },
+ "train_color": {
+  "普通": {
+   "普通": [
+    "#B0B0B0",
+    "#666666"
+   ],
+   "山手線": [
+    "#9ACD32",
+    "#6B8E23"
+   ],
+   "横須賀線": [
+    "#4169E1",
+    "#27408B"
+   ],
+   "常磐線": [
+    "#4CD37A",
+    "#1B8A45"
+   ],
+   "京浜東北線": [
+    "#00BFFF",
+    "#0080BF"
+   ],
+   "常磐線各駅停車": [
+    "#8FBC8F",
+    "#556B2F"
+   ],
+   "埼京線": [
+    "#2E8B57",
+    "#1F5F3C"
+   ],
+   "上野東京ライン": [
+    "#FFA726",
+    "#E65100"
+   ],
+   "湘南新宿ライン": [
+    "#E57CF5",
+    "#8E24AA"
+   ],
+   "横浜線": [
+    "#32CD32",
+    "#228B22"
+   ],
+   "バス": [
+    "#F5B7B1",
+    "#943126"
+   ],
+   "高崎線": [
+    "#DAA520",
+    "#8B6914"
+   ],
+   "宇都宮線": [
+    "#FF69B4",
+    "#C71585"
+   ],
+   "東海道線": [
+    "#FF7F50",
+    "#CC5A33"
+   ],
+   "武蔵野線": [
+    "#FF6347",
+    "#C24B36"
+   ],
+   "小田急通勤準急": [
+    "#E8DAEF",
+    "#6C3483"
+   ],
+   "ＳＬ快速": [
+    "#E8DAEF",
+    "#6C3483"
+   ]
+  },
+  "快速": {
+   "快速": [
+    "#5BD1C4",
+    "#00796B"
+   ],
+   "中央特快": [
+    "#4FC3F7",
+    "#0277BD"
+   ],
+   "通勤快速": [
+    "#FFCA5F",
+    "#EF6C00"
+   ],
+   "青梅特快": [
+    "#81D4FA",
+    "#0288D1"
+   ],
+   "特別快速": [
+    "#7FE3D4",
+    "#00695C"
+   ],
+   "快速リゾートしらかみ": [
+    "#80CBC4",
+    "#00695C"
+   ],
+   "快速はまゆり": [
+    "#F9E79F",
+    "#9A7D0A"
+   ],
+   "快速秋田キャラバンMF": [
+    "#F5CBA7",
+    "#A04000"
+   ],
+   "快速あいづ": [
+    "#A3E4D7",
+    "#0E6251"
+   ],
+   "特別快速ホリデー快速おくたま": [
+    "#FADBD8",
+    "#922B21"
+   ],
+   "快速しもきた": [
+    "#D5F5E3",
+    "#1D8348"
+   ],
+   "快速弥彦Shu*Kura": [
+    "#A9DFBF",
+    "#196F3D"
+   ],
+   "快速アーバン": [
+    "#8FC9FF",
+    "#1565C0"
+   ],
+   "快速リゾートビューふるさと": [
+    "#F9E79F",
+    "#9A7D0A"
+   ],
+   "快速ラビット": [
+    "#FFCA5F",
+    "#EF6C00"
+   ],
+   "快速柳都Shu*Kura": [
+    "#FADBD8",
+    "#922B21"
+   ],
+   "快速越乃Shu*Kura": [
+    "#D6EAF8",
+    "#21618C"
+   ],
+   "快速おもいで女川シーパル号": [
+    "#D5F5E3",
+    "#1D8348"
+   ],
+   "快速AIZUマウントエクスプレス": [
+    "#FCF3CF",
+    "#B7950B"
+   ],
+   "快速みすず": [
+    "#F5B7B1",
+    "#943126"
+   ],
+   "快速リアス": [
+    "#AED6F1",
+    "#1A5276"
+   ],
+   "快速おもいで湯けむり": [
+    "#A9DFBF",
+    "#196F3D"
+   ],
+   "快速日本のふるさと遠野まつり号": [
+    "#F9E79F",
+    "#9A7D0A"
+   ],
+   "快速いろどりSATONO": [
+    "#D7BDE2",
+    "#5B2C6F"
+   ],
+   "快速さんりくトレイン宮古": [
+    "#FADBD8",
+    "#922B21"
+   ],
+   "快速B.B.BASE手賀沼": [
+    "#D6EAF8",
+    "#21618C"
+   ],
+   "快速ひなび 八幡平": [
+    "#D5F5E3",
+    "#1D8348"
+   ],
+   "快速鳥海紅葉号": [
+    "#F5B7B1",
+    "#943126"
+   ],
+   "快速おもいで湯けむり号": [
+    "#AED6F1",
+    "#1A5276"
+   ],
+   "快速ポケモントレイン釜石号": [
+    "#A9DFBF",
+    "#196F3D"
+   ],
+   "快速風っこ奥久慈号": [
+    "#D7BDE2",
+    "#5B2C6F"
+   ],
+   "快速ゆざわShu*Kura": [
+    "#F5CBA7",
+    "#A04000"
+   ],
+   "通勤特別快速": [
+    "#FFB74D",
+    "#E65100"
+   ],
+   "快速リゾートビュー諏訪湖": [
+    "#A3E4D7",
+    "#0E6251"
+   ],
+   "快速B.B.BASE上総一ノ宮(九十九里トライアスロン)": [
+    "#FADBD8",
+    "#922B21"
+   ],
+   "快速ひなび 東北(中尊寺紅葉銀河号)": [
+    "#D6EAF8",
+    "#21618C"
+   ],
+   "快速あかねShu*Kura": [
+    "#D5F5E3",
+    "#1D8348"
+   ],
+   "快速風っこ錦秋湖号": [
+    "#FCF3CF",
+    "#B7950B"
+   ],
+   "快速最上川": [
+    "#E8DAEF",
+    "#6C3483"
+   ],
+   "快速庄内Shu*Kura": [
+    "#AED6F1",
+    "#1A5276"
+   ],
+   "快速おもいで作並・山寺号": [
+    "#D7BDE2",
+    "#5B2C6F"
+   ],
+   "快速風っこ只見線満喫号": [
+    "#F5CBA7",
+    "#A04000"
+   ],
+   "快速ひなび 下北": [
+    "#A3E4D7",
+    "#0E6251"
+   ],
+   "快速HIGH RAIL": [
+    "#FADBD8",
+    "#922B21"
+   ],
+   "快速妻有海里": [
+    "#D6EAF8",
+    "#21618C"
+   ],
+   "快速田沢湖線60周年号": [
+    "#D5F5E3",
+    "#1D8348"
+   ],
+   "快速摂田屋Shu*Kura": [
+    "#FCF3CF",
+    "#B7950B"
+   ],
+   "快速大館きりたんぽ号": [
+    "#E8DAEF",
+    "#6C3483"
+   ],
+   "快速ナイトビュー姨捨": [
+    "#F5B7B1",
+    "#943126"
+   ],
+   "快速DLばんえつ物語": [
+    "#A9DFBF",
+    "#196F3D"
+   ],
+   "快速あいづSATONO": [
+    "#D7BDE2",
+    "#5B2C6F"
+   ],
+   "快速おいしい山形秋まつり号": [
+    "#A3E4D7",
+    "#0E6251"
+   ],
+   "快速ぶらりにっこう号": [
+    "#FADBD8",
+    "#922B21"
+   ],
+   "快速B.B.BASE鹿野山": [
+    "#D6EAF8",
+    "#21618C"
+   ],
+   "快速ひなび 釜石": [
+    "#D5F5E3",
+    "#1D8348"
+   ],
+   "快速ひなび 錦秋湖": [
+    "#FCF3CF",
+    "#B7950B"
+   ],
+   "快速GVぐんまちゃん横川": [
+    "#E8DAEF",
+    "#6C3483"
+   ],
+   "快速海里": [
+    "#D7BDE2",
+    "#5B2C6F"
+   ],
+   "快速HIGH RAIL 星空": [
+    "#F5CBA7",
+    "#A04000"
+   ],
+   "快速あずましフェスタ号": [
+    "#FADBD8",
+    "#922B21"
+   ],
+   "快速風っこ女川シーパル号": [
+    "#D6EAF8",
+    "#21618C"
+   ],
+   "快速B.B.BASE内房(ツール・ド・ちば)": [
+    "#D5F5E3",
+    "#1D8348"
+   ],
+   "快速秋北紅葉号": [
+    "#F5B7B1",
+    "#943126"
+   ],
+   "快速風っこ水郡線紅葉号": [
+    "#A9DFBF",
+    "#196F3D"
+   ],
+   "快速館鼻岸壁朝市号": [
+    "#F9E79F",
+    "#9A7D0A"
+   ],
+   "快速ひなび 宮古": [
+    "#D7BDE2",
+    "#5B2C6F"
+   ],
+   "快速リレー": [
+    "#F5CBA7",
+    "#A04000"
+   ],
+   "快速ナイトビュー姨捨(更級の月)": [
+    "#A3E4D7",
+    "#0E6251"
+   ],
+   "快速ポケモントレイン気仙沼号": [
+    "#FCF3CF",
+    "#B7950B"
+   ],
+   "快速おいこっと": [
+    "#F5B7B1",
+    "#943126"
+   ],
+   "快速八ケ岳高原列車": [
+    "#AED6F1",
+    "#1A5276"
+   ]
+  },
+  "特急": {
+   "特急成田エクスプレス": [
+    "#FF6E9C",
+    "#AD1457"
+   ],
+   "特急ときわ": [
+    "#FFA07A",
+    "#D84315"
+   ],
+   "特急あずさ": [
+    "#B39DFF",
+    "#4527A0"
+   ],
+   "特急しなの": [
+    "#AED6F1",
+    "#1A5276"
+   ],
+   "特急ひたち": [
+    "#FF7B7B",
+    "#C62828"
+   ],
+   "特急踊り子": [
+    "#FF8A80",
+    "#C62828"
+   ],
+   "特急わかしお": [
+    "#4DD0E1",
+    "#00695C"
+   ],
+   "特急いなほ": [
+    "#7986CB",
+    "#303F9F"
+   ],
+   "特急かいじ": [
+    "#9FA8DA",
+    "#283593"
+   ],
+   "特急しおさい": [
+    "#81C784",
+    "#1B5E20"
+   ],
+   "特急湘南": [
+    "#FFAB91",
+    "#BF360C"
+   ],
+   "特急新宿さざなみ": [
+    "#A9DFBF",
+    "#196F3D"
+   ],
+   "特急草津・四万": [
+    "#A5D6A7",
+    "#2E7D32"
+   ],
+   "特急しらゆき": [
+    "#D7BDE2",
+    "#5B2C6F"
+   ],
+   "特急あかぎ": [
+    "#FFD180",
+    "#EF6C00"
+   ],
+   "特急あやめ": [
+    "#D6EAF8",
+    "#21618C"
+   ],
+   "特急さざなみ": [
+    "#4FC3F7",
+    "#01579B"
+   ],
+   "特急サフィール踊り子": [
+    "#80DEEA",
+    "#00838F"
+   ],
+   "特急常磐鎌倉号": [
+    "#FCF3CF",
+    "#B7950B"
+   ],
+   "特急鎌倉満喫五日市": [
+    "#E8DAEF",
+    "#6C3483"
+   ],
+   "特急絶景赤コキア高崎号": [
+    "#F5B7B1",
+    "#943126"
+   ],
+   "特急つがる": [
+    "#4DB6AC",
+    "#00796B"
+   ],
+   "特急スペーシア日光": [
+    "#FFF176",
+    "#F9A825"
+   ],
+   "特急鎌倉(平日おさんぽ号)": [
+    "#D7BDE2",
+    "#5B2C6F"
+   ],
+   "特急絶景赤コキア平塚号": [
+    "#F5CBA7",
+    "#A04000"
+   ],
+   "特急常磐日光号": [
+    "#A3E4D7",
+    "#0E6251"
+   ],
+   "特急日光": [
+    "#CE93D8",
+    "#6A1B9A"
+   ],
+   "特急鎌倉満喫青梅": [
+    "#E8DAEF",
+    "#6C3483"
+   ],
+   "特急きぬがわ": [
+    "#F48FB1",
+    "#AD1457"
+   ],
+   "特急Mt.Fuji御殿場": [
+    "#F5CBA7",
+    "#A04000"
+   ],
+   "特急絶景赤コキア高尾号": [
+    "#A3E4D7",
+    "#0E6251"
+   ],
+   "特急絶景赤コキア川越号": [
+    "#FCF3CF",
+    "#B7950B"
+   ],
+   "特急常磐高尾山号": [
+    "#E8DAEF",
+    "#6C3483"
+   ],
+   "特急新酒・もみじ回遊号": [
+    "#F9E79F",
+    "#9A7D0A"
+   ],
+   "特急イブニングウェイ": [
+    "#F5B7B1",
+    "#943126"
+   ],
+   "特急蔵の街川越茂原号(川越まつり号)": [
+    "#A9DFBF",
+    "#196F3D"
+   ],
+   "特急谷川岳もぐら": [
+    "#F9E79F",
+    "#9A7D0A"
+   ],
+   "特急スーパーつがる": [
+    "#F9E79F",
+    "#9A7D0A"
+   ],
+   "特急絶景赤コキア青梅号": [
+    "#F5CBA7",
+    "#A04000"
+   ],
+   "特急伊豆大宮紀行": [
+    "#F5B7B1",
+    "#943126"
+   ],
+   "特急新宿わかしお": [
+    "#AED6F1",
+    "#1A5276"
+   ],
+   "特急鎌倉": [
+    "#A9DFBF",
+    "#196F3D"
+   ],
+   "特急信州": [
+    "#F9E79F",
+    "#9A7D0A"
+   ],
+   "特急秋田キャラバンMF": [
+    "#A3E4D7",
+    "#0E6251"
+   ],
+   "特急アルプス": [
+    "#FCF3CF",
+    "#B7950B"
+   ],
+   "特急常磐高尾号": [
+    "#AED6F1",
+    "#1A5276"
+   ],
+   "特急谷川岳ループ": [
+    "#FADBD8",
+    "#922B21"
+   ],
+   "特急あかべこ号": [
+    "#D6EAF8",
+    "#21618C"
+   ],
+   "特急はくば": [
+    "#D5F5E3",
+    "#1D8348"
+   ],
+   "特急富士回遊": [
+    "#90CAF9",
+    "#1565C0"
+   ]
+  },
+  "寝台": {
+   "寝台特急サンライズ出雲": [
+    "#AED6F1",
+    "#1A5276"
+   ],
+   "寝台特急サンライズ瀬戸": [
+    "#AED6F1",
+    "#1A5276"
+   ]
+  },
+  "準急": {
+   "準急": [
+    "#86D98A",
+    "#2E7D32"
+   ]
+  }
+ }
+}
