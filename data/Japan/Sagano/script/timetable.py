@@ -39,7 +39,7 @@ STATION_NODES = ["00000090", "00000092", "00000091", "00000089"]
 
 BASE = "https://www.navitime.co.jp"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-SLEEP = 1.1
+SLEEP = 2.0  # 起始請求間隔（秒）；之後由 navitime_http 依回應自動加快/放慢
 FAIL_REASONS = Counter()
 
 SESSION = requests.Session()
@@ -54,26 +54,12 @@ def norm_name(name):
     return name
 
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tools"))
+import navitime_http  # noqa: E402  共用自適應節流：被 403/429 擋會全體冷卻後重試，不丟請求
+
+
 def get_soup(url, retries=3):
-    reason = None
-    for attempt in range(retries):
-        try:
-            time.sleep(SLEEP)
-            r = SESSION.get(url, timeout=20)
-            r.raise_for_status()
-            return BeautifulSoup(r.text, "html.parser")
-        except requests.exceptions.HTTPError as e:
-            reason = f"HTTP {e.response.status_code}"
-        except requests.exceptions.Timeout:
-            reason = "timeout"
-        except requests.exceptions.ConnectionError:
-            reason = "connection_error"
-        except Exception as e:
-            reason = type(e).__name__
-        if attempt < retries - 1:
-            time.sleep(3)
-    FAIL_REASONS[reason] += 1
-    return None
+    return navitime_http.get_soup(url, SESSION, FAIL_REASONS, start_interval=SLEEP, retries=retries)
 
 
 def scan_station(node):

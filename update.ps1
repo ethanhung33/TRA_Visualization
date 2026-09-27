@@ -71,7 +71,7 @@ $routes = @(
        Steps = @("data/Taiwan/HSR/script/fetch_and_transform_hsr.py", "tools/validate_system.py data/Taiwan/HSR") }
     @{ Key = "tokaido-shinkansen"; Name = "東海道・山陽・九州・西九州新幹線";
        Topology = "data/Japan/Tokkaido_Sanyo_Kyushu_Shinkansen/script/build_topology.py"
-       Steps = @("data/Japan/Tokkaido_Sanyo_Kyushu_Shinkansen/script/timetable.py --workers 3 --sleep 1.5", "data/Japan/Tokkaido_Sanyo_Kyushu_Shinkansen/script/convert_timetable.py", "tools/validate_system.py data/Japan/Tokkaido_Sanyo_Kyushu_Shinkansen --timetable-sample 0") }
+       Steps = @("data/Japan/Tokkaido_Sanyo_Kyushu_Shinkansen/script/timetable.py --days 7", "data/Japan/Tokkaido_Sanyo_Kyushu_Shinkansen/script/convert_timetable.py", "tools/validate_system.py data/Japan/Tokkaido_Sanyo_Kyushu_Shinkansen --timetable-sample 0") }
     @{ Key = "tohoku-shinkansen"; Name = "東北・北海道・上越・北陸新幹線";
        Steps = @("data/Japan/Tohoku_Hokkaido_Joetsu_Hokuriku_Shinkansen/script/timetable.py", "tools/validate_system.py data/Japan/Tohoku_Hokkaido_Joetsu_Hokuriku_Shinkansen --timetable-sample 0") }
     @{ Key = "jreast";   Name = "JR東日本 (JR East)";
@@ -79,35 +79,35 @@ $routes = @(
        Steps = @("data/Japan/JR_East/script/timetable.py", "data/Japan/JR_East/script/convert_timetable.py", "data/Japan/JR_East/script/build_setting.py", "tools/validate_system.py data/Japan/JR_East --timetable-sample 0") }
     @{ Key = "hankyu";   Name = "阪急電鐵";
        Topology = "data/Japan/Hankyu/script/build_topology.py"
-       Steps = @("data/Japan/Hankyu/script/timetable.py --workers 3 --sleep 1.5", "data/Japan/Hankyu/script/convert_timetable.py", "tools/validate_system.py data/Japan/Hankyu --timetable-sample 0") }
+       Steps = @("data/Japan/Hankyu/script/timetable.py", "data/Japan/Hankyu/script/convert_timetable.py", "tools/validate_system.py data/Japan/Hankyu --timetable-sample 0") }
     @{ Key = "hanshin";  Name = "阪神電氣鐵道";
        Topology = "data/Japan/Hanshin/script/build_topology.py"
-       Steps = @("data/Japan/Hanshin/script/timetable.py --workers 3 --sleep 1.5", "data/Japan/Hanshin/script/convert_timetable.py", "tools/validate_system.py data/Japan/Hanshin --timetable-sample 0") }
+       Steps = @("data/Japan/Hanshin/script/timetable.py", "data/Japan/Hanshin/script/convert_timetable.py", "tools/validate_system.py data/Japan/Hanshin --timetable-sample 0") }
     @{ Key = "keihan";   Name = "京阪電氣鐵道";
        Topology = "data/Japan/Keihan/script/build_topology.py"
-       Steps = @("data/Japan/Keihan/script/timetable.py --sleep 1.5", "data/Japan/Keihan/script/convert_timetable.py", "tools/validate_system.py data/Japan/Keihan --timetable-sample 0") }
+       Steps = @("data/Japan/Keihan/script/timetable.py", "data/Japan/Keihan/script/convert_timetable.py", "tools/validate_system.py data/Japan/Keihan --timetable-sample 0") }
     @{ Key = "kintetsu"; Name = "近畿日本鐵道";
        Steps = @("data/Japan/Kintetsu/script/timetable.py", "tools/validate_system.py data/Japan/Kintetsu --timetable-sample 0") }
     @{ Key = "nankai";   Name = "南海電鐵";
        Steps = @("data/Japan/Nankai/script/timetable.py", "tools/validate_system.py data/Japan/Nankai --timetable-sample 0") }
     @{ Key = "eizan";    Name = "叡山電鐵";
        Topology = "data/Japan/Eizan/script/build_topology.py"
-       Steps = @("data/Japan/Eizan/script/timetable.py --workers 3 --sleep 1.5", "data/Japan/Eizan/script/convert_timetable.py", "tools/validate_system.py data/Japan/Eizan --timetable-sample 0") }
+       Steps = @("data/Japan/Eizan/script/timetable.py", "data/Japan/Eizan/script/convert_timetable.py", "tools/validate_system.py data/Japan/Eizan --timetable-sample 0") }
     @{ Key = "keifuku";  Name = "京福電氣鐵道";
        Topology = "data/Japan/Keifuku/script/build_topology.py"
-       Steps = @("data/Japan/Keifuku/script/timetable.py --workers 3 --sleep 1.5", "data/Japan/Keifuku/script/convert_timetable.py", "tools/validate_system.py data/Japan/Keifuku --timetable-sample 0") }
+       Steps = @("data/Japan/Keifuku/script/timetable.py", "data/Japan/Keifuku/script/convert_timetable.py", "tools/validate_system.py data/Japan/Keifuku --timetable-sample 0") }
     @{ Key = "sagano";   Name = "嵯峨野觀光鐵道";
        Topology = "data/Japan/Sagano/script/build_topology.py"
-       Steps = @("data/Japan/Sagano/script/timetable.py --workers 3 --sleep 1.5", "data/Japan/Sagano/script/convert_timetable.py", "data/Japan/Sagano/script/available_date.py", "tools/validate_system.py data/Japan/Sagano --timetable-sample 0") }
+       Steps = @("data/Japan/Sagano/script/timetable.py", "data/Japan/Sagano/script/convert_timetable.py", "data/Japan/Sagano/script/available_date.py", "tools/validate_system.py data/Japan/Sagano --timetable-sample 0") }
     @{ Key = "tango";    Name = "京都丹後鐵道";
        Topology = "data/Japan/Tango/script/build_topology.py"
-       Steps = @("data/Japan/Tango/script/timetable.py --workers 3 --sleep 1.5", "data/Japan/Tango/script/convert_timetable.py", "tools/validate_system.py data/Japan/Tango --timetable-sample 0") }
+       Steps = @("data/Japan/Tango/script/timetable.py", "data/Japan/Tango/script/convert_timetable.py", "tools/validate_system.py data/Japan/Tango --timetable-sample 0") }
     @{ Key = "chizu";    Name = "智頭急行";
        Topology = "data/Japan/Chizu_Express/script/build_topology.py"
-       Steps = @("data/Japan/Chizu_Express/script/timetable.py --workers 3 --sleep 1.5", "data/Japan/Chizu_Express/script/convert_timetable.py", "tools/validate_system.py data/Japan/Chizu_Express --timetable-sample 0") }
+       Steps = @("data/Japan/Chizu_Express/script/timetable.py", "data/Japan/Chizu_Express/script/convert_timetable.py", "tools/validate_system.py data/Japan/Chizu_Express --timetable-sample 0") }
     @{ Key = "sanyo";    Name = "山陽電氣鐵道";
        Topology = "data/Japan/Sanyo/script/build_topology.py"
-       Steps = @("data/Japan/Sanyo/script/timetable.py --workers 3 --sleep 1.5", "data/Japan/Sanyo/script/convert_timetable.py", "tools/validate_system.py data/Japan/Sanyo --timetable-sample 0") }
+       Steps = @("data/Japan/Sanyo/script/timetable.py", "data/Japan/Sanyo/script/convert_timetable.py", "tools/validate_system.py data/Japan/Sanyo --timetable-sample 0") }
 )
 
 if ($ListRoutes) {
