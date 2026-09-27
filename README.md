@@ -98,12 +98,40 @@ data/<國家>/<系統>/script/ 下。共通概念可分為三階段：
         輸出車站清單與里程)；台鐵里程另由 mileage_data.py 維護。
 
 步驟 2. 爬取與轉換時刻表 (Timetable):
+        ★ 一鍵更新：專案根目錄的 update.cmd 會依序跑完所有路線的完整流程
+          (爬取 → 轉檔 → validate_system 驗證)，並輸出結果總表：
+
+            update.cmd                    更新所有路線
+            update.cmd -Only tra hsr      只更新指定路線
+            update.cmd -ListRoutes        列出所有路線代號
+            update.cmd -IncludeTopology   連拓樸一起重建 (平常不需要)
+            update.cmd -NoLog             不寫 log 檔
+
+          要知道「哪幾條該重跑了」，先跑純本地、不連網的新鮮度檢查：
+
+            py tools/check_freshness.py
+
+          它會列出每條路線的狀態 (❌ 已過期 / ⚠️ 過舊 / ✅ 正常)，並直接印出
+          該執行的 update.cmd 指令。逐日檔路線看 available_dates 還剩幾天，
+          固定檔路線看檔案時間。
+
+          執行過程會完整寫入 logs/update_YYYYMMDD_HHMMSS.log (終端機捲掉也查得到)。
+          日期區間由各腳本以「今天」為基準自動計算，不需手動改日期。
+
         各系統各有腳本，輸出標準化時刻表 JSON，例如：
         - 台鐵     : script/timetable.py
         - 台灣高鐵 : script/fetch_and_transform_hsr.py
         - 日本各線 : script/timetable.py
-                     (JR 西日本為兩步：先爬出 data_new.json，再用 convert_jrwest.py 轉檔)
+                     (JR 西日本為兩步：先爬出 data_new.json，再用 convert_jrwest.py 轉檔
+                      —— 爬蟲尚未實作，故 update.cmd 不涵蓋此系統)
         部分系統另有 available_date.py 更新可用日期、train_type.py 維護車種顏色。
+
+        爬取注意事項：
+        - navitime 系 (日本私鐵/東海道新幹線) 的日期池只涵蓋近一週，且**須在週三～週日執行**
+          才能同時抓到平日與假日班次；連續密集重跑會被 CloudFront 擋 (HTTP 403)，
+          update.cmd 已限速為 --workers 3 --sleep 1.5，撞到限流時請隔一段時間再跑。
+        - 台灣高鐵 TDX 免註冊模式每日額度約 20 次請求，腳本會跳過已抓過的日期並在
+          429 時停止，每天重跑一次即可把覆蓋範圍往後推約 20 天。
 
 步驟 3. 前端渲染 (Web Rendering):
         無離線編譯步驟。前端 main.js 直接讀取 topology.json + setting.json + 時刻表 JSON，
