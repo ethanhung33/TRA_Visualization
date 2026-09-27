@@ -20,7 +20,9 @@ import time
 import re
 import unicodedata
 import argparse
+from datetime import date, timedelta
 from pathlib import Path
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
@@ -43,6 +45,7 @@ SCAN_LINES = [LINE_MAIN, LINE_KURAMA]
 BASE = "https://www.navitime.co.jp"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 SLEEP = 1.1  # 每請求間隔（禮貌限速）
+FAIL_REASONS = Counter()
 
 SESSION = requests.Session()
 SESSION.headers.update(HEADERS)
@@ -59,16 +62,24 @@ def norm_name(name):
 
 
 def get_soup(url, retries=3):
+    reason = None
     for attempt in range(retries):
         try:
             time.sleep(SLEEP)
             r = SESSION.get(url, timeout=20)
             r.raise_for_status()
             return BeautifulSoup(r.text, "html.parser")
-        except Exception:
-            if attempt == retries - 1:
-                return None
+        except requests.exceptions.HTTPError as e:
+            reason = f"HTTP {e.response.status_code}"
+        except requests.exceptions.Timeout:
+            reason = "timeout"
+        except requests.exceptions.ConnectionError:
+            reason = "connection_error"
+        except Exception as e:
+            reason = type(e).__name__
+        if attempt < retries - 1:
             time.sleep(3)
+    FAIL_REASONS[reason] += 1
     return None
 
 
@@ -179,6 +190,7 @@ def run(target_date_str, date_tuple, out_name, max_workers=3):
     print(f"✅ 掃得 {len(all_codes)} 個 stopCode（含跨 lineId 重複，稍後去重）", flush=True)
 
     print("⚡ [階段二] 下載各車次停靠序列…", flush=True)
+    FAIL_REASONS.clear()
     fetched = []
     none_count = 0
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
@@ -204,6 +216,11 @@ def run(target_date_str, date_tuple, out_name, max_workers=3):
     results = list(deduped.values())
 
     out = JSON_DIR / out_name
+    if not results:
+        # 抓到 0 班（多半是 navitime 暫時封鎖 / 403），不要寫出空檔覆蓋既有資料
+        reasons = "、".join(f"{k}×{v}" for k, v in FAIL_REASONS.most_common()) or "無（掃描階段即失敗）"
+        print(f"❌ 抓到 0 班，中止且不寫入 {out.name}。失敗原因：{reasons}", flush=True)
+        sys.exit(1)
     with open(out, "w", encoding="utf-8") as f:
         f.write("[\n")
         for i, r in enumerate(results):
@@ -211,13 +228,31 @@ def run(target_date_str, date_tuple, out_name, max_workers=3):
             f.write(line + (",\n" if i < len(results) - 1 else "\n"))
         f.write("]\n")
     print(f"🎉 抓到 {len(fetched)} 班（失敗 {none_count}）、去重後 {len(results)} 班 → {out}", flush=True)
+    if none_count:
+        reasons = "、".join(f"{k}×{v}" for k, v in FAIL_REASONS.most_common())
+        print(f"   失敗原因：{reasons}", flush=True)
+
+
+def _nearest_weekday():
+    """navitime 池子只涵蓋近一週，代表日需貼近今天：今天是平日就用今天，否則抓下一個平日"""
+    d = date.today()
+    while d.weekday() >= 5:
+        d += timedelta(days=1)
+    return d.isoformat()
+
+
+def _nearest_holiday():
+    d = date.today()
+    while d.weekday() < 5:
+        d += timedelta(days=1)
+    return d.isoformat()
 
 
 def main():
     global SLEEP
     ap = argparse.ArgumentParser()
-    ap.add_argument("--weekday", default="2026-06-17", help="平日代表日 YYYY-MM-DD（預設週三）")
-    ap.add_argument("--holiday", default="2026-06-20", help="土休代表日 YYYY-MM-DD（預設週六）")
+    ap.add_argument("--weekday", default=_nearest_weekday(), help="平日代表日 YYYY-MM-DD（預設今天或最近的平日）")
+    ap.add_argument("--holiday", default=_nearest_holiday(), help="土休代表日 YYYY-MM-DD（預設今天或最近的六日）")
     ap.add_argument("--only", choices=["weekday", "holiday"], help="只跑其中一種")
     ap.add_argument("--workers", type=int, default=3,
                     help="階段二下載併發數（預設 3；調高加速但對 navitime 較不禮貌、有被限流風險）")

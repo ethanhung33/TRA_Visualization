@@ -67,4 +67,4 @@ py tools/screenshot.py --init data/Japan/Keihan/ --out shots/keihan.png  # 視�
 ## 注意事項
 
 - navitime 為商業服務：爬蟲嚴格限速（每請求 sleep ≥1.1s）、低併發（3）、僅個人用途、尊重 robots.txt。
-- 營運日代表日由 `timetable.py` 的 `--weekday` / `--holiday` 參數指定（預設週三 / 週六）；navitime 池子只涵蓋近一週，重跑需更新為近期日期。
+- 營運日代表日由 `timetable.py` 的 `--weekday` / `--holiday` 參數指定；預設已改為動態計算（今天是平日就用今天／否則抓下一個平日，六日同理），每次執行都會自動落在 navitime 只涵蓋近一週的池子內，不需再手動更新日期，仍可用 `--weekday`/`--holiday` 手動指定覆寫。

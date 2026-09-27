@@ -280,9 +280,17 @@ def main():
         sample = tt_files if args.timetable_sample == 0 else tt_files[:args.timetable_sample]
         total_trains = 0
         served = set()  # 所有時刻表中有列車停靠的車站 id
+        empty_files = []
         for f in sample:
-            total_trains += validate_timetable_file(Path(f), seg_stations, all_station_ids,
-                                                    color_keys, served)
+            n = validate_timetable_file(Path(f), seg_stations, all_station_ids,
+                                        color_keys, served)
+            if n == 0:
+                empty_files.append(Path(f).name)
+            total_trains += n
+        if empty_files:
+            # 空時刻表 = 爬取失敗後被寫出的空檔，前端會顯示一整天沒有車
+            err(f"[timetable] {len(empty_files)} 個時刻表檔沒有任何列車（爬取失敗？）: "
+                  f"{', '.join(empty_files[:8])}{' …' if len(empty_files) > 8 else ''}")
         print(f"ℹ️  抽查 {len(sample)}/{len(tt_files)} 個時刻表檔，共 {total_trains} 班列車")
 
         # 全站覆蓋檢查：拓樸中每站都應至少有一班車停靠。

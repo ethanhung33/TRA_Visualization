@@ -1,6 +1,10 @@
 import requests
+import ssl
+import sys
+from requests.adapters import HTTPAdapter
 from bs4 import BeautifulSoup
 import json
+import os
 import time
 from datetime import datetime, timedelta
 from tqdm import tqdm
@@ -48,7 +52,17 @@ HEADERS = {
     'Referer': 'https://www.railway.gov.tw/tra-tip-web/tip/tip001/tip112/querybyStation'
 }
 
+# Python 3.13+ 預設開啟 VERIFY_X509_STRICT，台鐵憑證缺 Subject Key Identifier 會被拒絕
+# （SSLCertVerificationError: Missing Subject Key Identifier）。只關掉 strict 旗標，其餘驗證照舊。
+class _TRASSLAdapter(HTTPAdapter):
+    def init_poolmanager(self, *args, **kwargs):
+        ctx = ssl.create_default_context()
+        ctx.verify_flags &= ~getattr(ssl, "VERIFY_X509_STRICT", 0)
+        kwargs["ssl_context"] = ctx
+        return super().init_poolmanager(*args, **kwargs)
+
 SESSION = requests.Session()
+SESSION.mount("https://", _TRASSLAdapter())
 SESSION.headers.update(HEADERS)
 
 def time_to_min(time_str):
@@ -289,13 +303,16 @@ def main():
         '6000-臺東', '7000-花蓮', '7130-蘇澳新', '7190-宜蘭', '7360-瑞芳'
     ]
     
-    start_date = "2026/06/01" 
-    end_date = "2026/08/31" 
+    # 開始日期＝今天，結束日期＝往後 N 天（預設 90 天，可用環境變數 TRA_FORECAST_DAYS 覆寫）
+    forecast_days = int(os.environ.get("TRA_FORECAST_DAYS", "90"))
+    start_date = datetime.now().strftime("%Y/%m/%d")
+    end_date = (datetime.now() + timedelta(days=forecast_days)).strftime("%Y/%m/%d")
     
     date_list = get_date_range(start_date, end_date)
     print(f"🗓️ 準備進行快取優化抓取: {start_date} ~ {end_date} (共 {len(date_list)} 天)")
 
     daily_train_registry = {}    
+    scan_errors = 0
     unique_trains_to_fetch = {}  
 
     print("\n🔍 [階段一] 正在掃描各日期的車站看板，確認出勤車次與出沒時間...")
@@ -337,12 +354,21 @@ def main():
                                 else:
                                     unique_trains_to_fetch[t_no]["seen_dates"].add(date)
             except Exception as e: 
+                scan_errors += 1
+                if scan_errors <= 3:
+                    tqdm.write(f"⚠️ 掃描 {date} {station} 失敗: {e!r}")
                 continue
             time.sleep(0.3) 
             
         daily_train_registry[date] = daily_t_dict
 
     print(f"✅ 掃描完成！發現全區間共有 {len(unique_trains_to_fetch)} 種不重複車次。")
+    if scan_errors:
+        print(f"⚠️ 共 {scan_errors} 次車站看板請求失敗。")
+    if not unique_trains_to_fetch:
+        # 沒掃到任何車次（多半是連線/網站問題），不要寫出空檔覆蓋既有資料
+        print("❌ 沒有掃描到任何車次，中止且不寫入時刻表檔案。")
+        sys.exit(1)
 
     print(f"\n⚡ [階段二] 開始下載時刻表 (僅需抓取 {len(unique_trains_to_fetch)} 次)...")
     train_database = {} 

@@ -10,10 +10,11 @@ from datetime import date, timedelta
 import unicodedata
 
 # ==========================================
-# 🌟 全域設定 (2026/04/20 - 2026/07/31)
+# 🌟 全域設定：以今天為準，往前 LOOKBACK / 往後 FORECAST 天
+# （可用環境變數 SHINKANSEN_LOOKBACK_DAYS / SHINKANSEN_FORECAST_DAYS 覆寫）
 # ==========================================
-START_DATE = date(2026, 4, 20)
-END_DATE = date(2026, 7, 31)
+START_DATE = date.today() - timedelta(days=int(os.environ.get("SHINKANSEN_LOOKBACK_DAYS", "7")))
+END_DATE = date.today() + timedelta(days=int(os.environ.get("SHINKANSEN_FORECAST_DAYS", "120")))
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 system_dir = os.path.dirname(script_dir)
