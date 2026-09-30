@@ -23,12 +23,12 @@ LIST_URL = f"{ODS_BASE}/tra-ods-web/ods/download/dataResource/railway_schedule/J
 # CarClass → 車種（對應 setting.json 的 train_color）
 CAR_CLASS_MAP = {
     "1101": "太魯閣",
-    "1104": "自強",
+    "1104": "自強",      # 1104/1106 官網標「自強(專)」，如環島之星
     "1107": "普悠瑪",
-    "1106": "自強",      # 環島之星等觀光列車
+    "1106": "自強",
     "1108": "自強", "1109": "自強", "110A": "自強", "110F": "自強",
     "110G": "新自強", "110H": "新自強", "110K": "新自強", "110M": "新自強",
-    "1110": "莒光", "1112": "莒光",
+    "1110": "莒光", "1112": "莒光",  # 1112 官網標「莒光(專)」
     "1131": "區間", "1130": "區間", "1134": "區間",
     "1132": "區間快",
     "1150": "普快",
@@ -39,11 +39,18 @@ CAR_CLASS_PREFIX = {"110": "自強", "111": "莒光", "112": "復興", "113": "�
 ID_TO_NAME = {info["id"]: name for name, info in STATION_INFO.items()}
 
 
-def car_class_to_type(code):
+# Type=4 為專列（觀光、包車等），自強 / 莒光專列獨立成一個車種
+SPECIAL_TYPES = {"自強", "莒光"}
+
+
+def car_class_to_type(code, train_kind):
     if code in CAR_CLASS_MAP:
-        return CAR_CLASS_MAP[code]
-    t = CAR_CLASS_PREFIX.get(code[:3], "區間")
-    tqdm.write(f"⚠️ 未知 CarClass {code}，暫以「{t}」處理")
+        t = CAR_CLASS_MAP[code]
+    else:
+        t = CAR_CLASS_PREFIX.get(code[:3], "區間")
+        tqdm.write(f"⚠️ 未知 CarClass {code}，暫以「{t}」處理")
+    if train_kind == "4" and t in SPECIAL_TYPES:
+        t += "專列"
     return t
 
 
@@ -71,7 +78,7 @@ def convert_train(t):
     segments = compile_train_data(patch_chengzhui(raw_stops))
     if not segments:
         return None
-    return {"no": t["Train"], "type": car_class_to_type(t["CarClass"]), "segments": segments}
+    return {"no": t["Train"], "type": car_class_to_type(t["CarClass"], t["Type"]), "segments": segments}
 
 
 def process_date(date, url, output_dir):
