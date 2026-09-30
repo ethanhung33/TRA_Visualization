@@ -49,7 +49,8 @@ def parse_calendar_logic(soup, current_url):
     current_dates = set()
     variant_urls = set()
     calendar_div = soup.find('div', class_='serviceDayCalendar')
-    if not calendar_div: return current_dates, variant_urls
+    # 沒有日曆 → 回傳 None，交由「運転日」欄位文字判斷；有日曆但範圍內無運行日 → 空集合
+    if not calendar_div: return None, variant_urls
 
     for table in calendar_div.find_all('table', class_='calendar-month'):
         caption = table.find('caption')
@@ -120,7 +121,8 @@ def fetch_single_train_detail(url):
         page_dates, variants = parse_calendar_logic(soup, url)
         final_dates_by_train = {}
         for i in valid_indices:
-            if page_dates:
+            # 有日曆就以日曆為準：變體頁的運行日可能全落在採集範圍外（空集合），不可退回成每日運行
+            if page_dates is not None:
                 final_dates_by_train[i] = set(page_dates)
             else:
                 op_text = op_dates_text.get(i, "")
@@ -400,6 +402,7 @@ def main():
         
         if not segs: continue
         d_set = train["dates"]
+        if not d_set: continue  # 採集範圍內不運行
         
         if d_set.issuperset(REF_WEEKDAY) and d_set.issuperset(REF_WEEKEND): op = "daily"
         elif d_set.issuperset(REF_WEEKDAY): op = "weekday"
