@@ -9,6 +9,8 @@ from urllib.parse import urljoin
 from datetime import date, timedelta
 import unicodedata
 
+import odekake
+
 # ==========================================
 # 🌟 全域設定：以今天為準，往前 LOOKBACK / 往後 FORECAST 天
 # （可用環境變數 SHINKANSEN_LOOKBACK_DAYS / SHINKANSEN_FORECAST_DAYS 覆寫）
@@ -372,6 +374,9 @@ def main():
                         for v_url in res.get("variants", []):
                             if v_url not in processed_urls: new_v.add(v_url)
         queue = list(new_v)
+
+    # 3. JR 東日本網站沒有只跑 JR 西日本區間的つるぎ，改從おでかけネット補抓
+    all_raw_results.extend(odekake.fetch_tsurugi(START_DATE, END_DATE))
 
     print("\n🗺️ 正在處理拓樸轉換與分類...")
     topo_path = os.path.join(json_dir, "topology.json")
