@@ -8,7 +8,7 @@
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link id="flatpickr-theme" rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
-    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
@@ -45,8 +45,8 @@
                 <div class="btn-group" style="justify-content: flex-end;">
                     <button class="pill-btn" id="btn-home" title="回系統選單">🏠</button>
                     <button class="pill-btn" id="btn-theme">🌞</button>
-                    <button class="pill-btn">ℹ️</button>
-                    <button class="pill-btn">❓</button>
+                    <button class="pill-btn" id="btn-about" title="關於本站">ℹ️</button>
+                    <button class="pill-btn" id="btn-help" title="使用說明">❓</button>
                 </div>
 
                 <div class="control-section">
@@ -79,6 +79,50 @@
                         </div>
                 </div>
             </div> </div> </div>
+
+    <div id="info-modal" class="info-modal" style="display: none;">
+        <div class="info-modal-box" role="dialog" aria-modal="true">
+            <button class="info-modal-close" title="關閉">✕</button>
+
+            <div class="info-page" data-page="about">
+                <h2>關於本站</h2>
+                <p>台日鐵路運行圖以「列車運行圖（Stringline Diagram）」呈現台灣與日本各鐵路系統的每日時刻表：橫軸為時間、縱軸為車站里程，每條斜線就是一班列車。</p>
+                <h3>資料來源</h3>
+                <ul>
+                    <li>台鐵：交通部臺灣鐵路公司 ODS 開放資料</li>
+                    <li>高鐵：TDX 運輸資料流通服務</li>
+                    <li>日本各線：各鐵道業者公開時刻表、NAVITIME</li>
+                </ul>
+                <p class="info-note">時刻表資料僅供參考，實際營運請以各鐵路業者公告為準。里程與部分通過站時刻為推算值。</p>
+                <h3>聯絡</h3>
+                <p>有任何問題或建議，歡迎來信 <a href="mailto:ethanhung33@gmail.com">ethanhung33@gmail.com</a>，或至 <a href="https://github.com/ethanhung33/TRA_Visualization" target="_blank" rel="noopener">GitHub</a> 回報。</p>
+            </div>
+
+            <div class="info-page" data-page="help">
+                <h2>使用說明</h2>
+                <h3>瀏覽運行圖</h3>
+                <ul>
+                    <li><b>移動</b>：滑鼠拖曳，或手機單指滑動</li>
+                    <li><b>縮放</b>：滑鼠滾輪，或手機雙指縮放</li>
+                    <li><b>看圖</b>：橫軸是時間、縱軸是車站；線越陡代表車速越快，水平段代表停站</li>
+                </ul>
+                <h3>查詢列車與車站</h3>
+                <ul>
+                    <li><b>點選列車線</b>：下方面板顯示該車次的停靠站與時刻</li>
+                    <li><b>點選車站名</b>：下方面板顯示該站的列車時刻表</li>
+                    <li><b>搜尋</b>：可輸入車站名、車次，或用空白 / ~ 分隔兩站（如「臺北 高雄」）查詢兩站間的列車；↑↓ 選擇、Enter 確認</li>
+                    <li><b>Esc</b>：取消選取並清空搜尋</li>
+                </ul>
+                <h3>側邊欄</h3>
+                <ul>
+                    <li><b>日期</b>：切換要查看的日期（只能選有資料的日期）</li>
+                    <li><b>路線</b>：切換不同路段或視角</li>
+                    <li><b>車種</b>：點按鈕顯示或隱藏該車種，也可以全選或全部不選</li>
+                    <li>🏠 回系統選單、🌞 切換深淺色主題</li>
+                </ul>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="main.js"></script>
