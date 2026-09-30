@@ -1098,7 +1098,7 @@ body.light-mode .search-item.search-item-active {
 .info-modal {
     position: fixed;
     inset: 0;
-    z-index: 2000;
+    z-index: 100000; /* 需高於首頁 #landing-page (99999) */
     background: rgba(0, 0, 0, 0.55);
     display: flex;
     align-items: center;
@@ -1138,3 +1138,11 @@ body.light-mode .search-item.search-item-active {
     cursor: pointer;
 }
 .info-modal-close:hover { color: var(--panel-text-main); }
+
+/* 首頁右上角的 ℹ️ / ❓ */
+.landing-utility {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    margin: 0;
+}

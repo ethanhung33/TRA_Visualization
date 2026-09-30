@@ -6519,8 +6519,10 @@ loadSystemMenu();
     };
     const close = () => { modal.style.display = 'none'; };
 
-    document.getElementById('btn-about')?.addEventListener('click', () => open('about'));
-    document.getElementById('btn-help')?.addEventListener('click', () => open('help'));
+    // 首頁與側邊欄的 ℹ️ / ❓ 按鈕共用
+    document.querySelectorAll('[data-info]').forEach(btn => {
+        btn.addEventListener('click', () => open(btn.dataset.info));
+    });
     modal.querySelector('.info-modal-close').addEventListener('click', close);
     // 點背景關閉（點內容框不關）
     modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
