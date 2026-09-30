@@ -845,7 +845,27 @@ function drawTrains() {
                             let splitIdx = myStations.indexOf(splitStation);
                             
                             if (splitIdx !== -1) {
-                                let coupledDirection = (cInfo.action === 'split') ? 'before' : 'after';
+                                // 共用區間方向不能只看 action（如山形新幹線上行在福島的併結也被標成 split）
+                                // 1. 伴侶車有停靠本車交會站前/後的站 → 重疊那一側就是共用區間
+                                // 2. 否則看誰在交會站始發/終到：在此始發 → 共用區間在前；在此終到 → 共用區間在後
+                                // 3. 仍無法判定才依 action 推定
+                                let partnerStations = [];
+                                partner.segments.forEach(pSeg => pSeg.s.forEach(id => partnerStations.push(String(id))));
+                                let partnerSet = new Set(partnerStations);
+                                let sharesBefore = myStations.slice(0, splitIdx).some(id => partnerSet.has(id));
+                                let sharesAfter = myStations.slice(splitIdx + 1).some(id => partnerSet.has(id));
+                                let pIdxAtSplit = partnerStations.indexOf(splitStation);
+                                let startsHere = (pIdxAtSplit === 0);
+                                let endsHere = (pIdxAtSplit !== -1 && pIdxAtSplit === partnerStations.length - 1);
+                                if (startsHere === endsHere) {
+                                    // 伴侶車貫穿交會站 → 改看本車自己是否在此始發/終到
+                                    startsHere = (splitIdx === 0);
+                                    endsHere = (splitIdx === myStations.length - 1);
+                                }
+                                let coupledDirection;
+                                if (sharesBefore !== sharesAfter) coupledDirection = sharesBefore ? 'before' : 'after';
+                                else if (startsHere !== endsHere) coupledDirection = startsHere ? 'before' : 'after';
+                                else coupledDirection = (cInfo.action === 'split') ? 'before' : 'after';
 
                                 ctx.save();
                                 ctx.beginPath();
