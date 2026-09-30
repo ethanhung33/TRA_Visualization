@@ -18,8 +18,10 @@ py -m http.server 8080
 
 **爬取時刻表資料**（各路線腳本不同，需進入對應目錄執行）
 ```
-# 台鐵
+# 台鐵（ODS 開放資料 JSON，約 60 天；可帶日期參數如 20261001）
 py data/Taiwan/TRA/script/timetable.py
+# 台鐵官網爬蟲（備援，ODS 範圍外的日期）
+py data/Taiwan/TRA/script/timetable_web.py
 
 # 高鐵
 py data/Taiwan/HSR/script/fetch_and_transform_hsr.py
