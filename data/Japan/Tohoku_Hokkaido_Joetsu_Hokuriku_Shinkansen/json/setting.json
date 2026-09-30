@@ -29,7 +29,7 @@
         "button_color": ["#9C27B0", "#6A1B9A"]
     },
     "hokuriku_line": {
-        "name": "北陸新幹線 (東京-金沢)",
+        "name": "北陸新幹線 (東京-敦賀)",
         "lines": [
           {"id": "THK_line", "start": "東京", "end": "大宮"},
           {"id": "JTS_line", "start": "大宮", "end": "高崎"},
