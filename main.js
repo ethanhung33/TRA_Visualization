@@ -6503,3 +6503,32 @@ async function init(systemPath) {
 }
 
 loadSystemMenu();
+// ==========================================
+// ℹ️ 關於本站 / ❓ 使用說明 彈出視窗
+// ==========================================
+(function setupInfoModal() {
+    const modal = document.getElementById('info-modal');
+    if (!modal) return;
+
+    const open = (page) => {
+        modal.querySelectorAll('.info-page').forEach(p => {
+            p.style.display = p.dataset.page === page ? '' : 'none';
+        });
+        modal.style.display = 'flex';
+        modal.querySelector('.info-modal-box').scrollTop = 0;
+    };
+    const close = () => { modal.style.display = 'none'; };
+
+    document.getElementById('btn-about')?.addEventListener('click', () => open('about'));
+    document.getElementById('btn-help')?.addEventListener('click', () => open('help'));
+    modal.querySelector('.info-modal-close').addEventListener('click', close);
+    // 點背景關閉（點內容框不關）
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    // Esc 關閉；capture 階段先攔下，避免同時觸發運行圖的 Esc（清空選取）
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.style.display !== 'none') {
+            close();
+            e.stopImmediatePropagation();
+        }
+    }, true);
+})();
