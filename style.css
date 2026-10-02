@@ -842,11 +842,12 @@ body.light-mode .search-item.search-item-active {
     }
 
     /* --- 2. 頂部側邊欄 (鎖死 45dvh) --- */
+    /* 高度由 --sidebar-h 控制，使用者可拖曳底部按鈕調整 (main.js initMobilePanelDrag) */
     #sidebar {
-        flex: 0 0 45dvh !important; 
+        flex: 0 0 var(--sidebar-h, 45dvh) !important; 
         width: 100% !important;
-        height: 45dvh !important; 
-        max-height: 45dvh !important;
+        height: var(--sidebar-h, 45dvh) !important; 
+        max-height: 85dvh !important;
         border-left: none !important;
         border-bottom: 2px solid var(--btn-border) !important;
         position: relative !important;
@@ -884,6 +885,7 @@ body.light-mode .search-item.search-item-active {
         background-color: var(--btn-bg) !important; 
         color: var(--btn-color) !important;
         cursor: pointer !important;
+        touch-action: none !important; /* 拖曳調整高度，不讓瀏覽器搶手勢 */
     }
     .sidebar-inner { width: 100% !important; height: 100% !important; padding: 15px !important; overflow-y: auto !important; }
 
@@ -917,7 +919,7 @@ body.light-mode .search-item.search-item-active {
         flex: 0 0 110px !important; 
         height: 110px !important; 
         min-height: 110px !important;
-        max-height: 75dvh !important; 
+        max-height: 90dvh !important; 
         width: 100% !important;
         padding: 0 !important;
         position: relative !important;
@@ -930,13 +932,16 @@ body.light-mode .search-item.search-item-active {
         background-color: var(--panel-bg) !important; 
     }
     
+    /* 展開高度由 --bottom-bar-h 控制，使用者可拖曳標題列調整 (main.js initMobilePanelDrag) */
     #bottom-bar.expanded { 
-        flex: 0 0 75dvh !important; 
-        height: 75dvh !important; 
+        flex: 0 0 var(--bottom-bar-h, 75dvh) !important; 
+        height: var(--bottom-bar-h, 75dvh) !important; 
     }
+    /* 拖曳中關閉動畫，讓面板緊跟手指 */
+    #sidebar.is-resizing, #bottom-bar.is-resizing { transition: none !important; }
     .bottom-panel-wrapper { flex-direction: column !important; align-items: stretch !important; }
     
-    .train-info-header { width: 100% !important; max-width: 100% !important; border-right: none !important; border-bottom: 1px solid var(--btn-border) !important; padding: 12px 20px !important; position: relative; }
+    .train-info-header { width: 100% !important; max-width: 100% !important; border-right: none !important; border-bottom: 1px solid var(--btn-border) !important; padding: 12px 20px !important; position: relative; touch-action: pan-x; /* 垂直拖曳交給 JS 調整面板高度，保留站名橫向捲動 */ }
     .mobile-drag-handle { display: block !important; position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 40px; height: 5px; background: #888; border-radius: 3px; opacity: 0.5; }
     
     /* 🌟 修復 2：加上 justify-content: flex-start 解除置中魔咒 */
