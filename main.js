@@ -836,10 +836,17 @@ function drawTrains() {
                             let _ptc = getTrainColorValue(partner.type);
                             if (_ptc) pColor = _ptc[colorIndex];
 
-                            let myStations = [];
-                            train.segments.forEach(tSeg => {
-                                tSeg.s.forEach(id => myStations.push(String(id)));
-                            });
+                            // 交會站會在前後兩個 segment 各出現一次（如日根野同屬阪和線與関西空港線），去除相鄰重複
+                            // 否則交會站本身會被誤判成「交會站之後仍與伴侶車共站」
+                            const _stationOrder = (t) => {
+                                let order = [];
+                                t.segments.forEach(s => s.s.forEach(id => {
+                                    id = String(id);
+                                    if (order[order.length - 1] !== id) order.push(id);
+                                }));
+                                return order;
+                            };
+                            let myStations = _stationOrder(train);
 
                             let splitStation = String(cInfo.station_id);
                             let splitIdx = myStations.indexOf(splitStation);
@@ -849,8 +856,7 @@ function drawTrains() {
                                 // 1. 伴侶車有停靠本車交會站前/後的站 → 重疊那一側就是共用區間
                                 // 2. 否則看誰在交會站始發/終到：在此始發 → 共用區間在前；在此終到 → 共用區間在後
                                 // 3. 仍無法判定才依 action 推定
-                                let partnerStations = [];
-                                partner.segments.forEach(pSeg => pSeg.s.forEach(id => partnerStations.push(String(id))));
+                                let partnerStations = _stationOrder(partner);
                                 let partnerSet = new Set(partnerStations);
                                 let sharesBefore = myStations.slice(0, splitIdx).some(id => partnerSet.has(id));
                                 let sharesAfter = myStations.slice(splitIdx + 1).some(id => partnerSet.has(id));
