@@ -845,7 +845,7 @@ function drawTrains() {
                             let splitIdx = myStations.indexOf(splitStation);
                             
                             if (splitIdx !== -1) {
-                                // 共用區間方向不能只看 action（如山形新幹線上行在福島的併結也被標成 split）
+                                // 共用區間方向不能只看 action（伴侶車可能只列出獨走段，或資料的 split/merge 標註有誤）
                                 // 1. 伴侶車有停靠本車交會站前/後的站 → 重疊那一側就是共用區間
                                 // 2. 否則看誰在交會站始發/終到：在此始發 → 共用區間在前；在此終到 → 共用區間在後
                                 // 3. 仍無法判定才依 action 推定
@@ -2851,7 +2851,7 @@ function setupBottomBarScrolling() {
         if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY)) {
             
             // 抓出這台車所有的關聯車次 (直通 或 併結)
-            let partners = selectedTrain.coupled_with ? selectedTrain.coupled_with.filter(c => c.action === 'split' || c.action === 'direct') : [];
+            let partners = selectedTrain.coupled_with ? selectedTrain.coupled_with.filter(c => c.action === 'split' || c.action === 'merge' || c.action === 'direct') : [];
             
             if (partners.length > 0) {
                 // 如果只有一台伴侶車 (大部分新幹線的狀況)，不管左右滑都直接切過去
@@ -3954,7 +3954,7 @@ function updateBottomPanel(train) {
         // 同時顯示前段車的 split 伴侶（如 紀州路快速）
         if (predTrain.coupled_with) {
             predTrain.coupled_with.forEach(c => {
-                if (c.action !== "split") return;
+                if (c.action !== "split" && c.action !== "merge") return;
                 let sp = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
                 if (sp) {
                     let spNo = String(sp.no).split('|')[0];
@@ -4648,7 +4648,7 @@ function updateBottomPanelStation(st_id) {
             }
             if (advanced) continue;
 
-            let splitInfo = curr.coupled_with ? curr.coupled_with.find(cx => cx.action === "split") : null;
+            let splitInfo = curr.coupled_with ? curr.coupled_with.find(cx => cx.action === "split" || cx.action === "merge") : null;
             if (splitInfo) {
                 let partner = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(splitInfo.train_id));
                 if (partner && !visited.has(String(partner.no || partner.train_no || partner.id))) {
@@ -4818,7 +4818,7 @@ function updateBottomPanelStation(st_id) {
                             }
 
                             train.coupled_with.forEach(c => {
-                                if (c.action === "split") {
+                                if (c.action === "split" || c.action === "merge") {
                                     let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id));
                                     if (partner && !processedTrains.has(String(partner.no || partner.train_no || partner.id))) {
                                         
@@ -4996,7 +4996,7 @@ function updateBottomPanelStation(st_id) {
             // 2. 處理合併顯示
             let titleHtml = "";
             if (item.displayTitleOverride) {
-                let group = item.train.coupled_with ? [item.train, ...item.train.coupled_with.filter(c => c.action === "split").map(c => timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id)))] : [item.train];
+                let group = item.train.coupled_with ? [item.train, ...item.train.coupled_with.filter(c => c.action === "split" || c.action === "merge").map(c => timetable.find(t => String(t.no || t.train_no || t.id) === String(c.train_id)))] : [item.train];
                 titleHtml = group.map(g => g ? getTrainText(g, g.no || g.train_no || g.id) : "").join(`<span style="color: ${theme.textSub}; margin: 0 4px;">/</span>`);
             } else {
                 titleHtml = getTrainText(item.train, item.trainNo);
