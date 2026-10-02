@@ -2916,6 +2916,117 @@ if (canvasWrapperElement) {
     resizeObserver.observe(canvasWrapperElement);
 }
 
+// ==========================================
+// 📱 手機版：拖曳調整側欄 / 底部面板高度
+// ==========================================
+// 點一下仍是原本的開關；上下拖曳則自由決定伸出多高，放開後記住該高度
+// (寫入 CSS 變數 --sidebar-h / --bottom-bar-h，下次點開沿用)。拖到幾乎收起就直接收合。
+// 開關狀態仍沿用原本的 .collapsed / .expanded class，其他程式碼不需更動。
+(function initMobilePanelDrag() {
+    const mobileQuery = window.matchMedia('(max-width: 768px)');
+    const DRAG_THRESHOLD = 6;     // 位移超過這個像素才算拖曳，否則當成點擊
+    const MIN_CANVAS = 60;        // 拖曳時至少保留給運行圖的高度
+    let lastDragEnd = 0;
+
+    // 拖曳結束後的那次 click 吃掉，避免又觸發原本的開關
+    window.addEventListener('click', e => {
+        if (Date.now() - lastDragEnd < 400) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+    }, true);
+
+    // handleSelector: 可拖曳的元素 (用事件委派，面板內容重繪後仍有效)
+    // sign: 手指往下移動時，高度增加 (+1) 還是減少 (-1)
+    function bindDrag({ panel, handleSelector, sign, minH, maxH, isOpen, setOpen, cssVar }) {
+        let drag = null;
+
+        panel.addEventListener('pointerdown', e => {
+            if (!mobileQuery.matches || !e.isPrimary) return;
+            const handle = e.target.closest(handleSelector);
+            if (!handle || !panel.contains(handle)) return;
+            drag = {
+                handle,
+                pointerId: e.pointerId,
+                startY: e.clientY,
+                startH: isOpen() ? panel.getBoundingClientRect().height : minH(),
+                prevVar: panel.style.getPropertyValue(cssVar),
+                active: false,
+            };
+        });
+
+        // move/up 掛在 window：拖曳剛開始還沒 capture 時手指可能已離開把手
+        window.addEventListener('pointermove', e => {
+            if (!drag || e.pointerId !== drag.pointerId) return;
+            const dy = e.clientY - drag.startY;
+            if (!drag.active) {
+                if (Math.abs(dy) < DRAG_THRESHOLD) return;
+                drag.active = true;
+                // 確定是拖曳才抓 pointer，否則會吃掉標題內按鈕 (如併結車次) 的 click
+                try { drag.handle.setPointerCapture(e.pointerId); } catch (_) {}
+                panel.classList.add('is-resizing');
+            }
+            const h = Math.max(minH(), Math.min(maxH(), drag.startH + sign * dy));
+            panel.style.setProperty(cssVar, `${Math.round(h)}px`);
+            setOpen(true);
+            drag.h = h;
+        });
+
+        const end = e => {
+            if (!drag || e.pointerId !== drag.pointerId) return;
+            const d = drag;
+            drag = null;
+            if (!d.active) return; // 純點擊，交給原本的 onclick
+            lastDragEnd = Date.now();
+            panel.classList.remove('is-resizing');
+            if (d.h === undefined || d.h < minH() + 50) {
+                // 拖到幾乎收起 → 收合，並保留上次的展開高度給下次點開用
+                if (d.prevVar) panel.style.setProperty(cssVar, d.prevVar);
+                else panel.style.removeProperty(cssVar);
+                setOpen(false);
+            }
+        };
+        window.addEventListener('pointerup', end);
+        window.addEventListener('pointercancel', end);
+    }
+
+    const sidebar = document.getElementById('sidebar');
+    const sidebarBtn = document.getElementById('sidebar-toggle');
+    const bottomBar = document.getElementById('bottom-bar');
+    const leftPanel = document.getElementById('left-panel');
+    const appEl = document.getElementById('app');
+
+    if (sidebar && sidebarBtn) {
+        bindDrag({
+            panel: sidebar,
+            handleSelector: '#sidebar-toggle',
+            sign: +1, // 側欄在上方，按鈕掛在底部：往下拉 = 變高
+            minH: () => 0,
+            maxH: () => appEl.clientHeight - bottomBar.getBoundingClientRect().height - MIN_CANVAS,
+            isOpen: () => !sidebar.classList.contains('collapsed'),
+            setOpen: open => {
+                sidebar.classList.toggle('collapsed', !open);
+                sidebarBtn.textContent = open ? '›' : '‹';
+            },
+            cssVar: '--sidebar-h',
+        });
+    }
+
+    if (bottomBar && leftPanel) {
+        const COLLAPSED_H = 110; // 與 style.css 手機版 #bottom-bar 收合高度一致
+        bindDrag({
+            panel: bottomBar,
+            handleSelector: '.train-info-header',
+            sign: -1, // 面板在下方：往上拉 = 變高
+            minH: () => COLLAPSED_H,
+            maxH: () => Math.max(COLLAPSED_H, leftPanel.clientHeight - MIN_CANVAS),
+            isOpen: () => bottomBar.classList.contains('expanded'),
+            setOpen: open => bottomBar.classList.toggle('expanded', open),
+            cssVar: '--bottom-bar-h',
+        });
+    }
+})();
+
 // 保留 window.resize 僅作為極端狀況的備用
 window.addEventListener('resize', () => {
     // 主要工作已經交給 ResizeObserver 了，這裡可以安心留空
