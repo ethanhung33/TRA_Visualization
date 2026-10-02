@@ -2458,6 +2458,9 @@ function setupSearch() {
                     stops.forEach((startStop, sIdx) => {
                         if (startStop.idStr.includes(startKeyword) || startStop.nameStr.includes(startKeyword)) {
                             let startTime = startStop.effDep;
+                            // 上車時間須落在今天：昨天跨夜殘影（時間已 -1440）在昨天就上車的那趟
+                            // 是昨天的班次，否則會與今天的同號車重複（如 554 台北 21:47→花蓮 24:53）
+                            if (startTime < 0) return;
 
                             // 🌟 啟動 BFS 廣度優先搜尋，跨越車次尋找終點！
                             let queue = [{
