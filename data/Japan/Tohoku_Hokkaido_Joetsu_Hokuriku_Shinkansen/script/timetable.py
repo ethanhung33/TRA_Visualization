@@ -225,6 +225,34 @@ def fetch_single_train_detail(url):
 # ==========================================
 # 🔗 拓樸轉換、併結與輸出
 # ==========================================
+def train_station_order(train):
+    """依行駛順序列出停靠站（分岔交會站會在前後兩個 segment 各出現一次，去除重複）"""
+    order = []
+    for seg in train["segments"]:
+        for st in seg["s"]:
+            if not order or order[-1] != st:
+                order.append(st)
+    return order
+
+def infer_coupling_action(train_a, train_b, junction):
+    """官網註腳只寫「併結」，從兩車的停靠站推斷是分割 (split) 還是併合 (merge)
+    1. 兩車共用的站在交會站之前 → split；在之後 → merge
+    2. 支線車常只列出獨走段：有車在交會站始發 → split；有車在交會站終到 → merge
+    """
+    a, b = train_station_order(train_a), train_station_order(train_b)
+    if junction not in a or junction not in b:
+        return "split"
+    ia, ib = a.index(junction), b.index(junction)
+    shares_before = bool(set(a[:ia]) & set(b[:ib]))
+    shares_after = bool(set(a[ia + 1:]) & set(b[ib + 1:]))
+    if shares_before != shares_after:
+        return "split" if shares_before else "merge"
+    if ia == 0 or ib == 0:
+        return "split"
+    if ia == len(a) - 1 or ib == len(b) - 1:
+        return "merge"
+    return "split"
+
 def apply_coupling_logic(trains):
     print("\n🔗 正在執行全量關聯優化 (時空拓樸純淨版)...")
     
@@ -262,16 +290,19 @@ def apply_coupling_logic(trains):
                 is_downbound = int(digits[-1]) % 2 != 0 if digits else True
                 
                 junction = last_over if is_downbound else first_over
-                    
+                action = infer_coupling_action(trains[i], partner, junction)
+
                 c["station_id"] = junction
+                c["action"] = action
                 for pc in partner["coupled_with"]:
                     if pc["train_id"] == trains[i]["no"]:
                         pc["station_id"] = junction
+                        pc["action"] = action
                 
     # 大掃除
     for t in trains:
         if "_sched" in t: del t["_sched"]
-        # 保留算好的 split 以及早就寫好的 direct
+        # 保留算好的 split / merge 以及早就寫好的 direct
         t["coupled_with"] = [c for c in t["coupled_with"] if "station_id" in c or c["action"] == "direct"]
         if not t["coupled_with"]: del t["coupled_with"]
             
