@@ -632,6 +632,23 @@ function getJunction(st1_id, st2_id, line1_id, line2_id) {
 // ==========================================
 // 繪製火車 (全域智慧連線版)
 // ==========================================
+// 車號 → 列車（同 timetable.find 取第一筆）。繪圖時每台有直通/併結的車都要查伴侶車，
+// 逐筆 find 上萬班車（如 JR 東日本）縮小全覽時一幀要上千毫秒。timetable 只會整個換掉、
+// 不會原地增刪，故以陣列本身判斷索引是否過期。
+let _trainIndexSource = null;
+let _trainIndex = new Map();
+function findTrainByNo(id) {
+    if (_trainIndexSource !== timetable) {
+        _trainIndex = new Map();
+        timetable.forEach(t => {
+            const key = String(t.no || t.train_no || t.id);
+            if (!_trainIndex.has(key)) _trainIndex.set(key, t);
+        });
+        _trainIndexSource = timetable;
+    }
+    return _trainIndex.get(String(id));
+}
+
 function drawTrains() {
     const wrapper = document.getElementById('canvas-wrapper');
     const viewTop = camera.y - 200;
@@ -829,7 +846,7 @@ function drawTrains() {
                     let coupledInfos = train.coupled_with.filter(c => c.action === "split" || c.action === "merge");
                     
                     coupledInfos.forEach(cInfo => {
-                        let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(cInfo.train_id));
+                        let partner = findTrainByNo(cInfo.train_id);
 
                         if (partner && partner.segments && partner.segments.length > 0) {
                             let pColor = fallbackColor;
@@ -970,7 +987,7 @@ function drawTrains() {
                 if (train.coupled_with && segIdx === train.segments.length - 1) {
                     let directInfo = train.coupled_with.find(c => c.action === "direct");
                     if (directInfo) {
-                        let nextTrain = timetable.find(t => t.no === directInfo.train_id);
+                        let nextTrain = findTrainByNo(directInfo.train_id);
                         if (nextTrain && nextTrain.segments.length > 0) {
                             
                             // 抓這台車的「最後一站」跟下一台車的「第一站」
@@ -1018,7 +1035,7 @@ function drawTrains() {
                 if (train.coupled_with && segIdx === train.segments.length - 1) {
                     let mergeInfo = train.coupled_with.find(c => c.action === "merge");
                     if (mergeInfo) {
-                        let partner = timetable.find(t => String(t.no || t.train_no || t.id) === String(mergeInfo.train_id));
+                        let partner = findTrainByNo(mergeInfo.train_id);
                         let lastI = seg.s.length - 1;
                         let junctionId = String(seg.s[lastI]);
 
@@ -1121,7 +1138,7 @@ function drawTrains() {
 
                         if (isDirectOut && !isCircularTrain) {
                             let dInfo = train.coupled_with.find(c => c.action === "direct" && String(c.station_id) === trLastSt);
-                            let nxt = dInfo && timetable.find(t => String(t.no || t.train_no || t.id) === String(dInfo.train_id));
+                            let nxt = dInfo && findTrainByNo(dInfo.train_id);
                             // partner 是環狀代表只是「同一地點車次接續」，不覆寫時間
                             if (nxt && !_checkPartnerCircular(nxt) && nxt.segments[0]) {
                                 let nt = nxt.segments[0].t;
@@ -1130,7 +1147,7 @@ function drawTrains() {
                             }
                         } else if (isDirectIn && !isCircularTrain) {
                             let dInfo = train.coupled_with.find(c => c.action === "direct" && String(c.station_id) === trFirstSt);
-                            let prv = dInfo && timetable.find(t => String(t.no || t.train_no || t.id) === String(dInfo.train_id));
+                            let prv = dInfo && findTrainByNo(dInfo.train_id);
                             if (prv && !_checkPartnerCircular(prv) && prv.segments[prv.segments.length - 1]) {
                                 let pt = prv.segments[prv.segments.length - 1].t;
                                 let lastK = prv.segments[prv.segments.length - 1].s.length - 1;
@@ -1158,7 +1175,7 @@ function drawTrains() {
                             // 本身是環狀，或 partner 是環狀（只是車次接續），終點標籤照常顯示
                             const _nxtForCheck = isDirectOut && (() => {
                                 let di = train.coupled_with && train.coupled_with.find(c => c.action === "direct" && String(c.station_id) === trLastSt);
-                                return di && timetable.find(t => String(t.no || t.train_no || t.id) === String(di.train_id));
+                                return di && findTrainByNo(di.train_id);
                             })();
                             if (!isDirectOut || isCircularTrain || _checkPartnerCircular(_nxtForCheck)) isDesignatedSpeaker = true;
                         } else if (isPartner && typeof selectedTrain !== 'undefined' && selectedTrain) {
@@ -1225,7 +1242,7 @@ function drawTrains() {
                                     let sInfo = ft.coupled_with.find(c => (c.action === "split" || c.action === "merge") && String(c.station_id) === String(seg.s[i]));
                                     if (sInfo) {
                                         splitTrainA = ft;
-                                        splitTrainB = timetable.find(t => String(t.no || t.train_no || t.id) === String(sInfo.train_id));
+                                        splitTrainB = findTrainByNo(sInfo.train_id);
                                         break; 
                                     }
                                 }
@@ -1239,7 +1256,7 @@ function drawTrains() {
                                     while(true) {
                                         let dInfo = curr.coupled_with ? curr.coupled_with.find(cx => cx.action === "direct") : null;
                                         if(dInfo) {
-                                            let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                            let nxt = findTrainByNo(dInfo.train_id);
                                             if (nxt && !visited.has(String(nxt.no || nxt.train_no || nxt.id))) {
                                                 visited.add(String(nxt.no || nxt.train_no || nxt.id)); curr = nxt;
                                             } else break;
@@ -1257,7 +1274,7 @@ function drawTrains() {
                                         let isDIn = curr.coupled_with && curr.coupled_with.some(cx => cx.action === "direct" && String(curr.segments[0].s[0]) === String(cx.station_id));
                                         if (isDIn) {
                                             let dInfo = curr.coupled_with.find(cx => cx.action === "direct" && String(curr.segments[0].s[0]) === String(cx.station_id));
-                                            let prev = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                            let prev = findTrainByNo(dInfo.train_id);
                                             if (prev && !visited.has(String(prev.no || prev.train_no || prev.id))) {
                                                 visited.add(String(prev.no || prev.train_no || prev.id));
                                                 curr = prev;
@@ -1291,7 +1308,7 @@ function drawTrains() {
                                         let isDOut = (String(seg.s[i]) === objLastSt && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct" && String(c.station_id) === objLastSt));
                                         if (isDOut) {
                                             let dInfo = tObj.coupled_with.find(c => c.action === "direct" && String(c.station_id) === objLastSt);
-                                            let nxt = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                            let nxt = findTrainByNo(dInfo.train_id);
                                             if (nxt && nxt.segments[0]) {
                                                 let nt = nxt.segments[0].t;
                                                 let nDep = (nt[1] !== undefined && nt[1] !== null && nt[1] !== "") ? nt[1] : nt[0];
@@ -1306,7 +1323,7 @@ function drawTrains() {
                                         let isDIn = (String(seg.s[i]) === objFirstSt && tObj.coupled_with && tObj.coupled_with.some(c => c.action === "direct" && String(c.station_id) === objFirstSt));
                                         if (isDIn) {
                                             let dInfo = tObj.coupled_with.find(c => c.action === "direct" && String(c.station_id) === objFirstSt);
-                                            let prv = timetable.find(tx => String(tx.no || tx.train_no || tx.id) === String(dInfo.train_id));
+                                            let prv = findTrainByNo(dInfo.train_id);
                                             if (prv && prv.segments[prv.segments.length-1]) {
                                                 let pt = prv.segments[prv.segments.length-1].t;
                                                 let lK = prv.segments[prv.segments.length-1].s.length - 1;
@@ -5197,15 +5214,35 @@ function updateBottomPanelStation(st_id) {
 // 🌟 核心升級：通用折返路線拆解器 (Switchback Splitter)
 // 專門解決前端內插法遇到「V字折返(如近鐵奈良)」會把折返點刪除的致命 Bug
 // ==========================================
+// topology 路線 ID → 路線（同 segments.find，ID 重複時取第一條）
+function buildTopoSegIndex(topology) {
+    const index = new Map();
+    topology.segments.forEach(t => { if (!index.has(String(t.id))) index.set(String(t.id), t); });
+    return index;
+}
+
 function splitSwitchbackSegments(trainsData, topology) {
     if (!topology || !topology.segments) return;
+
+    // 每條線的「車站 ID → 首次出現索引」表（同 findIndex 取第一個），免得每站都線性搜尋
+    const segIndex = buildTopoSegIndex(topology);
+    const stationIdx = new Map();
+    const stationIdxOf = (topoSeg) => {
+        let m = stationIdx.get(topoSeg);
+        if (!m) {
+            m = new Map();
+            topoSeg.stations.forEach((st, i) => { if (!m.has(String(st.id))) m.set(String(st.id), i); });
+            stationIdx.set(topoSeg, m);
+        }
+        return m;
+    };
 
     trainsData.forEach(train => {
         if (!train.segments) return;
         let newSegments = [];
 
         train.segments.forEach(seg => {
-            let topoSeg = topology.segments.find(t => String(t.id) === String(seg.id));
+            let topoSeg = segIndex.get(String(seg.id));
             // 如果找不到實體路線，或停靠站少於 3 個(不可能折返)，直接放行
             if (!topoSeg || seg.s.length < 3) {
                 newSegments.push(seg);
@@ -5213,7 +5250,8 @@ function splitSwitchbackSegments(trainsData, topology) {
             }
 
             // 1. 查出這條線所有停靠站在 topology 中的「絕對索引值」
-            let indices = seg.s.map(st_id => topoSeg.stations.findIndex(t_st => String(t_st.id) === String(st_id)));
+            const idxMap = stationIdxOf(topoSeg);
+            let indices = seg.s.map(st_id => idxMap.get(String(st_id)) ?? -1);
 
             let splitPoints = [];
             let currentDir = null; // 1 代表數值遞增(往東/南)，-1 代表遞減(往西/北)
@@ -5290,12 +5328,14 @@ function interpolatePassingStations(timetable, topology) {
         return adj;
     };
 
+    const segIndex = buildTopoSegIndex(topology);
+
     timetable.forEach(train => {
         if (!train.segments) return;
 
         train.segments.forEach(seg => {
             // 1. 找出這條線在 topology 裡的實體鐵軌資料
-            let topoSeg = topology.segments.find(t => String(t.id) === String(seg.id));
+            let topoSeg = segIndex.get(String(seg.id));
             if (!topoSeg || !topoSeg.stations) return;
 
             // 已完整（每對相鄰停靠在拓樸上都相鄰）→ 不需補站
@@ -5869,7 +5909,7 @@ function mayCrossMidnight(train) {
     return false;
 }
 
-async function loadTimetableData(dateOrType) {
+async function loadTimetableData(dateOrType, { redraw = true } = {}) {
     try {
         let dirc_path = currentSystemPath + "json/"; 
         let todayFileUrl = '';
@@ -6058,8 +6098,8 @@ async function loadTimetableData(dateOrType) {
         buildUI();
         updateTrainTypeVisibility();
 
-        // 重新繪製新的一天的畫布
-        redrawAll();
+        // 重新繪製新的一天的畫布（初次載入由 init 定位鏡頭後再畫）
+        if (redraw) redrawAll();
 
     } catch (e) {
         alert(`無法載入時刻表 (${dateOrType})！\n可能是資料尚未爬取。`);
@@ -6503,7 +6543,7 @@ async function init(systemPath) {
             }
 
             // 啟動時載入選定的日期
-            await loadTimetableData(currentDate);
+            await loadTimetableData(currentDate, { redraw: false });
 
         } else if (settings.calendar_type === "WEEKEND_SELECT") {
             // 🔘 情境 1 (南海、近鐵等私鐵)：使用平假日切換按鈕
@@ -6549,7 +6589,7 @@ async function init(systemPath) {
 
             // 啟動預設載入平日
             currentDate = 'weekday';
-            await loadTimetableData('weekday');
+            await loadTimetableData('weekday', { redraw: false });
         } else {
             // 模式 B：單一檔案模式 (維持你原本的寫法)
             const timeRes = await fetch(dirc_path + 'timetable/timetable_20260420.json');
@@ -6598,7 +6638,9 @@ async function init(systemPath) {
         // ==========================================
         // 🌟 啟動時強制執行一次滿版校正與「時間自動置中」
         // ==========================================
-        redrawAll();      // 讓系統先算出預設路線的 loopKm
+        // 讓系統先算出預設路線的 loopKm（只需 drawGrid）。鏡頭還沒定位前不畫列車：
+        // 此時是未縮放的全覽，整天所有班車都在畫面內，大型路線一畫就要上千毫秒。
+        drawGrid(currentRouteView, 'lines');
         autoFitScale();   // 算出最完美的 Y 軸拉伸比例
         camera.y = -50;   // 把畫面推到最頂端
 
