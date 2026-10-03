@@ -39,17 +39,13 @@ CAR_CLASS_PREFIX = {"110": "自強", "111": "莒光", "112": "復興", "113": "�
 ID_TO_NAME = {info["id"]: name for name, info in STATION_INFO.items()}
 
 
-# Type=4 為專列（觀光、包車等），自強 / 莒光專列獨立成一個車種
-SPECIAL_TYPES = {"自強", "莒光"}
-
-
 def car_class_to_type(code, train_kind):
     if code in CAR_CLASS_MAP:
         t = CAR_CLASS_MAP[code]
     else:
         t = CAR_CLASS_PREFIX.get(code[:3], "區間")
         tqdm.write(f"⚠️ 未知 CarClass {code}，暫以「{t}」處理")
-    if train_kind == "4" and t in SPECIAL_TYPES:
+    if train_kind == "4":  # 專列（觀光、包車等，如海風號、藍皮解憂號）獨立成一個車種
         t += "專列"
     return t
 
