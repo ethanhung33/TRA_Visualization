@@ -5382,10 +5382,21 @@ function interpolatePassingStations(timetable, topology) {
 function buildBidirectionalCoupling(timetableData) {
     if (!timetableData) return;
 
+    // 車號索引：[今天, 昨天殘影] 各一張表。逐筆 filter 整份班表在上萬班車的系統
+    // （如 JR 東日本）會是 O(n²)，載入時卡上好幾秒。
+    const idOf = t => String(t.no || t.train_no || t.id);
+    const byId = [new Map(), new Map()];
+    timetableData.forEach(t => {
+        const index = byId[t._isYesterday ? 1 : 0];
+        const id = idOf(t);
+        if (!index.has(id)) index.set(id, []);
+        index.get(id).push(t);
+    });
+
     timetableData.forEach(train => {
         if (!train.coupled_with) return;
 
-        let myId = String(train.no || train.train_no || train.id);
+        let myId = idOf(train);
         let currentCouples = [...train.coupled_with];
 
         currentCouples.forEach(c => {
@@ -5394,10 +5405,7 @@ function buildBidirectionalCoupling(timetableData) {
             let partnerId = String(c.train_id);
 
             // 今天的車只配對今天的車，昨天的殘影只配對昨天的殘影
-            let partners = timetableData.filter(t =>
-                String(t.no || t.train_no || t.id) === partnerId &&
-                !!t._isYesterday === !!train._isYesterday
-            );
+            let partners = byId[train._isYesterday ? 1 : 0].get(partnerId) || [];
 
             let reverseAction = c.action === "direct" ? "direct_from" : c.action;
 
@@ -5796,7 +5804,7 @@ window.switchToSystem = async function(systemPath) {
         const basePath = window.location.hostname === 'localhost' ? '' : '/TRA_Visualization';
         const fullPath = `${basePath}/${systemPath}`;
 
-        const checkRes = await fetch(`${fullPath}json/setting.json?t=${Date.now()}`);
+        const checkRes = await fetch(`${fullPath}json/setting.json`, { cache: 'no-cache' });
         if (!checkRes.ok) throw new Error("File not found");
         
         init(fullPath); 
@@ -5847,6 +5855,20 @@ window.triggerSelectStation = function(st_id) {
 // ==========================================
 // 🌟 載入時刻表 (完美融合雙軌策略 + 跨夜殘影合成技術)
 // ==========================================
+// 原始班表中「可能」跨夜的車：有 23:00 之後或 4:00 之前的時間，或時間倒流（跨夜折回、
+// 區段順序顛倒）。寧可多收，真正是否跨夜仍由處理後的 >= 1440 判定。
+function mayCrossMidnight(train) {
+    let prev = -Infinity;
+    for (const seg of (train.segments || [])) {
+        for (const t of seg.t) {
+            if (typeof t !== 'number') continue;
+            if (t >= 1380 || t < 240 || t < prev) return true;
+            prev = t;
+        }
+    }
+    return false;
+}
+
 async function loadTimetableData(dateOrType) {
     try {
         let dirc_path = currentSystemPath + "json/"; 
@@ -5908,9 +5930,15 @@ async function loadTimetableData(dateOrType) {
         // ------------------------------------------
         // 1. 載入「今天」的時刻表並進行過濾
         // ------------------------------------------
-        const timeRes = await fetch(todayFileUrl + '?t=' + Date.now());
+        // no-cache：每次仍向伺服器確認，但檔案沒變時只回 304，不必重新下載整份班表。
+        // 昨天的檔案同時開抓；平假日檔模式下昨天常與今天同一份，直接沿用不再下載。
+        const sameFile = yestFileUrl === todayFileUrl;
+        const yestResPromise = sameFile ? null : fetch(yestFileUrl, { cache: 'no-cache' }).catch(() => null);
+
+        const timeRes = await fetch(todayFileUrl, { cache: 'no-cache' });
         if (!timeRes.ok) throw new Error(`找不到檔案: ${todayFileUrl}`);
-        let todayData = await timeRes.json();
+        const todayText = await timeRes.text();
+        let todayData = JSON.parse(todayText);
 
         // 🌟 核心過濾器：如果此系統有日曆且是新幹線模式 (情境 3)，過濾不開的車
         if (settings.data_fetch_strategy === "WEEKEND_FILE" && settings.calendar_type === "WEEKDAY_BITMAP") {
@@ -5940,9 +5968,14 @@ async function loadTimetableData(dateOrType) {
         // ------------------------------------------
         let yesterdayData = [];
         try {
-            const yestRes = await fetch(yestFileUrl + '?t=' + Date.now());
-            if (yestRes.ok) {
-                let rawYesterday = await yestRes.json();
+            let rawYesterday = null;
+            if (sameFile) {
+                rawYesterday = JSON.parse(todayText); // 今天那份已被處理過，重新解析一份乾淨的
+            } else {
+                const yestRes = await yestResPromise;
+                if (yestRes && yestRes.ok) rawYesterday = await yestRes.json();
+            }
+            if (rawYesterday) {
 
                 // 🌟 同理，昨天的跨夜車殘影也要用「昨天的日期」過濾！
                 if (settings.data_fetch_strategy === "WEEKEND_FILE" && settings.calendar_type === "WEEKDAY_BITMAP") {
@@ -5959,6 +5992,10 @@ async function loadTimetableData(dateOrType) {
                     });
                 }
                 
+                // 先粗篩出「可能跨夜」的車再做縫合/內插：日間車（時間都在 4:00～23:00 且不倒流）
+                // 不可能被推到 1440 之後，整份處理完再丟掉只是白白耗掉數百毫秒。
+                rawYesterday = rawYesterday.filter(mayCrossMidnight);
+
                 // ... (保留你原本後續 rawYesterday 的縫合、推移 -1440 邏輯) ...
                 stitchTrainSegments(rawYesterday, topology);
                 optimizeTrainTimesForDisplay(rawYesterday);
@@ -6342,9 +6379,9 @@ async function init(systemPath) {
         
         let dirc_path = currentSystemPath + "json/"; // 確保路徑正確
         
-        // 🌟 核心修正 2：所有的 fetch 都要加上 Cache Buster (?t=...)
-        // 防止瀏覽器在切換系統時把「台鐵的檔案」當成「高鐵的檔案」餵給你
-        const setRes = await fetch(`${dirc_path}setting.json?t=${Date.now()}`);
+        // 🌟 核心修正 2：所有的 fetch 都用 cache: 'no-cache'
+        // 每次都向伺服器確認是否有新版（拿到最新資料），沒變時回 304 沿用快取，不必重新下載
+        const setRes = await fetch(`${dirc_path}setting.json`, { cache: 'no-cache' });
         if (!setRes.ok) throw new Error("找不到 setting.json");
         
         const settingText = await setRes.text();
@@ -6370,7 +6407,7 @@ async function init(systemPath) {
         }
 
         // 2. 載入 topology.json
-        const topoRes = await fetch(dirc_path + 'topology.json?t=' + Date.now());
+        const topoRes = await fetch(dirc_path + 'topology.json', { cache: 'no-cache' });
         topology = await topoRes.json();
 
         // ==========================================
@@ -6425,7 +6462,7 @@ async function init(systemPath) {
                 if (settings.data_fetch_strategy === "DAILY_FILE" ||
                     settings.data_fetch_strategy === "SINGLE_FILE") {
                     try {
-                        const dateRes = await fetch(dirc_path + 'available_dates.json?t=' + Date.now());
+                        const dateRes = await fetch(dirc_path + 'available_dates.json', { cache: 'no-cache' });
                         if (dateRes.ok) {
                             availableDates = await dateRes.json();
                             
