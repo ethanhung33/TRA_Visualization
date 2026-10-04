@@ -3602,6 +3602,38 @@ function setupCanvasInteractions() {
     });
 
     // ==========================================
+    // 💬 Hover 提示框：顯示站名 / 車種+車次
+    let hoverTooltipEl = null;
+    function updateHoverTooltip(clientX, clientY) {
+        let text = "";
+        if (hoveredTrain) {
+            let trainNo = String(hoveredTrain.no || hoveredTrain.train_no || hoveredTrain.id || "").split('|')[0];
+            let showType = !(settings && settings.show_train_type === false);
+            let showId = !(settings && settings.show_train_id === false);
+            text = [showType ? (hoveredTrain.type || "") : "", showId ? trainNo : ""].filter(Boolean).join(" ");
+        } else if (hoveredStation) {
+            text = getStationName(hoveredStation);
+        }
+        if (!hoverTooltipEl) {
+            hoverTooltipEl = document.createElement('div');
+            hoverTooltipEl.style.cssText = "position:fixed;pointer-events:none;z-index:9999;padding:3px 8px;border-radius:6px;font:bold 13px 'GlowSans',sans-serif;white-space:nowrap;display:none;box-shadow:0 2px 6px rgba(0,0,0,0.3);";
+            document.body.appendChild(hoverTooltipEl);
+        }
+        if (!text) { hoverTooltipEl.style.display = 'none'; return; }
+        hoverTooltipEl.textContent = text;
+        hoverTooltipEl.style.background = isDarkMode ? 'rgba(30,30,30,0.92)' : 'rgba(255,255,255,0.95)';
+        hoverTooltipEl.style.color = isDarkMode ? '#fff' : '#222';
+        hoverTooltipEl.style.display = 'block';
+        let x = clientX + 14, y = clientY + 16;
+        const w = hoverTooltipEl.offsetWidth, h = hoverTooltipEl.offsetHeight;
+        if (x + w > window.innerWidth - 4) x = clientX - w - 10;
+        if (y + h > window.innerHeight - 4) y = clientY - h - 10;
+        hoverTooltipEl.style.left = x + 'px';
+        hoverTooltipEl.style.top = y + 'px';
+    }
+    window.addEventListener('mousedown', () => { if (hoverTooltipEl) hoverTooltipEl.style.display = 'none'; });
+    document.addEventListener('mouseleave', () => { if (hoverTooltipEl) hoverTooltipEl.style.display = 'none'; });
+
     // 💻 [電腦版專區] 滑鼠移動事件 (包含拖曳與 Hover 偵測)
     // ==========================================
     window.addEventListener('mousemove', (e) => { 
@@ -3713,11 +3745,15 @@ function setupCanvasInteractions() {
             if (finalHitTrain !== hoveredTrain) { hoveredTrain = finalHitTrain; statusChanged = true; }
             if (finalHitStation !== hoveredStation) { hoveredStation = finalHitStation; statusChanged = true; }
 
+            updateHoverTooltip(e.clientX, e.clientY);
+
             if (statusChanged) {
                 wrapper.style.cursor = (hoveredTrain || hoveredStation) ? 'pointer' : 'grab';
                 if (typeof requestRedraw === 'function') requestRedraw();
                 else redrawAll();
             }
+        } else if (hoverTooltipEl) {
+            hoverTooltipEl.style.display = 'none';
         }
     });
 
