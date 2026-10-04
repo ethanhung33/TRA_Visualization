@@ -51,8 +51,8 @@ body.light-mode {
    ========================================== */
 @font-face {
     font-family: 'GlowSans';
-    /* 確保檔名與你 fonts 資料夾內的檔名完全一致 */
-    src: url('./fonts/GlowSansSC-Compressed-Regular.otf') format('opentype');
+    /* 只含本站用到的字的子集（原檔 8.9 MB → 約 0.5 MB）；新增路線/站名後跑 py tools/subset_font.py 重新產生 */
+    src: url('./fonts/GlowSans-subset.woff2') format('woff2');
     font-weight: normal;
     font-style: normal;
 }
