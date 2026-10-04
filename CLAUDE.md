@@ -112,6 +112,7 @@ Python 腳本 → JSON 靜態資料 → 前端 Canvas 渲染
 2. 撰寫 `script/timetable.py` 產生 `timetable_YYYYMMDD.json`
 3. 在 `data/global.json` 新增路線項目（`is_active: true`）
 4. 前端 `index.html` 視需要新增對應按鈕，觸發 `init('data/<國家>/<路線>/')`
+5. 執行 `py tools/subset_font.py` 重新產生字型子集（`fonts/GlowSans-subset.woff2` 只含已收錄的字，新站名若有新字會改用系統字型顯示）
 
 ### 注意事項
 
