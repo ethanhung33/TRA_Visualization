@@ -1151,3 +1151,106 @@ body.light-mode .search-item.search-item-active {
     right: 20px;
     margin: 0;
 }
+
+/* ==========================================
+   🗺️ 路網圖選線
+   ========================================== */
+.network-map-btn {
+    width: 100%;
+    margin-top: 2px;
+}
+.network-map-modal { padding: 24px; }
+.network-map-box {
+    display: flex;
+    flex-direction: column;
+    width: min(1100px, 100%);
+    height: min(88vh, 900px);
+    background: var(--panel-bg);
+    color: var(--panel-text-main);
+    border: 1px solid var(--btn-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    font-family: 'GlowSans', 'Segoe UI', sans-serif;
+    overflow: hidden;
+}
+.network-map-header {
+    position: relative;
+    padding: 14px 48px 10px 20px;
+}
+.network-map-header h2 { margin: 0; font-size: 20px; letter-spacing: 1px; }
+.network-map-title-row { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+.network-map-mode {
+    display: inline-flex;
+    border: 1px solid var(--btn-border);
+    border-radius: 16px;
+    overflow: hidden;
+}
+.network-map-mode button {
+    background: transparent;
+    color: var(--panel-text-sub);
+    border: none;
+    padding: 3px 12px;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.network-map-mode button.active {
+    background: #F9A825;
+    color: #111111;
+    font-weight: bold;
+}
+.network-map-hint { font-size: 13px; color: var(--panel-text-sub); }
+.network-map-canvas-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    border-top: 1px solid var(--btn-border);
+    border-bottom: 1px solid var(--btn-border);
+}
+#network-map-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none; /* 拖曳、雙指縮放全部自己處理 */
+    cursor: grab;
+}
+.network-map-footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px 14px;
+}
+#network-map-summary {
+    flex: 1;
+    min-width: 0;
+    min-height: 3em; /* 預留兩行，拖曳時文字變長不會擠動地圖 */
+    font-size: 14px;
+    line-height: 1.5;
+}
+#network-map-summary .sub { color: var(--panel-text-sub); font-size: 13px; }
+.network-map-actions { display: flex; gap: 10px; flex-shrink: 0; }
+.network-map-box .pill-btn {
+    background-color: var(--btn-bg);
+    color: var(--btn-color);
+    border-color: var(--btn-border);
+}
+.network-map-box .pill-btn.network-map-apply {
+    background-color: #F9A825;
+    border-color: #F9A825;
+    color: #111111;
+    font-weight: bold;
+}
+.network-map-box .pill-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: none;
+    transform: none;
+}
+@media (max-width: 768px) {
+    .network-map-modal { padding: 0; }
+    .network-map-box { width: 100%; height: 100dvh; border-radius: 0; border: none; }
+    .network-map-footer { flex-direction: column; align-items: stretch; }
+    .network-map-actions .pill-btn { flex: 1; }
+}

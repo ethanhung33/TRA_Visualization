@@ -256,8 +256,11 @@ function getProcessedSegments(selectedSegments, topology) {
         // 處理區間截取
         if (typeof segInput === 'object') {
             let sIdx = 0, eIdx = seg.stations.length - 1;
-            if (segInput.start) sIdx = seg.stations.findIndex(st => st.name === segInput.start || st.id === segInput.start);
-            if (segInput.end) eIdx = seg.stations.findIndex(st => st.name === segInput.end || st.id === segInput.end);
+            // 路網圖選線的切片直接給索引 from/to：山手線等環狀路段首尾同站，用站名/ID 找會找到第一個
+            if (Number.isInteger(segInput.from)) sIdx = segInput.from;
+            else if (segInput.start) sIdx = seg.stations.findIndex(st => st.name === segInput.start || st.id === segInput.start);
+            if (Number.isInteger(segInput.to)) eIdx = segInput.to;
+            else if (segInput.end) eIdx = seg.stations.findIndex(st => st.name === segInput.end || st.id === segInput.end);
             
             if (sIdx !== -1 && eIdx !== -1) {
                 stations = seg.stations.slice(Math.min(sIdx, eIdx), Math.max(sIdx, eIdx) + 1);
@@ -1682,8 +1685,9 @@ function drawCurrentTimeLine() {
 // ==========================================
 // 🌟 終極防跳動換線處理 (中央對焦雙軸記憶 + 智慧路線整理)
 // ==========================================
-function handleRouteSwitch(newRoute) {
-    if (currentRouteView === newRoute) return;
+// force：路網圖重選路徑時 preset key 不變（同一個自訂視角）但內容換了，仍要重新切換
+function handleRouteSwitch(newRoute, force = false) {
+    if (!force && currentRouteView === newRoute) return;
 
     // 取得畫布容器的真實尺寸，用來計算「螢幕正中央」
     const wrapper = document.getElementById('canvas-wrapper');
@@ -1762,14 +1766,15 @@ function getTrainColorValue(type) {
     return tc[type] || null;
 }
 
-function buildUI() {
-    // ---- 取得當下主題色碼的輔助函數 ----
-    function getColor(colorsArray) {
-        if (!colorsArray) return isDarkMode ? "#555" : "#CCC";
-        return isDarkMode ? colorsArray[0] : colorsArray[1];
-    }
+// ---- 取得當下主題色碼的輔助函數 ----
+function getColor(colorsArray) {
+    if (!colorsArray) return isDarkMode ? "#555" : "#CCC";
+    return isDarkMode ? colorsArray[0] : colorsArray[1];
+}
 
-    // ---- A. 🌟 動態產生路線切換按鈕 (支援超過10條自動轉為下拉選單) ----
+// ---- 🌟 動態產生路線切換按鈕 (支援超過10條自動轉為下拉選單) ----
+// 路網圖選線新增/更換自訂路徑後會再呼叫一次
+function buildRouteSelector() {
     const routeContainer = document.getElementById('route-type-container');
     if (routeContainer) routeContainer.innerHTML = ''; 
 
@@ -1865,9 +1870,13 @@ function buildUI() {
         });
     }
 
-    window.updateRouteButtons = updateRouteButtons; 
+    window.updateRouteButtons = updateRouteButtons;
     updateRouteButtons();
-    // ---- 路線切換區塊結束 ----
+}
+
+function buildUI() {
+    // ---- A. 路線切換 ----
+    buildRouteSelector();
 
     // ---- B. 動態生成車種篩選按鈕 (通用萬用版，免寫 train_order) ----
 
@@ -6406,6 +6415,618 @@ document.addEventListener('scroll', function(e) {
 }, true); // 使用 Capture 模式確保能捕捉到內部 div 的 scroll 事件
 
 // ==========================================
+// 🗺️ 路網圖選線：在地理路網圖上拖出路徑 → 轉成 view preset 切片 → 顯示沿線運行圖
+// 座標來自 json/stations_geo.json（tools/build_station_geo.py 產生），沒有此檔的系統不顯示按鈕
+// ==========================================
+const CUSTOM_VIEW_KEY = '__custom_path';
+
+const NetworkMap = (() => {
+    const modal = document.getElementById('network-map-modal');
+    const openBtn = document.getElementById('btn-network-map');
+    const mapCanvas = document.getElementById('network-map-canvas');
+    const mapCtx = mapCanvas.getContext('2d');
+    const summaryEl = document.getElementById('network-map-summary');
+    const applyBtn = document.getElementById('network-map-apply');
+    const clearBtn = document.getElementById('network-map-clear');
+
+    const modeBtns = modal.querySelectorAll('.network-map-mode button');
+
+    let geo = null;      // stationId → [lon, lat]
+    let schematic = null; // stationId → [x, y]（示意圖，tools/schematic_layout.py 產生；y 向上）
+    let schematicBends = {}; // "站A|站B" → 兩站之間的轉角點 [[x, y], ...]，轉彎不必落在車站上
+    let mode = 'geo';    // 'schematic' | 'geo'
+    let graph = null;    // { topology, nodes: Map(id → node), segments: [[node...]] }
+    let view = null;     // 世界座標 → 螢幕：sx = x * k + tx
+    let fitK = 1;
+    let path = [];       // 選取的車站 ID 序列；首尾同站代表環狀
+    let hovered = null;
+    let gesture = null;  // 'draw' | 'pan' | 'pinch'
+    let lastPos = null;
+    let pinchPrev = null;
+    let loadToken = 0;
+    let rafId = 0;
+    const pointers = new Map();
+    const labelWidths = new Map();
+
+    const isOpen = () => modal.style.display !== 'none';
+    const isClosed = () => path.length > 3 && path[0] === path[path.length - 1];
+    const nodeName = (id) => graph.nodes.get(id).name;
+
+    // ---------- 資料 ----------
+    async function load(dirPath) {
+        const token = ++loadToken;
+        geo = null; schematic = null; graph = null; view = null; path = []; hovered = null;
+        openBtn.style.display = 'none';
+        try {
+            const res = await fetch(dirPath + 'stations_geo.json', { cache: 'no-cache' });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (token !== loadToken) return; // 載入途中已切換到別的系統
+            geo = data.stations;
+            schematic = data.schematic || null;
+            schematicBends = data.schematic_bends || {};
+            mode = schematic ? 'schematic' : 'geo';
+            openBtn.style.display = '';
+        } catch (e) { /* 沒有座標檔就不提供路網圖 */ }
+    }
+
+    function buildGraph() {
+        const nodes = new Map();
+        topology.segments.forEach(seg => {
+            const seen = new Set();
+            seg.stations.forEach((st, i) => {
+                let node = nodes.get(st.id);
+                if (!node) {
+                    node = { id: st.id, name: st.name, x: null, y: null, segCount: 0, edges: [] };
+                    nodes.set(st.id, node);
+                }
+                if (!seen.has(st.id)) { seen.add(st.id); node.segCount++; }
+                if (i === 0) return;
+                const prev = seg.stations[i - 1];
+                const km = Math.max(Math.abs(st.km - prev.km), 0.01);
+                nodes.get(prev.id).edges.push({ to: st.id, segId: seg.id, i: i - 1, j: i, km });
+                node.edges.push({ to: prev.id, segId: seg.id, i, j: i - 1, km });
+            });
+        });
+
+        const segments = topology.segments.map(seg => seg.stations.map(st => nodes.get(st.id)));
+        return { topology, nodes, segments };
+    }
+
+    // 依目前模式（示意圖/地理）設定各站的世界座標，並記下每站所在線路的走向供站名擺放
+    function applyPositions() {
+        graph.nodes.forEach(n => { n.x = null; n.y = null; });
+        if (mode === 'schematic' && schematic) {
+            graph.nodes.forEach(n => {
+                const p = schematic[n.id];
+                if (p) { n.x = p[0]; n.y = -p[1]; }
+            });
+        } else {
+            // 等距圓柱投影，經度依平均緯度縮放，避免高緯度地區被橫向拉寬
+            const placed = [...graph.nodes.values()].filter(n => geo[n.id]);
+            const lat0 = placed.reduce((s, n) => s + geo[n.id][1], 0) / Math.max(placed.length, 1);
+            const cosLat = Math.cos(lat0 * Math.PI / 180);
+            placed.forEach(n => { n.x = geo[n.id][0] * cosLat; n.y = -geo[n.id][1]; });
+        }
+        graph.nodes.forEach(n => {
+            let dx = 0, dy = 0;
+            if (n.x !== null) {
+                n.edges.forEach(e => {
+                    const m = graph.nodes.get(e.to);
+                    if (m.x === null) return;
+                    const len = Math.hypot(m.x - n.x, m.y - n.y) || 1;
+                    dx += Math.abs(m.x - n.x) / len;
+                    dy += Math.abs(m.y - n.y) / len;
+                });
+            }
+            n.horizontal = dx > dy * 1.5; // 水平線上的站，站名放上下才不會壓到線
+        });
+    }
+
+    // 沒有示意座標的系統只有地理圖，不顯示切換鈕
+    function syncModeButtons() {
+        modeBtns[0].parentElement.style.display = schematic ? '' : 'none';
+        modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    }
+
+    function setMode(newMode) {
+        if (newMode === mode) return;
+        mode = newMode;
+        syncModeButtons();
+        applyPositions();
+        fitView();
+        requestDraw();
+    }
+
+    // ---------- 尋路 ----------
+    function heapPush(h, item) {
+        h.push(item);
+        for (let i = h.length - 1; i > 0;) {
+            const p = (i - 1) >> 1;
+            if (h[p][0] <= h[i][0]) break;
+            [h[p], h[i]] = [h[i], h[p]]; i = p;
+        }
+    }
+    function heapPop(h) {
+        const top = h[0], last = h.pop();
+        if (h.length) {
+            h[0] = last;
+            for (let i = 0; ;) {
+                const l = 2 * i + 1, r = l + 1;
+                let m = i;
+                if (l < h.length && h[l][0] < h[m][0]) m = l;
+                if (r < h.length && h[r][0] < h[m][0]) m = r;
+                if (m === i) break;
+                [h[m], h[i]] = [h[i], h[m]]; i = m;
+            }
+        }
+        return top;
+    }
+
+    // 以里程為權重的最短路徑；avoid 內的車站不可經過（終點除外）
+    function shortestPath(from, to, avoid = null) {
+        const dist = new Map([[from, 0]]);
+        const prev = new Map();
+        const heap = [[0, from]];
+        while (heap.length) {
+            const [d, id] = heapPop(heap);
+            if (id === to) break;
+            if (d > dist.get(id)) continue;
+            for (const e of graph.nodes.get(id).edges) {
+                if (avoid && avoid.has(e.to) && e.to !== to) continue;
+                const nd = d + e.km;
+                if (nd < (dist.get(e.to) ?? Infinity)) {
+                    dist.set(e.to, nd); prev.set(e.to, id); heapPush(heap, [nd, e.to]);
+                }
+            }
+        }
+        if (!dist.has(to)) return null;
+        const ids = [to];
+        while (ids[ids.length - 1] !== from) ids.push(prev.get(ids[ids.length - 1]));
+        return { ids: ids.reverse(), km: dist.get(to) };
+    }
+
+    const hopKm = (a, b) => Math.min(...graph.nodes.get(a).edges.filter(e => e.to === b).map(e => e.km));
+    const pathKm = () => path.slice(1).reduce((s, id, n) => s + hopKm(path[n], id), 0);
+
+    // 拖曳經過車站 id 時更新路徑；回傳路徑是否有變
+    function extendTo(id) {
+        const last = path[path.length - 1];
+        if (id === last) return false;
+
+        if (isClosed()) {
+            // 已成環：只有退回成環前那一站才解開，其餘忽略，避免手一滑把整圈收掉
+            if (id !== path[path.length - 2]) return false;
+            path.pop();
+            return true;
+        }
+
+        if (id === path[0] && path.length >= 3) {
+            // 繞回起點：不走回頭路的接回距離比已走的短很多，才當成畫了一圈；否則視為拖回起點
+            const back = shortestPath(last, id, new Set(path));
+            if (back && back.km < pathKm() * 0.5) {
+                path.push(...back.ids.slice(1));
+                return true;
+            }
+        }
+
+        // 一般情況：走最短路徑接過去；若這條路往回經過已選的車站，就先收回到那一站再接
+        // （拖回頭 = 收回；在竹南後改往海線拖 = 收回到竹南再走海線）
+        const route = shortestPath(last, id);
+        if (!route) return false;
+        let m = route.ids.length - 1;
+        while (m > 0 && !path.includes(route.ids[m])) m--;
+        const keep = m > 0 ? path.indexOf(route.ids[m]) + 1 : path.length;
+        path = path.slice(0, keep).concat(route.ids.slice(m + 1));
+        return true;
+    }
+
+    // 車站序列 → view preset 的 lines 切片 [{id, from, to}]
+    function pathToSlices() {
+        // 同一段鐵軌可能屬於多條路段（如山手線與東北本線），以 DP 挑出切片數最少的組合
+        const continues = (p, e) => p.segId === e.segId && p.j === e.i && (p.j - p.i) === (e.j - e.i);
+        let layer = null;
+        for (let n = 1; n < path.length; n++) {
+            const cands = graph.nodes.get(path[n - 1]).edges.filter(e => e.to === path[n]);
+            layer = cands.map(e => {
+                if (!layer) return { e, cost: 1, prev: null };
+                let best = null, bestCost = Infinity;
+                layer.forEach(p => {
+                    const c = p.cost + (continues(p.e, e) ? 0 : 1);
+                    if (c < bestCost) { bestCost = c; best = p; }
+                });
+                return { e, cost: bestCost, prev: best };
+            });
+        }
+        const hops = [];
+        for (let cur = layer.reduce((a, b) => (b.cost < a.cost ? b : a)); cur; cur = cur.prev) hops.unshift(cur.e);
+
+        const lines = [];
+        hops.forEach(e => {
+            const last = lines[lines.length - 1];
+            if (last && last.id === e.segId && last.to === e.i && (last.to > last.from) === (e.j > e.i)) last.to = e.j;
+            else lines.push({ id: e.segId, from: e.i, to: e.j });
+        });
+        return lines;
+    }
+
+    // ---------- 視角 ----------
+    function resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        const w = mapCanvas.clientWidth, h = mapCanvas.clientHeight;
+        if (view && mapCanvas._w) {
+            // 視窗縮放時維持畫面中心
+            view.tx += (w - mapCanvas._w) / 2;
+            view.ty += (h - mapCanvas._h) / 2;
+        }
+        mapCanvas._w = w; mapCanvas._h = h;
+        mapCanvas.width = Math.round(w * dpr);
+        mapCanvas.height = Math.round(h * dpr);
+    }
+
+    function fitView() {
+        const pts = [...graph.nodes.values()].filter(n => n.x !== null);
+        if (!pts.length) return;
+        const xs = pts.map(n => n.x), ys = pts.map(n => n.y);
+        const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+        const W = mapCanvas.clientWidth, H = mapCanvas.clientHeight, pad = 40;
+        fitK = Math.min((W - pad * 2) / Math.max(maxX - minX, 1e-6), (H - pad * 2) / Math.max(maxY - minY, 1e-6));
+        view = { k: fitK, tx: W / 2 - fitK * (minX + maxX) / 2, ty: H / 2 - fitK * (minY + maxY) / 2 };
+    }
+
+    function zoomAt(px, py, factor) {
+        const k = Math.min(Math.max(view.k * factor, fitK * 0.5), fitK * 60);
+        factor = k / view.k;
+        view.tx = px - (px - view.tx) * factor;
+        view.ty = py - (py - view.ty) * factor;
+        view.k = k;
+    }
+
+    const toScreen = (n) => [n.x * view.k + view.tx, n.y * view.k + view.ty];
+
+    function hitTest(px, py, pointerType) {
+        const radius = pointerType === 'touch' ? 24 : 14;
+        let best = null, bestD = radius * radius;
+        graph.nodes.forEach(n => {
+            if (n.x === null) return;
+            const [sx, sy] = toScreen(n);
+            const d = (sx - px) ** 2 + (sy - py) ** 2;
+            if (d < bestD) { bestD = d; best = n.id; }
+        });
+        return best;
+    }
+
+    // ---------- 繪製 ----------
+    function requestDraw() {
+        if (!rafId) rafId = requestAnimationFrame(() => { rafId = 0; draw(); });
+    }
+
+    // 示意圖中 a → b 之間要經過的轉角點（世界座標）
+    function bendsBetween(a, b) {
+        if (mode !== 'schematic') return null;
+        const fwd = schematicBends[`${a}|${b}`];
+        const pts = fwd || schematicBends[`${b}|${a}`]?.slice().reverse();
+        return pts ? pts.map(([x, y]) => ({ x, y: -y })) : null;
+    }
+
+    function strokeChain(nodes) {
+        let prev = null;
+        nodes.forEach(n => {
+            if (!n || n.x === null) return; // 缺座標的車站直接跳過，連到下一個有座標的站
+            const [sx, sy] = toScreen(n);
+            if (!prev) {
+                mapCtx.moveTo(sx, sy);
+            } else {
+                (bendsBetween(prev.id, n.id) || []).forEach(p => mapCtx.lineTo(...toScreen(p)));
+                mapCtx.lineTo(sx, sy);
+            }
+            prev = n;
+        });
+    }
+
+    function draw() {
+        if (!graph || !view) return;
+        const W = mapCanvas.clientWidth, H = mapCanvas.clientHeight;
+        const dpr = window.devicePixelRatio || 1;
+        const c = mapCtx;
+        const C = isDarkMode
+            ? { bg: '#151515', line: '#5C5C5C', dot: '#D0D0D0', path: '#FFB300', text: '#FFFFFF', halo: '#151515' }
+            : { bg: '#F7F7F7', line: '#BDBDBD', dot: '#555555', path: '#F57F17', text: '#111111', halo: '#F7F7F7' };
+
+        c.setTransform(dpr, 0, 0, dpr, 0, 0);
+        c.fillStyle = C.bg;
+        c.fillRect(0, 0, W, H);
+        c.lineJoin = 'round';
+        c.lineCap = 'round';
+
+        // 1. 路網
+        c.strokeStyle = C.line;
+        c.lineWidth = 3;
+        c.beginPath();
+        graph.segments.forEach(strokeChain);
+        c.stroke();
+
+        // 2. 已選路徑
+        const pathSet = new Set(path);
+        if (path.length > 1) {
+            c.strokeStyle = C.path;
+            c.lineWidth = 6;
+            c.beginPath();
+            strokeChain(path.map(id => graph.nodes.get(id)));
+            c.stroke();
+        }
+
+        // 3. 車站
+        const visible = [];
+        graph.nodes.forEach(n => {
+            if (n.x === null) return;
+            const [sx, sy] = toScreen(n);
+            if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) return;
+            visible.push({ n, sx, sy });
+            const onPath = pathSet.has(n.id);
+            const r = n.segCount > 1 ? 4 : 2.5;
+            c.beginPath();
+            c.arc(sx, sy, r, 0, Math.PI * 2);
+            if (n.segCount > 1) {
+                // 轉乘/分岔站：空心圓
+                c.fillStyle = C.bg; c.fill();
+                c.lineWidth = 1.5; c.strokeStyle = onPath ? C.path : C.dot; c.stroke();
+            } else {
+                c.fillStyle = onPath ? C.path : C.dot; c.fill();
+            }
+        });
+
+        // 起訖站與滑鼠所在車站的標記
+        const ends = path.length ? [path[0], path[path.length - 1]] : [];
+        [...new Set(ends)].forEach(id => {
+            const n = graph.nodes.get(id);
+            if (n.x === null) return;
+            const [sx, sy] = toScreen(n);
+            c.beginPath(); c.arc(sx, sy, 7, 0, Math.PI * 2);
+            c.fillStyle = C.path; c.fill();
+            c.lineWidth = 2; c.strokeStyle = C.halo; c.stroke();
+        });
+        if (hovered && graph.nodes.get(hovered).x !== null) {
+            const [sx, sy] = toScreen(graph.nodes.get(hovered));
+            c.beginPath(); c.arc(sx, sy, 9, 0, Math.PI * 2);
+            c.lineWidth = 2; c.strokeStyle = C.text; c.stroke();
+        }
+
+        // 4. 站名：起訖、滑鼠、路徑上的站、轉乘站、停靠次數多的站依序搶位置，撞到就不印
+        const weights = window.globalStationWeights || {};
+        const priority = (id, n) =>
+            (ends.includes(id) || id === hovered ? 1e9 : 0) +
+            (pathSet.has(id) ? 1e6 : 0) +
+            (n.segCount > 1 ? 1e5 : 0) +
+            (weights[String(id)] || 0);
+        visible.forEach(v => { v.p = priority(v.n.id, v.n); });
+        visible.sort((a, b) => b.p - a.p);
+
+        const placedBoxes = [];
+        const overlaps = (b) => placedBoxes.some(o => b.x < o.x + o.w && b.x + b.w > o.x && b.y < o.y + o.h && b.y + b.h > o.y);
+        c.textBaseline = 'middle';
+        c.lineWidth = 3;
+        c.strokeStyle = C.halo;
+        visible.forEach(({ n, sx, sy, p }) => {
+            const strong = p >= 1e9;
+            c.font = `${strong ? 'bold 16px' : '14px'} 'GlowSans', sans-serif`;
+            const key = (strong ? 'b:' : '') + n.name;
+            let w = labelWidths.get(key);
+            if (w === undefined) { w = c.measureText(n.name).width; labelWidths.set(key, w); }
+            const h = strong ? 18 : 16;
+            const right = { x: sx + 8, y: sy - h / 2, w, h };
+            const left = { x: sx - 8 - w, y: sy - h / 2, w, h };
+            const above = { x: sx - w / 2, y: sy - 8 - h, w, h };
+            const below = { x: sx - w / 2, y: sy + 8, w, h };
+            // 水平線上的站名放上下、其他放左右，避免壓在線上
+            const options = n.horizontal ? [above, below, right, left] : [right, left, above, below];
+            const box = options.find(b => !overlaps(b)) || (strong ? options[0] : null);
+            if (!box) return;
+            placedBoxes.push(box);
+            c.fillStyle = C.text;
+            c.textAlign = 'left';
+            c.strokeText(n.name, box.x, box.y + h / 2);
+            c.fillText(n.name, box.x, box.y + h / 2);
+        });
+    }
+
+    function updateSummary() {
+        summaryEl.replaceChildren();
+        applyBtn.disabled = path.length < 2;
+        const sub = (text) => {
+            const s = document.createElement('span');
+            s.className = 'sub';
+            s.textContent = text;
+            return s;
+        };
+        if (!path.length) {
+            summaryEl.append(sub('尚未選擇路徑'));
+            return;
+        }
+        if (path.length === 1) {
+            summaryEl.append(`起點：${nodeName(path[0])}`, document.createElement('br'), sub('拖曳或點選終點'));
+            return;
+        }
+        const segNames = [];
+        pathToSlices().forEach(sl => {
+            const name = graph.topology.segments.find(s => s.id === sl.id)?.name || sl.id;
+            if (segNames[segNames.length - 1] !== name) segNames.push(name);
+        });
+        const title = document.createElement('b');
+        title.textContent = isClosed()
+            ? `${nodeName(path[0])} 起繞一圈（環狀）`
+            : `${nodeName(path[0])} → ${nodeName(path[path.length - 1])}`;
+        const stationCount = isClosed() ? path.length - 1 : path.length;
+        summaryEl.append(title, document.createElement('br'),
+            sub(`${pathKm().toFixed(1)} km · ${stationCount} 站 · 經 ${segNames.join('、')}`));
+    }
+
+    // ---------- 互動 ----------
+    const localPos = (e) => {
+        const r = mapCanvas.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+    };
+
+    function beginDrawAt(id) {
+        const last = path[path.length - 1];
+        if (path.length === 1 && id !== path[0]) {
+            extendTo(id);            // 先點起點、再點終點
+        } else if (id === last) {
+            // 從終點接著拖（環狀時只能拖回上一站解開）
+        } else {
+            path = [id];             // 從別的車站開始新的路徑
+        }
+    }
+
+    mapCanvas.addEventListener('pointerdown', (e) => {
+        if (!graph) return;
+        mapCanvas.setPointerCapture(e.pointerId);
+        const pos = localPos(e);
+        pointers.set(e.pointerId, pos);
+        if (pointers.size === 2) {
+            const [a, b] = [...pointers.values()];
+            gesture = 'pinch';
+            pinchPrev = { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+            return;
+        }
+        if (pointers.size > 2) return;
+        const hit = hitTest(pos.x, pos.y, e.pointerType);
+        if (hit) {
+            gesture = 'draw';
+            beginDrawAt(hit);
+            hovered = hit;
+            updateSummary();
+        } else {
+            gesture = 'pan';
+            mapCanvas.style.cursor = 'grabbing';
+        }
+        lastPos = pos;
+        requestDraw();
+    });
+
+    mapCanvas.addEventListener('pointermove', (e) => {
+        if (!graph) return;
+        const pos = localPos(e);
+        if (pointers.has(e.pointerId)) pointers.set(e.pointerId, pos);
+
+        if (gesture === 'pinch' && pointers.size === 2) {
+            const [a, b] = [...pointers.values()];
+            const cur = { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+            view.tx += cur.x - pinchPrev.x;
+            view.ty += cur.y - pinchPrev.y;
+            if (pinchPrev.d > 0) zoomAt(cur.x, cur.y, cur.d / pinchPrev.d);
+            pinchPrev = cur;
+        } else if (gesture === 'pan' && lastPos) {
+            view.tx += pos.x - lastPos.x;
+            view.ty += pos.y - lastPos.y;
+        } else if (gesture === 'draw') {
+            const hit = hitTest(pos.x, pos.y, e.pointerType);
+            if (hit) {
+                hovered = hit;
+                if (extendTo(hit)) updateSummary();
+            }
+        } else if (!gesture) {
+            const hit = hitTest(pos.x, pos.y, e.pointerType);
+            if (hit === hovered) return;
+            hovered = hit;
+            mapCanvas.style.cursor = hit ? 'pointer' : 'grab';
+        }
+        lastPos = pos;
+        requestDraw();
+    });
+
+    const endPointer = (e) => {
+        pointers.delete(e.pointerId);
+        if (pointers.size === 1 && gesture === 'pinch') {
+            gesture = 'pan';
+            lastPos = [...pointers.values()][0];
+        } else if (pointers.size === 0) {
+            gesture = null;
+            lastPos = null;
+            if (e.pointerType === 'touch') hovered = null;
+            mapCanvas.style.cursor = hovered ? 'pointer' : 'grab';
+            requestDraw();
+        }
+    };
+    mapCanvas.addEventListener('pointerup', endPointer);
+    mapCanvas.addEventListener('pointercancel', endPointer);
+    mapCanvas.addEventListener('pointerleave', () => {
+        if (!gesture && hovered) { hovered = null; requestDraw(); }
+    });
+
+    mapCanvas.addEventListener('wheel', (e) => {
+        if (!view) return;
+        e.preventDefault();
+        const pos = localPos(e);
+        zoomAt(pos.x, pos.y, Math.exp(-e.deltaY * 0.0015));
+        requestDraw();
+    }, { passive: false });
+
+    // ---------- 開關與套用 ----------
+    function open() {
+        if (!geo || !topology) return;
+        if (!graph || graph.topology !== topology) {
+            graph = buildGraph();
+            applyPositions();
+            view = null;
+            path = [];
+        }
+        syncModeButtons();
+        modal.style.display = 'flex';
+        resizeCanvas();
+        if (!view) fitView();
+        updateSummary();
+        draw();
+    }
+
+    function close() {
+        modal.style.display = 'none';
+        pointers.clear();
+        gesture = null;
+        hovered = null;
+    }
+
+    function apply() {
+        if (path.length < 2) return;
+        const closed = isClosed();
+        const from = nodeName(path[0]), to = nodeName(path[path.length - 1]);
+        settings.view_presets[CUSTOM_VIEW_KEY] = {
+            name: closed ? `🗺️ 自訂環線（${from} 起）` : `🗺️ 自訂：${from} → ${to}`,
+            lines: pathToSlices(),
+            view_type: closed ? 'CIRCULAR' : 'LINEAR',
+            button_color: ['#FFB300', '#F57F17'],
+        };
+        close();
+        buildRouteSelector();
+        handleRouteSwitch(CUSTOM_VIEW_KEY, true);
+    }
+
+    openBtn.addEventListener('click', open);
+    applyBtn.addEventListener('click', apply);
+    modeBtns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+    clearBtn.addEventListener('click', () => { path = []; updateSummary(); requestDraw(); });
+    modal.querySelector('.info-modal-close').addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    window.addEventListener('keydown', (e) => {
+        if (!isOpen()) return;
+        // capture 階段先攔下，避免同時觸發運行圖的快捷鍵（Esc 清空選取等）
+        if (e.key === 'Escape') close();
+        else if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') apply();
+        else return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+    }, true);
+    // 視窗縮放、手機轉向、下方說明文字換行都會改變畫布大小，畫布解析度與視角要跟著更新
+    new ResizeObserver(() => {
+        if (!isOpen() || !view) return;
+        resizeCanvas();
+        draw();
+    }).observe(mapCanvas);
+
+    return { load };
+})();
+
+// ==========================================
 // 系統啟動點 (init)
 // ==========================================
 async function init(systemPath) {
@@ -6495,6 +7116,7 @@ async function init(systemPath) {
         // 2. 載入 topology.json
         const topoRes = await fetch(dirc_path + 'topology.json', { cache: 'no-cache' });
         topology = await topoRes.json();
+        NetworkMap.load(dirc_path); // 路網圖座標（選用檔案）不必等，載入完才顯示按鈕
 
         // ==========================================
         // 🌟 核心新增：單一線路防呆機制 (針對高鐵等沒有 view_presets 的系統)

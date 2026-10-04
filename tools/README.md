@@ -41,3 +41,26 @@ py tools/screenshot.py --init data/Japan/Nankai/ --click "南海本線" --out sh
 
 首次需安裝瀏覽器：`py -m playwright install chromium`（playwright 套件已安裝）。
 截圖輸出在 `shots/`（已 gitignore）。
+
+## build_station_geo.py — 路網圖車站座標
+
+產生 `json/stations_geo.json`（`{"stations": {id: [lon, lat]}}`），供前端「🗺️ 從路網圖選線」繪製地理路網圖。沒有這個檔的系統不會顯示該按鈕。
+
+```
+py tools/build_station_geo.py Taiwan/TRA
+py tools/build_station_geo.py Taiwan/HSR
+```
+
+- 資料源寫在 `SOURCES`（目前台鐵/高鐵皆為 TDX 免註冊 Station API）；新增系統時加一個回傳 `{station_id: (lon, lat)}` 的函式即可。
+- topology 有、資料源沒有的車站（如新站）依同路段前後兩站的里程比例內插，列在輸出的 `interpolated`。
+
+## schematic_layout.py — 示意路網圖
+
+把車站排成地鐵圖風格的示意座標，寫進 `stations_geo.json` 的 `schematic`（座標）與 `schematic_bends`（兩站之間的轉角點）。前端路網圖預設顯示示意圖，可切回地理圖。`build_station_geo.py` 會自動呼叫。
+
+```
+py tools/schematic_layout.py Taiwan/TRA
+```
+
+- **有 `json/schematic_spec.json`（建議）**：照手寫版面排，仿 [4960fh7/TRA](https://github.com/4960fh7/TRA) 的拓樸圖。每條 line 是「路段切片串接 + 格點折線」，車站沿折線等距排列；支線用 `dir` 從已排好的交會站直直伸出。台鐵的版面是環島矩形 + 平行海線 + 直線支線，見 `data/Taiwan/TRA/json/schematic_spec.json`。
+- **沒有版面檔**：自動排出同樣風格的圖（建構式，零點幾秒）：找出地理上最外圈的環排成矩形、四角挑最東北/西北/西南/東南的非交會站；兩端已排好的路徑（如海線、成追線）以直線 / L 形 / ㄈ 形繞行，先排長的；支線從交會站直直伸出。沒有環的路網把最長路線沿地理主軸排成一直線。可調參數在檔頭：`MIN_GAP`（線與線最小間距）、`OFFSETS`（ㄈ 形外移距離）、`ASPECT_KEEP`（矩形保留地理寬高比的程度）。
