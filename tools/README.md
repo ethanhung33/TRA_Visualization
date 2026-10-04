@@ -49,9 +49,10 @@ py tools/screenshot.py --init data/Japan/Nankai/ --click "南海本線" --out sh
 ```
 py tools/build_station_geo.py Taiwan/TRA
 py tools/build_station_geo.py Taiwan/HSR
+py tools/build_station_geo.py Japan/JR_East   # 日本各系統：Wikidata，依站名比對、同名站挑最靠近鄰站的
 ```
 
-- 資料源寫在 `SOURCES`（目前台鐵/高鐵皆為 TDX 免註冊 Station API）；新增系統時加一個回傳 `{station_id: (lon, lat)}` 的函式即可。
+- 資料源：台鐵/高鐵為 TDX 免註冊 Station API（`SOURCES`）；`Japan/*` 一律用 Wikidata 站名比對，同名車站以鄰站位置消歧義，離所有鄰站都太遠的視為比對錯誤改用內插。
 - topology 有、資料源沒有的車站（如新站）依同路段前後兩站的里程比例內插，列在輸出的 `interpolated`。
 
 ## schematic_layout.py — 示意路網圖
@@ -63,4 +64,4 @@ py tools/schematic_layout.py Taiwan/TRA
 ```
 
 - **有 `json/schematic_spec.json`（建議）**：照手寫版面排，仿 [4960fh7/TRA](https://github.com/4960fh7/TRA) 的拓樸圖。每條 line 是「路段切片串接 + 格點折線」，車站沿折線等距排列；支線用 `dir` 從已排好的交會站直直伸出。台鐵的版面是環島矩形 + 平行海線 + 直線支線，見 `data/Taiwan/TRA/json/schematic_spec.json`。
-- **沒有版面檔**：自動排出同樣風格的圖（建構式，零點幾秒）：找出地理上最外圈的環排成矩形、四角挑最東北/西北/西南/東南的非交會站；兩端已排好的路徑（如海線、成追線）以直線 / L 形 / ㄈ 形繞行，先排長的；支線從交會站直直伸出。沒有環的路網把最長路線沿地理主軸排成一直線。可調參數在檔頭：`MIN_GAP`（線與線最小間距）、`OFFSETS`（ㄈ 形外移距離）、`ASPECT_KEEP`（矩形保留地理寬高比的程度）。
+- **沒有版面檔**：格點路由自動排版（仿 LOOM，Bast et al. "Metro Maps on Octilinear Grid Graphs"）。先以 stress majorization 讓交會站距離正比於站數、並往地理位置拉（都心撐開、偏遠長線收短）；再從核心往外，逐條線在格點上用 Dijkstra 找路（成本：步數、轉彎、斜線），用過的格點與格邊不能再用，所以線不會疊在一起；車站沿路徑等距排列。台鐵自動結果 0 重疊 0 交叉、JR 東日本 0 重疊約 30 處交叉。可調參數在檔頭：`STATIONS_PER_CELL`（格子粗細）、`GEO_ANCHOR`（多像地理圖）、`DIAG_STEP`／`BEND_COST`（斜線與轉彎成本）、`SNAP_RADIUS`（交會站可偏離預排位置幾格）。

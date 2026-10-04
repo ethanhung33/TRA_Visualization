@@ -15,14 +15,14 @@ A. 有 json/schematic_spec.json → 照手寫版面排（仿 github.com/4960fh7/
         {"route": [["keelung", "八堵", "基隆"]], "dir": [0, -1], "step": 1}       # 支線：從已排好的首站直直伸出
      ]}
    route 為 [路段 id, 起站, 訖站] 的串接（站名或站 ID 皆可）；同一站被不同 line 排到不同位置會報錯。
-B. 沒有版面檔 → 自動排出同樣風格的圖（建構式，不需求解器）：
+B. 沒有版面檔 → 格點路由自動排版（仿 LOOM：Bast, Brosi & Storandt, "Metro Maps on Octilinear Grid Graphs"）：
    1. 交會站與端點為關鍵節點，其間的站串成「鏈」。
-   2. 主環線：依地理位置找出路網最外圈的環，挑地理上最東北/西北/西南/東南的四站當角，排成矩形；
-      每邊車站等距，矩形寬高比參考地理外形。沒有環的路網則把最長的路線沿地理主軸排成一直線。
-   3. 「耳朵」：兩端都已排好、中間還沒排的路徑（如海線、成追線），從直線、L 形、ㄈ 形繞行中挑
-      不碰撞、轉彎少、站距合理、且與地理上同一側的那條，車站沿折線等距排列。
-   4. 支線：只有一端排好的鏈，從交會站直直伸出（撞到才轉一次彎），方向取最接近地理方向、每站 1 格。
-   5. 不相連的子路網各自排好後，依地理位置由西到東並排。
+   2. 預排：以 stress majorization 讓交會站之間的距離正比於站數，並往地理位置拉
+      （站密的都心自動撐開、偏遠長線收短，方位仍與地理一致）。
+   3. 格點路由：長的線先排，每條線在格點上以 Dijkstra 找路，成本 = 步數 + 轉彎 + 斜線（很貴）；
+      用過的格點與格邊不能再用，所以線不會疊在一起，斜線也不會在格子中央交叉。
+      未定位的交會站可落在預排位置附近幾格內最划算的空格點。
+   4. 車站沿各自的路徑等距排列，路徑的轉角記為 schematic_bends。
 """
 import json
 import math
@@ -32,13 +32,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-SPACING = 1.0                  # 支線站距
-MIN_GAP = 1.8                  # 不相鄰的線至少相距（站距），要留空間給站名
-OFFSETS = [4, 6, 8, 11, 15]    # 耳朵 ㄈ 形繞行時外移距離的候選
-ASPECT_KEEP = 0.6              # 主環矩形保留地理寬高比的程度（0 = 只看站數）
-COMPONENT_GAP = 6.0            # 不相連子路網之間的間距
-
-DIRS4 = [(1, 0), (0, 1), (-1, 0), (0, -1)]  # 東、北、西、南（y 向上）
+STATIONS_PER_CELL = 2.0  # 一格約幾個站距（格子越粗，平行線間距越大、站名越不擠）
+CELL = 2.0               # 輸出時一格的長度（站距單位），與 STATIONS_PER_CELL 一致則站距約為 1
+PRELAYOUT_ITERS = 300    # 預排的迭代次數
+GEO_ANCHOR = 0.15        # 預排時往地理位置拉的力道（0 = 只看站數，越大越像地理圖）
+SNAP_RADIUS = 3          # 交會站可以偏離預排位置幾格
+GRID_MARGIN = 12         # 格子在預排範圍外多留幾格可以繞路
+W_MOVE = 1.0             # 交會站偏離預排位置，每格
+DIAG_STEP = 1.414 + 3.0  # 斜走一格的成本（含斜線懲罰：盡量只用水平垂直）
+BEND_COST = [0.0, 2.0, 4.0, 12.0]   # 轉 0/45/90/135 度的成本（180 度不准）
+W_CROSS = 80.0           # 不得已穿過別條線的格點（交叉）
+W_OVERLAP = 500.0        # 無路可走時與別條線共用格邊（重疊），最後手段
+COMPONENT_GAP = 6.0      # 不相連子路網之間的間距
 
 
 def planar_km(geo):
@@ -111,390 +116,70 @@ def extract_chains(topology, pos):
 
 
 def layout(topology, geo, verbose=True):
-    """自動排出「主環矩形 + 耳朵繞行 + 直線支線」的示意圖。回傳 (座標, 轉角)，y 向上。"""
+    """格點路由排版（仿 LOOM：Bast, Brosi & Storandt, "Metro Maps on Octilinear Grid Graphs"）。
+
+    回傳 (座標 {id: [x, y]}, 轉角 {"a|b": [[x, y], ...]})，y 向上，單位約為一個站距。
+    """
     log = print if verbose else (lambda *a, **k: None)
     pos = planar_km(geo)
     nbrs, key, chains = extract_chains(topology, pos)
-    C = [{"st": ch, "u": ch[0], "v": ch[-1], "L": len(ch) - 1} for ch in chains]
+
+    # 自成一圈的鏈（兩端是同一站）從中間切開，格點上的路徑才有起訖
+    split = []
+    for ch in chains:
+        if ch[0] == ch[-1] and len(ch) > 3:
+            mid = len(ch) // 2
+            key.add(ch[mid])
+            split += [ch[:mid + 1], ch[mid:]]
+        else:
+            split.append(ch)
+    C = [{"st": ch, "u": ch[0], "v": ch[-1], "L": len(ch) - 1} for ch in split]
     log(f"   示意圖：{len(nbrs)} 站 → {len(key)} 個交會/端點、{len(C)} 條鏈")
 
     incident = defaultdict(list)
     for ci, c in enumerate(C):
-        incident[c["u"]].append(ci)
-        if c["v"] != c["u"]:
-            incident[c["v"]].append(ci)
-
-    def stations_of(ci, fwd):
-        return C[ci]["st"] if fwd else C[ci]["st"][::-1]
-
-    def area(points):
-        return sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in zip(points, points[1:] + points[:1])) / 2
+        incident[c["u"]].append(ci); incident[c["v"]].append(ci)
 
     # ---------- 子路網 ----------
     comps, seen = [], set()
-    for ci in range(len(C)):
-        if ci in seen:
+    for n0 in sorted(key):
+        if n0 in seen:
             continue
-        comp, stack = [], [ci]
-        seen.add(ci)
+        comp, stack = [], [n0]
+        seen.add(n0)
         while stack:
-            x = stack.pop(); comp.append(x)
-            for n in (C[x]["u"], C[x]["v"]):
-                for y in incident[n]:
-                    if y not in seen:
-                        seen.add(y); stack.append(y)
+            n = stack.pop(); comp.append(n)
+            for ci in incident[n]:
+                for m in (C[ci]["u"], C[ci]["v"]):
+                    if m not in seen:
+                        seen.add(m); stack.append(m)
         comps.append(comp)
 
-    def two_core(cis):
-        alive = set(cis)
-        while True:
-            deg = defaultdict(int)
-            for ci in alive:
-                deg[C[ci]["u"]] += 1; deg[C[ci]["v"]] += 1
-            drop = {ci for ci in alive if deg[C[ci]["u"]] == 1 or deg[C[ci]["v"]] == 1}
-            if not drop:
-                return alive
-            alive -= drop
-
-    def outer_cycle(core):
-        """以地理位置描出所有面，取面積最大的（外圈），再從中取站數最多的簡單環。"""
-        out = defaultdict(list)
-        for ci in core:
-            for fwd in (True, False):
-                st = stations_of(ci, fwd)
-                ang = math.atan2(pos[st[1]][1] - pos[st[0]][1], pos[st[1]][0] - pos[st[0]][0])
-                out[st[0]].append((ang, ci, fwd))
-        for n in out:
-            out[n].sort()
-        idx = {(ci, fwd): k for n in out for k, (_, ci, fwd) in enumerate(out[n])}
-
-        def nxt(h):
-            ci, fwd = h
-            w = stations_of(ci, fwd)[-1]
-            k = idx[(ci, not fwd)]
-            _, c2, f2 = out[w][(k - 1) % len(out[w])]
-            return (c2, f2)
-
-        best, best_area, visited = None, -1, set()
-        for start in idx:
-            if start in visited:
-                continue
-            face, h = [], start
-            while h not in visited:
-                visited.add(h); face.append(h); h = nxt(h)
-            pts = [pos[s] for ci, fwd in face for s in stations_of(ci, fwd)[:-1]]
-            a = abs(area(pts))
-            if a > best_area:
-                best, best_area = face, a
-        # 外圈可能經過橋接的鏈兩次，拆成簡單環後取站數最多的
-        cycles, stack = [], []
-        for h in best:
-            start_node = stations_of(*h)[0]
-            names = [stations_of(*x)[0] for x in stack]
-            if start_node in names:
-                k = names.index(start_node)
-                cycles.append(stack[k:]); stack = stack[:k]
-            stack.append(h)
-        if stack:
-            first = stations_of(*stack[0])[0]
-            last = stations_of(*stack[-1])[-1]
-            names = [stations_of(*x)[0] for x in stack]
-            if last in names:
-                cycles.append(stack[names.index(last):])
-        return max(cycles, key=lambda cyc: sum(C[ci]["L"] for ci, _ in cyc))
-
-    # ---------- 共用狀態 ----------
     coords, bends = {}, {}
-    drawn = []         # 已畫的線段 (p, q)
-    done = set()       # 已排好的鏈
-
-    def lay_polyline(stations, pts):
-        """車站沿折線 pts 等距排列（已排好的站不動），折線頂點記為轉角，並登記線段。"""
-        clean = [pts[0]]
-        for p in pts[1:]:
-            if math.dist(p, clean[-1]) > 1e-9:
-                clean.append(p)
-        cum = [0.0]
-        for a, b in zip(clean, clean[1:]):
-            cum.append(cum[-1] + math.dist(a, b))
-        n = len(stations) - 1
-
-        def at(d):
-            for k in range(len(clean) - 1):
-                if d <= cum[k + 1] + 1e-9 or k == len(clean) - 2:
-                    t = 0 if cum[k + 1] == cum[k] else (d - cum[k]) / (cum[k + 1] - cum[k])
-                    (x1, y1), (x2, y2) = clean[k], clean[k + 1]
-                    return (x1 + (x2 - x1) * t, y1 + (y2 - y1) * t)
-            return clean[0]
-
-        arcs = [cum[-1] * i / n for i in range(n + 1)]
-        for sid, d in zip(stations, arcs):
-            coords.setdefault(sid, at(d))
-        for (a, da), (b, db) in zip(zip(stations, arcs), zip(stations[1:], arcs[1:])):
-            inner = [clean[k] for k in range(1, len(clean) - 1) if da + 1e-9 < cum[k] < db - 1e-9]
-            if inner:
-                bends[f"{a}|{b}"] = [list(p) for p in inner]
-        drawn.extend(zip(clean, clean[1:]))
-
-    def collisions(pts, anchors):
-        """候選折線與已畫線段的衝突數；只允許在 anchors（起訖站）上以不重疊的角度接上。"""
-        hits = 0
-        for p, q in zip(pts, pts[1:]):
-            for a, b in drawn:
-                if seg_dist(p, q, a, b) >= MIN_GAP:
-                    continue
-                shared = [s for s in anchors if min(math.dist(s, p), math.dist(s, q)) < 1e-9
-                          and min(math.dist(s, a), math.dist(s, b)) < 1e-9]
-                if shared:
-                    s = shared[0]
-                    o1 = q if math.dist(s, p) < 1e-9 else p
-                    o2 = b if math.dist(s, a) < 1e-9 else a
-                    v1 = (o1[0] - s[0], o1[1] - s[1]); v2 = (o2[0] - s[0], o2[1] - s[1])
-                    n1, n2 = math.hypot(*v1), math.hypot(*v2)
-                    if n1 and n2 and (v1[0] * v2[0] + v1[1] * v2[1]) / (n1 * n2) < 0.99:
-                        # 只在接點相碰：再確認其餘部分沒有太近
-                        if seg_dist(p, q, a, b) == 0 and _near_only_at(p, q, a, b, s):
-                            continue
-                hits += 1
-        return hits
-
-    def side_penalty(stations, pts, PA, PB):
-        """耳朵在地理上位於 A–B 的哪一側，示意圖上也要在同一側。"""
-        inner = stations[1:-1] or stations
-        g = [sum(pos[s][i] for s in inner) / len(inner) for i in (0, 1)]
-        gm = [(pos[stations[0]][i] + pos[stations[-1]][i]) / 2 for i in (0, 1)]
-        vg = (g[0] - gm[0], g[1] - gm[1])
-        segs = list(zip(pts, pts[1:]))
-        tot = sum(math.dist(a, b) for a, b in segs) or 1
-        c = [sum((a[i] + b[i]) / 2 * math.dist(a, b) for a, b in segs) / tot for i in (0, 1)]
-        vs = (c[0] - (PA[0] + PB[0]) / 2, c[1] - (PA[1] + PB[1]) / 2)
-        ng, ns = math.hypot(*vg), math.hypot(*vs)
-        if ng < 1e-6 or ns < 1e-6:
-            return 0.0
-        return (1 - (vg[0] * vs[0] + vg[1] * vs[1]) / (ng * ns)) * 3
-
-    def best_route(stations, cands, PA, PB):
-        n = len(stations) - 1
-        best, best_score = None, math.inf
-        for pts in cands:
-            length = sum(math.dist(a, b) for a, b in zip(pts, pts[1:]))
-            if length < 1e-9:
-                continue
-            spacing = length / n
-            score = (collisions(pts, [PA, PB]) * 100
-                     + (len(pts) - 2) * 1.5
-                     + max(0, 0.7 - spacing) * 20 + max(0, spacing - 2.5) * 2
-                     + 0.02 * length
-                     + side_penalty(stations, pts, PA, PB))
-            if score < best_score:
-                best, best_score = pts, score
-        return best
-
-    def route_ear(path):
-        stations = []
-        for ci, fwd in path:
-            st = stations_of(ci, fwd)
-            stations += st[1:] if stations else st
-        PA, PB = coords[stations[0]], coords[stations[-1]]
-        (xa, ya), (xb, yb) = PA, PB
-        cands = []
-        if stations[0] == stations[-1]:   # 掛在單一站上的環：畫成方框
-            s = max(2.0, len(stations) / 4)
-            for sx in (1, -1):
-                for sy in (1, -1):
-                    cands.append([PA, (xa + sx * s, ya), (xa + sx * s, ya + sy * s), (xa, ya + sy * s), PA])
-        else:
-            if abs(xa - xb) < 1e-9 or abs(ya - yb) < 1e-9:
-                cands.append([PA, PB])
-            cands += [[PA, (xb, ya), PB], [PA, (xa, yb), PB]]
-            for d in OFFSETS:
-                for X in (min(xa, xb) - d, max(xa, xb) + d):
-                    cands.append([PA, (X, ya), (X, yb), PB])
-                for Y in (min(ya, yb) - d, max(ya, yb) + d):
-                    cands.append([PA, (xa, Y), (xb, Y), PB])
-        lay_polyline(stations, best_route(stations, cands, PA, PB))
-        done.update(ci for ci, _ in path)
-
-    def route_branch(ci):
-        c = C[ci]
-        fwd = c["u"] in coords
-        stations = stations_of(ci, fwd)
-        PA = coords[stations[0]]
-        n = len(stations) - 1
-        gx, gy = (pos[stations[-1]][i] - pos[stations[0]][i] for i in (0, 1))
-        best, best_score = None, math.inf
-        for k1, (dx, dy) in enumerate(DIRS4):
-            # 直線，或撞到時在第 2、3 站或一半處轉一次彎
-            for k2, h in [(None, 0)] + [(k, h) for k in ((k1 + 1) % 4, (k1 + 3) % 4)
-                                        for h in sorted({2, 3, max(1, n // 2)}) if h < n]:
-                if k2 is None:
-                    pts = [PA, (PA[0] + dx * n * SPACING, PA[1] + dy * n * SPACING)]
-                else:
-                    h *= SPACING
-                    ex, ey = DIRS4[k2]
-                    mid = (PA[0] + dx * h, PA[1] + dy * h)
-                    pts = [PA, mid, (mid[0] + ex * (n * SPACING - h), mid[1] + ey * (n * SPACING - h))]
-                vx, vy = pts[-1][0] - PA[0], pts[-1][1] - PA[1]
-                cosv = (vx * gx + vy * gy) / ((math.hypot(vx, vy) * math.hypot(gx, gy)) or 1)
-                score = collisions(pts, [PA]) * 100 + (len(pts) - 2) * 3 + (1 - cosv) * 2
-                if score < best_score:
-                    best, best_score = pts, score
-        lay_polyline(stations, best)
-        done.add(ci)
-
-    def find_ear(cis):
-        """耳朵：從已排好的站、只經過未排的站、走到另一個已排好的站的路徑。
-        每對端點取最短的那條，再從中挑最長的先排：大的環先定型（如山線），小的連接線（如成追線）最後補。"""
-        best = None
-        for A in {n for ci in cis for n in (C[ci]["u"], C[ci]["v"]) if n in coords}:
-            dist, prev, heap = {A: 0}, {}, [(0, A)]
-            import heapq
-            while heap:
-                d, n = heapq.heappop(heap)
-                if d > dist[n]:
-                    continue
-                if n != A and n in coords:
-                    if best is None or d > best[0]:
-                        path, x = [], n
-                        while x != A:
-                            path.append(prev[x]); x = path[-1][2]
-                        best = (d, [(ci, fwd) for ci, fwd, _ in reversed(path)])
-                    continue
-                for ci in incident[n]:
-                    if ci not in cis:
-                        continue
-                    for fwd in (True, False):
-                        st = stations_of(ci, fwd)
-                        if st[0] != n:
-                            continue
-                        m = st[-1]
-                        if m == A and n == A and d == 0:      # 掛在 A 上的單鏈環
-                            if best is None or C[ci]["L"] > best[0]:
-                                best = (C[ci]["L"], [(ci, fwd)])
-                            continue
-                        nd = d + C[ci]["L"]
-                        if (m not in coords or m != n) and nd < dist.get(m, math.inf):
-                            dist[m] = nd; prev[m] = (ci, fwd, n)
-                            heapq.heappush(heap, (nd, m))
-        return best[1] if best else None
-
-    # ---------- 逐個子路網排版 ----------
-    placed_boxes = []
-    for comp in sorted(comps, key=lambda cm: -sum(C[ci]["L"] for ci in cm)):
+    boxes = []
+    for comp in sorted(comps, key=lambda cm: -len(cm)):
+        cset = set(comp)
+        cis = sorted({ci for n in comp for ci in incident[n]})
+        target = prelayout(comp, [C[ci] for ci in cis], pos)
+        paths = route_on_grid(comp, cis, C, target, log)
         before = set(coords)
-        drawn_before = len(drawn)
-        core = two_core(comp)
-        if core:
-            cyc = outer_cycle(core)
-            seq = []
-            for ci, fwd in cyc:
-                seq += stations_of(ci, fwd)[:-1]
-            if area([pos[s] for s in seq]) < 0:      # 統一逆時針
-                cyc = [(ci, not fwd) for ci, fwd in reversed(cyc)]
-                seq = []
-                for ci, fwd in cyc:
-                    seq += stations_of(ci, fwd)[:-1]
-            N = len(seq)
-            P = [pos[s] for s in seq]
-            # 四個角取地理上最東北/西北/西南/東南的站；差不多遠時優先挑非交會站，
-            # 角上的站兩個方向都被環線佔走，支線會沒地方伸出去
-            span = math.dist(*[(f(p[0] for p in P), g(p[1] for p in P)) for f, g in ((min, min), (max, max))])
-
-            def corner(score, stations):
-                best = max(score(pos[s]) for s in stations)
-                ok = [i for i, s in enumerate(stations) if score(pos[s]) >= best - 0.03 * span]
-                plain = [i for i in ok if stations[i] not in key]
-                return max(plain or ok, key=lambda i: score(pos[stations[i]]))
-
-            ne = corner(lambda q: q[0] + q[1], seq)
-            rot = seq[ne:] + seq[:ne]
-            P = [pos[s] for s in rot]
-            nw = corner(lambda q: -q[0] + q[1], rot)
-            sw = corner(lambda q: -q[0] - q[1], rot)
-            se = corner(lambda q: q[0] - q[1], rot)
-            if not (0 < nw < sw < se < N):           # 角的順序不對（如細長的環）就均分四邊
-                nw, sw, se = N // 4, N // 2, 3 * N // 4
-            n_top, n_left, n_bot, n_right = nw, sw - nw, se - sw, N - se
-            xs = [p[0] for p in P]; ys = [p[1] for p in P]
-            r = max(max(xs) - min(xs), 1e-6) / max(max(ys) - min(ys), 1e-6)
-            H = max(n_left, n_right, 1)
-            W = max(n_top, n_bot, 1, H * r * ASPECT_KEEP)
-            H = max(H, W / r * ASPECT_KEEP)
-            corners = [(W, H), (0, H), (0, 0), (W, 0), (W, H)]
-            bounds = [0, nw, sw, se, N]
-            for side in range(4):
-                (x1, y1), (x2, y2) = corners[side], corners[side + 1]
-                cnt = bounds[side + 1] - bounds[side]
-                for k in range(cnt):
-                    t = k / cnt
-                    coords[rot[bounds[side] + k]] = (x1 + (x2 - x1) * t, y1 + (y2 - y1) * t)
-            ring = rot + rot[:1]
-            drawn.extend(zip([coords[s] for s in ring], [coords[s] for s in ring[1:]]))
-            done.update(ci for ci, _ in cyc)
-        else:
-            # 沒有環：最長的路線沿地理主軸排成一直線
-            ends = [n for ci in comp for n in (C[ci]["u"], C[ci]["v"]) if len(nbrs[n]) == 1] or [C[comp[0]]["u"]]
-
-            def farthest(src):
-                dist, prev, stack = {src: 0}, {}, [src]
-                while stack:
-                    n = stack.pop()
-                    for ci in incident[n]:
-                        if ci not in comp:
-                            continue
-                        m = C[ci]["v"] if C[ci]["u"] == n else C[ci]["u"]
-                        if m not in dist:
-                            dist[m] = dist[n] + C[ci]["L"]; prev[m] = (ci, n); stack.append(m)
-                far = max(dist, key=dist.get)
-                path, x = [], far
-                while x != src:
-                    ci, p = prev[x]; path.append((ci, C[ci]["u"] == p)); x = p
-                return far, path[::-1]
-
-            a, _ = farthest(ends[0])
-            _, path = farthest(a)
-            stations = []
-            for ci, fwd in path:
-                st = stations_of(ci, fwd)
-                stations += st[1:] if stations else st
-            gx, gy = (pos[stations[-1]][i] - pos[stations[0]][i] for i in (0, 1))
-            d = (1 if gx >= 0 else -1, 0) if abs(gx) >= abs(gy) else (0, 1 if gy >= 0 else -1)
-            n = len(stations) - 1
-            coords[stations[0]] = (0.0, 0.0)
-            lay_polyline(stations, [(0.0, 0.0), (d[0] * n * SPACING, d[1] * n * SPACING)])
-            done.update(ci for ci, _ in path)
-
-        while True:
-            rest = [ci for ci in comp if ci not in done]
-            if not rest:
-                break
-            ear = find_ear(set(rest))
-            if ear:
-                route_ear(ear)
-                continue
-            frontier = [ci for ci in rest if C[ci]["u"] in coords or C[ci]["v"] in coords]
-            route_branch(max(frontier, key=lambda ci: C[ci]["L"]))
-
-        # 子路網依地理位置由西到東並排
+        for ci, path in paths.items():
+            place_along(C[ci]["st"], [(x * CELL, y * CELL) for x, y in path], coords, bends)
         new = [s for s in coords if s not in before]
+        # 子路網依地理位置由西到東並排
         bx = [coords[s][0] for s in new]; by = [coords[s][1] for s in new]
-        if placed_boxes:
-            gx = sum(pos[s][0] for s in new) / len(new)
-            east = gx >= sum(b[4] for b in placed_boxes) / len(placed_boxes)
-            edge = max(b[1] for b in placed_boxes) + COMPONENT_GAP - min(bx) if east \
-                else min(b[0] for b in placed_boxes) - COMPONENT_GAP - max(bx)
-            dy = sum(b[2] for b in placed_boxes) / len(placed_boxes) - min(by)
+        gx = sum(pos[s][0] for s in new) / len(new)
+        if boxes:
+            east = gx >= sum(b[4] for b in boxes) / len(boxes)
+            dx = (max(b[1] for b in boxes) + COMPONENT_GAP - min(bx)) if east else (min(b[0] for b in boxes) - COMPONENT_GAP - max(bx))
+            dy = sum(b[2] for b in boxes) / len(boxes) - min(by)
             for s in new:
-                coords[s] = (coords[s][0] + edge, coords[s][1] + dy)
+                coords[s] = (coords[s][0] + dx, coords[s][1] + dy)
             for k in list(bends):
-                a = k.split("|")[0]
-                if a in new:
-                    bends[k] = [[x + edge, y + dy] for x, y in bends[k]]
-            for i in range(drawn_before, len(drawn)):
-                (p1, p2) = drawn[i]
-                drawn[i] = ((p1[0] + edge, p1[1] + dy), (p2[0] + edge, p2[1] + dy))
+                if k.split("|")[0] in new:
+                    bends[k] = [[x + dx, y + dy] for x, y in bends[k]]
             bx = [coords[s][0] for s in new]; by = [coords[s][1] for s in new]
-        placed_boxes.append((min(bx), max(bx), min(by), max(by), sum(pos[s][0] for s in new) / len(new)))
+        boxes.append((min(bx), max(bx), min(by), max(by), gx))
 
     minx = min(p[0] for p in coords.values()); miny = min(p[1] for p in coords.values())
     r = lambda p: [round(p[0] - minx, 3), round(p[1] - miny, 3)]
@@ -502,13 +187,227 @@ def layout(topology, geo, verbose=True):
             {k: [r(p) for p in v] for k, v in bends.items()})
 
 
-def _near_only_at(p, q, a, b, s):
-    """兩線段在 s 相接時，離開 s 一小段後是否就分開（不是沿著同一條線走）。"""
-    def along(u, v, t):
-        o = v if math.dist(s, u) < 1e-9 else u
-        L = math.dist(s, o) or 1
-        return (s[0] + (o[0] - s[0]) * min(1, t / L), s[1] + (o[1] - s[1]) * min(1, t / L))
-    return math.dist(along(p, q, MIN_GAP), along(a, b, MIN_GAP)) >= MIN_GAP * 0.7
+def prelayout(nodes, chains, pos):
+    """交會站預排：距離正比於站數（格數），並往地理位置拉。
+
+    以 stress majorization（SMACOF）求解，額外加一項往「縮放後地理位置」的錨定：
+    站密的都心會被撐開、偏遠長線收短，但整體方位仍跟地理一致。回傳 {node: (x, y)}（格）。
+    """
+    idx = {n: i for i, n in enumerate(nodes)}
+    n = len(nodes)
+    if n == 1:
+        return {nodes[0]: (0.0, 0.0)}
+    INF = math.inf
+    adj = defaultdict(list)
+    for c in chains:
+        w = max(c["L"] / STATIONS_PER_CELL, 1.0)
+        adj[c["u"]].append((c["v"], w)); adj[c["v"]].append((c["u"], w))
+    import heapq
+    D = []
+    for s in nodes:
+        dist = {s: 0.0}
+        h = [(0.0, s)]
+        while h:
+            d, x = heapq.heappop(h)
+            if d > dist[x]:
+                continue
+            for y, w in adj[x]:
+                if d + w < dist.get(y, INF):
+                    dist[y] = d + w; heapq.heappush(h, (d + w, y))
+        D.append([dist.get(t, INF) for t in nodes])
+
+    # 地理位置縮放到格數：取各鏈「格數 / 直線距離」的中位數
+    ratios = sorted((max(c["L"] / STATIONS_PER_CELL, 1.0)) / max(math.dist(pos[c["u"]], pos[c["v"]]), 1e-3)
+                    for c in chains if c["u"] != c["v"])
+    f = ratios[len(ratios) // 2] if ratios else 1.0
+    G = [(pos[t][0] * f, pos[t][1] * f) for t in nodes]
+    X = [list(g) for g in G]
+    for _ in range(PRELAYOUT_ITERS):
+        for i in range(n):
+            sx = sy = sw = 0.0
+            xi, yi = X[i]
+            for j in range(n):
+                d = D[i][j]
+                if i == j or d == INF:
+                    continue
+                w = 1.0 / (d * d)
+                dx, dy = xi - X[j][0], yi - X[j][1]
+                L = math.hypot(dx, dy) or 1e-6
+                sx += w * (X[j][0] + d * dx / L)
+                sy += w * (X[j][1] + d * dy / L)
+                sw += w
+            a = GEO_ANCHOR * sw / n if sw else 1.0
+            X[i] = [(sx + a * G[i][0]) / (sw + a), (sy + a * G[i][1]) / (sw + a)]
+    return {t: tuple(X[idx[t]]) for t in nodes}
+
+
+DIRS8 = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
+
+
+def route_on_grid(nodes, cis, C, target, log):
+    """在格點上逐條找路。用過的格點、格邊都不能再用，所以線不會重疊；斜線不能在格子中央交叉。
+
+    回傳 {鏈 index: [格點 (x, y), ...]}（從 u 到 v）。
+    """
+    import heapq
+    place = {}            # 交會站 → 格點
+    used_nodes = set()    # 被路徑經過或被交會站佔用的格點
+    used_edges = set()    # frozenset({p, q})
+    xs = [p[0] for p in target.values()]; ys = [p[1] for p in target.values()]
+    lo_x, hi_x = math.floor(min(xs)) - GRID_MARGIN, math.ceil(max(xs)) + GRID_MARGIN
+    lo_y, hi_y = math.floor(min(ys)) - GRID_MARGIN, math.ceil(max(ys)) + GRID_MARGIN
+
+    def candidates(node, radius=SNAP_RADIUS):
+        """還沒定位的交會站可以落在預排位置附近的空格點，離越遠越貴。"""
+        tx, ty = target[node]
+        out = {}
+        for dx in range(-radius, radius + 1):
+            for dy in range(-radius, radius + 1):
+                p = (round(tx) + dx, round(ty) + dy)
+                if p not in used_nodes:
+                    out[p] = W_MOVE * math.dist(p, (tx, ty))
+        return out
+
+    def search(src, goals, level):
+        """src 出發到 goals（{格點: 額外成本}）的最低成本路徑；狀態含最後一步方向以計算轉彎。
+        level 0：不碰任何已用的格點/格邊；1：可穿過別條線（交叉）；2：連格邊都可共用（重疊，最後手段）。"""
+        start = (src, 8)
+        dist = {start: 0.0}
+        prev = {}
+        heap = [(0.0, 0, src, 8)]
+        tie = 1
+        while heap:
+            g, _, p, d = heapq.heappop(heap)
+            if d == -1:     # 抵達終點的虛擬狀態
+                path = [p]
+                s = prev[(p, -1)]
+                while s != start:
+                    path.append(s[0]); s = prev[s]
+                path.append(src)
+                return path[::-1], g
+            if g > dist.get((p, d), math.inf):
+                continue
+            for m, (mx, my) in enumerate(DIRS8):
+                q = (p[0] + mx, p[1] + my)
+                if not (lo_x <= q[0] <= hi_x and lo_y <= q[1] <= hi_y):
+                    continue
+                e = frozenset((p, q))
+                cost = 0.0
+                if e in used_edges:
+                    if level < 2:
+                        continue
+                    cost += W_OVERLAP
+                diag = m % 2 == 1
+                if diag and frozenset(((p[0] + mx, p[1]), (p[0], p[1] + my))) in used_edges:
+                    if level < 2:
+                        continue                  # 斜線不能在格子中央交叉
+                    cost += W_CROSS
+                cost += (DIAG_STEP if diag else 1.0)
+                if d != 8:
+                    t = min((m - d) % 8, (d - m) % 8)
+                    if t == 4:
+                        continue
+                    cost += BEND_COST[t]
+                is_goal = q in goals
+                if q in used_nodes and not is_goal:
+                    if level == 0 or (level == 1 and q in placed_pts):
+                        continue
+                    cost += W_CROSS                # 不得已才穿過別條線（交叉）
+                ng = g + cost
+                if is_goal:
+                    gg = ng + goals[q]
+                    if gg < dist.get((q, -1), math.inf):
+                        dist[(q, -1)] = gg; prev[(q, -1)] = (p, d)
+                        heapq.heappush(heap, (gg, tie, q, -1)); tie += 1
+                    continue
+                if ng < dist.get((q, m), math.inf):
+                    dist[(q, m)] = ng; prev[(q, m)] = (p, d)
+                    heapq.heappush(heap, (ng, tie, q, m)); tie += 1
+        return None, math.inf
+
+    def commit(path):
+        for a, b in zip(path, path[1:]):
+            used_edges.add(frozenset((a, b)))
+        used_nodes.update(path)
+
+    # 起點：連最多線的交會站，放在預排位置
+    first = max(nodes, key=lambda n: (sum(1 for ci in cis if n in (C[ci]["u"], C[ci]["v"])), n))
+    place[first] = (round(target[first][0]), round(target[first][1]))
+    used_nodes.add(place[first])
+    placed_pts = {place[first]}
+
+    paths, todo, crossings, forced = {}, set(cis), 0, 0
+    while todo:
+        frontier = [ci for ci in todo if C[ci]["u"] in place or C[ci]["v"] in place]
+        if not frontier:     # 理論上不會發生（同一子路網必然相連）
+            n0 = next(C[ci]["u"] for ci in todo)
+            place[n0] = (round(target[n0][0]), round(target[n0][1])); used_nodes.add(place[n0]); placed_pts.add(place[n0])
+            continue
+        # 從核心往外長：離起點近的線先排（站密的都心先拿到好位置，偏遠長線後排有的是空間）；
+        # 距離相同時長的先排
+        def order(c):
+            m = C[c]["u"] if C[c]["u"] in place else C[c]["v"]
+            return (math.dist(target[m], target[first]), -C[c]["L"], c)
+        ci = min(frontier, key=order)
+        c = C[ci]
+        rev = c["u"] not in place
+        a, b = (c["v"], c["u"]) if rev else (c["u"], c["v"])
+        path = None
+        for level in (0, 1, 2):
+            goals = {place[b]: 0.0} if b in place else candidates(b, SNAP_RADIUS * (2 if level == 2 else 1))
+            path, _ = search(place[a], goals, level)
+            if path:
+                break
+        if level == 2:
+            forced += 1
+        if path is None:
+            raise RuntimeError(f"格點上找不到路：{c['u']} → {c['v']}")
+        crossings += sum(1 for p in path[1:-1] if p in used_nodes)
+        if b not in place:
+            place[b] = path[-1]
+            placed_pts.add(path[-1])
+        commit(path)
+        paths[ci] = path[::-1] if rev else path
+        todo.discard(ci)
+    if crossings or forced:
+        log(f"   ⚠️ 不得已的交叉 {crossings} 處、與別條線共用格邊的線 {forced} 條")
+    return paths
+
+
+def place_along(stations, pts, coords, bends):
+    """車站沿折線等距排列；兩站之間經過的折線頂點記為轉角。"""
+    clean = [pts[0]]
+    for p in pts[1:]:
+        if math.dist(p, clean[-1]) > 1e-9:
+            clean.append(p)
+    # 去掉共線的中間點，只留真正的轉角
+    pts = [clean[0]]
+    for k in range(1, len(clean) - 1):
+        a, b, c = pts[-1], clean[k], clean[k + 1]
+        if abs((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])) > 1e-9:
+            pts.append(b)
+    if len(clean) > 1:
+        pts.append(clean[-1])
+    cum = [0.0]
+    for a, b in zip(pts, pts[1:]):
+        cum.append(cum[-1] + math.dist(a, b))
+    n = len(stations) - 1
+
+    def at(d):
+        for k in range(len(pts) - 1):
+            if d <= cum[k + 1] + 1e-9 or k == len(pts) - 2:
+                t = 0 if cum[k + 1] == cum[k] else (d - cum[k]) / (cum[k + 1] - cum[k])
+                (x1, y1), (x2, y2) = pts[k], pts[k + 1]
+                return (x1 + (x2 - x1) * t, y1 + (y2 - y1) * t)
+        return pts[0]
+
+    arcs = [cum[-1] * i / n for i in range(n + 1)]
+    for sid, d in zip(stations, arcs):
+        coords.setdefault(sid, at(d))
+    for (a, da), (b, db) in zip(zip(stations, arcs), zip(stations[1:], arcs[1:])):
+        inner = [pts[k] for k in range(1, len(pts) - 1) if da + 1e-9 < cum[k] < db - 1e-9]
+        if inner:
+            bends[f"{a}|{b}"] = [list(p) for p in inner]
 
 
 def route_stations(topology, route):

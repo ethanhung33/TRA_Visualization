@@ -35,7 +35,7 @@ py data/Japan/<路線>/script/timetable.py
 py data/Taiwan/TRA/script/available_date.py
 ```
 
-**產生路網圖車站座標**（目前支援 `Taiwan/TRA`、`Taiwan/HSR`，資料源 TDX 免註冊）
+**產生路網圖車站座標**（`Taiwan/TRA`、`Taiwan/HSR` 用 TDX；`Japan/<路線>` 用 Wikidata）
 ```
 py tools/build_station_geo.py Taiwan/TRA     # 抓經緯度並自動排示意圖
 py tools/schematic_layout.py Taiwan/TRA     # 只重排示意圖
@@ -56,7 +56,7 @@ Python 腳本 → JSON 靜態資料 → 前端 Canvas 渲染
 - `json/setting.json` — 視覺設定（車種顏色、view presets、時區、日曆類型）
 - `json/timetable/timetable_YYYYMMDD.json` — 每日編譯後時刻表（前端直接讀取）
 - `json/available_dates.json` — 可用日期清單
-- `json/schematic_spec.json` — 手寫的示意路網圖版面（選用；格點折線 + 支線方向，見 `tools/schematic_layout.py` 檔頭）。沒有此檔時自動排出同樣風格（主環矩形 + 耳朵繞行 + 直線支線）
+- `json/schematic_spec.json` — 手寫的示意路網圖版面（選用；格點折線 + 支線方向，見 `tools/schematic_layout.py` 檔頭）。沒有此檔時以格點路由自動排版（仿 LOOM，線不重疊）
 - `json/stations_geo.json` — 車站經緯度與示意座標 `schematic`／轉角 `schematic_bends`（選用）。有此檔才顯示「🗺️ 從路網圖選線」；刻意不放進 topology.json，因為 `build_topology.py` 重新產生時會整份覆寫
 - `script/` — 爬蟲與資料轉換腳本
 
