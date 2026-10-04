@@ -403,43 +403,52 @@ function drawGrid(viewKey, layer = 'all') {
         ? getCircularCopyRange(loopHeight, viewTop, viewBottom)
         : { copyStart: 0, copyEnd: 0 };
 
+    const offsetForCopy = (copy) => isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
+
+    // ==========================================
+    // 🌟 核心邏輯：全域排序與空間競爭 (Greedy Label Placement)
+    // 所有環狀複本一起競爭：否則一圈的尾端（八堵）與下一圈的開頭（七堵）各算各的，站名會疊在一起
+    // ==========================================
+    // 1. 抓出畫面上的車站，並注入我們剛才算好的「全域權重」
+    let labelCandidates = [];
     for (let copy = copyStart; copy <= copyEnd; copy++) {
-        let offsetY = isCircular ? ((copy * loopHeight) + CONFIG.paddingTop + loopHeight) : CONFIG.paddingTop;
+        let offsetY = offsetForCopy(copy);
+        uniqueStations.forEach((st, idx) => {
+            let y = st.baseY + offsetY;
+            if (y < viewTop - 20 || y > viewBottom + 20) return;
+            labelCandidates.push({
+                key: `${copy}:${idx}`,
+                y: y,
+                baseY: st.baseY,
+                weight: window.globalStationWeights[String(st.id)] || 0
+            });
+        });
+    }
+
+    // 2. 全域排序：權重由大到小！(確保含金量最高的大站優先處理)
+    labelCandidates.sort((a, b) => (b.weight - a.weight) || (a.y - b.y));
+
+    let drawnYList = [];
+    const MIN_SPACING = 18; // 🌟 容許的最小垂直距離
+    let showLabelSet = new Set();
+
+    // 3. 依序放入：大站先選位，後面的小站如果發現位子被大站佔走(相撞)，就乖乖隱藏
+    labelCandidates.forEach(cand => {
+        let isCollision = drawnYList.some(drawnY => Math.abs(drawnY - cand.y) < MIN_SPACING);
+        if (!isCollision) {
+            drawnYList.push(cand.y);
+            showLabelSet.add(cand.key);
+        }
+    });
+    // ==========================================
+
+    for (let copy = copyStart; copy <= copyEnd; copy++) {
+        let offsetY = offsetForCopy(copy);
 
         ctx.font = "bold 16px 'GlowSans', sans-serif";
         ctx.textBaseline = "middle";
 
-        // ==========================================
-        // 🌟 核心邏輯：全域排序與空間競爭 (Greedy Label Placement)
-        // ==========================================
-        // 1. 抓出畫面上的車站，並注入我們剛才算好的「全域權重」
-        let labelCandidates = uniqueStations.map(st => {
-            return {
-                ...st,
-                y: st.baseY + offsetY,
-                weight: window.globalStationWeights[String(st.id)] || 0 
-            };
-        }).filter(st => st.y >= viewTop - 20 && st.y <= viewBottom + 20);
-
-        // 2. 全域排序：權重由大到小！(確保含金量最高的大站優先處理)
-        labelCandidates.sort((a, b) => (b.weight - a.weight) || (a.baseY - b.baseY));
-
-        let drawnYList = [];
-        const MIN_SPACING = 18; // 🌟 容許的最小垂直距離
-
-        // 3. 依序放入：大站先選位，後面的小站如果發現位子被大站佔走(相撞)，就乖乖隱藏
-        labelCandidates.forEach(cand => {
-            let isCollision = drawnYList.some(drawnY => Math.abs(drawnY - cand.y) < MIN_SPACING);
-            cand.showLabel = !isCollision; 
-            if (!isCollision) {
-                drawnYList.push(cand.y); 
-            }
-        });
-
-        let showLabelMap = new Map(labelCandidates.map(c => [c.id, c.showLabel]));
-        // ==========================================
-
-        uniqueStations.forEach(st => {
+        uniqueStations.forEach((st, idx) => {
             let y = st.baseY + offsetY;
             if (y < viewTop || y > viewBottom) return;
 
@@ -469,7 +478,7 @@ function drawGrid(viewKey, layer = 'all') {
             if (layer === 'labels' || layer === 'all') {
                 
                 // 🌟 檢查剛剛的生存戰，如果小站被大站擠掉了，就不印字直接跳過！
-                if (showLabelMap.get(st.id) !== true) return;
+                if (!showLabelSet.has(`${copy}:${idx}`)) return;
 
                 let maskBg = isDarkMode ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.85)";
                 let textColor = isDarkMode ? "#FFFFFF" : "#000000";
@@ -673,8 +682,9 @@ function drawTrains() {
     ctx.beginPath();
     let startX = CONFIG.paddingLeft;
     let endX = timeToX(1560); // 26小時邊界
-    ctx.rect(startX, -50000, endX - startX, 100000); 
-    ctx.clip(); // 喀嚓！限制火車只在 0:00~26:00 內畫圖，上下無限延伸
+    // 上下範圍跟著鏡頭走：固定 ±50000 在高倍率放大時世界座標會超出範圍，線條被裁掉
+    ctx.rect(startX, viewTop, endX - startX, viewBottom - viewTop);
+    ctx.clip(); // 喀嚓！限制火車只在 0:00~26:00 內畫圖
 
     // 🌟 注意：這裡不要有任何 ctx.save() 或 ctx.translate()！
     // 直接緊接著宣告 drawSingleTrain
