@@ -6925,6 +6925,9 @@ const NetworkMap = (() => {
                 hovered = hit;
                 if (extendTo(hit)) updateSummary();
             }
+            drawPos = pos;
+            drawPointerType = e.pointerType;
+            if (!edgeRaf) edgeRaf = requestAnimationFrame(edgeScrollTick);
         } else if (!gesture) {
             const hit = hitTest(pos.x, pos.y, e.pointerType);
             if (hit === hovered) return;
@@ -6935,8 +6938,33 @@ const NetworkMap = (() => {
         requestDraw();
     });
 
+    // 畫線時指標靠近（或超出）地圖邊緣：地圖往那個方向自動捲動，路徑跟著延伸。
+    // 放大後才能精準選站，否則拖到畫面邊緣就畫不下去了
+    const EDGE_ZONE = 48, EDGE_SPEED = 14;   // px
+    let edgeRaf = 0, drawPos = null, drawPointerType = 'mouse';
+
+    function edgeScrollTick() {
+        edgeRaf = 0;
+        if (gesture !== 'draw' || !drawPos || !view) return;
+        const W = mapCanvas.clientWidth, H = mapCanvas.clientHeight;
+        const near = (d) => d < EDGE_ZONE ? 1 - Math.max(d, 0) / EDGE_ZONE : 0;
+        const vx = (near(drawPos.x) - near(W - drawPos.x)) * EDGE_SPEED;
+        const vy = (near(drawPos.y) - near(H - drawPos.y)) * EDGE_SPEED;
+        if (!vx && !vy) return;
+        view.tx += vx;
+        view.ty += vy;
+        const hit = hitTest(drawPos.x, drawPos.y, drawPointerType);
+        if (hit) {
+            hovered = hit;
+            if (extendTo(hit)) updateSummary();
+        }
+        draw();
+        edgeRaf = requestAnimationFrame(edgeScrollTick);
+    }
+
     const endPointer = (e) => {
         pointers.delete(e.pointerId);
+        if (edgeRaf && pointers.size === 0) { cancelAnimationFrame(edgeRaf); edgeRaf = 0; drawPos = null; }
         if (pointers.size === 1 && gesture === 'pinch') {
             gesture = 'pan';
             lastPos = [...pointers.values()][0];

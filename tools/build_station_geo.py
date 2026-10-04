@@ -4,6 +4,7 @@
     py tools/build_station_geo.py Taiwan/TRA
     py tools/build_station_geo.py Taiwan/HSR
     py tools/build_station_geo.py Japan/JR_East      # 日本各系統皆可（Wikidata）
+    py tools/build_station_geo.py Japan/Hankyu Japan/Hanshin ...   # 可一次多個
 
 座標放在獨立檔案而非 topology.json：topology 由各系統的 build_topology.py 重新產生時會被整份覆寫。
 topology 裡有、但資料源缺座標的車站（如新站），依同路段前後兩站的里程比例內插。
@@ -39,7 +40,18 @@ WIKIDATA = "https://query.wikidata.org/sparql"
 WD_HEADERS = {"User-Agent": "TRA_Visualization station-geo (https://github.com/ethanhung33/TRA_Visualization)"}
 
 
+_WD_CACHE = {}
+
+
 def _wikidata(query):
+    """同一次執行中相同的查詢只打一次（一次處理多個日本系統時，全日本車站清單只抓一次）。"""
+    if query in _WD_CACHE:
+        return _WD_CACHE[query]
+    _WD_CACHE[query] = _wikidata_fetch(query)
+    return _WD_CACHE[query]
+
+
+def _wikidata_fetch(query):
     r = requests.get(WIKIDATA, params={"query": query, "format": "json"}, headers=WD_HEADERS, timeout=300)
     r.raise_for_status()
     out = []
@@ -65,14 +77,29 @@ def _fetch_wikidata_japan(topology):
     cands = defaultdict(set)
     for label, lon, lat in _wikidata("""
         SELECT ?label ?coord WHERE {
-          VALUES ?cls { wd:Q55488 wd:Q55678 wd:Q1793804 wd:Q4663385 }
+          VALUES ?cls { wd:Q55488 wd:Q55678 wd:Q1793804 wd:Q4663385 wd:Q928830 wd:Q2175765 wd:Q1339195 }
           ?s wdt:P31 ?cls; wdt:P17 wd:Q17; wdt:P625 ?coord; rdfs:label ?label FILTER(lang(?label) = "ja")
         }"""):
         cands[_norm_ja(label)].add((lon, lat))
 
     names = {st["id"]: st["name"] for seg in topology["segments"] for st in seg["stations"]}
-    # 不在一般車站類別裡的（大型轉乘站、BRT 化的區間等）改用站名直接查，不限類別；有「〇〇駅」就只用它
+    # 不在車站類別裡的（大型轉乘站、BRT 化的區間等）改用站名直接查，不限類別；有「〇〇駅」就只用它
     lost = sorted({_norm_ja(n) for n in names.values() if _norm_ja(n) not in cands})
+    _add_by_label(cands, lost)
+
+    chosen, far = _resolve(topology, names, cands)
+    if far:
+        # 離所有鄰站都很遠：多半是只查到別處的同名站（如北海道的北浜）。不限類別再查一次同名站，
+        # 從全部候選中挑最靠近鄰站的
+        _add_by_label(cands, sorted({_norm_ja(names[s]) for s in far}), merge=True)
+        chosen, far = _resolve(topology, names, cands)
+    if far:
+        print(f"   ⚠️ 座標離鄰站太遠、改用內插：{', '.join(names[s] for s in far)}")
+    return {sid: c for sid, c in chosen.items() if sid not in far}
+
+
+def _add_by_label(cands, lost, merge=False):
+    """依站名查 Wikidata（不限類別）補候選；有「〇〇駅」標籤的優先。"""
     if lost:
         labels = " ".join(f'"{v}{suffix}"@ja' for n in lost for v in {n, n.replace("ケ", "ヶ")} for suffix in ("駅", ""))
         by_name = defaultdict(lambda: {"駅": set(), "": set()})
@@ -80,13 +107,19 @@ def _fetch_wikidata_japan(topology):
                 "SELECT ?label ?coord WHERE { VALUES ?label { %s } ?s rdfs:label ?label; wdt:P17 wd:Q17; wdt:P625 ?coord. }" % labels):
             by_name[_norm_ja(label)]["駅" if label.endswith("駅") else ""].add((lon, lat))
         for n, groups in by_name.items():
-            cands[n] = groups["駅"] or groups[""]
+            found = groups["駅"] or groups[""]
+            cands[n] = (cands[n] | found) if merge else found
 
+
+def _resolve(topology, names, cands):
+    """先定下唯一的，再讓同名的挑最靠近已定鄰站的那個，反覆到穩定。回傳 (選定座標, 離鄰站太遠的站)。"""
     nbrs = defaultdict(set)
+    line_km = {}
     for seg in topology["segments"]:
-        ids = [st["id"] for st in seg["stations"]]
-        for a, b in zip(ids, ids[1:]):
-            nbrs[a].add(b); nbrs[b].add(a)
+        sts = seg["stations"]
+        for a, b in zip(sts, sts[1:]):
+            nbrs[a["id"]].add(b["id"]); nbrs[b["id"]].add(a["id"])
+            line_km[(a["id"], b["id"])] = line_km[(b["id"], a["id"])] = abs(b["km"] - a["km"])
 
     options = {sid: sorted(cands.get(_norm_ja(n), ())) for sid, n in names.items()}
     chosen = {sid: opts[0] for sid, opts in options.items() if len(opts) == 1}
@@ -100,17 +133,27 @@ def _fetch_wikidata_japan(topology):
                 continue
             chosen[sid] = min(options[sid], key=lambda c: sum(math.dist(c, a) for a in anchors))
             progress = True
-        if not progress:   # 一整段都是同名站、沒有任何已定的鄰站：先隨便定一個，帶動其他站
-            chosen[rest[0]] = options[rest[0]][0]
+        if not progress:
+            # 一整段都是同名站、沒有任何已定的鄰站（如京阪的淀屋橋—北浜—天満橋，各有京阪、地下鐵兩筆，
+            # 北浜在北海道也有一個）：取最靠近已定車站中位位置的候選，帶動其他站
+            if chosen:
+                xs = sorted(c[0] for c in chosen.values()); ys = sorted(c[1] for c in chosen.values())
+                center = (xs[len(xs) // 2], ys[len(ys) // 2])
+                chosen[rest[0]] = min(options[rest[0]], key=lambda c: math.dist(c, center))
+            else:
+                chosen[rest[0]] = options[rest[0]][0]
             rest = rest[1:]
         pending = rest
 
-    # 與所有鄰站都相距很遠的，多半是比對到別處的同名站，丟掉改用內插
+    # 跟每個鄰站的直線距離都遠超過營業里程的，多半是比對到別處的同名站（如偏了 16 km 的另一個「新宿」）
+    def ground_km(p, q):
+        k = math.cos(math.radians((p[1] + q[1]) / 2))
+        return math.hypot((p[0] - q[0]) * 111.32 * k, (p[1] - q[1]) * 110.57)
+
     far = [sid for sid, c in chosen.items()
-           if nbrs[sid] and all(n in chosen and math.dist(c, chosen[n]) > 0.6 for n in nbrs[sid])]
-    if far:
-        print(f"   ⚠️ 座標離鄰站太遠、改用內插：{', '.join(names[s] for s in far)}")
-    return {sid: c for sid, c in chosen.items() if sid not in far}
+           if nbrs[sid] and all(n in chosen and ground_km(c, chosen[n]) > max(3 * line_km[(sid, n)], line_km[(sid, n)] + 8)
+                                for n in nbrs[sid])]
+    return chosen, far
 
 
 SOURCES = {
@@ -147,10 +190,16 @@ def interpolate_missing(topology, coords):
 
 
 def main():
-    key = sys.argv[1] if len(sys.argv) > 1 else None
-    if not source_for(key):
-        print(f"用法：py tools/build_station_geo.py <{'|'.join(SOURCES)}|Japan/<路線>>")
+    keys = sys.argv[1:]
+    if not keys or not all(source_for(k) for k in keys):
+        print(f"用法：py tools/build_station_geo.py <{'|'.join(SOURCES)}|Japan/<路線>> [...]")
         sys.exit(1)
+    for key in keys:
+        print(f"== {key}")
+        build(key)
+
+
+def build(key):
 
     json_dir = ROOT / "data" / key / "json"
     topology = json.loads((json_dir / "topology.json").read_text(encoding="utf-8"))

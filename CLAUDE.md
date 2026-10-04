@@ -56,7 +56,7 @@ Python 腳本 → JSON 靜態資料 → 前端 Canvas 渲染
 - `json/setting.json` — 視覺設定（車種顏色、view presets、時區、日曆類型）
 - `json/timetable/timetable_YYYYMMDD.json` — 每日編譯後時刻表（前端直接讀取）
 - `json/available_dates.json` — 可用日期清單
-- `json/schematic_spec.json` — 手寫的示意路網圖版面（選用；格點折線 + 支線方向，見 `tools/schematic_layout.py` 檔頭）。沒有此檔時以格點路由自動排版（仿 LOOM，線不重疊）
+- `json/schematic_spec.json` — 手寫的示意路網圖版面（選用；格點折線 + 支線方向，見 `tools/schematic_layout.py` 檔頭）。沒有此檔時以約束圖自動排版：只用相對關係（各交會站的環繞順序、相鄰站的左右上下）與站數，LP 求解（需 scipy）
 - `json/stations_geo.json` — 車站經緯度與示意座標 `schematic`／轉角 `schematic_bends`（選用）。有此檔才顯示「🗺️ 從路網圖選線」；刻意不放進 topology.json，因為 `build_topology.py` 重新產生時會整份覆寫
 - `script/` — 爬蟲與資料轉換腳本
 

@@ -50,9 +50,10 @@ py tools/screenshot.py --init data/Japan/Nankai/ --click "南海本線" --out sh
 py tools/build_station_geo.py Taiwan/TRA
 py tools/build_station_geo.py Taiwan/HSR
 py tools/build_station_geo.py Japan/JR_East   # 日本各系統：Wikidata，依站名比對、同名站挑最靠近鄰站的
+py tools/build_station_geo.py Japan/Hankyu Japan/Hanshin   # 可一次多個（全日本車站清單只抓一次）
 ```
 
-- 資料源：台鐵/高鐵為 TDX 免註冊 Station API（`SOURCES`）；`Japan/*` 一律用 Wikidata 站名比對，同名車站以鄰站位置消歧義，離所有鄰站都太遠的視為比對錯誤改用內插。
+- 資料源：台鐵/高鐵為 TDX 免註冊 Station API（`SOURCES`）；`Japan/*` 一律用 Wikidata 站名比對（車站、地下鐵站、路面電車站等類別，查不到的再不限類別依站名查）；同名車站以鄰站位置消歧義；與每個鄰站的直線距離都遠超過營業里程的，視為比對到別處的同名站，不限類別重查同名站後再挑，仍不行才改用內插。
 - topology 有、資料源沒有的車站（如新站）依同路段前後兩站的里程比例內插，列在輸出的 `interpolated`。
 
 ## schematic_layout.py — 示意路網圖
@@ -64,4 +65,4 @@ py tools/schematic_layout.py Taiwan/TRA
 ```
 
 - **有 `json/schematic_spec.json`（建議）**：照手寫版面排，仿 [4960fh7/TRA](https://github.com/4960fh7/TRA) 的拓樸圖。每條 line 是「路段切片串接 + 格點折線」，車站沿折線等距排列；支線用 `dir` 從已排好的交會站直直伸出。台鐵的版面是環島矩形 + 平行海線 + 直線支線，見 `data/Taiwan/TRA/json/schematic_spec.json`。
-- **沒有版面檔**：格點路由自動排版（仿 LOOM，Bast et al. "Metro Maps on Octilinear Grid Graphs"）。先以 stress majorization 讓交會站距離正比於站數、並往地理位置拉（都心撐開、偏遠長線收短）；再從核心往外，逐條線在格點上用 Dijkstra 找路（成本：步數、轉彎、斜線），用過的格點與格邊不能再用，所以線不會疊在一起；車站沿路徑等距排列。台鐵自動結果 0 重疊 0 交叉、JR 東日本 0 重疊約 30 處交叉。可調參數在檔頭：`STATIONS_PER_CELL`（格子粗細）、`GEO_ANCHOR`（多像地理圖）、`DIAG_STEP`／`BEND_COST`（斜線與轉彎成本）、`SNAP_RADIUS`（交會站可偏離預排位置幾格）。
+- **沒有版面檔**：**約束圖排版**，只用相對關係、不看地理距離（需 `py -m pip install scipy`）。(1) 埠分配：每個交會站把伸出的線分配到 8 個方向中互不相同的方向，保持地理上的環繞順序（rotation system），取偏差最小的分配——這決定誰在環內、誰在環外；(2) 每條線的形狀由兩端的方向決定（直線 / L 形 / ㄈ 形）；(3) 約束圖：水平段 y 相同、垂直段 x 相同、斜段 Δx = ±Δy、每條線總長 ≥ 站數，加上地理上相鄰交會站的左右／上下順序，以 LP 求總長最短；(4) 有交叉或重疊的線段對，依地理相對方位補分離約束後重解。台鐵 0 交叉、JR 東日本約 7 處交叉，1～2 秒。可調參數在檔頭：`PORT_DIAG`（越大斜線越少）、`REL_NEIGHBORS`／`REL_RATIO`（相對方位約束的範圍）、`NODE_SEP`／`SEG_SEP`（間距）。

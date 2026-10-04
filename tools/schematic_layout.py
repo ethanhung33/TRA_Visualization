@@ -15,14 +15,7 @@ A. 有 json/schematic_spec.json → 照手寫版面排（仿 github.com/4960fh7/
         {"route": [["keelung", "八堵", "基隆"]], "dir": [0, -1], "step": 1}       # 支線：從已排好的首站直直伸出
      ]}
    route 為 [路段 id, 起站, 訖站] 的串接（站名或站 ID 皆可）；同一站被不同 line 排到不同位置會報錯。
-B. 沒有版面檔 → 格點路由自動排版（仿 LOOM：Bast, Brosi & Storandt, "Metro Maps on Octilinear Grid Graphs"）：
-   1. 交會站與端點為關鍵節點，其間的站串成「鏈」。
-   2. 預排：以 stress majorization 讓交會站之間的距離正比於站數，並往地理位置拉
-      （站密的都心自動撐開、偏遠長線收短，方位仍與地理一致）。
-   3. 格點路由：長的線先排，每條線在格點上以 Dijkstra 找路，成本 = 步數 + 轉彎 + 斜線（很貴）；
-      用過的格點與格邊不能再用，所以線不會疊在一起，斜線也不會在格子中央交叉。
-      未定位的交會站可落在預排位置附近幾格內最划算的空格點。
-   4. 車站沿各自的路徑等距排列，路徑的轉角記為 schematic_bends。
+B. 沒有版面檔 → 約束圖排版（只用相對關係，不看地理距離；需要 scipy），見 layout() 的說明。
 """
 import json
 import math
@@ -32,17 +25,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-STATIONS_PER_CELL = 2.0  # 一格約幾個站距（格子越粗，平行線間距越大、站名越不擠）
-CELL = 2.0               # 輸出時一格的長度（站距單位），與 STATIONS_PER_CELL 一致則站距約為 1
-PRELAYOUT_ITERS = 300    # 預排的迭代次數
-GEO_ANCHOR = 0.15        # 預排時往地理位置拉的力道（0 = 只看站數，越大越像地理圖）
-SNAP_RADIUS = 3          # 交會站可以偏離預排位置幾格
-GRID_MARGIN = 12         # 格子在預排範圍外多留幾格可以繞路
-W_MOVE = 1.0             # 交會站偏離預排位置，每格
-DIAG_STEP = 1.414 + 3.0  # 斜走一格的成本（含斜線懲罰：盡量只用水平垂直）
-BEND_COST = [0.0, 2.0, 4.0, 12.0]   # 轉 0/45/90/135 度的成本（180 度不准）
-W_CROSS = 80.0           # 不得已穿過別條線的格點（交叉）
-W_OVERLAP = 500.0        # 無路可走時與別條線共用格邊（重疊），最後手段
+PORT_DIAG = 0.6          # 埠分配時用斜向的額外成本（弧度平方）：越大斜線越少
+MIN_PIECE = 0.5          # 每段直線最短（站距）
+REL_NEIGHBORS = 6        # 每個交會站與地理上最近的幾個交會站建立相對方位約束
+REL_RATIO = 0.35         # 地理向量在某軸的分量佔多少以上，才在該軸加「左右／上下」約束
+NODE_SEP = 1.5           # 相對方位約束的最小間距（站距）
+SEG_SEP = 1.5            # 線段之間至少相隔（站距）
+W_REL = 20.0             # 違反相對方位約束的成本（每站距）
+W_SEP = 50.0             # 違反線段分離約束的成本（每站距）
+W_SHAPE = 500.0          # 線段長度不足／反向（方向分配互相矛盾時才會發生）的成本
+CG_ROUNDS = 10           # 交叉/重疊修正的最多重解次數
 COMPONENT_GAP = 6.0      # 不相連子路網之間的間距
 
 
@@ -116,262 +108,260 @@ def extract_chains(topology, pos):
 
 
 def layout(topology, geo, verbose=True):
-    """格點路由排版（仿 LOOM：Bast, Brosi & Storandt, "Metro Maps on Octilinear Grid Graphs"）。
+    """約束圖排版：只用「相對關係」決定座標，不用任何地理距離。
 
-    回傳 (座標 {id: [x, y]}, 轉角 {"a|b": [[x, y], ...]})，y 向上，單位約為一個站距。
+    1. 交會站與端點為關鍵節點，其間的站串成「鏈」。
+    2. 埠分配：每個交會站把伸出的鏈分配到 8 個方向中互不相同的方向，並保持地理上的環繞順序
+       （rotation system）——窮舉所有保序分配，取與地理出發方向偏差最小者（斜向另加成本）。
+    3. 鏈的形狀由兩端的埠決定：同向為直線、差 45/90 度為 L 形、更大則加一段中間段成 ㄈ 形；
+       轉角是自由點。
+    4. 約束圖：形狀約束（水平段 y 相同、垂直段 x 相同、斜段 Δx = ±Δy、每條鏈總長 ≥ 站數），
+       加上地理上相鄰交會站的相對方位（左右、上下）順序約束，以 LP 求總長最短的座標。
+    5. 解出來若有線段交叉或重疊，依兩段在地理上的相對方位補上分開的約束後重解。
+    回傳 (座標 {id: [x, y]}, 轉角 {"a|b": [[x, y], ...]})，y 向上，單位為站距。
     """
+    from scipy.optimize import linprog
+    from scipy.sparse import coo_matrix
+    import numpy as np
+    from itertools import combinations
+
     log = print if verbose else (lambda *a, **k: None)
     pos = planar_km(geo)
     nbrs, key, chains = extract_chains(topology, pos)
-
-    # 自成一圈的鏈（兩端是同一站）從中間切開，格點上的路徑才有起訖
     split = []
-    for ch in chains:
+    for ch in chains:                       # 自成一圈的鏈從中間切開
         if ch[0] == ch[-1] and len(ch) > 3:
             mid = len(ch) // 2
-            key.add(ch[mid])
-            split += [ch[:mid + 1], ch[mid:]]
+            key.add(ch[mid]); split += [ch[:mid + 1], ch[mid:]]
         else:
             split.append(ch)
     C = [{"st": ch, "u": ch[0], "v": ch[-1], "L": len(ch) - 1} for ch in split]
     log(f"   示意圖：{len(nbrs)} 站 → {len(key)} 個交會/端點、{len(C)} 條鏈")
 
-    incident = defaultdict(list)
-    for ci, c in enumerate(C):
-        incident[c["u"]].append(ci); incident[c["v"]].append(ci)
+    def geo_dir(node, ci):
+        """鏈從 node 出發的地理方向（弧度）：取往鏈內約 1/3、至多 4 站處，避開站前的小彎。"""
+        st = C[ci]["st"] if C[ci]["u"] == node else C[ci]["st"][::-1]
+        far = st[max(1, min(4, len(st) // 3))]
+        return math.atan2(pos[far][1] - pos[node][1], pos[far][0] - pos[node][0])
 
-    # ---------- 子路網 ----------
-    comps, seen = [], set()
-    for n0 in sorted(key):
-        if n0 in seen:
-            continue
-        comp, stack = [], [n0]
-        seen.add(n0)
-        while stack:
-            n = stack.pop(); comp.append(n)
-            for ci in incident[n]:
-                for m in (C[ci]["u"], C[ci]["v"]):
-                    if m not in seen:
-                        seen.add(m); stack.append(m)
-        comps.append(comp)
+    # ---------- 1. 埠分配 ----------
+    incident = defaultdict(list)            # node → [(鏈, 是否從 u 端)]
+    for ci, c in enumerate(C):
+        incident[c["u"]].append(ci)
+        incident[c["v"]].append(ci)
+    port = {}                               # (node, 鏈) → 0..7（0 = 東，逆時針每 45 度）
+
+    def dev(angle, p):
+        return abs((angle - p * math.pi / 4 + math.pi) % (2 * math.pi) - math.pi)
+
+    for node, cis in incident.items():
+        ends = sorted(cis, key=lambda ci: geo_dir(node, ci) % (2 * math.pi))
+        angs = [geo_dir(node, ci) for ci in ends]
+        k = len(ends)
+        if k > 8:
+            raise ValueError(f"{node} 連了 {k} 條線，超過 8 個方向")
+        best, best_cost = None, math.inf
+        for subset in combinations(range(8), k):        # 依逆時針順序取 k 個方向
+            for r in range(k):                          # 旋轉對應：保持環繞順序
+                assign = [subset[(i + r) % k] for i in range(k)]
+                cost = sum(dev(a, p) ** 2 + (PORT_DIAG if p % 2 else 0) for a, p in zip(angs, assign))
+                if cost < best_cost:
+                    best, best_cost = assign, cost
+        for ci, p in zip(ends, best):
+            port[(node, ci)] = p
+
+    # ---------- 2. 每條鏈的形狀（方向序列）----------
+    pieces = []                              # (鏈, 第幾段, 方向)
+    shape = {}
+    for ci, c in enumerate(C):
+        d0 = port[(c["u"], ci)]
+        d1 = (port[(c["v"], ci)] + 4) % 8     # 抵達 v 時的行進方向
+        turn = (d1 - d0) % 8
+        if turn == 0:
+            dirs = [d0]
+        elif turn in (1, 2, 6, 7):
+            dirs = [d0, d1]
+        else:
+            # 轉 135 度以上：加一段中間段，往地理上鏈所在的那一側彎
+            st = c["st"]
+            mid = st[len(st) // 2]
+            gx, gy = pos[mid][0] - pos[c["u"]][0], pos[mid][1] - pos[c["u"]][1]
+            left = (math.cos(d0 * math.pi / 4) * gy - math.sin(d0 * math.pi / 4) * gx) > 0
+            m = (d0 + (2 if left else -2)) % 8
+            dirs = [d0, m, d1]
+        shape[ci] = dirs
+
+    # ---------- 3. 變數：交會站 + 每條鏈的轉角 ----------
+    vid = {}
+    def var_of(k):
+        if k not in vid:
+            vid[k] = len(vid)
+        return vid[k]
+    chain_verts = {}
+    for ci, c in enumerate(C):
+        vs = [var_of(("n", c["u"]))] + [var_of(("c", ci, j)) for j in range(len(shape[ci]) - 1)] + [var_of(("n", c["v"]))]
+        chain_verts[ci] = vs
+    nv = len(vid)
+    X = lambda v: v
+    Y = lambda v: nv + v
+
+    rows, lo, hi, cost = [], [], [], [0.0] * (2 * nv)
+
+    def add(coefs, l=-math.inf, h=math.inf):
+        rows.append(coefs); lo.append(l); hi.append(h)
+
+    slack_cost = []
+    def soft(coefs, l, weight):
+        """coefs·z ≥ l，可用 slack 違反，每單位罰 weight。"""
+        s = 2 * nv + len(slack_cost)
+        slack_cost.append(weight)
+        add({**coefs, s: 1}, l)
+
+    DV = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
+    seg_list = []                            # (鏈, a, b, 方向)
+    for ci, c in enumerate(C):
+        vs, dirs = chain_verts[ci], shape[ci]
+        length_terms = defaultdict(float)
+        for (a, b), d in zip(zip(vs, vs[1:]), dirs):
+            dx, dy = DV[d]
+            seg_list.append((ci, a, b, d))
+            if dx == 0:
+                add({X(b): 1, X(a): -1}, 0, 0)
+                soft({Y(b): dy, Y(a): -dy}, MIN_PIECE, W_SHAPE)
+                length_terms[Y(b)] += dy; length_terms[Y(a)] -= dy
+            elif dy == 0:
+                add({Y(b): 1, Y(a): -1}, 0, 0)
+                soft({X(b): dx, X(a): -dx}, MIN_PIECE, W_SHAPE)
+                length_terms[X(b)] += dx; length_terms[X(a)] -= dx
+            else:
+                add({X(b): dy, X(a): -dy, Y(b): -dx, Y(a): dx}, 0, 0)
+                soft({X(b): dx, X(a): -dx}, MIN_PIECE / math.sqrt(2), W_SHAPE)
+                length_terms[X(b)] += dx * math.sqrt(2); length_terms[X(a)] -= dx * math.sqrt(2)
+        add(dict(length_terms), c["L"])          # 總長 ≥ 站數：站距至少 1
+        for j, w in length_terms.items():
+            cost[j] += w
+
+    # ---------- 4. 相對方位：地理上相鄰的交會站 ----------
+    knodes = sorted(key)
+    def rel_constraint(a_var, b_var, ga, gb, weight):
+        gx, gy = gb[0] - ga[0], gb[1] - ga[1]
+        g = math.hypot(gx, gy)
+        if g < 1e-9:
+            return
+        if abs(gx) >= REL_RATIO * g:
+            sx = 1 if gx > 0 else -1
+            soft({X(b_var): sx, X(a_var): -sx}, NODE_SEP, weight)
+        if abs(gy) >= REL_RATIO * g:
+            sy = 1 if gy > 0 else -1
+            soft({Y(b_var): sy, Y(a_var): -sy}, NODE_SEP, weight)
+
+    linked = {frozenset((c["u"], c["v"])) for c in C}
+    pairs = set()
+    for a in knodes:
+        near = sorted((b for b in knodes if b != a), key=lambda b: math.dist(pos[a], pos[b]))[:REL_NEIGHBORS]
+        pairs.update(frozenset((a, b)) for b in near)
+    for pr in pairs - linked:                         # 有鏈直接相連的，方向已由埠決定
+        a, b = sorted(pr)
+        rel_constraint(var_of(("n", a)), var_of(("n", b)), pos[a], pos[b], W_REL)
+
+    def solve():
+        nvar = 2 * nv + len(slack_cost)
+        r, cidx, val = [], [], []
+        for i, coefs in enumerate(rows):
+            for j, a in coefs.items():
+                r.append(i); cidx.append(j); val.append(a)
+        A = coo_matrix((val, (r, cidx)), shape=(len(rows), nvar)).tocsr()
+        lo_a, hi_a = np.array(lo), np.array(hi)
+        eq = lo_a == hi_a
+        from scipy.sparse import vstack
+        A_ub = vstack([A[~eq & np.isfinite(hi_a)], -A[~eq & np.isfinite(lo_a)]])
+        b_ub = np.concatenate([hi_a[~eq & np.isfinite(hi_a)], -lo_a[~eq & np.isfinite(lo_a)]])
+        c_all = cost + slack_cost
+        bounds = [(None, None)] * (2 * nv) + [(0, None)] * len(slack_cost)
+        bounds[X(0)] = (0, 0); bounds[Y(0)] = (0, 0)
+        return linprog(c_all, A_ub=A_ub, b_ub=b_ub, A_eq=A[eq], b_eq=lo_a[eq], bounds=bounds, method="highs")
+
+    # 地理上每段大約在哪：取那條鏈對應比例的車站
+    def seg_geo(ci, j):
+        st = C[ci]["st"]; n = len(shape[ci])
+        a = st[int(len(st) * j / n)]; b = st[min(len(st) - 1, int(len(st) * (j + 1) / n))]
+        return ((pos[a][0] + pos[b][0]) / 2, (pos[a][1] + pos[b][1]) / 2)
+
+    seg_index = {}
+    for ci in range(len(C)):
+        for j in range(len(shape[ci])):
+            seg_index[(ci, j)] = (chain_verts[ci][j], chain_verts[ci][j + 1])
+
+    added = set()
+    for rnd in range(CG_ROUNDS):
+        res = solve()
+        if res.status != 0:
+            raise RuntimeError(f"約束圖無解：{res.message}")
+        P = [(res.x[X(v)], res.x[Y(v)]) for v in range(nv)]
+        segs = [(k, P[a], P[b]) for k, (a, b) in seg_index.items()]
+        bad = []
+        for i in range(len(segs)):
+            (k1, p1, q1) = segs[i]
+            for j in range(i + 1, len(segs)):
+                (k2, p2, q2) = segs[j]
+                if k1[0] == k2[0]:
+                    continue
+                if set(seg_index[k1]) & set(seg_index[k2]):
+                    # 共用交會站：只在疊在一起時才算衝突
+                    if overlap_len(p1, q1, p2, q2) < 1e-6:
+                        continue
+                elif seg_dist(p1, q1, p2, q2) >= SEG_SEP * 0.99:
+                    continue
+                pair = (min(k1, k2), max(k1, k2))
+                if pair not in added:
+                    bad.append(pair)
+        log(f"   第 {rnd + 1} 次求解：{len(bad)} 對線段交叉或過近")
+        if not bad:
+            break
+        for k1, k2 in bad:
+            added.add((k1, k2))
+            g1, g2 = seg_geo(*k1), seg_geo(*k2)
+            gx, gy = g2[0] - g1[0], g2[1] - g1[1]
+            (a1, b1), (a2, b2) = seg_index[k1], seg_index[k2]
+            shared = {a1, b1} & {a2, b2}
+            # 依地理相對方位，讓第二段整段在第一段的那一側
+            axis = 0 if abs(gx) >= abs(gy) else 1
+            sgn = 1 if (gx if axis == 0 else gy) > 0 else -1
+            V = X if axis == 0 else Y
+            for v1 in (a1, b1):
+                for v2 in (a2, b2):
+                    if v1 in shared or v2 in shared:
+                        continue
+                    soft({V(v2): sgn, V(v1): -sgn}, SEG_SEP, W_SEP)
+
+    viol = [w for v, w in zip(res.x[2 * nv:], slack_cost) if v > 1e-6]
+    n_shape = sum(1 for w in viol if w == W_SHAPE)
+    if viol:
+        log(f"   ⚠️ 無法同時滿足：相對方位/分離約束 {len(viol) - n_shape} 條、"
+            f"線段方向 {n_shape} 段（各交會站的方向分配在幾何上互相矛盾）")
 
     coords, bends = {}, {}
-    boxes = []
-    for comp in sorted(comps, key=lambda cm: -len(cm)):
-        cset = set(comp)
-        cis = sorted({ci for n in comp for ci in incident[n]})
-        target = prelayout(comp, [C[ci] for ci in cis], pos)
-        paths = route_on_grid(comp, cis, C, target, log)
-        before = set(coords)
-        for ci, path in paths.items():
-            place_along(C[ci]["st"], [(x * CELL, y * CELL) for x, y in path], coords, bends)
-        new = [s for s in coords if s not in before]
-        # 子路網依地理位置由西到東並排
-        bx = [coords[s][0] for s in new]; by = [coords[s][1] for s in new]
-        gx = sum(pos[s][0] for s in new) / len(new)
-        if boxes:
-            east = gx >= sum(b[4] for b in boxes) / len(boxes)
-            dx = (max(b[1] for b in boxes) + COMPONENT_GAP - min(bx)) if east else (min(b[0] for b in boxes) - COMPONENT_GAP - max(bx))
-            dy = sum(b[2] for b in boxes) / len(boxes) - min(by)
-            for s in new:
-                coords[s] = (coords[s][0] + dx, coords[s][1] + dy)
-            for k in list(bends):
-                if k.split("|")[0] in new:
-                    bends[k] = [[x + dx, y + dy] for x, y in bends[k]]
-            bx = [coords[s][0] for s in new]; by = [coords[s][1] for s in new]
-        boxes.append((min(bx), max(bx), min(by), max(by), gx))
-
+    for ci, c in enumerate(C):
+        place_along(c["st"], [P[v] for v in chain_verts[ci]], coords, bends)
     minx = min(p[0] for p in coords.values()); miny = min(p[1] for p in coords.values())
     r = lambda p: [round(p[0] - minx, 3), round(p[1] - miny, 3)]
     return ({sid: r(p) for sid, p in coords.items()},
             {k: [r(p) for p in v] for k, v in bends.items()})
 
 
-def prelayout(nodes, chains, pos):
-    """交會站預排：距離正比於站數（格數），並往地理位置拉。
-
-    以 stress majorization（SMACOF）求解，額外加一項往「縮放後地理位置」的錨定：
-    站密的都心會被撐開、偏遠長線收短，但整體方位仍跟地理一致。回傳 {node: (x, y)}（格）。
-    """
-    idx = {n: i for i, n in enumerate(nodes)}
-    n = len(nodes)
-    if n == 1:
-        return {nodes[0]: (0.0, 0.0)}
-    INF = math.inf
-    adj = defaultdict(list)
-    for c in chains:
-        w = max(c["L"] / STATIONS_PER_CELL, 1.0)
-        adj[c["u"]].append((c["v"], w)); adj[c["v"]].append((c["u"], w))
-    import heapq
-    D = []
-    for s in nodes:
-        dist = {s: 0.0}
-        h = [(0.0, s)]
-        while h:
-            d, x = heapq.heappop(h)
-            if d > dist[x]:
-                continue
-            for y, w in adj[x]:
-                if d + w < dist.get(y, INF):
-                    dist[y] = d + w; heapq.heappush(h, (d + w, y))
-        D.append([dist.get(t, INF) for t in nodes])
-
-    # 地理位置縮放到格數：取各鏈「格數 / 直線距離」的中位數
-    ratios = sorted((max(c["L"] / STATIONS_PER_CELL, 1.0)) / max(math.dist(pos[c["u"]], pos[c["v"]]), 1e-3)
-                    for c in chains if c["u"] != c["v"])
-    f = ratios[len(ratios) // 2] if ratios else 1.0
-    G = [(pos[t][0] * f, pos[t][1] * f) for t in nodes]
-    X = [list(g) for g in G]
-    for _ in range(PRELAYOUT_ITERS):
-        for i in range(n):
-            sx = sy = sw = 0.0
-            xi, yi = X[i]
-            for j in range(n):
-                d = D[i][j]
-                if i == j or d == INF:
-                    continue
-                w = 1.0 / (d * d)
-                dx, dy = xi - X[j][0], yi - X[j][1]
-                L = math.hypot(dx, dy) or 1e-6
-                sx += w * (X[j][0] + d * dx / L)
-                sy += w * (X[j][1] + d * dy / L)
-                sw += w
-            a = GEO_ANCHOR * sw / n if sw else 1.0
-            X[i] = [(sx + a * G[i][0]) / (sw + a), (sy + a * G[i][1]) / (sw + a)]
-    return {t: tuple(X[idx[t]]) for t in nodes}
-
-
-DIRS8 = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
-
-
-def route_on_grid(nodes, cis, C, target, log):
-    """在格點上逐條找路。用過的格點、格邊都不能再用，所以線不會重疊；斜線不能在格子中央交叉。
-
-    回傳 {鏈 index: [格點 (x, y), ...]}（從 u 到 v）。
-    """
-    import heapq
-    place = {}            # 交會站 → 格點
-    used_nodes = set()    # 被路徑經過或被交會站佔用的格點
-    used_edges = set()    # frozenset({p, q})
-    xs = [p[0] for p in target.values()]; ys = [p[1] for p in target.values()]
-    lo_x, hi_x = math.floor(min(xs)) - GRID_MARGIN, math.ceil(max(xs)) + GRID_MARGIN
-    lo_y, hi_y = math.floor(min(ys)) - GRID_MARGIN, math.ceil(max(ys)) + GRID_MARGIN
-
-    def candidates(node, radius=SNAP_RADIUS):
-        """還沒定位的交會站可以落在預排位置附近的空格點，離越遠越貴。"""
-        tx, ty = target[node]
-        out = {}
-        for dx in range(-radius, radius + 1):
-            for dy in range(-radius, radius + 1):
-                p = (round(tx) + dx, round(ty) + dy)
-                if p not in used_nodes:
-                    out[p] = W_MOVE * math.dist(p, (tx, ty))
-        return out
-
-    def search(src, goals, level):
-        """src 出發到 goals（{格點: 額外成本}）的最低成本路徑；狀態含最後一步方向以計算轉彎。
-        level 0：不碰任何已用的格點/格邊；1：可穿過別條線（交叉）；2：連格邊都可共用（重疊，最後手段）。"""
-        start = (src, 8)
-        dist = {start: 0.0}
-        prev = {}
-        heap = [(0.0, 0, src, 8)]
-        tie = 1
-        while heap:
-            g, _, p, d = heapq.heappop(heap)
-            if d == -1:     # 抵達終點的虛擬狀態
-                path = [p]
-                s = prev[(p, -1)]
-                while s != start:
-                    path.append(s[0]); s = prev[s]
-                path.append(src)
-                return path[::-1], g
-            if g > dist.get((p, d), math.inf):
-                continue
-            for m, (mx, my) in enumerate(DIRS8):
-                q = (p[0] + mx, p[1] + my)
-                if not (lo_x <= q[0] <= hi_x and lo_y <= q[1] <= hi_y):
-                    continue
-                e = frozenset((p, q))
-                cost = 0.0
-                if e in used_edges:
-                    if level < 2:
-                        continue
-                    cost += W_OVERLAP
-                diag = m % 2 == 1
-                if diag and frozenset(((p[0] + mx, p[1]), (p[0], p[1] + my))) in used_edges:
-                    if level < 2:
-                        continue                  # 斜線不能在格子中央交叉
-                    cost += W_CROSS
-                cost += (DIAG_STEP if diag else 1.0)
-                if d != 8:
-                    t = min((m - d) % 8, (d - m) % 8)
-                    if t == 4:
-                        continue
-                    cost += BEND_COST[t]
-                is_goal = q in goals
-                if q in used_nodes and not is_goal:
-                    if level == 0 or (level == 1 and q in placed_pts):
-                        continue
-                    cost += W_CROSS                # 不得已才穿過別條線（交叉）
-                ng = g + cost
-                if is_goal:
-                    gg = ng + goals[q]
-                    if gg < dist.get((q, -1), math.inf):
-                        dist[(q, -1)] = gg; prev[(q, -1)] = (p, d)
-                        heapq.heappush(heap, (gg, tie, q, -1)); tie += 1
-                    continue
-                if ng < dist.get((q, m), math.inf):
-                    dist[(q, m)] = ng; prev[(q, m)] = (p, d)
-                    heapq.heappush(heap, (ng, tie, q, m)); tie += 1
-        return None, math.inf
-
-    def commit(path):
-        for a, b in zip(path, path[1:]):
-            used_edges.add(frozenset((a, b)))
-        used_nodes.update(path)
-
-    # 起點：連最多線的交會站，放在預排位置
-    first = max(nodes, key=lambda n: (sum(1 for ci in cis if n in (C[ci]["u"], C[ci]["v"])), n))
-    place[first] = (round(target[first][0]), round(target[first][1]))
-    used_nodes.add(place[first])
-    placed_pts = {place[first]}
-
-    paths, todo, crossings, forced = {}, set(cis), 0, 0
-    while todo:
-        frontier = [ci for ci in todo if C[ci]["u"] in place or C[ci]["v"] in place]
-        if not frontier:     # 理論上不會發生（同一子路網必然相連）
-            n0 = next(C[ci]["u"] for ci in todo)
-            place[n0] = (round(target[n0][0]), round(target[n0][1])); used_nodes.add(place[n0]); placed_pts.add(place[n0])
-            continue
-        # 從核心往外長：離起點近的線先排（站密的都心先拿到好位置，偏遠長線後排有的是空間）；
-        # 距離相同時長的先排
-        def order(c):
-            m = C[c]["u"] if C[c]["u"] in place else C[c]["v"]
-            return (math.dist(target[m], target[first]), -C[c]["L"], c)
-        ci = min(frontier, key=order)
-        c = C[ci]
-        rev = c["u"] not in place
-        a, b = (c["v"], c["u"]) if rev else (c["u"], c["v"])
-        path = None
-        for level in (0, 1, 2):
-            goals = {place[b]: 0.0} if b in place else candidates(b, SNAP_RADIUS * (2 if level == 2 else 1))
-            path, _ = search(place[a], goals, level)
-            if path:
-                break
-        if level == 2:
-            forced += 1
-        if path is None:
-            raise RuntimeError(f"格點上找不到路：{c['u']} → {c['v']}")
-        crossings += sum(1 for p in path[1:-1] if p in used_nodes)
-        if b not in place:
-            place[b] = path[-1]
-            placed_pts.add(path[-1])
-        commit(path)
-        paths[ci] = path[::-1] if rev else path
-        todo.discard(ci)
-    if crossings or forced:
-        log(f"   ⚠️ 不得已的交叉 {crossings} 處、與別條線共用格邊的線 {forced} 條")
-    return paths
+def overlap_len(p, q, a, b):
+    """兩線段共線時的重疊長度（不共線為 0）。"""
+    ux, uy = q[0] - p[0], q[1] - p[1]
+    L = math.hypot(ux, uy)
+    if L < 1e-9:
+        return 0.0
+    ux, uy = ux / L, uy / L
+    off = lambda r: (r[0] - p[0]) * uy - (r[1] - p[1]) * ux
+    if abs(off(a)) > 1e-6 or abs(off(b)) > 1e-6:
+        return 0.0
+    proj = lambda r: (r[0] - p[0]) * ux + (r[1] - p[1]) * uy
+    lo2, hi2 = sorted((proj(a), proj(b)))
+    return max(0.0, min(L, hi2) - max(0.0, lo2))
 
 
 def place_along(stations, pts, coords, bends):
