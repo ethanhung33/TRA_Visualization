@@ -35,6 +35,12 @@ py data/Japan/<路線>/script/timetable.py
 py data/Taiwan/TRA/script/available_date.py
 ```
 
+**產生路網圖車站座標**（`Taiwan/TRA`、`Taiwan/HSR` 用 TDX；`Japan/<路線>` 用 Wikidata）
+```
+py tools/build_station_geo.py Taiwan/TRA     # 抓經緯度並自動排示意圖
+py tools/schematic_layout.py Taiwan/TRA     # 只重排示意圖
+```
+
 ## 架構概覽
 
 本專案採用三層資料驅動架構：
@@ -50,6 +56,8 @@ Python 腳本 → JSON 靜態資料 → 前端 Canvas 渲染
 - `json/setting.json` — 視覺設定（車種顏色、view presets、時區、日曆類型）
 - `json/timetable/timetable_YYYYMMDD.json` — 每日編譯後時刻表（前端直接讀取）
 - `json/available_dates.json` — 可用日期清單
+- `json/schematic_spec.json` — 手寫的示意路網圖版面（選用；格點折線 + 支線方向，見 `tools/schematic_layout.py` 檔頭）。沒有此檔時以約束圖自動排版：只用相對關係（各交會站的環繞順序、相鄰站的左右上下）與站數，LP 求解（需 scipy）
+- `json/stations_geo.json` — 車站經緯度與示意座標 `schematic`／轉角 `schematic_bends`（選用）。有此檔才顯示「🗺️ 從路網圖選線」；刻意不放進 topology.json，因為 `build_topology.py` 重新產生時會整份覆寫
 - `script/` — 爬蟲與資料轉換腳本
 
 `data/global.json` 定義所有國家與路線的入口清單（`is_active` 控制首頁是否顯示）。
@@ -69,6 +77,7 @@ Python 腳本 → JSON 靜態資料 → 前端 Canvas 渲染
 | 互動事件（click/mousemove/touch） | 列車/車站選取、拖曳、縮放 |
 | 搜尋系統 | 關鍵字搜尋列車與車站、SearchHistoryManager |
 | 底部面板 | 選取列車/車站後的詳細資訊面板 |
+| `NetworkMap` | 路網圖選線：拖出的車站路徑 → `{id, from, to}` 索引切片 → 動態 preset `__custom_path` → `handleRouteSwitch` |
 
 ### 時刻表 JSON 格式
 
@@ -113,6 +122,7 @@ Python 腳本 → JSON 靜態資料 → 前端 Canvas 渲染
 3. 在 `data/global.json` 新增路線項目（`is_active: true`）
 4. 前端 `index.html` 視需要新增對應按鈕，觸發 `init('data/<國家>/<路線>/')`
 5. 執行 `py tools/subset_font.py` 重新產生字型子集（`fonts/GlowSans-subset.woff2` 只含已收錄的字，新站名若有新字會改用系統字型顯示）
+6. （選用）在 `tools/build_station_geo.py` 的 `SOURCES` 加上該系統的座標來源並執行，產生 `stations_geo.json` 以啟用路網圖選線
 
 ### 注意事項
 
