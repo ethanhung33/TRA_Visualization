@@ -28,6 +28,7 @@ let renderFrame = null;
 let topology = null;
 let timetable = [];
 let lookupY = {}; 
+let sliceLinks = new Set(); // "a|b"：第 a、b 段在交會站相接（見 drawGrid）
 let loopKm = 0;      // 台灣環島一圈的總公里數
 let loopHeight = 0;  // 環島一圈在畫布上的像素高度
 let globalStationMap = {};
@@ -356,7 +357,7 @@ function drawGrid(viewKey, layer = 'all') {
     let uniqueStations = [];
     let segmentsData = getProcessedSegments(selectedSegments, topology);
 
-    segmentsData.forEach(data => {
+    segmentsData.forEach((data, sliceIdx) => {
         let stationsToDraw = data.stations;
         let segId = data.segId;
 
@@ -372,8 +373,11 @@ function drawGrid(viewKey, layer = 'all') {
             
             let lastOpt = lookupY[st.id][lookupY[st.id].length - 1];
             if (!lastOpt || Math.abs(lastOpt.y - yPos) > 1.0) {
-                lookupY[st.id].push({ y: yPos, segId: segId }); 
+                // slices：這個位置屬於哪幾段（交會站同時屬於前後兩段），列車相鄰兩站要同屬一段（或相接的兩段）才連線
+                lookupY[st.id].push({ y: yPos, segId: segId, slices: [sliceIdx] }); 
                 uniqueStations.push({ id: st.id, name: st.name, baseY: yPos, weight: st.weight || 0 });
+            } else if (!lastOpt.slices.includes(sliceIdx)) {
+                lastOpt.slices.push(sliceIdx);
             }
             if (relativeKm > segMaxKm) segMaxKm = relativeKm;
         });
@@ -382,6 +386,26 @@ function drawGrid(viewKey, layer = 'all') {
 
     loopKm = currentAccumulatedKm;
     loopHeight = loopKm * CONFIG.scaleY;
+
+    // 環狀線首尾接縫：同一站在 y=0 與 y=一圈 各有一個位置，兩者視為同一處
+    if (isCircular) {
+        for (let id in lookupY) {
+            let opts = lookupY[id];
+            let head = opts.find(o => Math.abs(o.y) <= 1.0);
+            let tail = opts.find(o => Math.abs(o.y - loopHeight) <= 1.0);
+            if (head && tail && head !== tail) {
+                let merged = [...new Set([...head.slices, ...tail.slices])];
+                head.slices = merged;
+                tail.slices = merged;
+            }
+        }
+    }
+
+    // 相接的兩段：快車不停交會站時（如近鐵名張→津不停伊勢中川），相鄰兩站會分屬前後兩段，仍應連線
+    sliceLinks = new Set();
+    for (let id in lookupY) {
+        lookupY[id].forEach(o => o.slices.forEach(a => o.slices.forEach(b => { if (a !== b) sliceLinks.add(a + '|' + b); })));
+    }
 
     // ==========================================
     // 🌟 核心修復：把 initCanvas('diaCanvas', 'canvas-wrapper') 刪掉！
@@ -758,22 +782,28 @@ function drawTrains() {
         // 👉 下面這整段是你原本超厲害的座標運算，完全沒變！
         train.segments.forEach((seg, segIdx) => {
             let unwrappedCoords = [];
+            // breakBefore[i]：第 i-1 站與第 i 站不在同一段、也不在相接的兩段上（如自訂路線首尾的東京、神田），不能直接連線
+            let breakBefore = [];
+            let prevOpt = null;
             for (let i = 0; i < seg.s.length; i++) {
                 let st_id = seg.s[i];
                 let options = lookupY[st_id];
-                if (!options || options.length === 0) { unwrappedCoords.push(null); continue; }
+                if (!options || options.length === 0) { unwrappedCoords.push(null); breakBefore.push(false); prevOpt = null; continue; }
 
                 let matchedOpt = options.find(opt => opt.segId === seg.id);
-                let baseY = options[0].y; 
+                let chosen = options[0];
                 if (matchedOpt) {
-                    baseY = matchedOpt.y;
+                    chosen = matchedOpt;
                 } else if (trainLastBaseY !== null && options.length > 1) {
                     let minDist = Infinity;
                     options.forEach(opt => {
                         let dist = Math.abs(opt.y - trainLastBaseY);
-                        if (dist < minDist) { minDist = dist; baseY = opt.y; }
+                        if (dist < minDist) { minDist = dist; chosen = opt; }
                     });
                 }
+                let baseY = chosen.y;
+                breakBefore.push(!!prevOpt && !prevOpt.slices.some(a => chosen.slices.some(b => a === b || sliceLinks.has(a + '|' + b))));
+                prevOpt = chosen;
 
                 if (trainLastBaseY !== null && isCircular) {
                     let dy = baseY - trainLastBaseY;
@@ -822,6 +852,12 @@ function drawTrains() {
                         isDrawing = false; 
                         train._hitPoints.push(null); 
                         continue; 
+                    }
+                    if (breakBefore[i] && isDrawing) {
+                        ctx.stroke();
+                        ctx.beginPath();
+                        isDrawing = false;
+                        train._hitPoints.push(null);
                     }
 
                     let y = y_raw + offsetY; 
@@ -915,6 +951,7 @@ function drawTrains() {
                                         isDrawingDash = false; 
                                         continue; 
                                     }
+                                    if (breakBefore[i]) isDrawingDash = false;
                                     
                                     let y = y_raw + offsetY;
                                     let myArr = seg.t[i * 2];
