@@ -6706,6 +6706,7 @@ const NetworkMap = (() => {
         if (!pts.length) return;
         const xs = pts.map(n => n.x), ys = pts.map(n => n.y);
         const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+        graph.bounds = { minX, maxX, minY, maxY };
         const W = mapCanvas.clientWidth, H = mapCanvas.clientHeight, pad = 40;
         fitK = Math.min((W - pad * 2) / Math.max(maxX - minX, 1e-6), (H - pad * 2) / Math.max(maxY - minY, 1e-6));
         view = { k: fitK, tx: W / 2 - fitK * (minX + maxX) / 2, ty: H / 2 - fitK * (minY + maxY) / 2 };
@@ -6731,6 +6732,20 @@ const NetworkMap = (() => {
             if (d < bestD) { bestD = d; best = n.id; }
         });
         return best;
+    }
+
+    // 按下時優先抓路徑兩端（判定範圍較大），放開後才接得回原本的路徑
+    function hitTestPress(px, py, pointerType) {
+        const radius = pointerType === 'touch' ? 36 : 22;
+        let best = null, bestD = radius * radius;
+        [path[path.length - 1], path[0]].forEach(id => {
+            const n = id !== undefined && graph.nodes.get(id);
+            if (!n || n.x === null) return;
+            const [sx, sy] = toScreen(n);
+            const d = (sx - px) ** 2 + (sy - py) ** 2;
+            if (d < bestD) { bestD = d; best = id; }
+        });
+        return best || hitTest(px, py, pointerType);
     }
 
     // ---------- 繪製 ----------
@@ -6910,6 +6925,8 @@ const NetworkMap = (() => {
             extendTo(id);            // 先點起點、再點終點
         } else if (id === last) {
             // 從終點接著拖（環狀時只能拖回上一站解開）
+        } else if (id === path[0]) {
+            path.reverse();          // 從起點接著拖：反轉後起點變終點
         } else {
             path = [id];             // 從別的車站開始新的路徑
         }
@@ -6927,7 +6944,7 @@ const NetworkMap = (() => {
             return;
         }
         if (pointers.size > 2) return;
-        const hit = hitTest(pos.x, pos.y, e.pointerType);
+        const hit = hitTestPress(pos.x, pos.y, e.pointerType);
         if (hit) {
             gesture = 'draw';
             beginDrawAt(hit);
@@ -6957,16 +6974,12 @@ const NetworkMap = (() => {
             view.tx += pos.x - lastPos.x;
             view.ty += pos.y - lastPos.y;
         } else if (gesture === 'draw') {
-            const hit = hitTest(pos.x, pos.y, e.pointerType);
-            if (hit) {
-                hovered = hit;
-                if (extendTo(hit)) updateSummary();
-            }
             drawPos = pos;
             drawPointerType = e.pointerType;
+            extendAtPointer();
             if (!edgeRaf) edgeRaf = requestAnimationFrame(edgeScrollTick);
         } else if (!gesture) {
-            const hit = hitTest(pos.x, pos.y, e.pointerType);
+            const hit = hitTestPress(pos.x, pos.y, e.pointerType);
             if (hit === hovered) return;
             hovered = hit;
             mapCanvas.style.cursor = hit ? 'pointer' : 'grab';
@@ -6977,24 +6990,43 @@ const NetworkMap = (() => {
 
     // 畫線時指標靠近（或超出）地圖邊緣：地圖往那個方向自動捲動，路徑跟著延伸。
     // 放大後才能精準選站，否則拖到畫面邊緣就畫不下去了
-    const EDGE_ZONE = 48, EDGE_SPEED = 14;   // px
+    // 拖出地圖外時越遠捲越快，方便一路拖到很遠的車站
+    const EDGE_ZONE = 64, EDGE_SPEED = 12, EDGE_MAX_SPEED = 40, EDGE_INSET = 6;   // px
     let edgeRaf = 0, drawPos = null, drawPointerType = 'mouse';
+
+    // 離邊緣 d px（負值 = 已超出地圖）時的捲動速度
+    const edgeSpeed = (d) =>
+        d >= EDGE_ZONE ? 0 :
+        d >= 0 ? EDGE_SPEED * (1 - d / EDGE_ZONE) :
+        Math.min(EDGE_SPEED - d * 0.3, EDGE_MAX_SPEED);
+
+    // 以指標位置延伸路徑；指標在地圖外時改用貼著邊緣的位置，捲進來的車站才接得上
+    function extendAtPointer() {
+        const W = mapCanvas.clientWidth, H = mapCanvas.clientHeight;
+        const x = Math.min(Math.max(drawPos.x, EDGE_INSET), W - EDGE_INSET);
+        const y = Math.min(Math.max(drawPos.y, EDGE_INSET), H - EDGE_INSET);
+        const hit = hitTest(x, y, drawPointerType);
+        if (!hit) return;
+        hovered = hit;
+        if (extendTo(hit)) updateSummary();
+    }
 
     function edgeScrollTick() {
         edgeRaf = 0;
         if (gesture !== 'draw' || !drawPos || !view) return;
         const W = mapCanvas.clientWidth, H = mapCanvas.clientHeight;
-        const near = (d) => d < EDGE_ZONE ? 1 - Math.max(d, 0) / EDGE_ZONE : 0;
-        const vx = (near(drawPos.x) - near(W - drawPos.x)) * EDGE_SPEED;
-        const vy = (near(drawPos.y) - near(H - drawPos.y)) * EDGE_SPEED;
+        let vx = edgeSpeed(drawPos.x) - edgeSpeed(W - drawPos.x);
+        let vy = edgeSpeed(drawPos.y) - edgeSpeed(H - drawPos.y);
+        // 路網那一側的盡頭已經進到畫面內就不再捲，免得整張圖被捲出畫面
+        const b = graph.bounds, m = EDGE_ZONE;
+        if (vx > 0) vx = Math.min(vx, Math.max(m - (b.minX * view.k + view.tx), 0));
+        if (vx < 0) vx = Math.max(vx, Math.min(W - m - (b.maxX * view.k + view.tx), 0));
+        if (vy > 0) vy = Math.min(vy, Math.max(m - (b.minY * view.k + view.ty), 0));
+        if (vy < 0) vy = Math.max(vy, Math.min(H - m - (b.maxY * view.k + view.ty), 0));
         if (!vx && !vy) return;
         view.tx += vx;
         view.ty += vy;
-        const hit = hitTest(drawPos.x, drawPos.y, drawPointerType);
-        if (hit) {
-            hovered = hit;
-            if (extendTo(hit)) updateSummary();
-        }
+        extendAtPointer();
         draw();
         edgeRaf = requestAnimationFrame(edgeScrollTick);
     }
