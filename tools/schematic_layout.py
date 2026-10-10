@@ -182,12 +182,14 @@ def layout(topology, geo, verbose=True):
         elif turn in (1, 2, 6, 7):
             dirs = [d0, d1]
         else:
-            # 轉 135 度以上：加一段中間段，往地理上鏈所在的那一側彎
+            # 轉 135 度以上：加一段中間段。中間段必須跟整體同一個轉向（逆時針轉 135 度就只能
+            # 先左轉 45/90 度），否則會先往反方向彎再繞回來，畫出迴旋；
+            # 候選方向中取最接近地理上鏈中段走向者（迴轉 180 度時兩側都可，也由它決定）
             st = c["st"]
-            mid = st[len(st) // 2]
-            gx, gy = pos[mid][0] - pos[c["u"]][0], pos[mid][1] - pos[c["u"]][1]
-            left = (math.cos(d0 * math.pi / 4) * gy - math.sin(d0 * math.pi / 4) * gx) > 0
-            m = (d0 + (2 if left else -2)) % 8
+            a, b = st[len(st) // 3], st[2 * len(st) // 3]
+            g = math.atan2(pos[b][1] - pos[a][1], pos[b][0] - pos[a][0])
+            cands = {3: (1, 2), 4: (2, -2), 5: (-1, -2)}[turn]
+            m = min(((d0 + k) % 8 for k in cands), key=lambda p: dev(g, p))
             dirs = [d0, m, d1]
         shape[ci] = dirs
 

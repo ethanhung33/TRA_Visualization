@@ -6854,7 +6854,8 @@ const NetworkMap = (() => {
         visible.forEach(v => { v.p = priority(v.n.id, v.n); });
         visible.sort((a, b) => b.p - a.p);
 
-        const placedBoxes = [];
+        // 車站圓點也是障礙物：站名不能蓋到別站，擠不下就不印（放大後再顯示）
+        const placedBoxes = visible.map(({ sx, sy }) => ({ x: sx - 5, y: sy - 5, w: 10, h: 10 }));
         const overlaps = (b) => placedBoxes.some(o => b.x < o.x + o.w && b.x + b.w > o.x && b.y < o.y + o.h && b.y + b.h > o.y);
         c.textBaseline = 'middle';
         c.lineWidth = 3;
