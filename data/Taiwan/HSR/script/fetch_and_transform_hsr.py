@@ -1,9 +1,16 @@
 import json
 import os
+import sys
+import time
 import requests
 from pathlib import Path
 
 from datetime import datetime, timedelta
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8")  # Windows cp950 主控台印 emoji 會 UnicodeEncodeError
+except Exception:
+    pass
 
 # ---------------------------------------------------------
 # 🌟 新增：日期區間產生器
@@ -62,18 +69,49 @@ def generate_compact_json(data, output_path):
 # ---------------------------------------------------------
 # 2. 一條龍處理主邏輯：下載 -> 轉換 -> 存檔
 # ---------------------------------------------------------
+TDX_TOKEN_URL = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token"
+_tdx_token = None
+
+def get_tdx_token():
+    """有設定 TDX_CLIENT_ID / TDX_CLIENT_SECRET 時換取 access token（只換一次）；沒設定則回傳 None 走免註冊模式"""
+    global _tdx_token
+    if _tdx_token is None:
+        client_id = os.environ.get("TDX_CLIENT_ID")
+        client_secret = os.environ.get("TDX_CLIENT_SECRET")
+        if not (client_id and client_secret):
+            _tdx_token = ""
+        else:
+            resp = requests.post(TDX_TOKEN_URL, data={
+                "grant_type": "client_credentials",
+                "client_id": client_id,
+                "client_secret": client_secret,
+            })
+            resp.raise_for_status()
+            _tdx_token = resp.json()["access_token"]
+    return _tdx_token or None
+
 def process_date(date_str, json_dir):
     url = f"https://tdx.transportdata.tw/api/basic/v2/Rail/THSR/DailyTimetable/TrainDate/{date_str}?%24format=JSON"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"
     }
+    token = get_tdx_token()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
 
     print(f"\n--- 處理日期: {date_str} ---")
-    print(f"📡 正在以免註冊模式從 TDX 抓取資料...")
+    print(f"📡 正在以{'會員金鑰' if token else '免註冊'}模式從 TDX 抓取資料...")
     response = requests.get(url, headers=headers)
+    # 會員金鑰是每分鐘 5 次的限制（X-RateLimit-Limit-Minute），等 Retry-After 秒後重試即可；
+    # 免註冊模式是每日 20 次（X-RateLimit-Limit-Day），只能隔天再來
+    while response.status_code == 429 and "X-RateLimit-Limit-Minute" in response.headers:
+        wait = int(response.headers.get("Retry-After", "60")) + 1
+        print(f"⏳ 每分鐘額度用完，等待 {wait} 秒後重試...")
+        time.sleep(wait)
+        response = requests.get(url, headers=headers)
 
     if response.status_code == 429:
-        print(f"🚫 下載失敗，狀態碼: 429（TDX 免註冊模式每日額度用完）")
+        print(f"🚫 下載失敗，狀態碼: 429（TDX {'會員' if token else '免註冊模式'}額度用完）")
         return "rate_limited"
 
     if response.status_code != 200:
@@ -148,6 +186,7 @@ if __name__ == "__main__":
     # 抓 20 天左右就會開始 429；額度每天重置，所以本腳本會「跳過已經抓過的日期」，把有限的
     # 額度用來往後延伸覆蓋範圍（每天重跑一次就會自動把邊界往後推）。
     # 可用環境變數 HSR_FORECAST_DAYS 覆寫（例如已註冊 TDX 帳號、額度較高時可調大）。
+    # 設定 TDX_CLIENT_ID / TDX_CLIENT_SECRET（TDX 會員中心的 API 金鑰）即改用會員額度。
     forecast_days = int(os.environ.get("HSR_FORECAST_DAYS", "60"))
     # 最近 N 天一律重抓（時刻表可能異動），再往後的日期若已有檔案就跳過。
     refresh_days = int(os.environ.get("HSR_REFRESH_DAYS", "3"))
