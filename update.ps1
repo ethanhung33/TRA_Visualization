@@ -87,7 +87,7 @@ $routes = @(
        Topology = "data/Japan/Keihan/script/build_topology.py"
        Steps = @("data/Japan/Keihan/script/timetable.py", "data/Japan/Keihan/script/convert_timetable.py", "tools/validate_system.py data/Japan/Keihan --timetable-sample 0") }
     @{ Key = "kintetsu"; Name = "近畿日本鐵道";
-       Steps = @("data/Japan/Kintetsu/script/timetable.py", "tools/validate_system.py data/Japan/Kintetsu --timetable-sample 0") }
+       Steps = @("data/Japan/Kintetsu/script/timetable.py", "data/Japan/Kintetsu/script/convert_timetable.py", "tools/validate_system.py data/Japan/Kintetsu --timetable-sample 0") }
     @{ Key = "nankai";   Name = "南海電鐵";
        Steps = @("data/Japan/Nankai/script/timetable.py", "tools/validate_system.py data/Japan/Nankai --timetable-sample 0") }
     @{ Key = "eizan";    Name = "叡山電鐵";

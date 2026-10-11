@@ -1,214 +1,35 @@
+"""
+近鐵時刻表爬蟲 → json/raw_weekday.json、json/raw_holiday.json（原始資料，不做站名對應）
+
+站名清洗、直通外網切段（is_other）、路線切分都在 convert_timetable.py，
+之後要改轉換規則只需重跑 convert，不必重爬。
+
+流程：
+  1. 掃描各站時刻表頁（T5）→ 每個車次 tx 在哪些站出現（sf 候選）
+  2. 抓車次頁（T7）。注意 T7 只列出 sf 站「之後」的停靠站（表頭仍寫 始発駅），
+     若隨便取一個 sf 會得到被截頭的車次，所以：
+     先以任一 sf 抓一次並記錄 sf→站名；首站不是最前面時，改用更上游的 sf 重抓，
+     直到停靠站不再變長。
+"""
 import requests
 from bs4 import BeautifulSoup
 import json
 import re
-import time
 from urllib.parse import urlparse, parse_qs
 from tqdm import tqdm
 import concurrent.futures
 import os
-import random
 
-# ==========================================
-# 🛑 測試模式開關 (除錯時請設為 True)
-# ==========================================
-TEST_MODE = False
+WORKERS = 30
+JSON_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'json')
+HEADERS = {'User-Agent': 'Mozilla/5.0'}
 
-# ==========================================
-# 🛠️ 站名對應翻譯蒟蒻 (STATION_MAPPING)
-# ==========================================
-STATION_MAPPING = {
-    "難波": "大阪難波",
-    "上本町": "大阪上本町",
-    "西大寺": "大和西大寺",
-    "奈良": "近鉄奈良",
-    "名古屋": "近鉄名古屋",
-    "四日市": "近鉄四日市",
-    "丹波橋": "近鉄丹波橋",
-    "郡山": "近鉄郡山",
-    "八尾": "近鉄八尾",
-    "下田": "近鉄下田",
-    "富田": "近鉄富田",
-    "長島": "近鉄長島",
-    "弥富": "近鉄弥富",
-    "蟹江": "近鉄蟹江",
-    "八田": "近鉄八田",
-    "新庄": "近鉄新庄",
-    "御所": "近鉄御所",
-    "瓢箪山": "瓢簞山" 
-}
-
-# ==========================================
-# 🛡️ 直通運轉黑名單 (EXTERNAL_NETWORKS)
-# 在這些站停靠的資料將會被自動刪除，只保留近鐵境內的行駛紀錄
-# ==========================================
-EXTERNAL_NETWORKS = {
-    # 阪神電鐵
-    "桜川", "ドーム前", "九条", "西九条", "千鳥橋", "伝法", "福", "出来島", "大物", "尼崎",
-    "尼崎センタープール前", "武庫川", "鳴尾・武庫川女子大前", "甲子園", "久寿川", "今津", 
-    "西宮", "香櫨園", "打出", "芦屋", "深江", "青木", "魚崎", "住吉", "御影", "石屋川", 
-    "新在家", "大石", "西灘", "岩屋", "西代", "神戸三宮", "元町", "神戸高速",
-    # 京都市營地下鐵
-    "国際会館", "松ヶ崎", "北山", "北大路", "鞍馬口", "今出川", "丸太町", "烏丸御池", 
-    "四条", "五条", "くいな橋", "十条",
-    # 大阪 Metro 中央線（夢洲為 2025 年延伸開業站，けいはんな線直通列車會到此）
-    "コスモスクエア", "大阪港", "朝潮橋", "弁天町", "阿波座", "本町", "堺筋本町",
-    "谷町四丁目", "森ノ宮", "緑橋", "深江橋", "高井田", "夢洲"
-}
-
-MISSING_STATIONS = set()
-
-route_dict = {
-    "A": "namba_nara", "B": "kyoto_kashihara", "C": "keihanna", "D": "osaka",
-    "E": "nagoya", "F": "minamiosaka_yoshino", "G": "ikoma", "H": "tenri",
-    "I": "tawaramoto", "J": "shigi", "K": "yunoyama", "L": "suzuka",
-    "M": "yamada_toba_shima", "N": "domyoji", "O": "nagano", "P": "gose",
-    "Y": "ikomacable", "Z": "nishishigicable",
-}
-
-def clean_train_type(train_type):
-    """車種名から設備・サービス註記と列車番号を除去し、setting.json の train_color キーに揃える。
-
-    近鐵官網的表頭會把設備註記與車次號混在車種欄位裡，不處理的話顏色會對不上：
-      「特急ひのとり7列車（車いす対応車両）」            → 「特急ひのとり」
-      「観光特急しまかぜ（京都発着）（車いす対応車両・車内販売）」→ 「観光特急しまかぜ」
-    """
-    train_type = re.sub(r'（[^）]*(?:車いす|車内販売|発着)[^）]*）', '', train_type)
-    train_type = re.sub(r'\d+列車', '', train_type)
-    return train_type.strip()
-
-
-def clean_station_name(name):
-    name = re.sub(r'\[.*?\]', '', name)
-    name = re.sub(r'（.*?）', '', name)
-    name = name.replace('\u3000', '').replace(' ', '')
-    if name.endswith("駅"):
-        name = name[:-1]
-    name = name.strip()
-    
-    if name in STATION_MAPPING:
-        return STATION_MAPPING[name]
-    return name
 
 def convert_to_minutes(time_str):
     if not time_str or time_str.strip() == "": return time_str
     match = re.search(r'(\d{1,2})[:：](\d{2})', time_str)
     if match: return int(match.group(1)) * 60 + int(match.group(2))
     return time_str
-
-def get_topology_path():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(script_dir, '..', 'json', 'topology.json')
-
-def get_output_dir():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    output_dir = os.path.join(script_dir, '..', 'json', 'timetable')
-    os.makedirs(output_dir, exist_ok=True)
-    return output_dir
-
-def load_topology():
-    topology_path = get_topology_path()
-    try:
-        with open(topology_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        print(f"警告: 找不到拓樸檔 {topology_path}！")
-        return {"segments": []}
-
-def build_station_map(topology):
-    station_map = {}
-    for segment in topology.get("segments", []):
-        seg_id = segment["id"]
-        for st in segment["stations"]:
-            name = clean_station_name(st["name"])
-            if name not in station_map:
-                station_map[name] = {"id": st["id"], "lines": set()}
-            station_map[name]["lines"].add(seg_id)
-    return station_map
-
-def build_segment_dict(seg_id, stops, station_map):
-    s_arr = []
-    t_arr = []
-    v_arr = []
-    
-    for i, stop in enumerate(stops):
-        st_name = clean_station_name(stop["station"])
-        st_id = station_map.get(st_name, {}).get("id", "Unknown")
-
-        arr = stop["arr"]
-        dep = stop["dep"]
-        
-        if not isinstance(arr, int): arr = dep
-        if not isinstance(dep, int): dep = arr
-        if not isinstance(arr, int): arr = 0
-        if not isinstance(dep, int): dep = 0
-        
-        if i == 0: v = 0
-        elif i == len(stops) - 1: v = 3
-        else: v = 1
-            
-        s_arr.append(st_id)
-        t_arr.extend([arr, dep])
-        v_arr.append(v)
-        
-    return {"id": seg_id, "s": s_arr, "t": t_arr, "v": v_arr}
-
-def format_nankai_style(raw_train, station_map):
-    stop_data = raw_train.get("data", [])
-    if not stop_data: return None
-
-    # ★ 核心修改：只保留真正在近鐵範圍內的車站！
-    valid_stops = []
-    for stop in stop_data:
-        st_name = clean_station_name(stop["station"])
-        
-        # 如果站名在 Topology 裡找得到，代表是自家人，加進去
-        if st_name in station_map:
-            valid_stops.append(stop)
-        else:
-            # 如果找不到，檢查是不是已知的外網車站。如果連外網也不是，才跳出警告
-            if st_name not in EXTERNAL_NETWORKS and st_name not in MISSING_STATIONS:
-                MISSING_STATIONS.add(st_name)
-
-    # 如果這班車在近鐵境內停靠不到兩站，就失去畫圖意義了，直接拋棄
-    if len(valid_stops) < 2:
-        return None
-
-    segments = []
-    current_segment_stops = []
-    current_possible_lines = set()
-
-    for i in range(len(valid_stops)):
-        stop = valid_stops[i]
-        st_name = clean_station_name(stop["station"])
-        st_lines = station_map.get(st_name, {}).get("lines", set())
-        
-        if not current_segment_stops:
-            current_segment_stops.append(stop)
-            current_possible_lines = set(st_lines)
-        else:
-            new_possible_lines = current_possible_lines.intersection(st_lines)
-            if new_possible_lines:
-                current_segment_stops.append(stop)
-                current_possible_lines = new_possible_lines
-            else:
-                seg_id = list(current_possible_lines)[0] if current_possible_lines else "unknown_line"
-                segments.append(build_segment_dict(seg_id, current_segment_stops, station_map))
-                
-                last_stop = current_segment_stops[-1]
-                last_st_name = clean_station_name(last_stop["station"])
-                last_st_lines = station_map.get(last_st_name, {}).get("lines", set())
-                
-                current_segment_stops = [last_stop, stop]
-                current_possible_lines = last_st_lines.intersection(st_lines)
-                if not current_possible_lines:
-                    current_possible_lines = set(st_lines)
-
-    if len(current_segment_stops) > 1:
-        seg_id = list(current_possible_lines)[0] if current_possible_lines else "unknown_line"
-        segments.append(build_segment_dict(seg_id, current_segment_stops, station_map))
-
-    return {"no": raw_train.get("no", "Unknown"), "type": raw_train.get("type", "Unknown"), "segments": segments}
 
 def get_all_station_urls(d_val):
     urls = []
@@ -295,10 +116,6 @@ def get_all_station_urls(d_val):
     urls.append(f"https://eki.kintetsu.co.jp/norikae/T5?USR=PC&slCode=666-0&d=1&dw={d_val}")
     urls.append(f"https://eki.kintetsu.co.jp/norikae/T5?USR=PC&slCode=666-1&d=1&dw={d_val}")
 
-    if TEST_MODE:
-        step = max(1, len(urls) // 30)
-        return urls[::step]
-
     return urls
 
 def fetch_station_page(url):
@@ -322,127 +139,123 @@ def fetch_station_page(url):
         pass
     return found_trains
 
-def fetch_and_format_train_detail(train_info, station_map):
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    tx = train_info['tx']
-    url = f"https://eki.kintetsu.co.jp/norikae/T7?sf={train_info['sf']}&tx={tx}&dw={train_info['dw']}"
-    
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        response.encoding = 'shift_jis'
-        if response.status_code != 200: return None
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        header_cell = soup.find('td', {'bgcolor': '#FFB334', 'colspan': '3'})
-        if not header_cell: return None
-        header_text = header_cell.get_text(strip=True)
-        meta_match = re.search(r'(.*?)\s+(.*?行き.*?)\s+(.*)のダイヤ', header_text)
-        
-        train_type = clean_train_type(meta_match.group(1)) if meta_match else "Unknown"
 
-        stop_data = []
-        for row in soup.find_all('tr'):
-            cells = row.find_all('td')
-            if len(cells) == 3:
-                station_text = cells[0].get_text(strip=True)
-                
-                # ✅ 修正：過濾掉空值、表頭，以及超長的觀光列車免責聲明
-                if station_text in ["停車駅", ""] or "ご覧ください" in station_text or "変更" in station_text: 
+def fetch_train_detail(tx, sf, dw):
+    url = f"https://eki.kintetsu.co.jp/norikae/T7?sf={sf}&tx={tx}&dw={dw}"
+    for _ in range(3):
+        try:
+            response = requests.get(url, headers=HEADERS, timeout=10)
+            response.encoding = 'shift_jis'
+            if response.status_code != 200:
+                continue
+            soup = BeautifulSoup(response.text, 'html.parser')
+            header_cell = soup.find('td', {'bgcolor': '#FFB334', 'colspan': '3'})
+            if not header_cell:
+                return None
+            header_text = header_cell.get_text(strip=True)
+            meta_match = re.search(r'(.*?)\s+(.*?行き.*?)\s+(.*)のダイヤ', header_text)
+            if meta_match:
+                train_type, direction, date_type = (g.strip() for g in meta_match.groups())
+            else:
+                train_type, direction, date_type = "Unknown", header_text, "Unknown"
+
+            stop_data = []
+            for row in soup.find_all('tr'):
+                cells = row.find_all('td')
+                if len(cells) != 3:
                     continue
-                
-                raw_arr = cells[1].get_text(strip=True).replace('\xa0', '')
-                raw_dep = cells[2].get_text(strip=True).replace('\xa0', '')
-                
+                station_text = cells[0].get_text(strip=True)
+                if station_text in ["停車駅", ""]:
+                    continue
                 stop_data.append({
                     "station": station_text,
-                    "arr": convert_to_minutes(raw_arr),
-                    "dep": convert_to_minutes(raw_dep)
+                    "arr": convert_to_minutes(cells[1].get_text(strip=True).replace('\xa0', '')),
+                    "dep": convert_to_minutes(cells[2].get_text(strip=True).replace('\xa0', '')),
                 })
+            return {"no": tx, "type": train_type, "dir": direction, "date": date_type, "data": stop_data}
+        except Exception:
+            continue
+    return None
 
-        raw_train = {
-            "no": tx, 
-            "type": train_type,
-            "data": stop_data
-        }
-        
-        return format_nankai_style(raw_train, station_map)
-    except Exception:
-        return None
 
-def process_timetable_concurrently(d_val, output_filename, station_map, max_workers=20):
+def origin_of(train):
+    match = re.search(r'始発駅[：:]\s*([^）\)]+)', train.get("dir", ""))
+    return match.group(1).strip() if match else None
+
+
+def run_parallel(fn, jobs, desc):
+    results = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=WORKERS) as executor:
+        futures = {executor.submit(fn, *job): job for job in jobs}
+        for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc=desc):
+            results[futures[future]] = future.result()
+    return results
+
+
+def scrape(d_val, output_filename):
     day_name = "Weekday" if d_val == 0 else "Weekend/Holiday"
-    print(f"\n🚀 [{day_name}] 階段 1/2: 掃描車站獲取車次清單...")
-    
-    urls = get_all_station_urls(d_val)
-    train_queries_dict = {}
-    
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(fetch_station_page, url): url for url in urls}
-        for future in tqdm(concurrent.futures.as_completed(futures), total=len(urls), desc="掃描中"):
-            trains = future.result()
-            for t in trains:
-                if t['tx'] not in train_queries_dict:
-                    train_queries_dict[t['tx']] = t
+    print(f"\n🚀 [{day_name}] 1/3 掃描車站獲取車次清單...")
 
-    unique_trains = list(train_queries_dict.values())
-    
-    if TEST_MODE:
-        random.shuffle(unique_trains)
-        unique_trains = unique_trains[:150]
-        print(f"\n⚠️ 測試模式開啟：已均勻抽樣各線車站，隨機挑選 {len(unique_trains)} 班車測試")
+    pages = run_parallel(fetch_station_page, [(u,) for u in get_all_station_urls(d_val)], "掃描中")
+    candidates = {}  # tx -> {sf: dw}
+    for trains in pages.values():
+        for t in trains:
+            candidates.setdefault(t['tx'], {})[t['sf']] = t['dw']
 
-    print(f"\n🚀 [{day_name}] 階段 2/2: 處理 {len(unique_trains)} 班車的時刻...")
+    print(f"\n🚀 [{day_name}] 2/3 抓取 {len(candidates)} 班車...")
+    jobs = [(tx, next(iter(sfs)), next(iter(sfs.values()))) for tx, sfs in candidates.items()]
+    trains = {job[0]: res for job, res in run_parallel(fetch_train_detail, jobs, "抓取中").items() if res}
 
-    final_timetable = []
-    
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(fetch_and_format_train_detail, train_info, station_map): train_info for train_info in unique_trains}
-        for future in tqdm(concurrent.futures.as_completed(futures), total=len(unique_trains), desc="處理中"):
-            formatted_train = future.result()
-            if formatted_train:
-                final_timetable.append(formatted_train)
+    # T7 以 sf 站為首站 → 由此得到 sf→站名
+    sf_name = {}
+    for (tx, sf, dw) in jobs:
+        tr = trains.get(tx)
+        if tr and tr["data"]:
+            sf_name[sf] = tr["data"][0]["station"]
 
-    final_timetable.sort(key=lambda x: x.get("no", ""))
+    print(f"\n🚀 [{day_name}] 3/3 補回被截頭的車次...")
+    for rnd in range(1, 11):
+        refetch = []
+        for tx, tr in trains.items():
+            seen = {st["station"] for st in tr["data"]}
+            # 站名未知的 sf（常是終點站：從沒被當成第一次抓取的 sf）也可能在上游，抓一次就知道
+            upstream = [sf for sf in candidates[tx] if sf_name.get(sf) not in seen]
+            if not upstream:
+                continue
+            # 優先：始発駅的 sf → 站名未知的 sf → 任一已知上游站（下一輪再繼續往前）
+            origin = origin_of(tr)
+            best = (next((sf for sf in upstream if sf_name.get(sf) == origin), None)
+                    or next((sf for sf in upstream if sf not in sf_name), None)
+                    or upstream[0])
+            refetch.append((tx, best, candidates[tx][best]))
+        if not refetch:
+            break
+        fixed = 0
+        for (tx, sf, dw), res in run_parallel(fetch_train_detail, refetch, f"第 {rnd} 輪").items():
+            if res and res["data"]:
+                sf_name[sf] = res["data"][0]["station"]
+            if res and len(res["data"]) > len(trains[tx]["data"]):
+                trains[tx] = res
+                fixed += 1
+            else:
+                # 抓不到或沒變長：把這個 sf 從候選移除，避免無限重抓
+                candidates[tx].pop(sf, None)
+        print(f"   第 {rnd} 輪：重抓 {len(refetch)} 班，延長 {fixed} 班")
 
-    output_dir = get_output_dir()
-    output_path = os.path.join(output_dir, f'{output_filename}.json')
-    
+    result = sorted(trains.values(), key=lambda x: x["no"])
+    output_path = os.path.join(JSON_DIR, f'{output_filename}.json')
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write("[\n")
-        for i, train in enumerate(final_timetable):
-            train_json_str = json.dumps(train, ensure_ascii=False, separators=(',', ':'))
-            f.write(f"  {train_json_str}")
-            if i < len(final_timetable) - 1:
-                f.write(",\n")
-            else:
-                f.write("\n")
+        for i, train in enumerate(result):
+            f.write("  " + json.dumps(train, ensure_ascii=False, separators=(',', ':')))
+            f.write(",\n" if i < len(result) - 1 else "\n")
         f.write("]\n")
-    
-    print(f"🎉 [{day_name}] 處理完成！檔案儲存至: {os.path.abspath(output_path)}")
-
-    if MISSING_STATIONS:
-        print("\n" + "="*60)
-        print("🚨 發現未匹配的站名！(可能是近鐵站名錯誤，或是有新的直通運轉車站)")
-        print("請將以下內容複製，並貼上到程式碼上方的 STATION_MAPPING 字典中：\n")
-        for st in sorted(list(MISSING_STATIONS)):
-            if st:
-                print(f'    "{st}": "請填入 topology 中的站名 (若是外網車站可略過)",')
-        print("="*60 + "\n")
+    print(f"🎉 [{day_name}] {len(result)} 班 → {os.path.abspath(output_path)}")
 
 
 if __name__ == "__main__":
-    print(f"⚡ 啟動近鐵時刻表爬蟲 (TEST_MODE={TEST_MODE}) ⚡\n")
-    
-    WORKERS = 30
-    
-    topology_data = load_topology()
-    st_map = build_station_map(topology_data)
-    
-    process_timetable_concurrently(d_val=0, output_filename="timetable_weekday_test" if TEST_MODE else "timetable_weekday", station_map=st_map, max_workers=WORKERS)
-    
-    if not TEST_MODE:
-        print("-" * 60)
-        process_timetable_concurrently(d_val=1, output_filename="timetable_holiday", station_map=st_map, max_workers=WORKERS)
-    
-    print("\n🏆 所有作業執行完畢！")
+    print("⚡ 啟動近鐵時刻表爬蟲 ⚡")
+    scrape(0, "raw_weekday")
+    print("-" * 60)
+    scrape(1, "raw_holiday")
+    print("\n🏆 所有作業執行完畢！接著執行 convert_timetable.py")
