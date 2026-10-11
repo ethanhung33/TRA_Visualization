@@ -1159,12 +1159,12 @@ body.light-mode .search-item.search-item-active {
     width: 100%;
     margin-top: 2px;
 }
-.network-map-modal { padding: 24px; }
+.network-map-modal { padding: 12px; }
 .network-map-box {
     display: flex;
     flex-direction: column;
-    width: min(1100px, 100%);
-    height: min(88vh, 900px);
+    width: 100%;
+    height: calc(100dvh - 24px);
     background: var(--panel-bg);
     color: var(--panel-text-main);
     border: 1px solid var(--btn-border);
